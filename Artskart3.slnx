@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="artskart3.client/artskart3.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="Artskart3.Server/Artskart3.Server.csproj" />
+</Solution>
