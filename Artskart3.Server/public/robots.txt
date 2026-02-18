@@ -1,7 +1,7 @@
 # ArtKart3 robots.txt
 # Note: robots.txt is served dynamically by middleware based on environment:
-# Development/Test: Disallow all (blocks crawlers)
-# Production: Allow all (permits crawlers)
+# -Development/Test: Disallow all (blocks crawlers)
+# -Production: Allow all (permits crawlers)
 
 User-agent: *
 Allow: /
