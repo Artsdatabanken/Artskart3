@@ -15,6 +15,8 @@ if (!builder.Environment.IsDevelopment())
 var tempLoggerFactory = LoggerFactory.Create(c => c.AddConsole().AddDebug());
 var logger = tempLoggerFactory.CreateLogger("Startup");
 
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
 try
 {
     logger.LogInformation("ArtsKart3 Server - Application Startup");
@@ -31,6 +33,25 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path == "/robots.txt")
+        {
+            context.Response.ContentType = "text/plain";
+
+            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
+            {
+                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
+            }
+            else
+            {
+                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
+            }
+            return;
+        }
+
+        await next();
+    });
     
     logger.LogInformation("Building application pipeline...");
 
