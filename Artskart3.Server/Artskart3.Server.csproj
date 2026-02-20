@@ -17,9 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\artskart3.client\artskart3.client.esproj">
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
+    <ProjectReference Include="..\Artskart3.Core\Artskart3.Core.csproj" />
   </ItemGroup>
 
 </Project>

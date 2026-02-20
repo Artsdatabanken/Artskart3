@@ -2,6 +2,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
 {
     using Artskart3.Core.Domain.Entities;
     using Artskart3.Core.Domain.RepositoryInterfaces;
+    using Microsoft.EntityFrameworkCore;
     using System.Linq.Expressions;
     public abstract class BaseRepository<TEntity> : IBaseRepository<TEntity> where TEntity : BaseEntity
     {
