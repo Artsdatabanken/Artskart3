@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="artskart3.client/artskart3.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="Artskart3.Core/Artskart3.Core.csproj" Id="5cfd8603-283c-4499-8aac-02d47ce980d3" />
+  <Project Path="Artskart3.Infrastructure/Artskart3.Infrastructure.csproj" Id="b311381c-62cd-48e2-a738-a8a1386cc9d1" />
+  <Project Path="Artskart3.Server/Artskart3.Server.csproj" />
+</Solution>
