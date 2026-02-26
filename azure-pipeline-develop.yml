@@ -26,6 +26,18 @@ steps:
   displayName: "Install Node.js"
   inputs:
     versionSpec: '22.14'
+  
+- task: Cache@2
+  inputs:
+   key: 'npm | "$(Agent.OS)" | package.json'
+   restoreKeys: |
+      npm | "$(Agent.OS)"
+      path: $(npm_config_cache)
+   displayName: Cache npm
+
+- task: npmAuthenticate@0
+  inputs:
+    workingFile: '.npmrc'
 
 - script: |
     npm install -g @angular/cli
