@@ -26,6 +26,10 @@ steps:
   displayName: "Install Node.js"
   inputs:
     versionSpec: '22.14'
+  
+- task: npmAuthenticate@0
+  inputs:
+    workingFile: '.npmrc'
 
 - script: |
     npm install -g @angular/cli
