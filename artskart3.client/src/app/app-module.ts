@@ -5,10 +5,12 @@ import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
 import { SharedModule } from './shared/shared.module';
 import { LayoutsModule } from './layouts/layouts.module';
+import { MapComponent } from './shared/components/map.component/map.component';
 
 @NgModule({
   declarations: [
-    App
+    App,
+    MapComponent
   ],
   imports: [
     BrowserModule,

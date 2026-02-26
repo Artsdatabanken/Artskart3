@@ -9,7 +9,6 @@ The following steps were used to generate this project:
 - Add `aspnetcore-https.js` script to install https certs.
 - Update `package.json` to call `aspnetcore-https.js` and serve with https.
 - Update `angular.json` to point to `proxy.conf.js`.
-- Update app.ts component to fetch and display weather information.
 - Modify app.spec.ts with updated tests.
 - Update app-module.ts to import the HttpClientModule.
 - Create project file (`artskart3.client.esproj`).
