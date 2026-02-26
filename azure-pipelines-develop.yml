@@ -9,7 +9,7 @@ pool:
 steps:
 
 # ---------------------------
-# Backend (.NET)
+# Backend prerequisites
 # ---------------------------
 
 - task: UseDotNet@2
@@ -17,6 +17,51 @@ steps:
   inputs:
     packageType: 'sdk'
     version: '10.x'
+
+# ---------------------------
+# Frontend (Angular) build
+# ---------------------------
+
+- task: NodeTool@0
+  displayName: "Install Node.js"
+  inputs:
+    versionSpec: '22.14'
+
+- script: |
+    npm install -g @angular/cli
+  displayName: "Install Angular CLI"
+
+- script: |
+    cd artskart3.client
+    npm install
+  displayName: "Install Angular dependencies"
+
+- script: |
+    cd artskart3.client
+    npm run build -- --configuration production
+  displayName: "Build Angular app"
+
+- script: |
+    cd artskart3.client
+    npm test -- --watch=false
+  displayName: "Run Angular tests"
+
+# Copy frontend build into backend wwwroot
+- task: CopyFiles@2
+  displayName: "Copy Angular dist to backend wwwroot"
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/artskart3.client/dist/artskart3.client/browser'
+    Contents: '**'
+    TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Server/wwwroot'
+
+- script: |
+    echo "wwwroot contents:"
+    ls -la $(Build.SourcesDirectory)/Artskart3.Server/wwwroot
+  displayName: "List wwwroot for debugging"
+
+# ---------------------------
+# .NET restore/build/test
+# ---------------------------
 
 - task: DotNetCoreCLI@2
   displayName: "Restore .NET dependencies"
@@ -49,39 +94,3 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/backend
   displayName: "Publish backend artifact"
   artifact: backend
-
-
-# ---------------------------
-# Frontend (Angular)
-# ---------------------------
-
-- task: NodeTool@0
-  displayName: "Install Node.js"
-  inputs:
-    versionSpec: '22.14'
-
-- script: |
-    npm install -g @angular/cli
-  displayName: "Install Angular CLI"
-
-- script: |
-    cd ClientApp
-    npm install
-  displayName: "Install Angular dependencies"
-
-- script: |
-    cd ClientApp
-    npm run build -- --configuration production
-  displayName: "Build Angular app"
-
-- script: |
-    cd ClientApp
-    npm test -- --watch=false --browsers=ChromeHeadless
-  displayName: "Run Angular tests"
-
-- publish: ClientApp/dist
-  displayName: "Publish frontend artifact"
-  artifact: frontend
-
-
-
