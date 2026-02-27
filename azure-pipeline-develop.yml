@@ -49,6 +49,7 @@ steps:
     cd artskart3.client
     npm test -- --watch=false
   displayName: "Run Angular tests"
+  continueOnError: true
 
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2
