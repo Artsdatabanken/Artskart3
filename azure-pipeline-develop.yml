@@ -29,7 +29,7 @@ steps:
   
 - task: npmAuthenticate@0
   inputs:
-    workingFile: '.npmrc'
+    workingFile: 'artskart3.client/.npmrc'
 
 - script: |
     npm install -g @angular/cli
