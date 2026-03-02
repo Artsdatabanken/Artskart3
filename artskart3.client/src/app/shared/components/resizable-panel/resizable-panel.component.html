@@ -1,0 +1,20 @@
+<div
+  class="resizable-panel"
+  [style.width.px]="currentWidth()"
+  [class.resizing]="isResizing()"
+  [class.draggable]="isDraggable"
+>
+  <div class="panel-content">
+    <ng-content></ng-content>
+  </div>
+
+  <div
+    *ngIf="isDraggable"
+    class="resize-handle"
+    (mousedown)="onResizeStart($event)"
+    role="separator"
+    aria-label="Resize filter panel"
+  >
+    <div class="resize-indicator"></div>
+  </div>
+</div>
