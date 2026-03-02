@@ -29,24 +29,24 @@ steps:
   
 - task: npmAuthenticate@0
   inputs:
-    workingFile: 'artskart3.client/.npmrc'
+    workingFile: 'Artskart3.WebApp/.npmrc'
 
 - script: |
     npm install -g @angular/cli
   displayName: "Install Angular CLI"
 
 - script: |
-    cd artskart3.client
+    cd Artskart3.WebApp
     npm install
   displayName: "Install Angular dependencies"
 
 - script: |
-    cd artskart3.client
+    cd Artskart3.WebApp
     npm run build -- --configuration production
   displayName: "Build Angular app"
 
 - script: |
-    cd artskart3.client
+    cd Artskart3.WebApp
     npm test -- --watch=false
   displayName: "Run Angular tests"
   continueOnError: true
@@ -55,13 +55,13 @@ steps:
 - task: CopyFiles@2
   displayName: "Copy Angular dist to backend wwwroot"
   inputs:
-    SourceFolder: '$(Build.SourcesDirectory)/artskart3.client/dist/artskart3.client/browser'
+    SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/Artskart3.WebApp/browser'
     Contents: '**'
-    TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Server/wwwroot'
+    TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
 
 - script: |
     echo "wwwroot contents:"
-    ls -la $(Build.SourcesDirectory)/Artskart3.Server/wwwroot
+    ls -la $(Build.SourcesDirectory)/Artskart3.Api/wwwroot
   displayName: "List wwwroot for debugging"
 
 # ---------------------------
