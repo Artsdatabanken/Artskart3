@@ -10,7 +10,7 @@ Alle commits til prosjektet skal være verifisert. Dette betyr at du må generer
 
 `ssh-keygen -t ed25519 -C "your_email@example.com"` 
 
-og legger til .pub nøkkelen under signing keys på GitHub. 
+og legger til .pub nøkkelen under signing keys og authentication keys på GitHub. 
 
 [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
 
