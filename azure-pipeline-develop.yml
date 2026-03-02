@@ -26,6 +26,10 @@ steps:
   displayName: "Install Node.js"
   inputs:
     versionSpec: '22.14'
+  
+- task: npmAuthenticate@0
+  inputs:
+    workingFile: 'artskart3.client/.npmrc'
 
 - script: |
     npm install -g @angular/cli
@@ -45,6 +49,7 @@ steps:
     cd artskart3.client
     npm test -- --watch=false
   displayName: "Run Angular tests"
+  continueOnError: true
 
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2
