@@ -1,6 +1,5 @@
 {
-  "name": "artskart3.client",
-  "version": "0.0.0",
+  "name": "artskart3.webapp",
   "scripts": {
     "ng": "ng",
     "start": "run-script-os",

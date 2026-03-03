@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "artskart3.client": {
+    "artskart3.webapp": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -67,10 +67,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "artskart3.client:build:production"
+              "buildTarget": "artskart3.webapp:build:production"
             },
             "development": {
-              "buildTarget": "artskart3.client:build:development"
+              "buildTarget": "artskart3.webapp:build:development"
             }
           },
           "defaultConfiguration": "development",
