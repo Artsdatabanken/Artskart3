@@ -55,15 +55,13 @@ steps:
     ls -la $(Build.SourcesDirectory)
     ls -la $(Build.SourcesDirectory)/Artskart3.WebApp
     ls -la $(Build.SourcesDirectory)/Artskart3.WebApp/dist
-    ls -la $(Build.SourcesDirectory)/Artskart3.WebApp/dist/Artskart3.WebApp
-    ls -la $(Build.SourcesDirectory)/Artskart3.WebApp/dist/Artskart3.WebApp/browser
   displayName: "List Angular dist for debugging"
 
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2
   displayName: "Copy Angular dist to backend wwwroot"
   inputs:
-    SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/Artskart3.WebApp/browser'
+    SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/artskart3.webapp/browser'
     Contents: '**'
     TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
 
