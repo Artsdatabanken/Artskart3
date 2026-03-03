@@ -15,8 +15,6 @@ if (!builder.Environment.IsDevelopment())
 var tempLoggerFactory = LoggerFactory.Create(c => c.AddConsole().AddDebug());
 var logger = tempLoggerFactory.CreateLogger("Startup");
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
 try
 {
     logger.LogInformation("ArtsKart3 Server - Application Startup");
@@ -33,6 +31,8 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
+    
+    // Configure the HTTP request pipeline.
     app.Use(async (context, next) =>
     {
         if (context.Request.Path == "/robots.txt")
