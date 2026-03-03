@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "artskart3.client": {
+    "artskart3.WebApp": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -27,6 +27,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "outputPath": "dist/Artskart3.WebApp",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -67,10 +68,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "artskart3.client:build:production"
+              "buildTarget": "artskart3.WebApp:build:production"
             },
             "development": {
-              "buildTarget": "artskart3.client:build:development"
+              "buildTarget": "artskart3.WebApp:build:development"
             }
           },
           "defaultConfiguration": "development",
