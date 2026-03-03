@@ -45,11 +45,11 @@ steps:
     npm run build -- --configuration production
   displayName: "Build Angular app"
 
-#- script: | TODO: Write some tests guys
-#    cd artskart3.client
-#    npm test -- --watch=false
-#  displayName: "Run Angular tests"
-#  continueOnError: true
+- script: | 
+    cd artskart3.client
+    npm test -- --watch=false
+  displayName: "Run Angular tests"
+  continueOnError: true
 
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2
