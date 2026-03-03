@@ -37,8 +37,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         }
       );
 
+      // Add base layers
       this.map.addLayer(nbicMapPresets.osm);
+
       const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' };
+      if (topoLayer.source.type === 'wmts') {
+        topoLayer.source.options.projection = 'EPSG:25833';
+        topoLayer.source.options.matrixSet = 'utm33n';
+      }
       this.map.addLayer(topoLayer);
 
       this.map.on(MapEvents.Ready, () => {
