@@ -51,12 +51,6 @@ steps:
   displayName: "Run Angular tests"
   continueOnError: true
 
-- script: 
-    ls -la $(Build.SourcesDirectory)
-    ls -la $(Build.SourcesDirectory)/Artskart3.WebApp
-    ls -la $(Build.SourcesDirectory)/Artskart3.WebApp/dist
-  displayName: "List Angular dist for debugging"
-
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2
   displayName: "Copy Angular dist to backend wwwroot"
