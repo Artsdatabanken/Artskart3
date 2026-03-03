@@ -1,3 +1,6 @@
+/* Import OpenLayers CSS required by nbic-map-component */
+@import 'ol/ol.css';
+
 /* ============================================================================
    GLOBAL STYLES
    ============================================================================ */
@@ -232,9 +235,8 @@ a:focus-visible {
   white-space: nowrap;
   border-width: 0;
 /* You can add global styles to this file, and also import other style files */
+}
 
-/* Import OpenLayers CSS required by nbic-map-component */
-@import 'ol/ol.css';
 
 /* Full scren map styles */
 html, body {

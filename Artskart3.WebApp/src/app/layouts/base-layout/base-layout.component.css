@@ -22,6 +22,8 @@
   background-color: var(--brand-bg-light);
   overflow: hidden;
   border-right: 1px solid var(--brand-border);
+  height:100%;
+  z-index: 100;
 }
 
 .sidebar-content {
