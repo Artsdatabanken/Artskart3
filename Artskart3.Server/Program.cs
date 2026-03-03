@@ -11,7 +11,7 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.MapStaticAssets();
 
-app.Use(async (context, next) =>
+app.Use((context, next) =>
 {
     if (context.Request.Path == "/robots.txt")
     {
@@ -19,16 +19,15 @@ app.Use(async (context, next) =>
         
         if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
         {
-            await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
+            context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
         }
         else
         {
-            await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
+            context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
         }
-        return;
     }
     
-    await next();
+    return next();
 });
 
 // Configure the HTTP request pipeline.
