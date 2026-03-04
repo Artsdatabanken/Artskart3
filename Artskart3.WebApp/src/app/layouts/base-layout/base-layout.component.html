@@ -1,30 +1,33 @@
 <div class="layout-wrapper">
     <app-header (menuToggle)="toggleFilterPanel()"></app-header>
-      <div class="layout-container">
-        <aside class="sidebar">
-          <app-resizable-panel
-            [initialWidth]="filterPanelWidth()"
-            [minWidth]="280"
-            [maxWidth]="500"
-            [isDraggable]="true"
-            (widthChanged)="onFilterPanelResize($event)"
-          >
-            <div class="sidebar-content">
-              <div class="filter-section">
-                <input
-                  id="search"
-                  type="text"
-                  placeholder="Søk i Artskart- skal oppdatert"
-                  class="filter-input"
-                />
-              </div>
-            </div>
-          </app-resizable-panel>
-        </aside>
+      <div class="layout-container">        
         <main class="main-content">
+          <ng-content></ng-content>
+          <aside class="sidebar">
+            <app-resizable-panel
+              [initialWidth]="filterPanelWidth()"
+              [minWidth]="280"
+              [maxWidth]="500"
+              [isDraggable]="true"
+              (widthChanged)="onFilterPanelResize($event)"
+            >
+              <div class="sidebar-content">
+                <div class="filter-section">
+                  <input
+                    id="search"
+                    type="text"
+                    placeholder="Søk i Artskart- skal oppdatert"
+                    class="filter-input"
+                  />
+                </div>
+              </div>
+            </app-resizable-panel>
+          </aside>
           <div class="content-wrapper">
-            <router-outlet></router-outlet>
+           
+            <router-outlet></router-outlet>            
           </div>
         </main>
+
       </div>
 </div>
