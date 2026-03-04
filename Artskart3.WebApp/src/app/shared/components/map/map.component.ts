@@ -1,7 +1,13 @@
-import { createMap, MapEvents, nbicMapPresets } from 'nbic-map-component';
+import { createMap, MapEventPayload, MapEvents, nbicMapPresets } from 'nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy } from '@angular/core';
-import { MapConfig } from '../../models/mapconfig.model';
-
+import { MapConfig, Site } from '../../models/map.model';
+import {  MapService} from './map.service';
+import {
+  NbicMapComponent,
+  LayerDef,
+  nbicMapGeojson,
+  nbicMapUtils,
+} from 'nbic-map-component';
 @Component({
   selector: 'app-map',
   standalone: false,
@@ -9,11 +15,7 @@ import { MapConfig } from '../../models/mapconfig.model';
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
-  readonly DATA_PROJ = 'EPSG:25833' as const;
-  readonly matrixSet = 'utm33n' as const;
-  readonly initZoom = 6.2 as const;
-  readonly initCenter: [number, number] =  [300000, 7220000] as const; // Centered on Norway in UTM 33N
-
+ 
   // Background layers
   mapOverlays: any[] = []//LayerDef[] = [];
   mapConfig: MapConfig= {
@@ -44,6 +46,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @Output() mapReadyAction = new EventEmitter<boolean>();
   private map: any;
 
+  constructor(
+    private mapService: MapService,
+  ) {}
+
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), 100);
   }
@@ -60,22 +66,26 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         {
           version: 1,
           id: 'artskart-map',
-          projection: this.DATA_PROJ,
-          center: this.initCenter,  
-          zoom: this.initZoom,
+          projection: this.mapService.DATA_PROJ,
+          center: this.mapService.initCenter,  
+          zoom: this.mapService.initZoom,
           minZoom: 0,
           maxZoom: 18,
           controls: { scaleLine: true, fullscreen: true, geolocation: true, zoom: true, attribution: true },
         }
       );
 
-      // Add base layers      
       this.generateLayers();      
+      if (this.mapConfig.controls.mapClick) {
+        this.map.on(MapEvents.PointerClick, this.mapClickAction);
+      }
 
       this.map.on(MapEvents.Ready, () => {
         this.mapReadyAction.emit(true);
         this.map.activateHoverInfo();
       });
+
+      this.mapService.getData();
     } catch (error) {
       console.error('Error initializing map:', error);
     }
@@ -100,15 +110,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   addLayer(layer:any){
     if (layer.source.type === 'wmts') {
-      layer.source.options.projection = this.DATA_PROJ;
-      layer.source.options.matrixSet = this.matrixSet;
+      layer.source.options.projection = this.mapService.DATA_PROJ;
+      layer.source.options.matrixSet = this.mapService.matrixSet;
     }else if(layer.source.type === 'wfs'){
-      layer.source.options.srsName = this.DATA_PROJ;
+      layer.source.options.srsName = this.mapService.DATA_PROJ;
     }else if(layer.source.type !== 'osm'){
       console.log("any other layers need to adjust projection?")
     }
 
     this.map.addLayer(layer)
+
+
   }
 
   ngOnDestroy(): void {
@@ -116,4 +128,66 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.map.destroy?.();
     }
   }
+
+  private mapClickAction = (
+    event: MapEventPayload<typeof MapEvents.PointerClick>
+  ) => {
+  
+    const clickedFeatures = event?.features ?? [];    
+    
+    if (clickedFeatures.length > 0) {
+      this.handleClickedFeatures(clickedFeatures);
+    } else{
+      console.log("clicked the empty spot with coordinates: ", event.clickCoordinate );
+      this.makeNewClickedFeature(event)
+    }
+  };
+
+  handleClickedFeatures(clickedFeatures:any){
+    console.log("CLICKED THESE FEATURES", clickedFeatures)
+  }
+
+  makeNewClickedFeature(event: MapEventPayload<typeof MapEvents.PointerClick>) {
+    console.log("make new click feature")
+    this.map.setLayerVisibility('draw-layer', true);
+    const newSite = this.mapService.initNewSite(event.clickCoordinate);
+   /* const transformedCoord = this.map.transformCoordsFrom(
+      [newSite.longitude!, newSite.latitude!],
+      this.sharedMapService.VIEW_PROJ,
+      this.sharedMapService.DATA_PROJ
+    );*
+    newSite.longitude = transformedCoord[0];
+    newSite.latitude = transformedCoord[1];*/    
+
+    this.mapService.updateActiveSite(newSite);
+    this.renderActivePoint(newSite,20);
+      
+  }
+
+  renderActivePoint(activeSite: Site, zIndex: number) {
+    console.log("RENDER ME")
+    const fc = nbicMapGeojson.toFeatureCollection([activeSite], {
+      kind: 'Point',
+      getPoint: (site: Site) => ({
+        lon:site.geometry.coordinates[0] || 0,
+        lat: site.geometry.coordinates[1] || 0
+      }),
+      props: (site: Site) => ({ site, count: site.properties.ObservationCount })
+    });
+
+    // Adds the Marker
+    this.mapService.replaceGeoJsonVectorLayer(this.map, {
+      id: 'clickedPointLayer',
+      fc,
+      zIndex: zIndex,
+      zIndexPinned: true
+    });
+    console.log("render this fc: ", fc)
+
+    
+  }
+
+
+
+
 }
