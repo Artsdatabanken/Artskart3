@@ -24,6 +24,10 @@ try
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
+    builder.Services.AddApplicationInsightsTelemetry(new Microsoft.ApplicationInsights.AspNetCore.Extensions.ApplicationInsightsServiceOptions
+    {
+        ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
+    });
     
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);
