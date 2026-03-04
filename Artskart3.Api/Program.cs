@@ -1,6 +1,19 @@
-
+using RobotsTxt;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddStaticRobotsTxt(options =>
+{
+    if (!builder.Environment.IsProduction())
+        options.DenyAll();
+    else
+        options.AddSection(section => section
+            .AddUserAgent("*")
+            .Allow("/")
+            .AddCrawlDelay(TimeSpan.FromSeconds(1)));
+
+    return options;
+});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
