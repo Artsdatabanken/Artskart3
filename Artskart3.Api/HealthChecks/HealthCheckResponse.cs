@@ -1,6 +1,7 @@
+using Artskart3.Api.HealthChecks;
 using System.Text.Json.Serialization;
 
-namespace Artskart3.Server.HealthChecks;
+namespace Artskart3.Api.HealthChecks;
 public class HealthCheckResponse
 {
     [JsonPropertyName("status")]

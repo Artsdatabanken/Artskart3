@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Data.SqlClient;
-namespace Artskart3.Server.HealthChecks;
+using Artskart3.Api.HealthChecks;
 
 /// <summary>
 /// Extensions for configuring health checks in the application.
