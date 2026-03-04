@@ -28,29 +28,3 @@ export interface MapConfig {
   polygonType?: 'box' | 'custom';
 }
 
-export interface WMTSOptions {
-  name: string;
-  attribution?: string;
-  opacity: number;
-  url: string;
-  layer: string;
-  matrixSet: string;
-  format: 'image/png' | 'image/jpeg';
-  projection: string;
-  style: string;
-  wrapX: boolean;
-  customExtent?: number[];
-}
-
-export interface WFSOptions {
-  url: string;
-  typeName: string;
-  featureType: string;
-  srs: string;
-  schema: string;
-  style: string;
-  disableFill: boolean;
-  strokeWidth: number;
-  minZoom: number;
-  maxZoom?: number;
-}
