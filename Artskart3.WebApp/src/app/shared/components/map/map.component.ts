@@ -1,6 +1,6 @@
 import { createMap, MapEventPayload, MapEvents, nbicMapPresets } from 'nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy } from '@angular/core';
-import { MapConfig, Site } from '../../models/map.model';
+import { BuildOptions, Feature, FeatureCollection, GeoJsonProperties, Geometry, MapConfig, Site } from '../../models/map.model';
 import {  MapService} from './map.service';
 import {
   NbicMapComponent,
@@ -84,8 +84,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.mapReadyAction.emit(true);
         this.map.activateHoverInfo();
       });
-
-      this.mapService.getData();
+      this.addData();
+      
     } catch (error) {
       console.error('Error initializing map:', error);
     }
@@ -117,11 +117,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }else if(layer.source.type !== 'osm'){
       console.log("any other layers need to adjust projection?")
     }
-
     this.map.addLayer(layer)
-
-
   }
+
+  addData(){
+    const data = this.mapService.getData();
+    console.log("add data:", data)
+  }
+
 
   ngOnDestroy(): void {
     if (this.map) {
@@ -151,43 +154,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     console.log("make new click feature")
     this.map.setLayerVisibility('draw-layer', true);
     const newSite = this.mapService.initNewSite(event.clickCoordinate);
-   /* const transformedCoord = this.map.transformCoordsFrom(
-      [newSite.longitude!, newSite.latitude!],
-      this.sharedMapService.VIEW_PROJ,
-      this.sharedMapService.DATA_PROJ
-    );*
-    newSite.longitude = transformedCoord[0];
-    newSite.latitude = transformedCoord[1];*/    
+    const transformedCoord = this.map.transformCoordsFrom(
+      event.clickCoordinate,
+      this.mapService.VIEW_PROJ,
+      this.mapService.DATA_PROJ
+    )
+    newSite.geometry.coordinates = transformedCoord; 
 
     this.mapService.updateActiveSite(newSite);
-    this.renderActivePoint(newSite,20);
       
   }
-
-  renderActivePoint(activeSite: Site, zIndex: number) {
-    console.log("RENDER ME")
-    const fc = nbicMapGeojson.toFeatureCollection([activeSite], {
-      kind: 'Point',
-      getPoint: (site: Site) => ({
-        lon:site.geometry.coordinates[0] || 0,
-        lat: site.geometry.coordinates[1] || 0
-      }),
-      props: (site: Site) => ({ site, count: site.properties.ObservationCount })
-    });
-
-    // Adds the Marker
-    this.mapService.replaceGeoJsonVectorLayer(this.map, {
-      id: 'clickedPointLayer',
-      fc,
-      zIndex: zIndex,
-      zIndexPinned: true
-    });
-    console.log("render this fc: ", fc)
-
-    
-  }
-
-
 
 
 }
