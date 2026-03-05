@@ -4,7 +4,14 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
   env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'http://localhost:5088';
 
 const PROXY_CONFIG = [
-  
+  {
+    context: [
+      "/hc",
+    ],
+    target,
+    secure: false
+  }
+
 ]
 
 module.exports = PROXY_CONFIG;

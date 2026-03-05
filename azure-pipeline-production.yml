@@ -1,0 +1,101 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+
+# ---------------------------
+# Backend prerequisites
+# ---------------------------
+
+- task: UseDotNet@2
+  displayName: "Install .NET SDK"
+  inputs:
+    packageType: 'sdk'
+    version: '10.x'
+
+# ---------------------------
+# Frontend (Angular) build
+# ---------------------------
+
+- task: NodeTool@0
+  displayName: "Install Node.js"
+  inputs:
+    versionSpec: '22.14'
+  
+- task: npmAuthenticate@0
+  inputs:
+    workingFile: 'Artskart3.WebApp/.npmrc'
+
+- script: |
+    npm install -g @angular/cli
+  displayName: "Install Angular CLI"
+
+- script: |
+    cd Artskart3.WebApp
+    npm install
+  displayName: "Install Angular dependencies"
+
+- script: |
+    cd Artskart3.WebApp
+    npm run build -- --configuration production
+  displayName: "Build Angular app"
+
+- script: |
+    cd Artskart3.WebApp
+    npm test -- --watch=false
+  displayName: "Run Angular tests"
+  continueOnError: true
+
+# Copy frontend build into backend wwwroot
+- task: CopyFiles@2
+  displayName: "Copy Angular dist to backend wwwroot"
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/artskart3.webapp/browser'
+    Contents: '**'
+    TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
+
+- script: |
+    echo "wwwroot contents:"
+    ls -la $(Build.SourcesDirectory)/Artskart3.Api/wwwroot
+  displayName: "List wwwroot for debugging"
+
+# ---------------------------
+# .NET restore/build/test
+# ---------------------------
+
+- task: DotNetCoreCLI@2
+  displayName: "Restore .NET dependencies"
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+
+- task: DotNetCoreCLI@2
+  displayName: "Build .NET solution"
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration Release'
+
+- task: DotNetCoreCLI@2
+  displayName: "Run .NET tests"
+  inputs:
+    command: 'test'
+    projects: '**/*Tests.csproj'
+    arguments: '--configuration Release --no-build'
+
+- task: DotNetCoreCLI@2
+  displayName: "Publish .NET backend"
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/backend'
+    zipAfterPublish: true
+
+- publish: $(Build.ArtifactStagingDirectory)/backend
+  displayName: "Publish backend artifact"
+  artifact: backend
