@@ -1,0 +1,174 @@
+/* Import OpenLayers CSS required by nbic-map-component */
+@import 'ol/ol.css';
+@import '../src/styles/variables.css';
+@import '../src/styles/buttons.css';
+
+/* ============================================================================
+   RESET & BASE STYLES
+   ============================================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.6;
+  color: var(--gray-900);
+  background-color: var(--white);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  margin-bottom: var(--spacing-md);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+}
+
+h5 {
+  font-size: var(--font-size-lg);
+}
+
+h6 {
+  font-size: var(--font-size-base);
+}
+
+p {
+  margin-bottom: var(--spacing-md);
+}
+
+a {
+  color: var(--brand-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--brand-accent);
+  text-decoration: underline;
+} 
+
+button, input, textarea, select {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+}
+
+button {
+  cursor: pointer;
+}
+
+input, textarea, select {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: var(--focus-shadow);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* ============================================================================
+   ACCESSIBILITY & FOCUS STATES
+   ============================================================================ */
+
+/* Enhanced focus states for keyboard navigation */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: var(--focus-outline-width) solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+  body {
+    font-weight: var(--font-weight-medium);
+  }
+
+   input, textarea, select {
+    border-width: 2px;
+  }
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+/* You can add global styles to this file, and also import other style files */
+}
+
+
+/* Full scren map styles */
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+app-root {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
