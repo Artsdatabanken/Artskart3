@@ -25,6 +25,6 @@ Før vi setter opp DNS-oppslag og publiserer disse offentlig, så er det greit �
 
 For de av oss som benytter Windows, er det følgende fil som gjelder: C:\Windows\System32\drivers\etc\hosts.
 Innslagene du bør legge til er følgende:
-20.251.135.164 artskart3.test.artsdatabanken.no
-20.251.135.164 artskart3-staging.test.artsdatabanken.no
-51.120.48.232 artskart3.artsdatabanken.no
+* 20.251.135.164 artskart3.test.artsdatabanken.no
+* 20.251.135.164 artskart3-staging.test.artsdatabanken.no
+* 51.120.48.232 artskart3.artsdatabanken.no
