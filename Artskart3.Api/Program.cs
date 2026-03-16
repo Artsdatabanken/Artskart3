@@ -2,6 +2,8 @@
 using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
+using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +56,7 @@ try
 
     builder.Services.AddRepositories();
     builder.Services.AddApplicationServices();
-    builder.Services.AddScoped<Artskart3.Infrastructure.Persistence.Repositories.IArtsKartDbContext>(provider => provider.GetRequiredService<Artskart3.Infrastructure.Data.ArtskartDbContext>());
+    builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);
