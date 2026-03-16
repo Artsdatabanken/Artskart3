@@ -58,3 +58,4 @@ yarn-error.log*
 !*/.vscode/launch.json
 !*/.vscode/extensions.json
 /Artskart3.WebApp/node_modules
+/artskart3.client/node_modules

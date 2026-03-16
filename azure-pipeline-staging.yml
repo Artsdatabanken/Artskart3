@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - develop
+      - staging
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -45,7 +45,7 @@ steps:
     npm run build -- --configuration production
   displayName: "Build Angular app"
 
-- script: |
+- script: | 
     cd Artskart3.WebApp
     npm test -- --watch=false
   displayName: "Run Angular tests"
