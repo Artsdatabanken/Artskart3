@@ -4,14 +4,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddStaticRobotsTxt(options =>
 {
-    if (!builder.Environment.IsProduction())
-        options.DenyAll();
-    else
-        options.AddSection(section => section
-            .AddUserAgent("*")
-            .Allow("/")
-            .AddCrawlDelay(TimeSpan.FromSeconds(1)));
-
+    // TODO: Allow crawlers in Production after launch
+    // For now, block all crawlers to prevent indexing before official launch
+    options.DenyAll();
     return options;
 });
 
