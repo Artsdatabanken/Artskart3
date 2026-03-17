@@ -5,6 +5,14 @@ Ny versjon av Artskart, påbegynt Februar 2026
 * Node versjon 22.14 for Angular frontend
 * Visual Studio 2026 er nødvendig for .NET 10
 
+* installasjon av lokale nbic-map-komponent
+Pakken er tilgjengelig på npm: https://www.npmjs.com/package/@artsdatabanken/nbic-map-component
+Install the package from `artskart3.webapp`:
+
+    ```bash
+    npm install @artsdatabanken/nbic-map-component
+    ```
+
 ## Lage commits
 Alle commits til prosjektet skal være verifisert. Dette betyr at du må generere en SSH nøkkel med å skrive denne kommandoen i git bash: 
 
