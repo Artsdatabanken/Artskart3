@@ -1,5 +1,9 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { LanguageService, SupportedLanguage } from '../../services/i18n/language.service';
 
 export interface MenuItem {
   label: string;
@@ -10,11 +14,11 @@ export interface MenuItem {
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslateModule],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css']
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit, OnDestroy {
   @Input() projectName: string = 'Artskart';
   @Input() menuItems: MenuItem[] = [
     { label: 'Menypunkt 1', href: '#', ariaLabel: 'Go to Menypunkt 1' },
@@ -23,9 +27,40 @@ export class HeaderComponent {
   ];
 
   isMenuOpen = false;
+  isLanguageMenuOpen = false;
+  currentLanguage: SupportedLanguage = 'en';
+  supportedLanguages: SupportedLanguage[] = [];
+
+  languageNames: Record<SupportedLanguage, string> = {
+    en: 'English',
+    no: 'Norsk'
+  };
+
+  private destroy$ = new Subject<void>();
+
+  constructor(private languageService: LanguageService) {}
+
+  ngOnInit(): void {
+    this.languageService.getLanguage$()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(lang => {
+        this.currentLanguage = lang;
+        this.isLanguageMenuOpen = false;
+      });
+
+    this.supportedLanguages = this.languageService.getSupportedLanguages();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   toggleBurgerMenu(): void {
     this.isMenuOpen = !this.isMenuOpen;
+    if (this.isMenuOpen) {
+      this.isLanguageMenuOpen = false;
+    }
   }
 
   closeBurgerMenu(): void {
@@ -37,5 +72,28 @@ export class HeaderComponent {
       this.closeBurgerMenu();
     }
   }
+
+  toggleLanguageMenu(): void {
+    this.isLanguageMenuOpen = !this.isLanguageMenuOpen;
+  }
+
+  closeLanguageMenu(): void {
+    this.isLanguageMenuOpen = false;
+  }
+
+  changeLanguage(lang: SupportedLanguage): void {
+    this.languageService.setLanguage(lang)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(
+        () => {
+          this.closeLanguageMenu();
+        }
+      );
+  }
+
+  getLanguageName(lang: SupportedLanguage): string {
+    return this.languageNames[lang] || lang;
+  }
 }
+
 

@@ -1,0 +1,22 @@
+{
+  "header": {
+    "projectName": "Artskart",
+    "language": "Language",
+    "menu": "Menu",
+    "close": "Close",
+    "darkMode": "Toggle dark mode",
+    "login": "Log in"
+  },
+  "navigation": {
+    "menuItem1": "Menu Item 1",
+    "menuItem2": "Menu Item 2",
+    "menuItem3": "Menu Item 3"
+  },
+  "common": {
+    "welcome": "Welcome",
+    "goodbye": "Goodbye",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  }
+}

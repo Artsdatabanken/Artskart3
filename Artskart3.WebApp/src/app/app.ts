@@ -9,8 +9,6 @@ import { Component, signal } from '@angular/core';
 export class App {
 
   constructor(private http: HttpClient) {}
-
-  
-
-  protected readonly title = signal('artskart3.client');
+  protected readonly title = signal('artskart3.webapp');
 }
+
