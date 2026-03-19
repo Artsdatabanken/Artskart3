@@ -1,5 +1,5 @@
 import { provideHttpClient, HTTP_INTERCEPTORS } from '@angular/common/http';
-import { NgModule, APP_INITIALIZER, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
@@ -27,6 +27,8 @@ export function HttpLoaderFactory(http: HttpClient): TranslateLoader {
 export function initializeLanguageFactory(languageService: LanguageService) {
   return () => languageService.initialize();
 }
+import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
+import { LoggingService } from './shared/logging.service';
 
 @NgModule({
   declarations: [
@@ -60,6 +62,11 @@ export function initializeLanguageFactory(languageService: LanguageService) {
       provide: HTTP_INTERCEPTORS,
       useClass: LanguageInterceptor,
       multi: true
+    },
+    LoggingService,
+    {
+      provide: ErrorHandler,
+      useClass: ApplicationinsightsAngularpluginErrorService
     }
   ],
   bootstrap: [App]
