@@ -1,16 +1,19 @@
-import { HttpClient } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
+import { Component, signal, OnInit } from '@angular/core';
+import { LoggingService } from './shared/logging.service';
 
 @Component({
   selector: 'app-root',
   standalone: false,
   templateUrl: './app.html',
 })
-export class App {
+export class App implements OnInit {
+  constructor(private loggingService: LoggingService) {
+    
+  }
 
-  constructor(private http: HttpClient) {}
-
-  
+  ngOnInit() {
+    this.loggingService.logEvent('App Initialized');
+  }
 
   protected readonly title = signal('artskart3.client');
 }
