@@ -5,6 +5,7 @@ Ny versjon av Artskart, påbegynt Februar 2026
 * Node versjon 22.14 for Angular frontend
 * Visual Studio 2026 er nødvendig for .NET 10
 
+<<<<<<< HEAD
 * installasjon av lokale nbic-map-komponent
 Pakken er tilgjengelig på npm: https://www.npmjs.com/package/@artsdatabanken/nbic-map-component
 Install the package from `artskart3.webapp`:
@@ -13,6 +14,8 @@ Install the package from `artskart3.webapp`:
     npm install @artsdatabanken/nbic-map-component
     ```
 
+=======
+>>>>>>> cfce2d18 (Revert "update readme. Remove SSH verification and add run frontend")
 ## Lage commits
 Alle commits til prosjektet skal være verifisert. Dette betyr at du må generere en SSH nøkkel med å skrive denne kommandoen i git bash: 
 
@@ -21,11 +24,14 @@ Alle commits til prosjektet skal være verifisert. Dette betyr at du må generer
 og legger til .pub nøkkelen under signing keys og authentication keys på GitHub. 
 
 [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) og spesifikt seksjonen Generate new SSH Key.
+<<<<<<< HEAD
 ## Kjøre Artskart 3 lokalt
 * Kjør `gh repo clone Artsdatabanken/Artskart3` eller bruk Github Desktop for å laste ned repositoriet
 ### Frontend
 * Åpne Artskart 3 i terminalen og kjør `cd .\Artskart3.WebApp\; npm i` for å installere pakkene i frontend
 * Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
+=======
+>>>>>>> cfce2d18 (Revert "update readme. Remove SSH verification and add run frontend")
 
 ## Navngiving av branches
 Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
