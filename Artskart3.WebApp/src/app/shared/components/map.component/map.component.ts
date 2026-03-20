@@ -1,4 +1,4 @@
-import { createMap, MapEvents, nbicMapPresets } from 'nbic-map-component';
+import { createMap, MapEvents, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy } from '@angular/core';
 
 @Component({
