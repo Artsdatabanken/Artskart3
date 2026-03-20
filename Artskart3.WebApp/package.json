@@ -34,7 +34,7 @@
     "@microsoft/applicationinsights-angularplugin-js": "^15.3.8",
     "@microsoft/applicationinsights-web": "^3.3.11",
     "jest-editor-support": "*",
-    "nbic-map-component": "^0.2.2",
+    "@artsdatabanken/nbic-map-component": "0.3.0",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
