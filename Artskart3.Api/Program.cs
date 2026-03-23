@@ -63,28 +63,9 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
-    
-    // Configure the HTTP request pipeline.
-    app.Use(async (context, next) =>
-    {
-        if (context.Request.Path == "/robots.txt")
-        {
-            context.Response.ContentType = "text/plain";
 
-            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
-            {
-                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
-            }
-            else
-            {
-                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
-            }
-            return;
-        }
+    AddRobotsConfiguration(builder.Configuration, app);
 
-        await next();
-    });
-    
     logger.LogInformation("Building application pipeline...");
 
     app.UseDefaultFiles();
@@ -130,4 +111,34 @@ catch (Exception ex)
     logger.LogCritical("Message: {Message}", ex.Message);
     logger.LogCritical("StackTrace: {StackTrace}", ex.StackTrace);
     throw;
+}
+
+return;
+
+void AddRobotsConfiguration(ConfigurationManager configuration, WebApplication webApplication)
+{
+    // startup config
+    var allowRobotsInProduction = Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);
+
+    // Configure the HTTP request pipeline.
+    webApplication.Use(async (context, next) =>
+    {
+        if (context.Request.Path == "/robots.txt")
+        {
+            context.Response.ContentType = "text/plain";
+
+            if (webApplication.Environment.IsDevelopment() || webApplication.Environment.IsEnvironment("Test") || !allowRobotsInProduction)
+            {
+                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
+            }
+            else
+            {
+                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
+            }
+
+            return;
+        }
+
+        await next();
+    });
 }
