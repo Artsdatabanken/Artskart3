@@ -51,7 +51,7 @@ try
     });
 
     var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
-    builder.Services.AddDbContext<Artskart3.Infrastructure.Data.ArtskartDbContext>(options =>
+    builder.Services.AddDbContext<ArtskartDbContext>(options =>
         options.UseSqlServer(dbConnectionString));
 
     builder.Services.AddRepositories();
