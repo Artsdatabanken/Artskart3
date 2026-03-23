@@ -21,6 +21,11 @@ Alle commits til prosjektet skal være verifisert. Dette betyr at du må generer
 og legger til .pub nøkkelen under signing keys og authentication keys på GitHub. 
 
 [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) og spesifikt seksjonen Generate new SSH Key.
+## Kjøre Artskart 3 lokalt
+* Kjør `gh repo clone Artsdatabanken/Artskart3` eller bruk Github Desktop for å laste ned repositoriet
+### Frontend
+* Åpne Artskart 3 i terminalen og kjør `cd .\Artskart3.WebApp\; npm i` for å installere pakkene i frontend
+* Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
 
 ## Navngiving av branches
 Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
