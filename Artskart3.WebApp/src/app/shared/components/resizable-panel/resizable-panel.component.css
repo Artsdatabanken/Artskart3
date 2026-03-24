@@ -1,0 +1,65 @@
+.resizable-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  height: 100%;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.resizable-panel.draggable {
+  border-right: 1px solid #e0e0e0;
+}
+
+.resizable-panel.resizing {
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.resize-handle {
+  position: absolute;
+  right: -5px;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  background: transparent;
+  transition: background-color 0.2s;
+}
+
+.resize-handle:hover {
+  background-color: rgba(52, 152, 219, 0.15);
+}
+
+.resize-handle:active,
+.resizable-panel.resizing .resize-handle {
+  background-color: rgba(229, 84, 64, 0.25);
+}
+
+.resize-indicator {
+  width: 3px;
+  height: 40px;
+  background-color: #f3eded;
+  transition: all 0.2s;
+}
+
+.resize-handle:hover .resize-indicator {
+  height: 60px;
+  background-color: #f6f4f3;
+}
+
+.resizable-panel.resizing .resize-indicator {
+  height: 100%;
+  background-color: #f4f1f0;
+}
+

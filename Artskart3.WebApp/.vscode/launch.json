@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "localhost (Edge)",
+      "type": "edge",
+      "request": "launch",
+      "url": "http://localhost:49219",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "localhost (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:49219",
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": []
+}
