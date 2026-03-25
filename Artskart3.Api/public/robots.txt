@@ -4,4 +4,4 @@
 # -Production: Allow all (permits crawlers)
 
 User-agent: *
-Allow: /
+Disallow: /
