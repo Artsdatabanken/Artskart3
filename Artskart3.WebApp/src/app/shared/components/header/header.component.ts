@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { LanguageService, SupportedLanguage } from '../../services/i18n/language.service';
+import { LanguageService, SupportedLanguage } from '../../services/languages/language.service';
 
 export interface MenuItem {
   label: string;
@@ -28,7 +28,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
-  currentLanguage: SupportedLanguage = 'en';
+  currentLanguage: SupportedLanguage = 'no';
   supportedLanguages: SupportedLanguage[] = [];
 
   languageNames: Record<SupportedLanguage, string> = {
