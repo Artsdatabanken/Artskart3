@@ -68,7 +68,7 @@ export class LanguageService {
     try {
       localStorage.setItem(this.STORAGE_KEY, lang);
     } catch (e) {
-      // Silently fail if localStorage is unavailable
+      console.warn('Failed to save language preference to localStorage:', e);
     }
   }
 
@@ -76,7 +76,7 @@ export class LanguageService {
     try {
       return localStorage.getItem(this.STORAGE_KEY) as SupportedLanguage | null;
     } catch (e) {
-      // Silently fail if localStorage is unavailable
+      console.warn('Failed to retrieve language preference from localStorage:', e);
       return null;
     }
   }

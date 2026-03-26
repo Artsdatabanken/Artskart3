@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LanguageService } from '../services/i18n/language.service';
+import { LanguageService } from '../services/languages/language.service';
 
 
 @Injectable()

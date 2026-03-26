@@ -45,7 +45,7 @@ button{
     &:hover,
     &:active {
         cursor:pointer;
-        border: 2px solid var(--primary-color);
+        border: 4px solid var(--primary-color);
         padding: calc(var(--padding-vertical) - 2px) calc(var(--padding-horisontal) - 2px);
     }
 
