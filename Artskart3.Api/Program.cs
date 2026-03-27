@@ -1,17 +1,17 @@
+
 using RobotsTxt;
+using Microsoft.EntityFrameworkCore;
+using Artskart3.Infrastructure.DependencyInjection;
+using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddStaticRobotsTxt(options =>
 {
-    if (!builder.Environment.IsProduction())
-        options.DenyAll();
-    else
-        options.AddSection(section => section
-            .AddUserAgent("*")
-            .Allow("/")
-            .AddCrawlDelay(TimeSpan.FromSeconds(1)));
-
+    // TODO: Allow crawlers in Production after launch
+    // For now, block all crawlers to prevent indexing before official launch
+    options.DenyAll();
     return options;
 });
 
@@ -35,16 +35,26 @@ try
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
 
-    builder.Services.AddControllers();
-    builder.Services.AddOpenApi();
+    builder.Services.AddControllers().AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+    });
+    builder.Services.AddSwaggerGen();
     builder.Services.AddApplicationInsightsTelemetry(new Microsoft.ApplicationInsights.AspNetCore.Extensions.ApplicationInsightsServiceOptions
     {
         ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
     });
-    
+
+    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
+    builder.Services.AddDbContext<ArtskartDbContext>(options =>
+        options.UseSqlServer(dbConnectionString));
+
+    builder.Services.AddRepositories();
+    builder.Services.AddApplicationServices();
+    builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
+
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);
-    
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
@@ -58,8 +68,14 @@ try
 
     if (app.Environment.IsDevelopment())
     {
-        logger.LogInformation("Development environment detected - enabling OpenAPI");
-        app.MapOpenApi();
+        logger.LogInformation("Development environment detected - enabling Swagger UI");
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");
+            c.RoutePrefix = "swagger";
+            c.DisplayRequestDuration();
+        });
     }
     else
     {
