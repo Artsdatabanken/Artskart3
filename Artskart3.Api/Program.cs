@@ -1,6 +1,19 @@
 
+using RobotsTxt;
+using Microsoft.EntityFrameworkCore;
+using Artskart3.Infrastructure.DependencyInjection;
+using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddStaticRobotsTxt(options =>
+{
+    // TODO: Allow crawlers in Production after launch
+    // For now, block all crawlers to prevent indexing before official launch
+    options.DenyAll();
+    return options;
+});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -22,41 +35,32 @@ try
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
 
-    builder.Services.AddControllers();
-    builder.Services.AddOpenApi();
+    builder.Services.AddControllers().AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+    });
+    builder.Services.AddSwaggerGen();
     builder.Services.AddApplicationInsightsTelemetry(new Microsoft.ApplicationInsights.AspNetCore.Extensions.ApplicationInsightsServiceOptions
     {
         ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
     });
-    
+
+    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
+    builder.Services.AddDbContext<ArtskartDbContext>(options =>
+        options.UseSqlServer(dbConnectionString));
+
+    builder.Services.AddRepositories();
+    builder.Services.AddApplicationServices();
+    builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
+
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);
-    
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
-    
-    // Configure the HTTP request pipeline.
-    app.Use(async (context, next) =>
-    {
-        if (context.Request.Path == "/robots.txt")
-        {
-            context.Response.ContentType = "text/plain";
 
-            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
-            {
-                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
-            }
-            else
-            {
-                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
-            }
-            return;
-        }
+    AddRobotsConfiguration(builder.Configuration, app);
 
-        await next();
-    });
-    
     logger.LogInformation("Building application pipeline...");
 
     app.UseDefaultFiles();
@@ -64,8 +68,14 @@ try
 
     if (app.Environment.IsDevelopment())
     {
-        logger.LogInformation("Development environment detected - enabling OpenAPI");
-        app.MapOpenApi();
+        logger.LogInformation("Development environment detected - enabling Swagger UI");
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");
+            c.RoutePrefix = "swagger";
+            c.DisplayRequestDuration();
+        });
     }
     else
     {
@@ -96,4 +106,34 @@ catch (Exception ex)
     logger.LogCritical("Message: {Message}", ex.Message);
     logger.LogCritical("StackTrace: {StackTrace}", ex.StackTrace);
     throw;
+}
+
+return;
+
+void AddRobotsConfiguration(ConfigurationManager configuration, WebApplication webApplication)
+{
+    // startup config
+    var allowRobotsInProduction = Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);
+
+    // Configure the HTTP request pipeline.
+    webApplication.Use(async (context, next) =>
+    {
+        if (context.Request.Path == "/robots.txt")
+        {
+            context.Response.ContentType = "text/plain";
+
+            if (webApplication.Environment.IsDevelopment() || webApplication.Environment.IsEnvironment("Test") || !allowRobotsInProduction)
+            {
+                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
+            }
+            else
+            {
+                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
+            }
+
+            return;
+        }
+
+        await next();
+    });
 }
