@@ -31,7 +31,7 @@ msbuild.wrn
 # Node modules and dependency files
 /node_modules/
 /package-lock.json
-/artskart3.client/package-lock.json
+/Artskart3.WebApp/package-lock.json
 
 # Environment files
 /.env
@@ -58,4 +58,3 @@ yarn-error.log*
 !*/.vscode/launch.json
 !*/.vscode/extensions.json
 /Artskart3.WebApp/node_modules
-/artskart3.client/node_modules
