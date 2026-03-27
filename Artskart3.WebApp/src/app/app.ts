@@ -1,5 +1,6 @@
 import { Component, signal, OnInit } from '@angular/core';
 import { LoggingService } from './shared/logging.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -7,8 +8,8 @@ import { LoggingService } from './shared/logging.service';
   templateUrl: './app.html',
 })
 export class App implements OnInit {
-  constructor(private loggingService: LoggingService) {
-    
+  constructor(private loggingService: LoggingService, private http: HttpClient) {
+
   }
 
   ngOnInit() {
@@ -17,3 +18,4 @@ export class App implements OnInit {
 
   protected readonly title = signal('artskart3.client');
 }
+
