@@ -1,4 +1,5 @@
 
+using Artskart3.Api.Middleware;
 using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
@@ -150,6 +151,7 @@ try
     
     app.UseDefaultFiles();
     app.MapStaticAssets();
+    app.UseMiddleware<ClientSafeListMiddleware>(builder.Configuration["ClientSafeList"]);
 
     if (app.Environment.IsDevelopment())
     {
