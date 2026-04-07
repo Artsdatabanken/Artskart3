@@ -2,7 +2,10 @@ trigger:
   branches:
     include:
       - staging
-pr: none
+pr: 
+  branches:
+    include:
+      - staging
 
 pool:
   vmImage: 'ubuntu-latest'
