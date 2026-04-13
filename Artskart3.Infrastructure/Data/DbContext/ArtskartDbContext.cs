@@ -1,7 +1,6 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Artskart3.Core.Domain.Entities;
-
+using Artskart3.Infrastructure.Data.EntityConfigurations;
 using Artskart3.Infrastructure.Persistence.Repositories;
 namespace Artskart3.Infrastructure.Data
 {
@@ -1019,9 +1018,13 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
         });
-        OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfiguration(new ObservationSearchIndexConfiguration());
+    }
     }
 }

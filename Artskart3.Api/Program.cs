@@ -59,6 +59,21 @@ try
 
     var app = builder.Build();
 
+    // Auto-apply pending migrations
+    try
+    {
+        using (var scope = app.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<Artskart3.Infrastructure.Data.ArtskartDbContext>();
+            dbContext.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while applying database migrations");
+    }
+
     AddRobotsConfiguration(builder.Configuration, app);
 
     logger.LogInformation("Building application pipeline...");
