@@ -2,10 +2,13 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background: white;
+  flex-shrink: 0;
+  background-color: var(--brand-bg-light);
   height: 100%;
   overflow: hidden;
+  border-right: 1px solid var(--brand-border);
   transition: box-shadow 0.2s ease;
+  z-index: 100;
 }
 
 .resizable-panel.draggable {
@@ -17,9 +20,10 @@
 }
 
 .panel-content {
-  flex: 1;
+  padding: var(--spacing-lg);
   overflow-y: auto;
-  overflow-x: hidden;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .resize-handle {

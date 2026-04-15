@@ -4,7 +4,7 @@
   flex-direction: column;
   justify-content: flex-start;
   align-items: stretch;
-  height: 100vh;
+  height: 100%;
   background: var(--brand-bg-light);
   overflow: hidden;
 }
@@ -15,22 +15,6 @@
   overflow: hidden;
   width: 100%;
   background: var(--brand-bg-light);
-}
-
-.sidebar {
-  flex-shrink: 0;
-  background-color: var(--brand-bg-light);
-  overflow: hidden;
-  border-right: 1px solid var(--brand-border);
-  height:100%;
-  z-index: 100;
-}
-
-.sidebar-content {
-  padding: var(--spacing-lg);
-  overflow-y: auto;
-  height: 100%;
-  box-sizing: border-box;
 }
 
 .filter-input {
@@ -63,15 +47,9 @@
 
 .content-wrapper {
   width: 100%;
-  padding: var(--spacing-xl) var(--spacing-lg);
+  display: flex;
   min-height: 100%;
   box-sizing: border-box;
-}
-
-@media (max-width: 1024px) {
-  .content-wrapper {
-    padding: var(--spacing-lg) var(--spacing-md);
-  }
 }
 
 @media (max-width: 768px) {
@@ -88,7 +66,6 @@
     width: 100%;
     max-width: var(--panel-max-width);
     z-index: 100;
-    box-shadow: var(--shadow-lg);
   }
 
   .content-wrapper {
