@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { HeaderComponent } from './components/header/header.component';
 import { ResizablePanelComponent } from './components/resizable-panel/resizable-panel.component';
+import { LanguageDropdown } from './components/language-dropdown/language-dropdown';
 
 @NgModule({
   imports: [
@@ -16,6 +17,8 @@ import { ResizablePanelComponent } from './components/resizable-panel/resizable-
     ResizablePanelComponent],
   declarations: [
 
+  
+    LanguageDropdown
   ],
 })
 export class SharedModule {}

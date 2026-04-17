@@ -1,69 +1,69 @@
-.resizable-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  background-color: var(--brand-bg-light);
-  height: 100%;
-  overflow: hidden;
-  border-right: 1px solid var(--brand-border);
-  transition: box-shadow 0.2s ease;
-  z-index: 100;
-}
+/*.resizable-panel {*/
+/*  position: relative;*/
+/*  display: flex;*/
+/*  flex-direction: column;*/
+/*  flex-shrink: 0;*/
+/*  background-color: var(--brand-bg-light);*/
+/*  height: 100%;*/
+/*  overflow: hidden;*/
+/*  border-right: 1px solid var(--brand-border);*/
+/*  transition: box-shadow 0.2s ease;*/
+/*  z-index: 100;*/
+/*}*/
 
-.resizable-panel.draggable {
-  border-right: 1px solid #e0e0e0;
-}
+/*.resizable-panel.draggable {*/
+/*  border-right: 1px solid #e0e0e0;*/
+/*}*/
 
-.resizable-panel.resizing {
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
-}
+/*.resizable-panel.resizing {*/
+/*  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);*/
+/*}*/
 
-.panel-content {
-  padding: var(--spacing-lg);
-  overflow-y: auto;
-  height: 100%;
-  box-sizing: border-box;
-}
+/*.panel-content {*/
+/*  padding: var(--spacing-lg);*/
+/*  overflow-y: auto;*/
+/*  height: 100%;*/
+/*  box-sizing: border-box;*/
+/*}*/
 
-.resize-handle {
-  position: absolute;
-  right: -5px;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  background: transparent;
-  transition: background-color 0.2s;
-}
+/*.resize-handle {*/
+/*  position: absolute;*/
+/*  right: -5px;*/
+/*  top: 0;*/
+/*  bottom: 0;*/
+/*  width: 10px;*/
+/*  cursor: col-resize;*/
+/*  display: flex;*/
+/*  align-items: center;*/
+/*  justify-content: center;*/
+/*  z-index: 50;*/
+/*  background: transparent;*/
+/*  transition: background-color 0.2s;*/
+/*}*/
 
-.resize-handle:hover {
-  background-color: rgba(52, 152, 219, 0.15);
-}
+/*.resize-handle:hover {*/
+/*  background-color: rgba(52, 152, 219, 0.15);*/
+/*}*/
 
-.resize-handle:active,
-.resizable-panel.resizing .resize-handle {
-  background-color: rgba(229, 84, 64, 0.25);
-}
+/*.resize-handle:active,*/
+/*.resizable-panel.resizing .resize-handle {*/
+/*  background-color: rgba(229, 84, 64, 0.25);*/
+/*}*/
 
-.resize-indicator {
-  width: 3px;
-  height: 40px;
-  background-color: #f3eded;
-  transition: all 0.2s;
-}
+/*.resize-indicator {*/
+/*  width: 3px;*/
+/*  height: 40px;*/
+/*  background-color: #f3eded;*/
+/*  transition: all 0.2s;*/
+/*}*/
 
-.resize-handle:hover .resize-indicator {
-  height: 60px;
-  background-color: #f6f4f3;
-}
+/*.resize-handle:hover .resize-indicator {*/
+/*  height: 60px;*/
+/*  background-color: #f6f4f3;*/
+/*}*/
 
-.resizable-panel.resizing .resize-indicator {
-  height: 100%;
-  background-color: #f4f1f0;
-}
+/*.resizable-panel.resizing .resize-indicator {*/
+/*  height: 100%;*/
+/*  background-color: #f4f1f0;*/
+/*}*/
 
