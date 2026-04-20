@@ -28,6 +28,12 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 * Åpne Artskart 3 i terminalen og kjør `cd .\Artskart3.WebApp\; npm i` for å installere pakkene i frontend
 * Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
 
+### Backend (API)
+* Åpne løsningsfilen `Artskart3.sln` i Visual Studio og kjør prosjektet
+* API-et starter på `http://localhost:5088`
+* **NB:** Swagger UI er tilgjengelig på `http://localhost:5088/swagger` — bruk denne URL-en direkte og **ikke** SPA-proxy-porten (f.eks. `49219`), da SPA-proxyen vil omdirigere alle ukjente ruter til `index.html`
+* Helsesjekk for databasetilkobling og andre avhengigheter: `http://localhost:5088/hc`
+
 ## Navngiving av branches
 Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
 
