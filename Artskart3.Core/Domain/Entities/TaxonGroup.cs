@@ -10,7 +10,5 @@ public partial class TaxonGroup : BaseEntity
 
     public int? ObservationCount { get; set; }
 
-    public bool Deleted { get; set; }
-
     public virtual ICollection<Taxon> Taxons { get; set; } = new List<Taxon>();
 }
