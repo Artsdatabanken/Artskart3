@@ -15,7 +15,7 @@ public partial class Observation
 
     public DateTime DateTimeRecordImported { get; set; }
 
-    public DateTime DateTimeRecordProsessed { get; set; }
+    public DateTime DateTimeRecordProcessed { get; set; }
 
     public int NodeId { get; set; }
 
@@ -51,7 +51,7 @@ public partial class Observation
 
     public int? LocationId { get; set; }
 
-    public string? OccurenceId { get; set; }
+    public string? OccurrenceId { get; set; }
 
     public int HashCode { get; set; }
 
