@@ -3,6 +3,7 @@ Ny versjon av Artskart, påbegynt Februar 2026
 
 ## Requirements
 * Node versjon 22.14 for Angular frontend
+* Angular CLI 21.1
 * Visual Studio 2026 er nødvendig for .NET 10
 
 * installasjon av lokale nbic-map-komponent
