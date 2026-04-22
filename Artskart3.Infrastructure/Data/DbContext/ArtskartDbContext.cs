@@ -915,7 +915,7 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.ExternalTaxonId).HasColumnName("TaxonId");
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.PreferredPopularName).HasMaxLength(100).HasColumnName("PrefferedPopularname");
             entity.Property(e => e.ScientificNameIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.TaxonIdHiarchy).HasMaxLength(200);
@@ -953,7 +953,7 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.ScientificNameAuthorship).HasMaxLength(200);
             entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
@@ -971,7 +971,7 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Language).HasMaxLength(10);
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.Preferred).HasColumnName("Preffered");
@@ -991,7 +991,7 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Context).HasMaxLength(50);
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Prefix).HasMaxLength(50);
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.Tag).HasMaxLength(50);
