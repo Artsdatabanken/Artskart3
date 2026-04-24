@@ -1,9 +1,11 @@
 
+using Artskart3.Api.Middleware;
 using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Data;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,11 @@ builder.Services.AddStaticRobotsTxt(options =>
     // For now, block all crawlers to prevent indexing before official launch
     options.DenyAll();
     return options;
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
 });
 
 builder.Logging.ClearProviders();
@@ -141,6 +148,7 @@ try
         logger.LogInformation("Automatic database migrations disabled (Database:AutoMigrate=false)");
     }
 
+    app.UseForwardedHeaders();
     AddRobotsConfiguration(builder.Configuration, app);
 
     logger.LogInformation("Building application pipeline...");
@@ -150,6 +158,7 @@ try
     
     app.UseDefaultFiles();
     app.MapStaticAssets();
+    app.UseMiddleware<ClientSafeListMiddleware>(builder.Configuration["ClientSafeList"]);
 
     if (app.Environment.IsDevelopment())
     {
