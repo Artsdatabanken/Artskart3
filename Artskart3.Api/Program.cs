@@ -35,19 +35,72 @@ try
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
 
+    // Configure CORS for local development - allows frontend to call backend API
+    builder.Services.AddCors(options =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            // For development: allow any origin, method, and header
+            options.AddDefaultPolicy(policy =>
+            {
+                policy
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+            });
+        }
+        else
+        {
+            // For production: restrict to specific origins from configuration
+            var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+            if (allowedOrigins != null && allowedOrigins.Length > 0)
+            {
+                logger.LogInformation("Configuring CORS for production with {OriginCount} allowed origins", allowedOrigins.Length);
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy
+                        .WithOrigins(allowedOrigins)
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+                });
+            }
+            else
+            {
+                logger.LogWarning("CORS AllowedOrigins not configured in production - denying all cross-origin requests");
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.WithOrigins();
+                });
+            }
+        }
+    });
+
     builder.Services.AddControllers().AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
     });
     builder.Services.AddSwaggerGen();
-    builder.Services.AddApplicationInsightsTelemetry(new Microsoft.ApplicationInsights.AspNetCore.Extensions.ApplicationInsightsServiceOptions
+    
+    var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+    if (!string.IsNullOrEmpty(appInsightsConnectionString))
     {
-        ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
-    });
+        logger.LogInformation("ApplicationInsights telemetry enabled");
+        builder.Services.AddApplicationInsightsTelemetry(new Microsoft.ApplicationInsights.AspNetCore.Extensions.ApplicationInsightsServiceOptions
+        {
+            ConnectionString = appInsightsConnectionString
+        });
+    }
+    else
+    {
+        logger.LogWarning("ApplicationInsights connection string not configured - telemetry will not be collected");
+    }
 
     var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
-        options.UseSqlServer(dbConnectionString));
+    {
+        options.UseSqlServer(dbConnectionString);
+        options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    });
 
     builder.Services.AddRepositories();
     builder.Services.AddApplicationServices();
@@ -59,25 +112,42 @@ try
 
     var app = builder.Build();
 
-    // Auto-apply pending migrations
-    try
+    // Auto-apply pending migrations only if enabled in configuration
+    var autoMigrateDb = Convert.ToBoolean(builder.Configuration["Database:AutoMigrate"] ?? "false");
+    if (autoMigrateDb && !builder.Environment.IsDevelopment())
     {
-        using (var scope = app.Services.CreateScope())
+        logger.LogWarning("AutoMigrate is enabled in non-development environment - this is not recommended for production");
+    }
+    
+    if (autoMigrateDb)
+    {
+        try
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<Artskart3.Infrastructure.Data.ArtskartDbContext>();
-            dbContext.Database.Migrate();
-            logger.LogInformation("Database migrations applied successfully");
+            using (var scope = app.Services.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+                logger.LogInformation("Applying pending database migrations...");
+                dbContext.Database.Migrate();
+                logger.LogInformation("Database migrations applied successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while applying database migrations - application startup will continue");
         }
     }
-    catch (Exception ex)
+    else
     {
-        logger.LogError(ex, "An error occurred while applying database migrations");
+        logger.LogInformation("Automatic database migrations disabled (Database:AutoMigrate=false)");
     }
 
     AddRobotsConfiguration(builder.Configuration, app);
 
     logger.LogInformation("Building application pipeline...");
 
+    // CORS must be early in the pipeline - before controllers and static files
+    app.UseCors();
+    
     app.UseDefaultFiles();
     app.MapStaticAssets();
 
@@ -94,7 +164,7 @@ try
     }
     else
     {
-        logger.LogInformation("Production environment - disabling detailed API documentation");
+        logger.LogInformation("Production environment - Swagger UI disabled for security");
     }
 
     var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

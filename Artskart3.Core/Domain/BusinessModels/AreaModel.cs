@@ -14,12 +14,12 @@ public class AreaModel
 {
     public int Id { get; set; }
     public AreaType Type { get; set; }
-    public string Code { get; set; }
-    public string Name { get; set; }
+    public string? Code { get; set; }
+    public string? Name { get; set; }
     [JsonIgnore]
     public DateTime TimeStamp { get; set; }
     [JsonIgnore]
-    public SqlGeometry Geometry { get; set; }
+    public SqlGeometry? Geometry { get; set; }
 
     public AreaModel() { }
 
