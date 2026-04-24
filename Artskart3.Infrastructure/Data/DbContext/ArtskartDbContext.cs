@@ -130,6 +130,7 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.DocumentId).HasMaxLength(200);
             entity.Property(e => e.Fid).HasMaxLength(50);
             entity.Property(e => e.GmBbox).HasMaxLength(50);
+            entity.Property(e => e.Centroid).HasMaxLength(500);
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.ParentFid).HasMaxLength(50);
             entity.Property(e => e.SyncDateTime).HasColumnType("datetime");

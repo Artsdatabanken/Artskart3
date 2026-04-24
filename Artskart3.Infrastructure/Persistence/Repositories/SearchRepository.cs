@@ -3,6 +3,7 @@ using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,42 +16,72 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         private const int DefaultMaxSearchResults = 20;
         private const int MinValidMaxCount = 1;
         private const int MaxValidMaxCount = 1000;
+        private const int DefaultMaxLocations = 1000;
+        private const int MaxLocations = 10000;
+        private const string SqlWildcard = "%";
         
         private readonly IArtsKartDbContext _context;
+        private readonly ILogger<SearchRepository> _logger;
 
-        public SearchRepository(IArtsKartDbContext context)
+        public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
+        /// <summary>
+        /// Searches for taxa by name using a three-level matching strategy:
+        /// 1. Exact matches on scientific or common names
+        /// 2. Starts-with matches
+        /// 3. Contains matches
+        /// Returns up to maxCount results from active taxa (not deleted and have observation data).
+        /// </summary>
         public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            try
             {
-                return Enumerable.Empty<Taxon>();
-            }
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return Enumerable.Empty<Taxon>();
+                }
 
-            if (maxCount < MinValidMaxCount || maxCount > MaxValidMaxCount)
+                if (maxCount < MinValidMaxCount || maxCount > MaxValidMaxCount)
+                {
+                    throw new ArgumentException(
+                        $"Max count must be between {MinValidMaxCount} and {MaxValidMaxCount}.",
+                        nameof(maxCount));
+                }
+
+                var searchTerm = name.Trim().ToLower();
+
+                var matchingIds = GetExactMatches(searchTerm)
+                    .Union(GetStartsWithMatches(searchTerm))
+                    .Union(GetContainsMatches(searchTerm))
+                    .Distinct()
+                    .Take(maxCount);
+
+                var result = await _context.Set<Taxon>()
+                    .Where(t => matchingIds.Contains(t.Id))
+                    .Include(t => t.TaxonNames)
+                    .Include(t => t.TaxonPopularNames)
+                    .ToListAsync();
+
+                return result;
+            }
+            catch (ArgumentException ex)
             {
-                throw new ArgumentException(
-                    $"Max count must be between {MinValidMaxCount} and {MaxValidMaxCount}.",
-                    nameof(maxCount));
+                _logger.LogWarning(ex, "Argument validation failed for taxon search with name: {Name}", name);
+                throw;
             }
-
-            var searchTerm = name.Trim().ToLower();
-
-            var matchingIds = GetExactMatches(searchTerm)
-                .Union(GetStartsWithMatches(searchTerm))
-                .Union(GetContainsMatches(searchTerm))
-                .Distinct()
-                .Take(maxCount);
-
-            var result = await _context.Set<Taxon>()
-                .Where(t => matchingIds.Contains(t.Id))
-                .Include(t => t.TaxonNames)
-                .Include(t => t.TaxonPopularNames)
-                .ToListAsync();
-
-            return result;
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database error occurred during taxon search for name: {Name}", name);
+                throw new ApplicationException("A database error occurred while searching taxa. Please try again later.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during taxon search for name: {Name}", name);
+                throw new ApplicationException("An unexpected error occurred while searching taxa. Please contact support if the problem persists.", ex);
+            }
         }
         private IQueryable<Taxon> GetActiveTaxa()
         {
@@ -68,7 +99,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         }
         private IQueryable<int> GetStartsWithMatches(string searchTerm)
         {
-            var startsWithPattern = searchTerm + "%";
+            var startsWithPattern = searchTerm + SqlWildcard;
             
             return GetActiveTaxa()
                 .Where(t =>
@@ -82,7 +113,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         }
         private IQueryable<int> GetContainsMatches(string searchTerm)
         {
-            var containsPattern = "%" + searchTerm + "%";
+            var containsPattern = SqlWildcard + searchTerm + SqlWildcard;
             
             return GetActiveTaxa()
                 .Where(t =>
@@ -94,49 +125,62 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 )
                 .Select(t => t.Id);
         }
+        /// <summary>
+        /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
+        /// Aggregates observation counts by location, sorted by count descending.
+        /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
+        /// </summary>
         public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null)
         {
-            filter ??= new LocationSearchFilterDto();
-
-            var taxonGroupIds = ParseIntList(filter.TaxonGroupIds);
-            var categories = ParseIntList(filter.Categories);
-            var basisOfRecords = ParseIntList(filter.BasisOfRecords);
-            var collectionIds = ParseStringList(filter.CollectionIds);
-
-            var query = _context.Set<Observation>()
-                .AsNoTracking();
-
-            if (taxonGroupIds.Any())
-            {
-                query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
-            }
-
-            if (collectionIds.Any())
-            {
-                query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
-            }
-
-            if (categories.Any())
-            {
-                query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
-            }
-
-            if (filter.CoordinatePrecisionFrom > 0)
-            {
-                query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
-            }
-            if (filter.CoordinatePrecisionTo > 0)
-            {
-                query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
-            }
-
-            var maxResults = filter.MaxResults > 0 && filter.MaxResults <= 10000 ? filter.MaxResults : 1000; //skal fikses results
-            
-            var aggregatedLocations = new List<(int LocationId, int ObservationCount)>();
-            var locations = new List<Location>();
+            var locationModels = new List<LocationModel>();
 
             try
             {
+                filter ??= new LocationSearchFilterDto();
+
+                var taxonGroupIds = ParseIntList(filter.TaxonGroupIds);
+                var categories = ParseIntList(filter.Categories);
+                var basisOfRecords = ParseIntList(filter.BasisOfRecords);
+                var collectionIds = ParseStringList(filter.CollectionIds);
+
+                var query = _context.Set<Observation>()
+                    .AsNoTracking();
+
+                if (taxonGroupIds.Any())
+                {
+                    query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
+                }
+
+                if (collectionIds.Any())
+                {
+                    query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
+                }
+
+                if (categories.Any())
+                {
+                    query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
+                }
+
+                if (basisOfRecords.Any())
+                {
+                    query = query.Where(o => basisOfRecords.Contains(o.BasisOfRecordId));
+                }
+
+                if (filter.CoordinatePrecisionFrom > 0)
+                {
+                    query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
+                }
+
+                if (filter.CoordinatePrecisionTo > 0)
+                {
+                    query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
+                }
+
+                var maxResults = filter.MaxResults > 0 && filter.MaxResults <= MaxLocations ? filter.MaxResults : DefaultMaxLocations;
+
+                var aggregatedLocations = new List<(int LocationId, int ObservationCount)>();
+                var locations = new List<Location>();
+
                 var aggregatedData = await query
                     .Where(o => o.LocationId != null)
                     .GroupBy(o => o.LocationId!.Value)
@@ -159,6 +203,30 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                         .AsNoTracking()
                         .ToListAsync();
                 }
+
+                if (locations.Any())
+                {
+                    var locationLookup = locations.ToDictionary(l => l.Id);
+                    foreach (var (locationId, observationCount) in aggregatedLocations)
+                    {
+                        if (locationLookup.TryGetValue(locationId, out var location))
+                        {
+                            locationModels.Add(new LocationModel
+                            {
+                                Id = location.Id,
+                                Locality = location.Locality ?? string.Empty,
+                                Latitude = location.Latitude ?? 0,
+                                Longitude = location.Longitude ?? 0,
+                                East = location.East,
+                                North = location.North,
+                                CoordinatePrecision = location.CoordinatePrecision,
+                                ObservationCount = observationCount
+                            });
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
             }
             catch (InvalidOperationException ex)
             {
@@ -177,26 +245,61 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
             }
 
-            if (locations.Any())
+            foreach (var model in locationModels)
             {
-                var locationLookup = locations.ToDictionary(l => l.Id);
-                foreach (var (locationId, observationCount) in aggregatedLocations)
+                yield return model;
+            }
+        }
+
+        /// <summary>
+        /// Retrieves all area markers (counties/municipalities) grouped by name with aggregated observation counts.
+        /// Returns one centroid per area name in WKT POINT format: POINT(easting northing) in UTM Zone 33N.
+        /// Area types: 1 = municipalities, 2 = counties.
+        /// </summary>
+        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds)
+        {
+            try
+            {
+                if (areaTypeIds == null || areaTypeIds.Length == 0)
                 {
-                    if (locationLookup.TryGetValue(locationId, out var location))
-                    {
-                        yield return new LocationModel
-                        {
-                            Id = location.Id,
-                            Locality = location.Locality ?? string.Empty,
-                            Latitude = location.Latitude ?? 0,
-                            Longitude = location.Longitude ?? 0,
-                            East = location.East,
-                            North = location.North,
-                            CoordinatePrecision = location.CoordinatePrecision,
-                            ObservationCount = observationCount
-                        };
-                    }
+                    return Enumerable.Empty<AreaMarkerDto>();
                 }
+                var parameters = areaTypeIds.Select((id, i) => new Microsoft.Data.SqlClient.SqlParameter($"@areaTypeId{i}", id)).ToArray();
+                var parameterNames = string.Join(",", Enumerable.Range(0, areaTypeIds.Length).Select(i => $"@areaTypeId{i}"));
+
+                var query = $@"
+                    SELECT 
+                        MIN(a.[Id]) AS [Id],
+                        MIN(a.[DocumentId]) AS [DocumentId],
+                        MIN(a.[Fid]) AS [Fid],
+                        a.[Name],
+                        MIN(a.[AreaTypeId]) AS [AreaTypeId],
+                        MIN(a.[ParentFid]) AS [ParentFid],
+                        MIN(a.[SyncDateTime]) AS [SyncDateTime],
+                        SUM(a.[ObservationCount]) AS [ObservationCount],
+                        MIN(a.[TimeStamp]) AS [TimeStamp],
+                        CAST(MAX(CAST(a.[IsCurrent] AS INT)) AS BIT) AS [IsCurrent],
+                        (SELECT TOP 1 CASE WHEN a2.[Centroid] IS NOT NULL THEN a2.[Centroid].STAsText() ELSE NULL END
+                         FROM [Area] a2 
+                         WHERE a2.[Name] = a.[Name] AND a2.[AreaTypeId] IN ({parameterNames})
+                         ORDER BY a2.[Id]) AS [Centroid]
+                    FROM [Area] a
+                    WHERE a.[AreaTypeId] IN ({parameterNames})
+                    GROUP BY a.[Name]
+                ";
+
+                var areas = await _context.Database.SqlQueryRaw<AreaMarkerDto>(query, parameters).ToListAsync();
+                return areas;
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database error occurred while retrieving areas for type IDs: {AreaTypeIds}", string.Join(",", areaTypeIds));
+                throw new ApplicationException("A database error occurred while retrieving areas. Please try again later.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error occurred while retrieving areas for type IDs: {AreaTypeIds}", string.Join(",", areaTypeIds));
+                throw new ApplicationException("An unexpected error occurred while retrieving areas. Please contact support if the problem persists.", ex);
             }
         }
 
@@ -223,6 +326,6 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
-        }        
+        }
     }
 }
