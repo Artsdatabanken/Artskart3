@@ -1,1 +1,13 @@
 <div #mapEl class="map"></div>
+
+<div
+  class="marker-tooltip"
+  [style.display]="tooltip.visible ? 'block' : 'none'"
+  [style.left.px]="tooltip.x"
+  [style.top.px]="tooltip.y">
+  <div class="tooltip-header">{{ tooltip.name }}</div>
+  <div class="tooltip-content">
+    <p><strong>Type:</strong> {{ tooltip.type }}</p>
+    <p><strong>Observations:</strong> {{ tooltip.count }}</p>
+  </div>
+</div>

@@ -7,7 +7,8 @@ const PROXY_CONFIG = [
   {
     context: [
       "/hc",
-      "/robots.txt"
+      "/robots.txt",
+      "/api/**"
     ],
     target,
     secure: false

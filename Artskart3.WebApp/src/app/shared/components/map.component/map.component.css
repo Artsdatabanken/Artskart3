@@ -6,3 +6,34 @@
   overflow: hidden;
   z-index: 0;
 }
+
+.marker-tooltip {
+  position: fixed;
+  background: white;
+  border: 2px solid #333;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 200px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+}
+
+.tooltip-header {
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 4px;
+}
+
+.tooltip-content {
+  color: #333;
+}
+
+.tooltip-content p {
+  margin: 4px 0;
+  line-height: 1.4;
+}

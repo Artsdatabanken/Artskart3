@@ -13,6 +13,8 @@ import { LanguageInterceptor } from './shared/interceptors/language.interceptor'
 import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
+import { AreasService } from './core/services/areas/areas.service';
+import { AreaMapLayerService } from './core/services/areas/area-map-layer.service';
 
 class CustomTranslateLoader implements TranslateLoader {
   constructor(private http: HttpClient) {}
@@ -53,6 +55,8 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(),
+    AreasService,
+    AreaMapLayerService,
     {
       provide: APP_INITIALIZER,
       useFactory: initializeLanguageFactory,
