@@ -523,6 +523,16 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => new { e.YearCollected, e.LocationId }, "IX_Observation_YearCollected_LocationId");
 
+            entity.HasIndex(e => e.LocationId, "IX_Observation_LocationId");
+
+            entity.HasIndex(e => e.TaxonGroupId, "IX_Observation_TaxonGroupId");
+
+            entity.HasIndex(e => e.CategoryId, "IX_Observation_CategoryId");
+
+            entity.HasIndex(e => e.YearCollected, "IX_Observation_YearCollected");
+
+            entity.HasIndex(e => e.MonthCollected, "IX_Observation_MonthCollected");
+
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
             entity.Property(e => e.CollectionCode).HasMaxLength(100);
             entity.Property(e => e.DateTimeRecordProcessed).HasColumnType("datetime").HasColumnName("DateTimeRecordProsessed");
