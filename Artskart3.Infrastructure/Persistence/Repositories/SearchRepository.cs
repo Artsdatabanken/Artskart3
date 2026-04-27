@@ -132,8 +132,16 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// </summary>
         public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null)
         {
-            var locationModels = new List<LocationModel>();
+            var locationModels = await FetchLocationModelsAsync(filter);
 
+            foreach (var model in locationModels)
+            {
+                yield return model;
+            }
+        }
+
+        private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter)
+        {
             try
             {
                 filter ??= new LocationSearchFilterDto();
@@ -178,9 +186,6 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
 
                 var maxResults = filter.MaxResults > 0 && filter.MaxResults <= MaxLocations ? filter.MaxResults : DefaultMaxLocations;
 
-                var aggregatedLocations = new List<(int LocationId, int ObservationCount)>();
-                var locations = new List<Location>();
-
                 var aggregatedData = await query
                     .Where(o => o.LocationId != null)
                     .GroupBy(o => o.LocationId!.Value)
@@ -193,40 +198,39 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     .Take(maxResults)
                     .ToListAsync();
 
-                aggregatedLocations = aggregatedData.Select(x => (x.LocationId, x.ObservationCount)).ToList();
+                if (aggregatedData.Count == 0)
+                    return [];
 
-                if (aggregatedLocations.Any())
-                {
-                    var locationIds = aggregatedLocations.Select(x => x.LocationId).ToList();
-                    locations = await _context.Set<Location>()
-                        .Where(l => locationIds.Contains(l.Id))
-                        .AsNoTracking()
-                        .ToListAsync();
-                }
+                var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
 
-                if (locations.Any())
+                var locationLookup = await _context.Set<Location>()
+                    .Where(l => locationIds.Contains(l.Id))
+                    .AsNoTracking()
+                    .ToDictionaryAsync(l => l.Id);
+
+                var locationModels = new List<LocationModel>(aggregatedData.Count);
+
+                foreach (var item in aggregatedData)
                 {
-                    var locationLookup = locations.ToDictionary(l => l.Id);
-                    foreach (var (locationId, observationCount) in aggregatedLocations)
+                    if (locationLookup.TryGetValue(item.LocationId, out var location))
                     {
-                        if (locationLookup.TryGetValue(locationId, out var location))
+                        locationModels.Add(new LocationModel
                         {
-                            locationModels.Add(new LocationModel
-                            {
-                                Id = location.Id,
-                                Locality = location.Locality ?? string.Empty,
-                                Latitude = location.Latitude ?? 0,
-                                Longitude = location.Longitude ?? 0,
-                                East = location.East,
-                                North = location.North,
-                                CoordinatePrecision = location.CoordinatePrecision,
-                                ObservationCount = observationCount
-                            });
-                        }
+                            Id = location.Id,
+                            Locality = location.Locality ?? string.Empty,
+                            Latitude = location.Latitude ?? 0,
+                            Longitude = location.Longitude ?? 0,
+                            East = location.East,
+                            North = location.North,
+                            CoordinatePrecision = location.CoordinatePrecision,
+                            ObservationCount = item.ObservationCount
+                        });
                     }
                 }
 
                 _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
+
+                return locationModels;
             }
             catch (InvalidOperationException ex)
             {
@@ -243,11 +247,6 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             catch (Exception ex)
             {
                 throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
-            }
-
-            foreach (var model in locationModels)
-            {
-                yield return model;
             }
         }
 
