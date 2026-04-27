@@ -18,8 +18,6 @@ public partial class TaxonProperty : BaseEntity
 
     public string? ScientificName { get; set; }
 
-    public DateTime DateTimeUpdated { get; set; }
-
     public int? TaxonId { get; set; }
 
     public virtual Taxon? Taxon { get; set; }

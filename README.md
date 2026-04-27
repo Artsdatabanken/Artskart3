@@ -28,6 +28,40 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 * Åpne Artskart 3 i terminalen og kjør `cd .\Artskart3.WebApp\; npm i` for å installere pakkene i frontend
 * Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
 
+### Backend (API)
+* Åpne løsningsfilen `Artskart3.sln` i Visual Studio og kjør prosjektet
+* API-et starter på `http://localhost:5088`
+* **NB:** Swagger UI er tilgjengelig på `http://localhost:5088/swagger` — bruk denne URL-en direkte og **ikke** SPA-proxy-porten (f.eks. `49219`), da SPA-proxyen vil omdirigere alle ukjente ruter til `index.html`
+* Helsesjekk for databasetilkobling og andre avhengigheter: `http://localhost:5088/hc`
+
+### Databasemigrasjoner (EF Core Code-First)
+Prosjektet bruker EF Core code-first migrasjoner. Alle migrasjoner kjøres fra `Artskart3.Infrastructure`-mappen.
+
+**Forutsetninger** — installer EF Core-verktøyet globalt én gang:
+```powershell
+dotnet tool install --global dotnet-ef
+```
+
+**Legge til en ny migrasjon** etter å ha endret en domeneklasse:
+```powershell
+cd Artskart3.Infrastructure
+dotnet ef migrations add <NavnPåMigrasjon> --startup-project ..\Artskart3.Api
+```
+
+**Kjøre migrasjoner mot lokal database:**
+```powershell
+cd Artskart3.Infrastructure
+dotnet ef database update --startup-project ..\Artskart3.Api
+```
+
+**Angre siste migrasjon** (kun hvis den ikke er kjørt mot databasen ennå):
+```powershell
+cd Artskart3.Infrastructure
+dotnet ef migrations remove --startup-project ..\Artskart3.Api
+```
+
+> Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
+
 ## Navngiving av branches
 Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
 
