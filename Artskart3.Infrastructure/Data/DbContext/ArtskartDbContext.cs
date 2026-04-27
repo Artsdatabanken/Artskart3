@@ -130,7 +130,6 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.DocumentId).HasMaxLength(200);
             entity.Property(e => e.Fid).HasMaxLength(50);
             entity.Property(e => e.GmBbox).HasMaxLength(50);
-            entity.Property(e => e.Centroid).HasMaxLength(500);
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.ParentFid).HasMaxLength(50);
             entity.Property(e => e.SyncDateTime).HasColumnType("datetime");
@@ -513,6 +512,16 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.CoordinatePrecisionInMeters, "Ix_CoordPrec");
 
             entity.HasIndex(e => e.TaxonGroupId, "TaxonGroupId");
+
+            entity.HasIndex(e => e.InstitutionId, "IX_Observation_InstitutionId");
+
+            entity.HasIndex(e => e.InstitutionCode, "IX_Observation_InstitutionCode");
+
+            entity.HasIndex(e => e.DateLastModified, "IX_Observation_DateLastModified");
+
+            entity.HasIndex(e => new { e.LocationId, e.HasErrors, e.HasAnnotations }, "IX_Observation_LocationId_HasErrors_HasAnnotations");
+
+            entity.HasIndex(e => new { e.YearCollected, e.LocationId }, "IX_Observation_YearCollected_LocationId");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
             entity.Property(e => e.CollectionCode).HasMaxLength(100);
