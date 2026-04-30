@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
-using Microsoft.SqlServer.Types;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 using Newtonsoft.Json;
 using Artskart3.Core.Domain.Enums;
 using System.Data.SqlTypes;
@@ -19,7 +20,7 @@ public class AreaModel
     [JsonIgnore]
     public DateTime TimeStamp { get; set; }
     [JsonIgnore]
-    public SqlGeometry? Geometry { get; set; }
+    public Geometry? Geometry { get; set; }
 
     public AreaModel() { }
 
@@ -29,6 +30,9 @@ public class AreaModel
         Type = type;
         Code = code;
         Name = name;
-        Geometry = SqlGeometry.STGeomFromText(new SqlChars(wkt), epsg);
+        var wktReader = new WKTReader();
+        var geometry = wktReader.Read(wkt);
+        geometry.SRID = epsg;
+        Geometry = geometry;
     }
 }

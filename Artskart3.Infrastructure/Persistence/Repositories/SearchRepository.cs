@@ -4,6 +4,7 @@ using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NetTopologySuite.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -259,46 +260,32 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         {
             try
             {
-                if (areaTypeIds == null || areaTypeIds.Length == 0)
-                {
-                    return Enumerable.Empty<AreaMarkerDto>();
-                }
-                var parameters = areaTypeIds.Select((id, i) => new Microsoft.Data.SqlClient.SqlParameter($"@areaTypeId{i}", id)).ToArray();
-                var parameterNames = string.Join(",", Enumerable.Range(0, areaTypeIds.Length).Select(i => $"@areaTypeId{i}"));
+                if (areaTypeIds.Length == 0)
+                    return [];
 
-                var query = $@"
-                    SELECT 
-                        MIN(a.[Id]) AS [Id],
-                        MIN(a.[DocumentId]) AS [DocumentId],
-                        MIN(a.[Fid]) AS [Fid],
-                        a.[Name],
-                        MIN(a.[AreaTypeId]) AS [AreaTypeId],
-                        MIN(a.[ParentFid]) AS [ParentFid],
-                        MIN(a.[SyncDateTime]) AS [SyncDateTime],
-                        SUM(a.[ObservationCount]) AS [ObservationCount],
-                        MIN(a.[TimeStamp]) AS [TimeStamp],
-                        CAST(MAX(CAST(a.[IsCurrent] AS INT)) AS BIT) AS [IsCurrent],
-                        (SELECT TOP 1 CASE WHEN a2.[Centroid] IS NOT NULL THEN a2.[Centroid].STAsText() ELSE NULL END
-                         FROM [Area] a2 
-                         WHERE a2.[Name] = a.[Name] AND a2.[AreaTypeId] IN ({parameterNames})
-                         ORDER BY a2.[Id]) AS [Centroid]
-                    FROM [Area] a
-                    WHERE a.[AreaTypeId] IN ({parameterNames})
-                    GROUP BY a.[Name]
-                ";
+                var areas = await _context.Set<Area>()
+                    .Where(a => areaTypeIds.Contains(a.AreaTypeId))
+                    .ToListAsync();
 
-                var areas = await _context.Database.SqlQueryRaw<AreaMarkerDto>(query, parameters).ToListAsync();
-                return areas;
-            }
-            catch (DbUpdateException ex)
-            {
-                _logger.LogError(ex, "Database error occurred while retrieving areas for type IDs: {AreaTypeIds}", string.Join(",", areaTypeIds));
-                throw new ApplicationException("A database error occurred while retrieving areas. Please try again later.", ex);
+                return areas
+                    .GroupBy(a => a.Name)
+                    .Select(g => new AreaMarkerDto
+                    {
+                        Id = g.Min(a => a.Id),
+                        Name = g.Key,
+                        AreaTypeId = g.First().AreaTypeId,
+                        ObservationCount = g.Sum(a => a.ObservationCount),
+                        Centroid = g.FirstOrDefault(a => a.WktPolygon != null)
+                            ?.WktPolygon?.Centroid?.AsText()
+                    })
+                    .ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error occurred while retrieving areas for type IDs: {AreaTypeIds}", string.Join(",", areaTypeIds));
-                throw new ApplicationException("An unexpected error occurred while retrieving areas. Please contact support if the problem persists.", ex);
+                _logger.LogError(ex, "Error retrieving areas for type IDs: {AreaTypeIds}", 
+                    string.Join(",", areaTypeIds));
+                throw new ApplicationException(
+                    "An error occurred while retrieving areas. Please try again later.", ex);
             }
         }
 

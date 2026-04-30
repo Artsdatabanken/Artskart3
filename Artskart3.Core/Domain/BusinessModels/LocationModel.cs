@@ -1,6 +1,7 @@
 using System.Data.SqlTypes;
 using Newtonsoft.Json;
-using Microsoft.SqlServer.Types;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 using System.Collections.ObjectModel;
 using Artskart3.Core.Domain.Enums;
 
@@ -9,26 +10,15 @@ public class LocationModel
 {
     public int Id { get; set; }
     [JsonIgnore]
-    public SqlGeometry Geometry { get; set; }
-    public string Locality { get; set; }
+    public Geometry? Geometry { get; set; }
+    public string Locality { get; set; } = string.Empty;
     public int? CoordinatePrecision { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public int East { get; set; }
     public int North { get; set; }
-    public Collection<ObservationBaseModel> Observations { get; set; }
-    public Collection<AreaModel> Areas { get; set; }
-
-    public LocationModel(int id, string wkt, int epsg, string locality, int? coordinatePrecision, double latitude, double longitude)
-    {
-            Id = id;
-            Geometry = SqlGeometry.STGeomFromText(new SqlChars(wkt), epsg);
-            Locality = locality;
-            CoordinatePrecision = coordinatePrecision;
-            Latitude = latitude;
-            Longitude = longitude;
-    }
-
+    public Collection<ObservationBaseModel> Observations { get; set; } = new Collection<ObservationBaseModel>();
+    public Collection<AreaModel> Areas { get; set; } = new Collection<AreaModel>();
     public LocationModel()
     {
         Observations = new Collection<ObservationBaseModel>();
