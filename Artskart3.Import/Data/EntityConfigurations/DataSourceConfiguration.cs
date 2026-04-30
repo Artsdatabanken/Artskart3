@@ -1,8 +1,8 @@
-using Artskart3.Core.Domain.Entities;
+using Artskart3.Import.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Artskart3.Infrastructure.Data.EntityConfigurations;
+namespace Artskart3.Import.Data.EntityConfigurations;
 
 public class DataSourceConfiguration : IEntityTypeConfiguration<DataSource>
 {

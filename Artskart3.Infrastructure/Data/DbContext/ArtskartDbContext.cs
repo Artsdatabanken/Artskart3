@@ -29,8 +29,6 @@ namespace Artskart3.Infrastructure.Data
 
     public virtual DbSet<CommandLog> CommandLogs { get; set; }
 
-    public virtual DbSet<DataSource> DataSources { get; set; }
-
     public virtual DbSet<DeletedItem> DeletedItems { get; set; }
 
     public virtual DbSet<ExportStatus> ExportStatuses { get; set; }
@@ -1043,8 +1041,6 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
         });
-
-        OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
@@ -1052,7 +1048,6 @@ namespace Artskart3.Infrastructure.Data
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new ObservationSearchIndexConfiguration());
-        modelBuilder.ApplyConfiguration(new DataSourceConfiguration());
     }
     }
 }

@@ -374,91 +374,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("CommandLog", (string)null);
                 });
 
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.DataSource", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ArchiveName")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Doi")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("GbifApiQuery")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid?>("GbifPublisherId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("HarvestPropertyOverrides")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ImportPropertyOverrides")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsEditedNameOrNotes")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsSensitive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("NonValidOccurrenceIds")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<int>("ProviderType")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RecordsBatchSize")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RemoteAddress")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("UpdateFrequencyInDays")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("WebServiceVersion")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted")
-                        .HasDatabaseName("IX_DataSource_IsDeleted");
-
-                    b.HasIndex("ProviderType")
-                        .HasDatabaseName("IX_DataSource_ProviderType");
-
-                    b.ToTable("DataSource", (string)null);
-                });
-
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.DeletedItem", b =>
                 {
                     b.Property<int>("Id")
@@ -1263,45 +1178,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Observation");
-
-                    b.HasIndex("BasisOfRecordId")
-                        .HasDatabaseName("IX_Observation_BasisOfRecordId");
-
-                    b.HasIndex("CategoryId")
-                        .HasDatabaseName("IX_Observation_CategoryId");
-
-                    b.HasIndex("CoordinatePrecisionInMeters")
-                        .HasDatabaseName("IX_Observation_CoordinatePrecisionInMeters");
-
-                    b.HasIndex("DateLastModified")
-                        .HasDatabaseName("IX_Observation_DateLastModified");
-
-                    b.HasIndex("InstitutionCode")
-                        .HasDatabaseName("IX_Observation_InstitutionCode");
-
-                    b.HasIndex("InstitutionId")
-                        .HasDatabaseName("IX_Observation_InstitutionId");
-
-                    b.HasIndex("LocationId")
-                        .HasDatabaseName("IX_Observation_LocationId");
-
-                    b.HasIndex("MonthCollected")
-                        .HasDatabaseName("IX_Observation_MonthCollected");
-
-                    b.HasIndex("TaxonGroupId")
-                        .HasDatabaseName("IX_Observation_TaxonGroupId");
-
-                    b.HasIndex("YearCollected")
-                        .HasDatabaseName("IX_Observation_YearCollected");
-
-                    b.HasIndex("TaxonGroupId", "LocationId")
-                        .HasDatabaseName("IX_Observation_TaxonGroupId_LocationId");
-
-                    b.HasIndex("YearCollected", "LocationId")
-                        .HasDatabaseName("IX_Observation_YearCollected_LocationId");
-
-                    b.HasIndex("LocationId", "HasErrors", "HasAnnotations")
-                        .HasDatabaseName("IX_Observation_LocationId_HasErrors_HasAnnotations");
 
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_BasisOfRecordId");
 

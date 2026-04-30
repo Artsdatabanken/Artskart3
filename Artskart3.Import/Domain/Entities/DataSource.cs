@@ -1,14 +1,15 @@
-using Artskart3.Core.Domain.Entities.Base;
-using Artskart3.Core.Domain.Enums;
+using Artskart3.Import.Domain.Enums;
 
-namespace Artskart3.Core.Domain.Entities;
+namespace Artskart3.Import.Domain.Entities;
 
 /// <summary>
 /// Provider configuration for a remote data source (formerly SourceDataBase in RavenDB).
 /// One flat table; use typed views or application-layer filtering to work with specific provider types.
 /// </summary>
-public class DataSource : BaseEntity
+public class DataSource
 {
+    public int Id { get; set; }
+
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
@@ -40,6 +41,8 @@ public class DataSource : BaseEntity
     /// Internal notes for operators.
     /// </summary>
     public string? Notes { get; set; }
+
+    public bool IsDeleted { get; set; }
 
     public bool IsEditedNameOrNotes { get; set; }
 
@@ -83,4 +86,8 @@ public class DataSource : BaseEntity
     /// Marks observations from this source as sensitive (restricted coordinates etc.).
     /// </summary>
     public bool IsSensitive { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DeletedAt { get; set; }
 }

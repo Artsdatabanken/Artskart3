@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Artskart3.Core\Artskart3.Core.csproj" />
     <ProjectReference Include="..\Artskart3.Infrastructure\Artskart3.Infrastructure.csproj" />
+    <ProjectReference Include="..\Artskart3.Import\Artskart3.Import.csproj" />
   </ItemGroup>
 
 </Project>

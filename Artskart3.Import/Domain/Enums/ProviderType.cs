@@ -1,4 +1,4 @@
-namespace Artskart3.Core.Domain.Enums;
+namespace Artskart3.Import.Domain.Enums;
 
 public enum ProviderType
 {
