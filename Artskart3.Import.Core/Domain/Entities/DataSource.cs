@@ -1,6 +1,6 @@
-using Artskart3.Import.Domain.Enums;
+using Artskart3.Import.Core.Domain.Enums;
 
-namespace Artskart3.Import.Domain.Entities;
+namespace Artskart3.Import.Core.Domain.Entities;
 
 /// <summary>
 /// Provider configuration for a remote data source (formerly SourceDataBase in RavenDB).

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 
-namespace Artskart3.Import.Data;
+namespace Artskart3.Import.Infrastructure.Data;
 
 /// <summary>
 /// Used by EF Core tooling (dotnet ef migrations add, dotnet ef database update) at design time.

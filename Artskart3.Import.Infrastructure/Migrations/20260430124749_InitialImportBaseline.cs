@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Artskart3.Import.Migrations
+namespace Artskart3.Import.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class InitialImportBaseline : Migration

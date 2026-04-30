@@ -1,8 +1,8 @@
-using Artskart3.Import.Data.EntityConfigurations;
-using Artskart3.Import.Domain.Entities;
+using Artskart3.Import.Core.Domain.Entities;
+using Artskart3.Import.Infrastructure.Data.EntityConfigurations;
 using Microsoft.EntityFrameworkCore;
 
-namespace Artskart3.Import.Data;
+namespace Artskart3.Import.Infrastructure.Data;
 
 public class ArtskartImportDbContext : DbContext
 {
