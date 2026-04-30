@@ -10,7 +10,9 @@ import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, 
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
-  private map: any;
+  @Output() iconClickAction = new EventEmitter<string>();
+
+  map: any;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), 100);
@@ -33,7 +35,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           zoom: 6.2,
           minZoom: 0,
           maxZoom: 18,
-          controls: { scaleLine: true, fullscreen: true, geolocation: true, zoom: true, attribution: true },
+          controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true },
         }
       );
 
@@ -54,6 +56,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('Error initializing map:', error);
     }
+  }
+
+  onIconClick(iconName: string): void {
+    this.iconClickAction.emit(iconName);
   }
 
   ngOnDestroy(): void {

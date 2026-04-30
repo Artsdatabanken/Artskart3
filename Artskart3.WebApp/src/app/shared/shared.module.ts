@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { HeaderComponent } from './components/header/header.component';
 import { ResizablePanelComponent } from './components/resizable-panel/resizable-panel.component';
+import { MapComponent } from './components/map.component/map.component';
+import { MapToolbarComponent } from './components/map.component/map-toolbar/map-toolbar.component';
 
 @NgModule({
   imports: [
@@ -13,9 +15,12 @@ import { ResizablePanelComponent } from './components/resizable-panel/resizable-
   ],
   exports: [
     HeaderComponent,
-    ResizablePanelComponent],
+    ResizablePanelComponent,
+    MapComponent,
+    MapToolbarComponent],
   declarations: [
-
+    MapComponent,
+    MapToolbarComponent
   ],
 })
 export class SharedModule {}

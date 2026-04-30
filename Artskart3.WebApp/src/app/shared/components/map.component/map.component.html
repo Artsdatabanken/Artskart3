@@ -1,1 +1,4 @@
-<div #mapEl class="map"></div>
+<div class="map-container">
+  <div #mapEl class="map"></div>
+  <app-map-toolbar [map]="map" [mapEl]="mapEl" (iconClick)="onIconClick($event)"></app-map-toolbar>
+</div>
