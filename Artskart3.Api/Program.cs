@@ -105,7 +105,7 @@ try
     var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
     {
-        options.UseSqlServer(dbConnectionString);
+        options.UseSqlServer(dbConnectionString, x => x.UseNetTopologySuite());
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 
