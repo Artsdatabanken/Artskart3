@@ -62,6 +62,50 @@ dotnet ef migrations remove --startup-project ..\Artskart3.Api
 
 > Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
 
+### Import-databasen (Artskart3Import)
+
+Import-laget følger Clean Architecture og er delt i to prosjekter:
+- `Artskart3.Import.Core` — domeneentiteter og repository-grensesnitt (ingen EF-avhengigheter)
+- `Artskart3.Import.Infrastructure` — EF DbContext, migrasjoner og repository-implementasjoner
+
+**Opprett/oppdater lokal import-database:**
+```powershell
+dotnet ef database update `
+  --project Artskart3.Import.Infrastructure `
+  --startup-project Artskart3.Api `
+  --context ArtskartImportDbContext
+```
+
+**Legge til en ny migrasjon for import-konteksten:**
+```powershell
+dotnet ef migrations add <NavnPåMigrasjon> `
+  --project Artskart3.Import.Infrastructure `
+  --startup-project Artskart3.Api `
+  --context ArtskartImportDbContext
+```
+
+**Angre siste import-migrasjon:**
+```powershell
+dotnet ef migrations remove `
+  --project Artskart3.Import.Infrastructure `
+  --startup-project Artskart3.Api `
+  --context ArtskartImportDbContext
+```
+
+> Migrasjonsfilene ligger i `Artskart3.Import.Infrastructure/Migrations/`.
+
+### Databaseoversikt
+
+Løsningen bruker tre separate databaser:
+
+| Database | Prosjekt | Formål |
+|---|---|---|
+| `Artskart3Search` | `Artskart3.Infrastructure` | Søkeoptimalisert leseindeks |
+| `Artskart3Import` | `Artskart3.Import.Infrastructure` | Rå leverandørdata fra eksterne kilder (DwC-A, GBIF API m.m.) |
+| `Artskart3Operational` | Kommer | Validerte og prosesserte forekomstdata (kilde til sannhet) |
+
+Taxonomidata hentes fra [Nortaxa](https://nortaxa.artsdatabanken.no) via API og caches lokalt i `Artskart3Search`.
+
 ## Navngiving av branches
 Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
 
