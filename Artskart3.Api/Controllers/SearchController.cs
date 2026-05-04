@@ -1,9 +1,12 @@
-﻿
+﻿using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Artskart3.Api.Controllers
 {
@@ -11,25 +14,111 @@ namespace Artskart3.Api.Controllers
     [Route("api/[controller]")]
     public class SearchController : ControllerBase
     {
-        private readonly ISearchService _searchService;
+        private const int DefaultMaxTaxonCount = 20;
+        private const int MaxTaxonCount = 1000;
+        private const int MinResults = 1;
+        private const int MaxResults = 10000;
 
-        public SearchController(ISearchService searchService)
+        private readonly ISearchService _searchService;
+        private readonly ILogger<SearchController> _logger;
+
+        public SearchController(ISearchService searchService, ILogger<SearchController> logger)
         {
-            _searchService = searchService;
+            _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Searches for taxa by scientific or common name with fuzzy matching.
+        /// Returns up to maxCount results matching exact, starts-with, or contains patterns.
+        /// </summary>
         [HttpGet("SearchTaxons")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = 20)
+        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                return BadRequest("Name parameter is required.");
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    return BadRequest("Name parameter is required.");
 
-            if (maxCount < 1 || maxCount > 1000)
-                return BadRequest("Max count must be between 1 and 1000.");
+                if (maxCount < MinResults || maxCount > MaxTaxonCount)
+                    return BadRequest($"Max count must be between {MinResults} and {MaxTaxonCount}.");
 
-            var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
-            return Ok(taxons);
+                var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
+                return Ok(taxons);
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogWarning(ex, "Application error searching taxons with name: {TaxonName}", name);
+                return StatusCode(503, new { error = "An error occurred while searching taxa. Please try again later." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error searching taxons with name: {TaxonName}", name);
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
+
+        /// <summary>
+        /// Searches for observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
+        /// Returns aggregated observation counts grouped by location with UTM Zone 33N coordinates.
+        /// </summary>
+        [HttpGet("Locations")]
+        [Produces("application/json")]
+        public async Task<ActionResult<string>> GetLocations([FromQuery] LocationSearchFilterDto? filter = null)
+        {
+            try
+            {
+                filter = filter ?? new LocationSearchFilterDto();
+
+                if (filter.MaxResults < MinResults || filter.MaxResults > MaxResults)
+                {
+                    return BadRequest(new { error = $"MaxResults must be between {MinResults} and {MaxResults}." });
+                }
+                
+                if (filter.CoordinatePrecisionFrom > 0 && filter.CoordinatePrecisionTo > 0 && filter.CoordinatePrecisionFrom > filter.CoordinatePrecisionTo)
+                {
+                    return BadRequest(new { error = "CoordinatePrecisionFrom must be less than or equal to CoordinatePrecisionTo." });
+                }               
+
+                _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
+                var result = await _searchService.GetLocationsAsync(filter);
+                return Ok(result);
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogWarning(ex, "Application error retrieving locations");
+                return StatusCode(503, new { error = "An error occurred while retrieving locations. Please try again later." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving locations");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
+
+        /// <summary>
+        /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and centroids.
+        /// </summary>
+        [HttpGet("Areas")]
+        [Produces("application/json")]
+        public async Task<ActionResult<AreaMarkerDto[]>> GetAreas()
+        {
+            try
+            {
+                var areas = await _searchService.GetAreasByTypeIdsAsync(1, 2); // This Hard coded need to be changed when we have more area types and want to filter by them. For now we just want all areas of type 1 and 2.
+                return Ok(areas.ToArray());
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogWarning(ex, "Application error retrieving areas");
+                return StatusCode(503, new { error = "An error occurred while retrieving areas. Please try again later." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving areas: {ExceptionMessage}", ex.Message);
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
         }
     }
 }
