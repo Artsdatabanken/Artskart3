@@ -14,8 +14,6 @@ public partial class TaxonPopularName : BaseEntity
 
     public bool Preferred { get; set; }
 
-    public DateTime DateTimeUpdated { get; set; }
-
     public int? TaxonId { get; set; }
 
     public virtual Taxon? Taxon { get; set; }
