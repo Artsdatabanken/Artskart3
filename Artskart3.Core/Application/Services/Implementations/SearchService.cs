@@ -26,9 +26,9 @@ namespace Artskart3.Core.Application.Services.Implementations
                 var locations = _searchRepository.GetLocationsAsync(filter);
                 return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg);
             }
-            catch (ApplicationException)
+            catch (ApplicationException ex)
             {
-                throw;
+                throw new ApplicationException("An error occurred while processing your location search request.", ex);
             }
             catch (Exception ex)
             {

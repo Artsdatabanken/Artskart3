@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
+using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
-using Microsoft.SqlServer.Types;
 
 namespace Artskart3.Core.Domain.Entities;
 
@@ -31,11 +31,7 @@ public partial class Area : BaseEntity
 
     public bool IsCurrent { get; set; }
 
-    [NotMapped]
-    public SqlGeometry? WktPolygon { get; set; }
-
-    [NotMapped]
-    public byte[]? Centroid { get; set; }
+    public Geometry? WktPolygon { get; set; }
 
     public virtual AreaType AreaType { get; set; } = null!;
 

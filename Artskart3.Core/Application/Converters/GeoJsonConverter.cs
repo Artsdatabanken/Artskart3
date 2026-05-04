@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.SqlServer.Types;
 using Artskart3.Core.Domain.BusinessModels;
 using GeoJSON.Net.Feature;
 using GeoJSON.Net.CoordinateReferenceSystem;

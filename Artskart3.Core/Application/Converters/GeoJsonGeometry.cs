@@ -1,142 +1,124 @@
 ﻿using GeoJSON.Net.Geometry;
-using Microsoft.SqlServer.Types;
-using GeometryCollection = GeoJSON.Net.Geometry.GeometryCollection;
-using LineString = GeoJSON.Net.Geometry.LineString;
-using MultiLineString = GeoJSON.Net.Geometry.MultiLineString;
-using MultiPoint = GeoJSON.Net.Geometry.MultiPoint;
-using MultiPolygon = GeoJSON.Net.Geometry.MultiPolygon;
-using Point = GeoJSON.Net.Geometry.Point;
-using Polygon = GeoJSON.Net.Geometry.Polygon;
-using Position = GeoJSON.Net.Geometry.Position;
+using NtsGeometry = NetTopologySuite.Geometries.Geometry;
+using NtsPoint = NetTopologySuite.Geometries.Point;
+using NtsMultiPoint = NetTopologySuite.Geometries.MultiPoint;
+using NtsLineString = NetTopologySuite.Geometries.LineString;
+using NtsMultiLineString = NetTopologySuite.Geometries.MultiLineString;
+using NtsPolygon = NetTopologySuite.Geometries.Polygon;
+using NtsMultiPolygon = NetTopologySuite.Geometries.MultiPolygon;
+using NtsGeometryCollection = NetTopologySuite.Geometries.GeometryCollection;
+using GeoJsonPoint = GeoJSON.Net.Geometry.Point;
+using GeoJsonMultiPoint = GeoJSON.Net.Geometry.MultiPoint;
+using GeoJsonLineString = GeoJSON.Net.Geometry.LineString;
+using GeoJsonMultiLineString = GeoJSON.Net.Geometry.MultiLineString;
+using GeoJsonPolygon = GeoJSON.Net.Geometry.Polygon;
+using GeoJsonMultiPolygon = GeoJSON.Net.Geometry.MultiPolygon;
+using GeoJsonGeometryCollection = GeoJSON.Net.Geometry.GeometryCollection;
+using GeoJsonPosition = GeoJSON.Net.Geometry.Position;
 
 namespace Artskart3.Core.Application.Converters
 {
     public static class GeoJsonGeometry
     {
-        private const string GEOMETRYCOLLECTION = "GeometryCollection";
-        private const string LINESTRING = "LineString";
-        private const string MULTILINESTRING = "MultiLineString";
-        private const string MULTIPOINT = "MultiPoint";
-        private const string MULTIPOLYGON = "MultiPolygon";
-        private const string POINT = "Point";
-        private const string POLYGON = "Polygon";
-
-        public static IGeometryObject FromSqlGeometry(SqlGeometry geometry)
+        public static IGeometryObject FromNtsGeometry(NtsGeometry geometry)
         {
-            IGeometryObject geometryObject;
+            if (geometry == null)
+                throw new ArgumentNullException(nameof(geometry));
 
-            switch (geometry.STGeometryType().Value)
+            return geometry.GeometryType switch
             {
-                case GEOMETRYCOLLECTION:
-                    geometryObject = FromSqlGeometryCollection(geometry);
-                    break;
-                case LINESTRING:
-                    geometryObject = FromSqlLineString(geometry);
-                    break;
-                case MULTILINESTRING:
-                    geometryObject = FromSqlMultiLineString(geometry);
-                    break;
-                case MULTIPOINT:
-                    geometryObject = FromSqlMultPoint(geometry);
-                    break;
-                case MULTIPOLYGON:
-                    geometryObject = FromSqlMultiPolygon(geometry);
-                    break;
-                case POINT:
-                    geometryObject = FromSqlPoint(geometry);
-                    break;
-                case POLYGON:
-                    geometryObject = FromSqlPolygon(geometry);
-                    break;
-                default:
-                    throw new Exception("Converting geometry failed. Unknown geometry type.");
+                "Point" => FromNtsPoint((NtsPoint)geometry),
+                "MultiPoint" => FromNtsMultiPoint((NtsMultiPoint)geometry),
+                "LineString" => FromNtsLineString((NtsLineString)geometry),
+                "MultiLineString" => FromNtsMultiLineString((NtsMultiLineString)geometry),
+                "Polygon" => FromNtsPolygon((NtsPolygon)geometry),
+                "MultiPolygon" => FromNtsMultiPolygon((NtsMultiPolygon)geometry),
+                "GeometryCollection" => FromNtsGeometryCollection((NtsGeometryCollection)geometry),
+                _ => throw new NotSupportedException($"Geometry type '{geometry.GeometryType}' is not supported")
+            };
+        }
+
+        private static GeoJsonPoint FromNtsPoint(NtsPoint point)
+        {
+            return new GeoJsonPoint(GetPosition(point));
+        }
+
+        private static GeoJsonMultiPoint FromNtsMultiPoint(NtsMultiPoint multiPoint)
+        {
+            var points = new List<GeoJsonPoint>();
+            for (int i = 0; i < multiPoint.NumGeometries; i++)
+            {
+                points.Add(FromNtsPoint((NtsPoint)multiPoint.GetGeometryN(i)));
+            }
+            return new GeoJsonMultiPoint(points);
+        }
+
+        private static GeoJsonLineString FromNtsLineString(NtsLineString lineString)
+        {
+            var positions = new List<GeoJsonPosition>();
+            for (int i = 0; i < lineString.NumPoints; i++)
+            {
+                positions.Add(GetPosition(lineString.GetPointN(i)));
+            }
+            return new GeoJsonLineString(positions);
+        }
+
+        private static GeoJsonMultiLineString FromNtsMultiLineString(NtsMultiLineString multiLineString)
+        {
+            var lineStrings = new List<GeoJsonLineString>();
+            for (int i = 0; i < multiLineString.NumGeometries; i++)
+            {
+                lineStrings.Add(FromNtsLineString((NtsLineString)multiLineString.GetGeometryN(i)));
+            }
+            return new GeoJsonMultiLineString(lineStrings);
+        }
+
+        private static GeoJsonPolygon FromNtsPolygon(NtsPolygon polygon)
+        {
+            var lineStrings = new List<GeoJsonLineString>();
+            
+            var exteriorRing = polygon.ExteriorRing;
+            if (exteriorRing != null)
+            {
+                lineStrings.Add(FromNtsLineString(exteriorRing));
             }
 
-            return geometryObject;
+            for (int i = 0; i < polygon.NumInteriorRings; i++)
+            {
+                lineStrings.Add(FromNtsLineString(polygon.GetInteriorRingN(i)));
+            }
+
+            return new GeoJsonPolygon(lineStrings);
         }
 
-        private static Point FromSqlPoint(SqlGeometry point)
+        private static GeoJsonMultiPolygon FromNtsMultiPolygon(NtsMultiPolygon multiPolygon)
         {
-            return new Point(GetPosition(point));
+            var polygons = new List<GeoJsonPolygon>();
+            for (int i = 0; i < multiPolygon.NumGeometries; i++)
+            {
+                polygons.Add(FromNtsPolygon((NtsPolygon)multiPolygon.GetGeometryN(i)));
+            }
+            return new GeoJsonMultiPolygon(polygons);
         }
 
-        private static MultiPoint FromSqlMultPoint(SqlGeometry multiPoint)
+        private static GeoJsonGeometryCollection FromNtsGeometryCollection(NtsGeometryCollection geometryCollection)
         {
-            List<Point> points = new List<Point>();
-
-            for (int i = 1; i <= multiPoint.STNumGeometries(); ++i)
-                points.Add(FromSqlPoint(multiPoint.STGeometryN(i)));
-
-            return new MultiPoint(points);
+            var geometries = new List<IGeometryObject>();
+            for (int i = 0; i < geometryCollection.NumGeometries; i++)
+            {
+                geometries.Add(FromNtsGeometry(geometryCollection.GetGeometryN(i)));
+            }
+            return new GeoJsonGeometryCollection(geometries);
         }
 
-        private static LineString FromSqlLineString(SqlGeometry lineString)
+        private static GeoJsonPosition GetPosition(NtsPoint point)
         {
-            List<Position> points = new List<Position>();
-
-            for (int i = 1; i <= lineString.STNumPoints(); ++i)
-                points.Add(GetPosition(lineString.STPointN(i)));
-
-            return new LineString(points);
-        }
-
-        private static MultiLineString FromSqlMultiLineString(SqlGeometry multiLineString)
-        {
-            List<LineString> lineStrings = new List<LineString>();
-
-            for (int i = 1; i <= multiLineString.STNumGeometries(); ++i)
-                lineStrings.Add(FromSqlLineString(multiLineString.STGeometryN(i)));
-
-            return new MultiLineString(lineStrings);
-        }
-
-        private static Polygon FromSqlPolygon(SqlGeometry polygon)
-        {
-            var lineStrings = new List<LineString>();
-            var exteriorRing = polygon.STExteriorRing();
-
-            if (!exteriorRing.IsNull)
-                lineStrings.Add(FromSqlLineString(exteriorRing));
-
-            for (int i = 1; i <= polygon.STNumInteriorRing(); ++i)
-                lineStrings.Add(FromSqlLineString(polygon.STInteriorRingN(i)));
-
-            return new Polygon(lineStrings);
-        }
-
-        private static MultiPolygon FromSqlMultiPolygon(SqlGeometry multiPolygon)
-        {
-            List<Polygon> polygons = new List<Polygon>();
-
-            for (int i = 1; i <= multiPolygon.STNumGeometries(); ++i)
-                polygons.Add(FromSqlPolygon(multiPolygon.STGeometryN(i)));
-
-            return new MultiPolygon(polygons);
-        }
-
-        private static GeometryCollection FromSqlGeometryCollection(SqlGeometry geometryCollection)
-        {
-            List<IGeometryObject> geometries = new List<IGeometryObject>();
-
-            for (int i = 1; i <= geometryCollection.STNumGeometries(); ++i)
-                geometries.Add(FromSqlGeometry(geometryCollection.STGeometryN(i)));
-
-            return new GeometryCollection(geometries);
-        }
-
-        private static Position GetPosition(SqlGeometry point)
-        {
-            if (point.HasZ)
-                return new Position(
-                    point.STX.Value,
-                    point.STY.Value,
-                    point.Z.Value
-                );
-
-            return new Position(
-                point.STX.Value,
-                point.STY.Value
-            );
+            var coord = point.Coordinate;
+            if (!double.IsNaN(coord.Z))
+            {
+                return new GeoJsonPosition(coord.X, coord.Y, coord.Z);
+            }
+            return new GeoJsonPosition(coord.X, coord.Y);
         }
     }
 }

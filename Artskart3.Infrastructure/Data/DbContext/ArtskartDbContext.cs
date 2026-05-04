@@ -136,6 +136,7 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.TimeStamp)
                 .HasDefaultValue(new DateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified))
                 .HasColumnType("datetime");
+            entity.Property(e => e.WktPolygon).HasColumnType("geometry");
 
             entity.HasOne(d => d.AreaType).WithMany(p => p.Areas)
                 .HasForeignKey(d => d.AreaTypeId)
