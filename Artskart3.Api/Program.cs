@@ -6,6 +6,7 @@ using Artskart3.Infrastructure.DependencyInjection;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Data;
 using Duende.Bff;
+using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,25 +27,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
-
-builder.Services.AddBff()
-    .ConfigureOpenIdConnect(options =>
-    {
-        options.Authority = "https://demo.duendesoftware.com";
-        options.ClientId = "interactive.confidential";
-        options.ClientSecret = "secret";
-        options.ResponseType = "code";
-        options.ResponseMode = "query";
-        
-        options.GetClaimsFromUserInfoEndpoint = true;
-        options.SaveTokens = true;
-        options.MapInboundClaims = false;
-        
-        options.Scope.Clear();
-        options.Scope.Add("openid");
-        options.Scope.Add("profile");
-        options.Scope.Add("offline_access");
-    });
 
 if (!builder.Environment.IsDevelopment())
 {
@@ -73,6 +55,34 @@ try
     });
 
     var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
+    builder.Services.AddBff()
+        .ConfigureOpenIdConnect(options =>
+        {
+            options.Authority = "https://demo.duendesoftware.com";
+            options.ClientId = "interactive.confidential";
+            options.ClientSecret = "secret";
+            options.ResponseType = "code";
+            options.ResponseMode = "query";
+        
+            options.GetClaimsFromUserInfoEndpoint = true;
+            options.SaveTokens = true;
+            options.MapInboundClaims = false;
+        
+            options.Scope.Clear();
+            options.Scope.Add("openid");
+            options.Scope.Add("profile");
+            options.Scope.Add("offline_access");
+        }).ConfigureCookies(options =>
+        {
+            options.Cookie.SameSite = SameSiteMode.Lax;
+        })
+        .AddServerSideSessions()
+        .AddEntityFrameworkServerSideSessions(options =>
+        {
+            options.UseSqlServer(dbConnectionString);
+        });
+
+    builder.Services.AddAuthorization();
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
         options.UseSqlServer(dbConnectionString));
 
@@ -118,9 +128,12 @@ try
     
     app.MapHealthChecks("/hc", healthCheckOptions);
     logger.LogInformation("Health check endpoint mapped to '/hc'");
-
+    
+    app.UseBff();
     app.UseAuthorization();
-    app.MapControllers();
+    app.MapControllers()
+        .RequireAuthorization()
+        .AsBffApiEndpoint();
 
     app.MapFallbackToFile("/index.html");
 
