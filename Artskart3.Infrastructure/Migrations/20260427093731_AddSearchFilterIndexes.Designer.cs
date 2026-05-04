@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427093731_AddSearchFilterIndexes")]
+    partial class AddSearchFilterIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1204,23 +1207,13 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "ObservationQualityTypeId" }, "IX_ObservationQualityTypeId");
 
-                    b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
-
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
                     b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
 
                     b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
 
-                    b.HasIndex(new[] { "LocationId" }, "IX_Observation_LocationId");
-
                     b.HasIndex(new[] { "LocationId", "HasErrors", "HasAnnotations" }, "IX_Observation_LocationId_HasErrors_HasAnnotations");
-
-                    b.HasIndex(new[] { "MonthCollected" }, "IX_Observation_MonthCollected");
-
-                    b.HasIndex(new[] { "TaxonGroupId" }, "IX_Observation_TaxonGroupId");
-
-                    b.HasIndex(new[] { "YearCollected" }, "IX_Observation_YearCollected");
 
                     b.HasIndex(new[] { "YearCollected", "LocationId" }, "IX_Observation_YearCollected_LocationId");
 
