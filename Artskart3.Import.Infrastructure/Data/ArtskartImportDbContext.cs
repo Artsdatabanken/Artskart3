@@ -16,10 +16,12 @@ public class ArtskartImportDbContext : DbContext
     }
 
     public virtual DbSet<DataSource> DataSources { get; set; }
+    public virtual DbSet<GbifDatasetDiscovery> GbifDatasetDiscoveries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new DataSourceConfiguration());
+        modelBuilder.ApplyConfiguration(new GbifDatasetDiscoveryConfiguration());
 
         base.OnModelCreating(modelBuilder);
     }

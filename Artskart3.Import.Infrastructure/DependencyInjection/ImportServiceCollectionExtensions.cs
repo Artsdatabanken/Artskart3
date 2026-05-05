@@ -16,6 +16,7 @@ public static class ImportServiceCollectionExtensions
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IDataSourceRepository, DataSourceRepository>();
+        services.AddScoped<IGbifDatasetDiscoveryRepository, GbifDatasetDiscoveryRepository>();
 
         return services;
     }
