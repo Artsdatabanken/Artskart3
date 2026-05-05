@@ -6,7 +6,6 @@ using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Data;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
-using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -102,9 +101,9 @@ try
     builder.Services.AddBff()
         .ConfigureOpenIdConnect(options =>
         {
-            options.Authority = "https://demo.duendesoftware.com";
-            options.ClientId = "interactive.confidential";
-            options.ClientSecret = "secret";
+            options.Authority = builder.Configuration["Auth:Authority"];
+            options.ClientId = builder.Configuration["Auth:ClientId"];
+            options.ClientSecret = builder.Configuration["Auth:ClientSecret"];
             options.ResponseType = "code";
             options.ResponseMode = "query";
         
