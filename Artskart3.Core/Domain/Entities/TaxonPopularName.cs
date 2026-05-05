@@ -12,9 +12,7 @@ public partial class TaxonPopularName : BaseEntity
 
     public string Name { get; set; } = null!;
 
-    public bool Preffered { get; set; }
-
-    public DateTime DateTimeUpdated { get; set; }
+    public bool Preferred { get; set; }
 
     public int? TaxonId { get; set; }
 
