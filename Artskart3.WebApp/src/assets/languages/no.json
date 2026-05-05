@@ -1,0 +1,22 @@
+{
+  "header": {
+    "projectName": "Artskart",
+    "language": "Språk",
+    "menu": "Meny",
+    "close": "Lukk",
+    "darkMode": "Veksle mørk modus",
+    "login": "Logg inn"
+  },
+  "navigation": {
+    "menuItem1": "Menypunkt 1",
+    "menuItem2": "Menypunkt 2",
+    "menuItem3": "Menypunkt 3"
+  },
+  "common": {
+    "welcome": "Velkommen",
+    "goodbye": "Ha det",
+    "loading": "Laster...",
+    "error": "Feil",
+    "success": "Suksess"
+  }
+}

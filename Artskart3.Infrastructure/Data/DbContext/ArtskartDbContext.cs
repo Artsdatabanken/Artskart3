@@ -1,7 +1,6 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Artskart3.Core.Domain.Entities;
-
+using Artskart3.Infrastructure.Data.EntityConfigurations;
 using Artskart3.Infrastructure.Persistence.Repositories;
 namespace Artskart3.Infrastructure.Data
 {
@@ -137,6 +136,7 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.TimeStamp)
                 .HasDefaultValue(new DateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified))
                 .HasColumnType("datetime");
+            entity.Property(e => e.WktPolygon).HasColumnType("geometry");
 
             entity.HasOne(d => d.AreaType).WithMany(p => p.Areas)
                 .HasForeignKey(d => d.AreaTypeId)
@@ -496,7 +496,7 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.ObservationQualityTypeId, "IX_ObservationQualityTypeId");
 
-            entity.HasIndex(e => e.OccurenceId, "IX_OccurenceId");
+            entity.HasIndex(e => e.OccurrenceId, "IX_OccurenceId");
 
             entity.HasIndex(e => e.ProxyId, "IX_ProxyId");
 
@@ -514,13 +514,33 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.TaxonGroupId, "TaxonGroupId");
 
+            entity.HasIndex(e => e.InstitutionId, "IX_Observation_InstitutionId");
+
+            entity.HasIndex(e => e.InstitutionCode, "IX_Observation_InstitutionCode");
+
+            entity.HasIndex(e => e.DateLastModified, "IX_Observation_DateLastModified");
+
+            entity.HasIndex(e => new { e.LocationId, e.HasErrors, e.HasAnnotations }, "IX_Observation_LocationId_HasErrors_HasAnnotations");
+
+            entity.HasIndex(e => new { e.YearCollected, e.LocationId }, "IX_Observation_YearCollected_LocationId");
+
+            entity.HasIndex(e => e.LocationId, "IX_Observation_LocationId");
+
+            entity.HasIndex(e => e.TaxonGroupId, "IX_Observation_TaxonGroupId");
+
+            entity.HasIndex(e => e.CategoryId, "IX_Observation_CategoryId");
+
+            entity.HasIndex(e => e.YearCollected, "IX_Observation_YearCollected");
+
+            entity.HasIndex(e => e.MonthCollected, "IX_Observation_MonthCollected");
+
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
             entity.Property(e => e.CollectionCode).HasMaxLength(100);
-            entity.Property(e => e.DateTimeRecordProsessed).HasColumnType("datetime");
+            entity.Property(e => e.DateTimeRecordProcessed).HasColumnType("datetime").HasColumnName("DateTimeRecordProsessed");
             entity.Property(e => e.InstitutionCode).HasMaxLength(100);
             entity.Property(e => e.InstitutionId).HasMaxLength(25);
             entity.Property(e => e.MonthCollected).HasComputedColumnSql("(datepart(month,[DateTimeCollected]))", false);
-            entity.Property(e => e.OccurenceId).HasMaxLength(255);
+            entity.Property(e => e.OccurrenceId).HasMaxLength(255).HasColumnName("OccurenceId");
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
 
@@ -897,7 +917,7 @@ namespace Artskart3.Infrastructure.Data
 
             entity.ToTable("Taxon");
 
-            entity.HasIndex(e => e.PrefferedPopularname, "IX_PrefferedPopularname");
+            entity.HasIndex(e => e.PreferredPopularName, "IX_PrefferedPopularname");
 
             entity.HasIndex(e => e.TaxonGroupId, "IX_TaxonGroupId");
 
@@ -911,11 +931,12 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.ParentTaxonId, "IxParentTaxonId_Id_ObsCount");
 
-            entity.HasIndex(e => e.PrefferedPopularname, "NonClusteredIndex-20190129-153041");
+            entity.HasIndex(e => e.PreferredPopularName, "NonClusteredIndex-20190129-153041");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
-            entity.Property(e => e.PrefferedPopularname).HasMaxLength(100);
+            entity.Property(e => e.ExternalTaxonId).HasColumnName("TaxonId");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
+            entity.Property(e => e.PreferredPopularName).HasMaxLength(100).HasColumnName("PrefferedPopularname");
             entity.Property(e => e.ScientificNameIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.TaxonIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.ValidScientificName).HasMaxLength(100);
@@ -938,6 +959,7 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Name).HasMaxLength(75);
+            entity.Property(e => e.IsDeleted).HasColumnName("Deleted");
         });
 
         modelBuilder.Entity<TaxonName>(entity =>
@@ -951,7 +973,7 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.ScientificNameAuthorship).HasMaxLength(200);
             entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
@@ -969,9 +991,10 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Language).HasMaxLength(10);
             entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Preferred).HasColumnName("Preffered");
             entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
 
             entity.HasOne(d => d.Taxon).WithMany(p => p.TaxonPopularNames)
@@ -988,7 +1011,7 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Context).HasMaxLength(50);
-            entity.Property(e => e.DateTimeUpdated).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Prefix).HasMaxLength(50);
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.Tag).HasMaxLength(50);
@@ -1019,9 +1042,13 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
         });
-        OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfiguration(new ObservationSearchIndexConfiguration());
+    }
     }
 }

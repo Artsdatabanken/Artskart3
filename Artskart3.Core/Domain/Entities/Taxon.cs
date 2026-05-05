@@ -6,11 +6,9 @@ namespace Artskart3.Core.Domain.Entities;
 
 public partial class Taxon : BaseEntity
 {
-    public DateTime DateTimeUpdated { get; set; }
-
     public int TaxonRankId { get; set; }
 
-    public int TaxonId { get; set; }
+    public int ExternalTaxonId { get; set; }
 
     public int ParentTaxonId { get; set; }
 
@@ -20,7 +18,7 @@ public partial class Taxon : BaseEntity
 
     public string? ValidScientificNameAuthorship { get; set; }
 
-    public string? PrefferedPopularname { get; set; }
+    public string? PreferredPopularName { get; set; }
 
     public int TaxonGroupId { get; set; }
 

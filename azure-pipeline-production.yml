@@ -2,7 +2,11 @@ trigger:
   branches:
     include:
       - main
-
+pr: 
+  branches:
+    include:
+      - main
+      
 pool:
   vmImage: 'ubuntu-latest'
 
@@ -93,5 +97,6 @@ steps:
     zipAfterPublish: true
 
 - publish: $(Build.ArtifactStagingDirectory)/backend
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   displayName: "Publish backend artifact"
   artifact: backend

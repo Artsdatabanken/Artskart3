@@ -237,8 +237,10 @@
   flex-direction: column;
   max-height: calc(100vh - 80px);
   overflow-y: auto;
+  overflow-x: visible;
   z-index: 1000;
   animation: slideDown 0.3s ease;
+  clip-path: none;
 }
 
 @keyframes slideDown {
@@ -299,6 +301,9 @@
   padding: var(--spacing-md) 85px;
   margin: 0 var(--spacing-md) var(--spacing-md) -60px;
   justify-content: flex-start;
+  position: relative;
+  overflow: visible;
+  z-index: 1002;
 }
 
 .mobile-menu-header .mobile-menu-btn {
@@ -344,6 +349,13 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  overflow: visible;
+}
+
+/* Language control wrapper for dropdown positioning */
+.language-control {
+  overflow: visible;
+  z-index: 1002;
 }
 
 /* ============================================================================
@@ -371,6 +383,10 @@
 
   .nav-menu.open .nav-item:hover {
     background: #F5F0E8;
+  }
+
+  .header-right .language-control {
+    display: none !important;
   }
 
   .language-btn {
@@ -422,4 +438,6 @@
     height: 18px;
   }
 }
+
+
 

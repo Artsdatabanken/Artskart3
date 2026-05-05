@@ -12,8 +12,6 @@ public partial class TaxonName : BaseEntity
 
     public string? ScientificNameAuthorship { get; set; }
 
-    public DateTime DateTimeUpdated { get; set; }
-
     public int? TaxonId { get; set; }
 
     public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();

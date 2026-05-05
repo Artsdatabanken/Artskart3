@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using Artskart3.Core.Domain.Entities.Base;
 
 namespace Artskart3.Core.Domain.Entities;
 
-public partial class Observation
+public partial class Observation : BaseEntity
 {
-    public int Id { get; set; }
-
     public string? ProxyId { get; set; }
 
     public DateTime DateLastModified { get; set; }
@@ -15,7 +14,7 @@ public partial class Observation
 
     public DateTime DateTimeRecordImported { get; set; }
 
-    public DateTime DateTimeRecordProsessed { get; set; }
+    public DateTime DateTimeRecordProcessed { get; set; }
 
     public int NodeId { get; set; }
 
@@ -51,7 +50,7 @@ public partial class Observation
 
     public int? LocationId { get; set; }
 
-    public string? OccurenceId { get; set; }
+    public string? OccurrenceId { get; set; }
 
     public int HashCode { get; set; }
 
