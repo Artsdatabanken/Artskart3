@@ -7,7 +7,6 @@ pr:
     include:
       - main
       
-
 pool:
   vmImage: 'ubuntu-latest'
 

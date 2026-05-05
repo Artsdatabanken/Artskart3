@@ -11,6 +11,8 @@ import { LayoutsModule } from './layouts/layouts.module';
 import { MapComponent } from './shared/components/map.component/map.component';
 import { LanguageInterceptor } from './shared/interceptors/language.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
+import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
+import { LoggingService } from './shared/logging.service';
 
 class CustomTranslateLoader implements TranslateLoader {
   constructor(private http: HttpClient) {}
@@ -27,8 +29,6 @@ export function HttpLoaderFactory(http: HttpClient): TranslateLoader {
 export function initializeLanguageFactory(languageService: LanguageService) {
   return () => languageService.initialize();
 }
-import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
-import { LoggingService } from './shared/logging.service';
 
 @NgModule({
   declarations: [
