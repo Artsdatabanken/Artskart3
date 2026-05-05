@@ -32,4 +32,8 @@
     <ProjectReference Include="..\Artskart3.Infrastructure\Artskart3.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Middleware\" />
+  </ItemGroup>
+
 </Project>
