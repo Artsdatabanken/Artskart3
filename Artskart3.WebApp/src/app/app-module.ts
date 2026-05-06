@@ -32,7 +32,6 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   return () => languageService.initialize();
 }
 
-
 @NgModule({
   declarations: [
     App,
