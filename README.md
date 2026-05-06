@@ -34,7 +34,7 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 * Swagger UI er tilgjengelig på `https://localhost:5088/swagger`
 * Helsesjekk for databasetilkobling og andre avhengigheter: `https://localhost:5088/hc`
 
-> **NB:** Første gang du kjører API-et på HTTPS må du klarere det lokale utviklersertifikatet:
+> **NB:** Første gang du kjører API-et på HTTPS må du sette opp trust mot det lokale utviklersertifikatet:
 > ```powershell
 > dotnet dev-certs https --trust
 > ```
