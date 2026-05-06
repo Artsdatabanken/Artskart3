@@ -30,7 +30,7 @@ public static class HealthCheckExtensions
             logger.LogWarning("Database connection string NOT configured");
         }
 
-        varkeyVaultUrl = configuration["KeyVault:Url"];
+        var keyVaultUrl = configuration["KeyVault:Url"];
         if (!string.IsNullOrEmpty(keyVaultUrl))
         {
             logger.LogInformation("Key Vault configured at: {KeyVaultUrl}", keyVaultUrl);
