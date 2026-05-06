@@ -84,7 +84,7 @@ public static class HealthCheckExtensions
         }, logger);
     }
 
-    privatestatic async Task<HealthCheckResult> CheckKeyVaultHealthAsync(string keyVaultUrl, ILogger logger)
+    private static async Task<HealthCheckResult> CheckKeyVaultHealthAsync(string keyVaultUrl, ILogger logger)
     {
         return await ExecuteHealthCheckAsync("Key Vault", async (ct) =>
         {

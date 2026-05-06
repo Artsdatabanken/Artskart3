@@ -8,5 +8,5 @@
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
   </Folder>
-  <Project Path="Artskart3.Api/Artskart3.Api.csproj" />
+  <Project Path="Artskart3.Api/Artskart3.Api.csproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
 </Solution>
