@@ -30,33 +30,7 @@ public static class HealthCheckExtensions
             logger.LogWarning("Database connection string NOT configured");
         }
 
-        var redisConnection = configuration.GetConnectionString("Redis");
-        if (!string.IsNullOrEmpty(redisConnection))
-        {
-            logger.LogInformation("Redis cache connection configured");
-            healthChecksBuilder.AddAsyncCheck("Redis Cache",
-                async () => await CheckRedisHealthAsync(redisConnection, logger),
-                tags: new[] { "dependencies", "cache" });
-        }
-        else
-        {
-            logger.LogDebug("Redis cache NOT configured (optional)");
-        }
-
-        var azureServiceBusConnection = configuration.GetConnectionString("AzureServiceBus");
-        if (!string.IsNullOrEmpty(azureServiceBusConnection))
-        {
-            logger.LogInformation("Azure Service Bus connection configured");
-            healthChecksBuilder.AddAsyncCheck("Azure Service Bus",
-                async () => await CheckAzureServiceBusHealthAsync(azureServiceBusConnection, logger),
-                tags: new[] { "dependencies", "messaging" });
-        }
-        else
-        {
-            logger.LogDebug("Azure Service Bus NOT configured (optional)");
-        }
-
-        var keyVaultUrl = configuration["KeyVault:Url"];
+        varkeyVaultUrl = configuration["KeyVault:Url"];
         if (!string.IsNullOrEmpty(keyVaultUrl))
         {
             logger.LogInformation("Key Vault configured at: {KeyVaultUrl}", keyVaultUrl);
@@ -110,27 +84,7 @@ public static class HealthCheckExtensions
         }, logger);
     }
 
-    private static async Task<HealthCheckResult> CheckRedisHealthAsync(string connectionString, ILogger logger)
-    {
-        return await ExecuteHealthCheckAsync("Redis Cache", async (ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new InvalidOperationException("Redis connection string is empty");
-          await Task.CompletedTask;
-        }, logger);
-    }
-
-    private static async Task<HealthCheckResult> CheckAzureServiceBusHealthAsync(string connectionString, ILogger logger)
-    {
-        return await ExecuteHealthCheckAsync("Azure Service Bus", async (ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new InvalidOperationException("Azure Service Bus connection string is empty");
-            await Task.CompletedTask;
-        }, logger);
-    }
-
-    private static async Task<HealthCheckResult> CheckKeyVaultHealthAsync(string keyVaultUrl, ILogger logger)
+    privatestatic async Task<HealthCheckResult> CheckKeyVaultHealthAsync(string keyVaultUrl, ILogger logger)
     {
         return await ExecuteHealthCheckAsync("Key Vault", async (ct) =>
         {
