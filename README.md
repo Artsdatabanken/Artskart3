@@ -29,10 +29,41 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 * Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
 
 ### Backend (API)
-* Åpne løsningsfilen `Artskart3.sln` i Visual Studio og kjør prosjektet
-* API-et starter på `http://localhost:5088`
-* **NB:** Swagger UI er tilgjengelig på `http://localhost:5088/swagger` — bruk denne URL-en direkte og **ikke** SPA-proxy-porten (f.eks. `49219`), da SPA-proxyen vil omdirigere alle ukjente ruter til `index.html`
-* Helsesjekk for databasetilkobling og andre avhengigheter: `http://localhost:5088/hc`
+* Åpne løsningsfilen `Artskart3.slnx` i Visual Studio/Rider og kjør prosjektet med profilen `Artskart3.Api`
+* API-et starter på `https://localhost:5088`
+* Swagger UI er tilgjengelig på `https://localhost:5088/swagger`
+* Helsesjekk for databasetilkobling og andre avhengigheter: `https://localhost:5088/hc`
+
+> **NB:** Første gang du kjører API-et på HTTPS må du sette opp trust mot det lokale utviklersertifikatet:
+> ```powershell
+> dotnet dev-certs https --trust
+> ```
+
+#### Database
+Du vil trenge en sql server database for å kjøre apiet. En .bacpac fil ligger på Teams (Artskart->General->Shared->NyeArtskart->Artskart3Index.bacpak) hvis du ønsker å starte med en database med data. Ønsker du å starte med en tom database, se Databasemigrasjoner lenger ned.
+
+#### Sett opp User Secrets
+##### Visual studio/rider
+VS: Høyreklikk prosjektet og velg "Manage User Secrets"
+Rider: Høyreklikk prosjektet og velg Tools->.Net user Secrets
+
+Filen skal se noe slik ut, endre connectionstring ved behov.
+```
+{
+  "ConnectionStrings:ArtskartDb": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True",
+  "ClientSafeList": "127.0.0.1;::1"
+}
+```
+
+##### Command line
+```powershell
+cd Artskart3.Api
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:ArtskartDb" "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
+dotnet user-secrets set "ClientSafeList" "127.0.0.1;::1"
+```
+
+Valgfritt — legg til Application Insights ConnectionString hvis du skal teste det lokalt
 
 ### Databasemigrasjoner (EF Core Code-First)
 Prosjektet bruker EF Core code-first migrasjoner. Alle migrasjoner kjøres fra `Artskart3.Infrastructure`-mappen.
