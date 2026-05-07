@@ -1,8 +1,7 @@
-
 using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
-using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Core.Application.Persistence;
 using Artskart3.Infrastructure.Data;
 using Microsoft.AspNetCore.HttpOverrides;
 
