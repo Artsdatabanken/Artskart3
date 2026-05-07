@@ -7,6 +7,7 @@
     <SpaRoot>..\artskart3.WebApp</SpaRoot>
     <SpaProxyLaunchCommand>npm start</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:49219</SpaProxyServerUrl>
+    <UserSecretsId>0140b8d0-7753-460b-b90f-0677ffac2aac</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
