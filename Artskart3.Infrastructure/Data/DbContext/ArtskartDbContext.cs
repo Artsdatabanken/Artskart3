@@ -2,6 +2,7 @@
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data.EntityConfigurations;
 using Artskart3.Infrastructure.Persistence.Repositories;
+
 namespace Artskart3.Infrastructure.Data
 {
     public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
