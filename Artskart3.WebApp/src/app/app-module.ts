@@ -1,4 +1,4 @@
-import { provideHttpClient, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
@@ -9,7 +9,8 @@ import { App } from './app';
 import { SharedModule } from './shared/shared.module';
 import { LayoutsModule } from './layouts/layouts.module';
 import { MapComponent } from './shared/components/map.component/map.component';
-import { LanguageInterceptor } from './shared/interceptors/language.interceptor';
+import { languageInterceptor } from './shared/interceptors/language.interceptor';
+import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
@@ -51,16 +52,11 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([languageInterceptor, csrfInterceptor])),
     {
       provide: APP_INITIALIZER,
       useFactory: initializeLanguageFactory,
       deps: [LanguageService],
-      multi: true
-    },
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: LanguageInterceptor,
       multi: true
     },
     LoggingService,

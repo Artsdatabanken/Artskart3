@@ -106,7 +106,7 @@ try
         logger.LogWarning("ApplicationInsights connection string not configured - telemetry will not be collected");
     }
 
-    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
+    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");
     builder.Services.AddBff()
         .ConfigureOpenIdConnect(options =>
         {
@@ -115,15 +115,16 @@ try
             options.ClientSecret = builder.Configuration["Auth:ClientSecret"];
             options.ResponseType = "code";
             options.ResponseMode = "query";
-        
+
             options.GetClaimsFromUserInfoEndpoint = true;
             options.SaveTokens = true;
             options.MapInboundClaims = false;
-        
+
             options.Scope.Clear();
             options.Scope.Add("openid");
+            options.Scope.Add("email");
             options.Scope.Add("profile");
-            options.Scope.Add("offline_access");
+            options.Scope.Add("roles");
         }).ConfigureCookies(options =>
         {
             options.Cookie.SameSite = SameSiteMode.Lax;
@@ -193,7 +194,7 @@ try
     app.UseAuthentication();
 
     app.UseRouting();
-    
+
     app.UseDefaultFiles();
     app.MapStaticAssets();
 
@@ -224,6 +225,7 @@ try
     
     app.UseBff();
     app.UseAuthorization();
+    app.MapBffManagementEndpoints();
     app.MapControllers()
         .RequireAuthorization()
         .AsBffApiEndpoint();
