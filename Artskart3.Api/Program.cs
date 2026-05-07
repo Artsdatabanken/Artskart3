@@ -131,7 +131,7 @@ try
         .AddServerSideSessions()
         .AddEntityFrameworkServerSideSessions(options =>
         {
-            options.UseSqlServer(dbConnectionString);
+            options.UseSqlServer(dbConnectionString, sqlOptions => sqlOptions.MigrationsAssembly("Artskart3.Infrastructure"));
         });
 
     builder.Services.AddAuthorization();
