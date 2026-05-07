@@ -63,7 +63,7 @@ dotnet ef migrations remove --startup-project ..\Artskart3.Api
 > Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
 
 ## Navngiving av branches
-Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
+Standariserer navngiving av branches er `feature/navn-på-branch` som for eksempel: `feature/authentication` for features og `bugfix/fix-ip-blocking` hvis det er en bugfix. 
 
 ## Merging av endringer
 For å gjøre endringer i Artskart krever det at det lages en pull request som må godkjennes av en annen utvikler.
