@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
@@ -16,6 +16,7 @@ export interface MenuItem {
   selector: 'app-header',
   standalone: true,
   imports: [CommonModule, TranslateModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css']
 })
@@ -29,6 +30,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
+  isDarkMode = false;
   currentLanguage: SupportedLanguage = 'no';
   supportedLanguages: SupportedLanguage[] = [];
 
@@ -53,6 +55,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
       });
 
     this.supportedLanguages = this.languageService.getSupportedLanguages();
+
+    // Initialize dark mode from stored preference or OS setting
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      this.isDarkMode = true;
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   }
 
   ngOnDestroy(): void {
@@ -97,6 +106,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   getLanguageName(lang: SupportedLanguage): string {
     return this.languageNames[lang] || lang;
+  }
+
+  toggleDarkMode(): void {
+    this.isDarkMode = !this.isDarkMode;
+    if (this.isDarkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('theme', 'light');
+    }
   }
 }
 
