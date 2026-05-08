@@ -172,6 +172,10 @@ try
                 logger.LogInformation("Applying pending database migrations...");
                 dbContext.Database.Migrate();
                 logger.LogInformation("Database migrations applied successfully");
+                var sessionDbContext = scope.ServiceProvider.GetRequiredService<SessionDbContext>();
+                logger.LogInformation("Applying pending session database migrations...");
+                sessionDbContext.Database.Migrate();
+                logger.LogInformation("Database session migrations applied successfully");
             }
         }
         catch (Exception ex)
