@@ -1,6 +1,9 @@
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { App } from './app';
+import { LoggingService } from './shared/logging.service';
 
 describe('App', () => {
   let component: App;
@@ -10,8 +13,14 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       declarations: [App],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
-        provideHttpClientTesting()
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: LoggingService,
+          useValue: { logEvent: () => {} }
+        }
       ]
     }).compileComponents();
   });
