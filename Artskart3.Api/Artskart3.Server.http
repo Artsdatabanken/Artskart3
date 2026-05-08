@@ -1,4 +1,19 @@
-@Artskart3.Server_HostAddress = http://localhost:5088
+@Artskart3.Server_HostAddress = https://localhost:5088
 
+### Health check
+GET {{Artskart3.Server_HostAddress}}/hc
 
-###
+### Search taxons by name (default max 20 results)
+GET {{Artskart3.Server_HostAddress}}/api/Search/SearchTaxons?name=ixodes%20ricinus
+
+### Search taxons by name with custom max count
+GET {{Artskart3.Server_HostAddress}}/api/Search/SearchTaxons?name=ixodes%20ricinus&maxCount=5
+
+### Get observation locations (no filter)
+GET {{Artskart3.Server_HostAddress}}/api/Search/Locations
+
+### Get observation locations with filters
+GET {{Artskart3.Server_HostAddress}}/api/Search/Locations?TaxonGroupIds=1,2&MaxResults=500&CoordinatePrecisionFrom=0&CoordinatePrecisionTo=1000
+
+### Get all area markers (counties and municipalities)
+GET {{Artskart3.Server_HostAddress}}/api/Search/Areas
