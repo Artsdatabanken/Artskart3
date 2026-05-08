@@ -23,7 +23,6 @@ export class LanguageService {
   initialize(): Observable<any> {
     const savedLanguage = this.getSavedLanguage();
     const language = this.isLanguageSupported(savedLanguage) ? savedLanguage : this.getDefaultLanguage();
-    this.translate.use('no');
 
     return this.setLanguage(language);
   }

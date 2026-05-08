@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, HttpBackend } from '@angular/common/http';
 import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
@@ -16,15 +16,21 @@ import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applica
 import { LoggingService } from './shared/logging.service';
 
 class CustomTranslateLoader implements TranslateLoader {
-  constructor(private http: HttpClient) {}
+  private http: HttpClient;
+
+  constructor(handler: HttpBackend) {
+    // HttpClient created from HttpBackend bypasses all interceptors,
+    // avoiding circular dependency with languageInterceptor
+    this.http = new HttpClient(handler);
+  }
 
   getTranslation(lang: string): Observable<any> {
     return this.http.get(`/assets/languages/${lang}.json`);
   }
 }
 
-export function HttpLoaderFactory(http: HttpClient): TranslateLoader {
-  return new CustomTranslateLoader(http);
+export function HttpLoaderFactory(handler: HttpBackend): TranslateLoader {
+  return new CustomTranslateLoader(handler);
 }
 
 export function initializeLanguageFactory(languageService: LanguageService) {
@@ -46,7 +52,7 @@ export function initializeLanguageFactory(languageService: LanguageService) {
       loader: {
         provide: TranslateLoader,
         useFactory: HttpLoaderFactory,
-        deps: [HttpClient]
+        deps: [HttpBackend]
       }
     })
   ],
