@@ -1,4 +1,5 @@
 import { Component, Output, EventEmitter, Input } from '@angular/core';
+import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 
 type ActionHandler = () => void;
@@ -10,7 +11,7 @@ type ActionHandler = () => void;
   styleUrl: './map-toolbar.component.css',
 })
 export class MapToolbarComponent {
-  @Input() map: any;
+  protected map!: NbicMapComponent;
   isGeolocating = false;
   @Input() mapEl!: HTMLDivElement;
   @Output() iconClick = new EventEmitter<string>();
@@ -49,11 +50,13 @@ export class MapToolbarComponent {
   }
 
   private zoomIn(): void {
+    if (!this.map) return;
     const { zoom } = this.map.getCamera();
     this.map.setZoom(zoom + 1);
   }
 
   private zoomOut(): void {
+    if (!this.map) return;
     const { zoom } = this.map.getCamera();
     this.map.setZoom(zoom - 1);
   }
@@ -70,7 +73,9 @@ private geolocation(): void {
 
     navigator.geolocation.getCurrentPosition(
       () => {
-        this.map.zoomToGeolocation();
+        if (this.map) {
+          this.map.zoomToGeolocation();
+        }
         this.resetGeolocationState();
       },
       (error) => {
