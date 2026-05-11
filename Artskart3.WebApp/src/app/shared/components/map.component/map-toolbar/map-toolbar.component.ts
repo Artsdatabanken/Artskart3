@@ -11,6 +11,7 @@ type ActionHandler = () => void;
 })
 export class MapToolbarComponent {
   @Input() map: any;
+  isGeolocating = false;
   @Input() mapEl!: HTMLDivElement;
   @Output() iconClick = new EventEmitter<string>();
 
@@ -57,9 +58,36 @@ export class MapToolbarComponent {
     this.map.setZoom(zoom - 1);
   }
 
-  private geolocation(): void {
-    this.map.zoomToGeolocation();
+private geolocation(): void {
+    if (this.isGeolocating) return;
+
+    this.isGeolocating = true;
+
+    if (!navigator.geolocation) {
+      this.resetGeolocationState();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        this.map.zoomToGeolocation();
+        this.resetGeolocationState();
+      },
+      (error) => {
+        this.resetGeolocationState();
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 1000,
+        maximumAge: 300000,
+      }
+    );
   }
+
+   private resetGeolocationState(): void {
+    this.isGeolocating = false;
+  }
+
 
   private emitAction(action: ToolbarAction): void {
     this.iconClick.emit(action);
