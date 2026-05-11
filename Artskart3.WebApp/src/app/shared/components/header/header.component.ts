@@ -4,6 +4,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { LanguageService, SupportedLanguage } from '../../services/languages/language.service';
+import { AuthService } from '../../services/auth/auth.service';
 
 export interface MenuItem {
   label: string;
@@ -38,7 +39,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private languageService: LanguageService) {}
+  constructor(
+    private languageService: LanguageService,
+    public authService: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.languageService.getLanguage$()
