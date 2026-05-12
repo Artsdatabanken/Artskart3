@@ -11,7 +11,7 @@ type ActionHandler = () => void;
   styleUrl: './map-toolbar.component.css',
 })
 export class MapToolbarComponent {
-  protected map!: NbicMapComponent;
+  @Input() protected map!: NbicMapComponent;
   isGeolocating = false;
   @Input() mapEl!: HTMLDivElement;
   @Output() iconClick = new EventEmitter<string>();
