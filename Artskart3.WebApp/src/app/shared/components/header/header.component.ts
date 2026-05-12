@@ -22,11 +22,7 @@ export interface MenuItem {
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   @Input() projectName: string = 'Artskart';
-  @Input() menuItems: MenuItem[] = [
-    { label: 'Menypunkt 1', href: '#', ariaLabel: 'Go to Menypunkt 1' },
-    { label: 'Menypunkt 2', href: '#', ariaLabel: 'Go to Menypunkt 2' },
-    { label: 'Menypunkt 3', href: '#', ariaLabel: 'Go to Menypunkt 3' }
-  ];
+  @Input() menuItems: MenuItem[] = [];
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
