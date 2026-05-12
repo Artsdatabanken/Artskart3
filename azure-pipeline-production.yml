@@ -38,6 +38,11 @@ steps:
 
 - script: |
     cd Artskart3.WebApp
+    npm run lint
+  displayName: "Lint Angular app"
+
+- script: |
+    cd Artskart3.WebApp
     npm run build -- --configuration production
   displayName: "Build Angular app"
 

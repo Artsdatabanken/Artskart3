@@ -1,7 +1,7 @@
 import { provideHttpClient, withInterceptors, HttpBackend } from '@angular/common/http';
 import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
+import { TranslateModule, TranslateLoader, TranslationObject } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AppRoutingModule } from './app-routing-module';
@@ -24,8 +24,8 @@ class CustomTranslateLoader implements TranslateLoader {
     this.http = new HttpClient(handler);
   }
 
-  getTranslation(lang: string): Observable<any> {
-    return this.http.get(`/assets/languages/${lang}.json`);
+  getTranslation(lang: string): Observable<TranslationObject> {
+    return this.http.get<TranslationObject>(`/assets/languages/${lang}.json`);
   }
 }
 
