@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
 
 export type SupportedLanguage = 'en' | 'no';
@@ -15,19 +15,21 @@ export class LanguageService {
 
   private currentLanguage$ = new BehaviorSubject<SupportedLanguage>(this.DEFAULT_LANGUAGE);
 
-  constructor(private translate: TranslateService) {
+  private readonly translate = inject(TranslateService);
+
+  constructor() {
     this.translate.setDefaultLang('no');
     this.translate.addLangs(['en', 'no']);
   }
 
-  initialize(): Observable<any> {
+  initialize(): Observable<unknown> {
     const savedLanguage = this.getSavedLanguage();
     const language = this.isLanguageSupported(savedLanguage) ? savedLanguage : this.getDefaultLanguage();
 
     return this.setLanguage(language);
   }
 
-  setLanguage(lang: SupportedLanguage): Observable<any> {
+  setLanguage(lang: SupportedLanguage): Observable<unknown> {
     if (!this.isLanguageSupported(lang)) {
       lang = this.DEFAULT_LANGUAGE;
     }
@@ -54,8 +56,8 @@ export class LanguageService {
     return [...this.SUPPORTED_LANGUAGES];
   }
 
-  isLanguageSupported(lang: any): lang is SupportedLanguage {
-    return this.SUPPORTED_LANGUAGES.includes(lang);
+  isLanguageSupported(lang: string | null): lang is SupportedLanguage {
+    return lang !== null && (this.SUPPORTED_LANGUAGES as readonly string[]).includes(lang);
   }
 
   private getDefaultLanguage(): SupportedLanguage {

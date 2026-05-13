@@ -163,7 +163,7 @@
             </button>
             <!-- Mobile Language Dropdown Under Button -->
              @if (isLanguageMenuOpen) {
-              <div class="language-dropdown mobile-language-dropdown" role="listbox" (click)="$event.stopPropagation()">
+              <div class="language-dropdown mobile-language-dropdown" role="listbox" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
                 @for (lang of supportedLanguages; track lang) {
                   <adb-button
                     [attr.variant]="lang === currentLanguage ? 'primary' : 'secondary'"

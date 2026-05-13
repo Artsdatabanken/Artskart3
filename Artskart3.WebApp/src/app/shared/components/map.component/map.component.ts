@@ -10,6 +10,7 @@ import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, 
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private map: any;
 
   ngAfterViewInit(): void {
