@@ -18,9 +18,10 @@ Kryss av de som er håndtert.
 - [ ] Data hentes med riktig språk
 - [ ] Er universelt utformet
 - [ ] Følger retningslinjer fra design system
-- [ ] Klar for store og små skjermer
+- [ ] Klar for store og små skjermer (evergreen browsers, iOS og Android)
 - [ ] Fungerer i lys og mørk modus
 - [ ] Alle tekststrenger er knyttet mot språkstyring
+- [ ] Ingen konsollfeil eller advarsler
 
 🏅 Kode- og datakvalitet
 - [ ] Koden følger teamets kode‑standard
@@ -31,7 +32,6 @@ Kryss av de som er håndtert.
 - [ ] Tester er implementert (unit / integrasjon)
 - [ ] Alle tester er kjørt og grønne
 - [ ] Testene gir faktisk verdi (ikke bare for coverage)
-- [ ] Test coverage er fortsatt over 80%
 
 🏗️ Bygg & pipeline
 - [ ] Applikasjonen passerer CI‑pipeline uten feil
@@ -41,7 +41,6 @@ Endringer som påvirker følgende er dokumentert:
 - [ ] API
 - [ ] konfigurering
 - [ ] data/skjema
-
 - [ ] Kompleks eller ikke-intuitiv logikk i kode er dokumentert
 
 🕵️ Ikke‑funksjonelle krav
@@ -49,6 +48,12 @@ Endringer som påvirker følgende er dokumentert:
 - [ ] Feilhåndtering er på plass (eks tomme datasett, null-verdier)
 - [ ] Sikkerhet er vurdert opp mot risiko
 - [ ] Logging/metrics er lagt til
+
+🪡 Kompatibilitet & migrering
+- [ ] Bakoverkompatibilitet bekreftet (eller migreringsstrategi dokumentert)
+- [ ] Databasemigreringsarbeid testet
+- [ ] Endringer i miljøvariabler/konfigurasjon dokumentert
+- [ ] Ingen breaking changes i offentlige API-er (eller tydelig merket som breaking)
 
 ✅ Klar for release
 - [ ] Løsningen holder den kvaliteten vi forventer av hverandre i teamet
