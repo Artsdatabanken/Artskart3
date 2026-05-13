@@ -2,14 +2,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--adb-background-default);
   height: 100%;
   overflow: hidden;
   transition: box-shadow 0.2s ease;
 }
 
 .resizable-panel.draggable {
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid var(--adb-border-default);
 }
 
 .resizable-panel.resizing {
@@ -49,17 +49,17 @@
 .resize-indicator {
   width: 3px;
   height: 40px;
-  background-color: #f3eded;
+  background-color: var(--adb-border-subtle);
   transition: all 0.2s;
 }
 
 .resize-handle:hover .resize-indicator {
   height: 60px;
-  background-color: #f6f4f3;
+  background-color: var(--adb-border-default);
 }
 
 .resizable-panel.resizing .resize-indicator {
   height: 100%;
-  background-color: #f4f1f0;
+  background-color: var(--adb-border-default);
 }
 
