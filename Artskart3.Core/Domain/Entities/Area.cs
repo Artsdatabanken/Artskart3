@@ -33,6 +33,8 @@ public partial class Area : BaseEntity
 
     public Geometry? WktPolygon { get; set; }
 
+    public Geometry? Centroid { get; set; }
+
     public virtual AreaType AreaType { get; set; } = null!;
 
     public virtual ICollection<Location> Locations { get; set; } = new List<Location>();

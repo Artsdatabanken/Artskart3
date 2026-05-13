@@ -82,7 +82,7 @@ dotnet ef migrations add <NavnPåMigrasjon> --startup-project ..\Artskart3.Api
 **Kjøre migrasjoner mot lokal database:**
 ```powershell
 cd Artskart3.Infrastructure
-dotnet ef database update --startup-project ..\Artskart3.Api
+dotnet ef database update --context ArtskartDbContext --startup-project ..\Artskart3.Api
 ```
 
 **Angre siste migrasjon** (kun hvis den ikke er kjørt mot databasen ennå):
