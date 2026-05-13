@@ -36,6 +36,12 @@ msbuild.wrn
 # Environment files
 /.env
 
+# Merge conflict artifacts
+*.BASE
+*.LOCAL
+*.REMOTE
+*.bak
+
 # Angular CLI and build artefacts
 /.angular-cli.json
 /.ng/
