@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, Input } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 
@@ -10,14 +10,17 @@ type ActionHandler = () => void;
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
-export class MapToolbarComponent {
+export class MapToolbarComponent implements OnInit, OnDestroy {
   @Input() public map!: NbicMapComponent;
   isGeolocating = false;
   @Input() mapEl!: HTMLDivElement;
+
+  private cachedPosition: GeolocationPosition | null = null;
+  private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
 
-  // Expose actions for template
   protected readonly toolbarActions = ToolbarAction;
+
 
   private readonly actionHandlers: Record<ToolbarAction, ActionHandler> = {
     [ToolbarAction.ZOOM_IN]: () => this.zoomIn(),
@@ -29,6 +32,22 @@ export class MapToolbarComponent {
     [ToolbarAction.FILTER]: () => this.emitAction(ToolbarAction.FILTER),
     [ToolbarAction.POLYGON]: () => this.emitAction(ToolbarAction.POLYGON),
   };
+
+  ngOnInit(): void {
+    if (navigator.geolocation) {
+      this.watchId = navigator.geolocation.watchPosition(
+        (pos) => { this.cachedPosition = pos; },
+        () => {},
+        { enableHighAccuracy: false, maximumAge: 300000 }
+      );
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+    }
+  }
 
   onButtonClick(iconName: string): void {
     this.handleIconClick(iconName);
@@ -61,38 +80,28 @@ export class MapToolbarComponent {
     this.map.setZoom(zoom - 1);
   }
 
-private geolocation(): void {
-    if (this.isGeolocating) return;
+  private geolocation(): void {
+    if (this.isGeolocating || !this.map) return;
 
     this.isGeolocating = true;
 
-    if (!navigator.geolocation) {
-      this.resetGeolocationState();
-      return;
+
+    if (this.cachedPosition) {
+      const { longitude, latitude } = this.cachedPosition.coords;
+      const coord = this.map.transformCoordsFrom([longitude, latitude], 'EPSG:4326', 'EPSG:25833');
+      this.map.setCenter(coord);
+      this.map.setZoom(14);
     }
 
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        if (this.map) {
-          this.map.zoomToGeolocation();
-        }
-        this.resetGeolocationState();
-      },
-      (error) => {
-        this.resetGeolocationState();
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 1000,
-        maximumAge: 300000,
-      }
-    );
+    this.map.zoomToGeolocation();
+    setTimeout(() => {
+      this.resetGeolocationState();
+    }, 100);
   }
 
-   private resetGeolocationState(): void {
+  private resetGeolocationState(): void {
     this.isGeolocating = false;
   }
-
 
   private emitAction(action: ToolbarAction): void {
     this.iconClick.emit(action);
@@ -102,11 +111,9 @@ private geolocation(): void {
     const mapContainer = this.mapEl;
     if (!document.fullscreenElement) {
       mapContainer.requestFullscreen().catch((err: any) => {
-        console.error('Error attempting to enable fullscreen:', err);
       });
     } else {
       document.exitFullscreen().catch((err: any) => {
-        console.error('Error attempting to exit fullscreen:', err);
       });
     }
   }
