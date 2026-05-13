@@ -6,14 +6,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 
 #nullable disable
 
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260427093731_AddSearchFilterIndexes")]
-    partial class AddSearchFilterIndexes
+    [Migration("20260512215112_InitialRefactor")]
+    partial class InitialRefactor
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -41,6 +42,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<Geometry>("Centroid")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("geometry")
+                        .HasComputedColumnSql("([WktPolygon].[STCentroid]())", false);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -92,6 +98,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Geometry>("WktPolygon")
+                        .HasColumnType("geometry");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
@@ -1207,13 +1216,23 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "ObservationQualityTypeId" }, "IX_ObservationQualityTypeId");
 
+                    b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
+
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
                     b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
 
                     b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
 
+                    b.HasIndex(new[] { "LocationId" }, "IX_Observation_LocationId");
+
                     b.HasIndex(new[] { "LocationId", "HasErrors", "HasAnnotations" }, "IX_Observation_LocationId_HasErrors_HasAnnotations");
+
+                    b.HasIndex(new[] { "MonthCollected" }, "IX_Observation_MonthCollected");
+
+                    b.HasIndex(new[] { "TaxonGroupId" }, "IX_Observation_TaxonGroupId");
+
+                    b.HasIndex(new[] { "YearCollected" }, "IX_Observation_YearCollected");
 
                     b.HasIndex(new[] { "YearCollected", "LocationId" }, "IX_Observation_YearCollected_LocationId");
 
