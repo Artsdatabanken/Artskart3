@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
@@ -14,15 +14,11 @@ import { SharedModule } from '../../shared/shared.module';
   templateUrl: './base-layout.component.html',
   styleUrls: ['./base-layout.component.css'],
 })
-export class BaseLayoutComponent implements OnInit {
-  constructor() { }
+export class BaseLayoutComponent {
   minWidth = this.getPanelMinWidth();
   maxWidth = this.getPanelMaxWidth();
   filterPanelWidth = signal(this.minWidth);
   showFilterPanel = signal(true);
-
-  ngOnInit() {
-  }
 
   private getPanelMinWidth(): number {
     const value = getComputedStyle(document.documentElement).getPropertyValue('--panel-min-width').trim();

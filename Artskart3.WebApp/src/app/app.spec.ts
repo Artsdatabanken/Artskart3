@@ -19,7 +19,7 @@ describe('App', () => {
         provideHttpClientTesting(),
         {
           provide: LoggingService,
-          useValue: { logEvent: () => {} }
+          useValue: { logEvent: () => { /* noop stub */ } }
         }
       ]
     }).compileComponents();
