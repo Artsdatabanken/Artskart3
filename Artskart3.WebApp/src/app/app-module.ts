@@ -8,7 +8,6 @@ import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
 import { SharedModule } from './shared/shared.module';
 import { LayoutsModule } from './layouts/layouts.module';
-import { MapComponent } from './shared/components/map.component/map.component';
 import { languageInterceptor } from './shared/interceptors/language.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
