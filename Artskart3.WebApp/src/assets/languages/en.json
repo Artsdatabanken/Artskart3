@@ -5,7 +5,17 @@
     "menu": "Menu",
     "close": "Close",
     "darkMode": "Toggle dark mode",
-    "login": "Log in"
+    "login": "Log in",
+    "logout": "Log out",
+    "loginAriaLabel": "Log in",
+    "logoutAriaLabel": "Log out",
+    "mainNavigationAriaLabel": "Main navigation",
+    "openMenuAriaLabel": "Open navigation menu",
+    "closeMenuAriaLabel": "Close navigation menu",
+    "selectLanguageAriaLabel": "Select language",
+    "selectLanguageOptionAriaLabel": "Select {{language}} language",
+    "switchToLightModeAriaLabel": "Switch to light mode",
+    "switchToDarkModeAriaLabel": "Switch to dark mode"
   },
   "navigation": {
     "menuItem1": "Menu Item 1",
@@ -18,5 +28,11 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success"
+  },
+  "baseLayout": {
+    "searchPlaceholder": "Search in Artskart"
+  },
+  "resizablePanel": {
+    "resizeAriaLabel": "Resize filter panel"
   }
 }
