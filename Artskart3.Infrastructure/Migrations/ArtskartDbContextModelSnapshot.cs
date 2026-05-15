@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 
 #nullable disable
 
@@ -38,6 +39,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<Geometry>("Centroid")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("geometry")
+                        .HasComputedColumnSql("([WktPolygon].[STCentroid]())", false);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -89,6 +95,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Geometry>("WktPolygon")
+                        .HasColumnType("geometry");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");

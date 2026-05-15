@@ -40,7 +40,7 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 > ```
 
 #### Database
-Du vil trenge en sql server database for å kjøre apiet. En .bacpac fil ligger på Teams (Artskart->General->Shared->NyeArtskart->Artskart3Index.bacpak) hvis du ønsker å starte med en database med data. Ønsker du å starte med en tom database, se Databasemigrasjoner lenger ned.
+Du vil trenge en sql server database for å kjøre apiet. En .bacpac fil ligger på Teams (Artskart->General->Shared->NyeArtskart->DatabaseDumps->Artskart2Index-2026-3-12-14-27.bacpak) hvis du ønsker å starte med en database med data. Ønsker du å starte med en tom database, se Databasemigrasjoner lenger ned.
 
 #### Sett opp User Secrets
 ##### Visual studio/rider
@@ -82,7 +82,7 @@ dotnet ef migrations add <NavnPåMigrasjon> --startup-project ..\Artskart3.Api
 **Kjøre migrasjoner mot lokal database:**
 ```powershell
 cd Artskart3.Infrastructure
-dotnet ef database update --startup-project ..\Artskart3.Api
+dotnet ef database update --context ArtskartDbContext --startup-project ..\Artskart3.Api
 ```
 
 **Angre siste migrasjon** (kun hvis den ikke er kjørt mot databasen ennå):

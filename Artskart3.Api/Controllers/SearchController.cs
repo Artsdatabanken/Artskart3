@@ -2,15 +2,12 @@
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Artskart3.Api.Controllers
 {
     [ApiController]
+    [AllowAnonymous]
     [Route("api/[controller]")]
     public class SearchController : ControllerBase
     {
