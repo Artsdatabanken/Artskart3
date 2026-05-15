@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Infrastructure.Data;
+using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -25,6 +26,9 @@ if (!builder.Environment.IsDevelopment())
 {
     builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
     builder.Logging.AddFilter("Microsoft.Extensions.Diagnostics", LogLevel.Information);
+
+    var keyVaultUrl = new Uri($"https://{builder.Configuration["KeyVault:Name"]}.vault.azure.net/");
+    builder.Configuration.AddAzureKeyVault(keyVaultUrl, new DefaultAzureCredential());
 }
 
 var tempLoggerFactory = LoggerFactory.Create(c => c.AddConsole().AddDebug());
