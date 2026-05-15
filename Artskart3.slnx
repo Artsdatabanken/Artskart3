@@ -8,5 +8,10 @@
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Artskart3.Tests.Integration/Artskart3.Tests.Integration.csproj" />
+    <Project Path="Artskart3.Tests.Performance/Artskart3.Tests.Performance.csproj" />
+    <Project Path="Artskart3.Tests.Unit/Artskart3.Tests.Unit.csproj" />
+  </Folder>
   <Project Path="Artskart3.Api/Artskart3.Api.csproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
 </Solution>
