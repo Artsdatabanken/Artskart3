@@ -37,7 +37,7 @@ export class AuthService {
     return session ? session.find((c) => c.type === 'bff:logout_url')?.value || null : null;
   });
 
-  public getSession(ignoreCache: boolean = false): Observable<Session> {
+  public getSession(ignoreCache = false): Observable<Session> {
     if (!this.session$ || ignoreCache) {
       this.session$ = this.http.get<Session>('bff/user').pipe(
         catchError(() => of(ANONYMOUS)),

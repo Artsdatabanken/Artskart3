@@ -214,6 +214,7 @@ try
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");
             c.RoutePrefix = "swagger";
             c.DisplayRequestDuration();
+            c.UseRequestInterceptor("(req) => { req.headers['X-CSRF'] = '1'; return req; }");
         });
     }
     else

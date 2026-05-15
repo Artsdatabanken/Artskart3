@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
@@ -21,7 +21,7 @@ export interface MenuItem {
   styleUrls: ['./header.component.css']
 })
 export class HeaderComponent implements OnInit, OnDestroy {
-  @Input() projectName: string = 'Artskart';
+  @Input() projectName = 'Artskart';
   @Input() menuItems: MenuItem[] = [];
 
   isMenuOpen = false;
@@ -37,10 +37,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(
-    private languageService: LanguageService,
-    public authService: AuthService,
-  ) {}
+  private readonly languageService = inject(LanguageService);
+  readonly authService = inject(AuthService);
 
   ngOnInit(): void {
     this.languageService.getLanguage$()
