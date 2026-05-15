@@ -37,6 +37,7 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     if (navigator.geolocation) {
       this.watchId = navigator.geolocation.watchPosition(
         (pos) => { this.cachedPosition = pos; },
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         () => {},
         { enableHighAccuracy: false, maximumAge: 300000 }
       );
@@ -52,7 +53,6 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   onButtonClick(iconName: string): void {
     this.handleIconClick(iconName);
   }
-
   private handleIconClick(actionName: string): void {
     const action = actionName as ToolbarAction;
     const handler = this.actionHandlers[action];
@@ -110,9 +110,11 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private toggleFullscreen(): void {
     const mapContainer = this.mapEl;
     if (!document.fullscreenElement) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
       mapContainer.requestFullscreen().catch((err: any) => {
       });
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
       document.exitFullscreen().catch((err: any) => {
       });
     }

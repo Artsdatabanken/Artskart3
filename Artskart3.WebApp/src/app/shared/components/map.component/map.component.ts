@@ -12,6 +12,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @Output() mapReadyAction = new EventEmitter<boolean>();
   @Output() iconClickAction = new EventEmitter<string>();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: any;
 
   ngAfterViewInit(): void {
