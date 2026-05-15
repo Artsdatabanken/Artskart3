@@ -266,7 +266,6 @@ namespace Artskart3.Infrastructure.Data
 
             entity.ToTable("Filter");
 
-            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
             entity.Property(e => e.Name).HasMaxLength(255);
             entity.Property(e => e.SerializedFilter).HasMaxLength(3700);
         });
@@ -485,67 +484,11 @@ namespace Artskart3.Infrastructure.Data
 
             entity.ToTable("Observation");
 
-            entity.HasIndex(e => e.BasisOfRecordId, "IX_BasisOfRecordId");
-
-            entity.HasIndex(e => e.CatalogNumber, "IX_CatalogNumber");
-
-            entity.HasIndex(e => new { e.CategoryId, e.DateTimeRecordImported }, "IX_CategoryId");
-
-            entity.HasIndex(e => e.DateTimeCollected, "IX_DateTimeCollected").IsDescending();
-
-            entity.HasIndex(e => e.DateTimeRecordImported, "IX_DateTimeRecordImported");
-
-            entity.HasIndex(e => e.DatetimeIdentified, "IX_DatetimeIdentified");
-
-            entity.HasIndex(e => new { e.LocationId, e.Id }, "IX_LocationCatProxy");
-
             entity.HasIndex(e => new { e.LocationId, e.CategoryId }, "IX_LocationId");
-
-            entity.HasIndex(e => e.MatchedScientificNameId, "IX_MatchedScientificName");
-
-            entity.HasIndex(e => e.MonthCollected, "IX_MonthCollected");
-
-            entity.HasIndex(e => e.NodeId, "IX_NodeId");
-
-            entity.HasIndex(e => e.ObservationQualityTypeId, "IX_ObservationQualityTypeId");
-
-            entity.HasIndex(e => e.OccurrenceId, "IX_OccurenceId");
-
-            entity.HasIndex(e => e.ProxyId, "IX_ProxyId");
-
-            entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.HasIndex(e => new { e.TaxonGroupId, e.CategoryId }, "IX_TaxonGroupId");
 
-            entity.HasIndex(e => new { e.TaxonGroupId, e.LocationId }, "IX_TaxonGroupIdLocationId");
-
-            entity.HasIndex(e => new { e.TaxonId, e.MatchedScientificNameId }, "IX_TaxonId");
-
-            entity.HasIndex(e => new { e.YearCollected, e.MonthCollected }, "IX_YearCollected");
-
-            entity.HasIndex(e => e.CoordinatePrecisionInMeters, "Ix_CoordPrec");
-
-            entity.HasIndex(e => e.TaxonGroupId, "TaxonGroupId");
-
-            entity.HasIndex(e => e.InstitutionId, "IX_Observation_InstitutionId");
-
-            entity.HasIndex(e => e.InstitutionCode, "IX_Observation_InstitutionCode");
-
-            entity.HasIndex(e => e.DateLastModified, "IX_Observation_DateLastModified");
-
-            entity.HasIndex(e => new { e.LocationId, e.HasErrors, e.HasAnnotations }, "IX_Observation_LocationId_HasErrors_HasAnnotations");
-
-            entity.HasIndex(e => new { e.YearCollected, e.LocationId }, "IX_Observation_YearCollected_LocationId");
-
-            entity.HasIndex(e => e.LocationId, "IX_Observation_LocationId");
-
-            entity.HasIndex(e => e.TaxonGroupId, "IX_Observation_TaxonGroupId");
-
-            entity.HasIndex(e => e.CategoryId, "IX_Observation_CategoryId");
-
-            entity.HasIndex(e => e.YearCollected, "IX_Observation_YearCollected");
-
-            entity.HasIndex(e => e.MonthCollected, "IX_Observation_MonthCollected");
+            entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
             entity.Property(e => e.CollectionCode).HasMaxLength(100);
@@ -1047,6 +990,8 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
         });
+
+        OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
