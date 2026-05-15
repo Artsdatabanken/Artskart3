@@ -3,7 +3,7 @@
   width: 100%;
   height: 80px;
   flex-direction: column;
-  padding: 0 var(--adb-spacing-lg) 0 var(--adb-spacing-xsm);
+  padding: 0 var(--adb-spacing-xsm);
   justify-content: flex-start;
   align-items: center;
   background: var(--adb-background-default);
@@ -19,16 +19,33 @@
   width: 100%;
   padding: 0;
   gap: var(--adb-spacing-md);
-  margin-right: var(--adb-spacing-xsm);
+  margin-right: var(--adb-spacing-md);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: var(--adb-spacing-md);
+}
+
+.logo-and-service {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-2xsm);
+  align-self: stretch;
+
+  > a {
+    text-decoration: none;
+  }
 }
 
 .logo {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.logo-icon {
+  display: block;
   fill: var(--adb-text-primary);
   flex-shrink: 0;
 }
@@ -36,18 +53,17 @@
 .divider {
   fill: var(--adb-border-default);
   height: 80px;
-  width: 13.691px;
+  width: 14px;
   flex-shrink: 0;
 }
 
 .service-name {
-  padding-bottom: 0.1875rem;
   color: var(--adb-text-primary);
   font-family: var(--adb-font-family-primary);
   font-size: var(--adb-font-size-6);
   font-weight: var(--adb-font-weight-bold);
   line-height: 1;
-  margin-right: 32px;
+  margin: 0 var(--adb-spacing-sm);
 }
 
 .nav-menu {
@@ -277,11 +293,6 @@
 }
 
 @media (max-width: 600px) {
-  .service-name {
-    font-size: var(--adb-font-size-5);
-    margin-right: var(--adb-spacing-xsm);
-  }
-
   .header {
     padding: 0 var(--adb-spacing-xsm) 0 var(--adb-spacing-xsm);
   }

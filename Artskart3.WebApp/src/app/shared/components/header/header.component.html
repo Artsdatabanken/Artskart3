@@ -1,34 +1,41 @@
 <header class="header">
   <div class="header-content">
     <div class="header-left">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="50"
-        height="50"
-        viewBox="0 0 50 50"
-        fill="none"
-        class="logo"
-      >
-        <path d="M24.2958 34.3063C18.7766 34.3063 14.2852 29.815 14.2852 24.296C14.2852 18.777 18.7766 14.2857 24.2958 14.2857C29.8151 14.2857 34.3065 18.777 34.3065 24.296H31.7806C31.7806 20.1705 28.4244 16.8144 24.2987 16.8144C20.1731 16.8144 16.8169 20.1705 16.8169 24.296C16.8169 28.4215 20.1731 31.7805 24.2987 31.7805V34.3063H24.2958Z" fill="currentColor"/>
-        <path d="M34.3068 34.3071H27.4375V31.8045H31.8041V27.438H34.3068V34.3071Z" fill="#E55440"/>
-        <path d="M27.1176 25.8697C27.9851 25.8697 28.6883 25.1665 28.6883 24.2991C28.6883 23.4316 27.9851 22.7284 27.1176 22.7284C26.2501 22.7284 25.5469 23.4316 25.5469 24.2991C25.5469 25.1665 26.2501 25.8697 27.1176 25.8697Z" fill="currentColor"/>
-      </svg>
+      <div class="logo-and-service">
+        <div class="logo">
+          <a href="https://artsdatabanken.no" aria-label="Lenke til artsdatabanken hjemmeside.">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="50"
+              height="50"
+              viewBox="-0.7041 -0.7036 50 50"
+              fill="none"
+              class="logo-icon"
+            >
+              <path d="M24.2958 34.3063C18.7766 34.3063 14.2852 29.815 14.2852 24.296C14.2852 18.777 18.7766 14.2857 24.2958 14.2857C29.8151 14.2857 34.3065 18.777 34.3065 24.296H31.7806C31.7806 20.1705 28.4244 16.8144 24.2987 16.8144C20.1731 16.8144 16.8169 20.1705 16.8169 24.296C16.8169 28.4215 20.1731 31.7805 24.2987 31.7805V34.3063H24.2958Z" fill="currentColor"/>
+              <path d="M34.3068 34.3071H27.4375V31.8045H31.8041V27.438H34.3068V34.3071Z" fill="#E55440"/>
+              <path d="M27.1176 25.8697C27.9851 25.8697 28.6883 25.1665 28.6883 24.2991C28.6883 23.4316 27.9851 22.7284 27.1176 22.7284C26.2501 22.7284 25.5469 23.4316 25.5469 24.2991C25.5469 25.1665 26.2501 25.8697 27.1176 25.8697Z" fill="currentColor"/>
+            </svg>
+          </a>
 
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="14"
-        height="80"
-        viewBox="0 0 14 80"
-        fill="none"
-        class="divider"
-      >
-        <path
-          d="M1.97561 0.00069053L13.6911 40.0003L1.97561 80H0.00069053L11.7162 40.0003L0 0L1.97561 0.00069053Z"
-          fill="#F2DFC5"
-        />
-      </svg>
-
-      <div class="service-name">{{ projectName }}</div>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="80"
+            viewBox="0 0 14 80"
+            fill="none"
+            class="divider"
+          >
+            <path
+              d="M1.97561 0.00069053L13.6911 40.0003L1.97561 80H0.00069053L11.7162 40.0003L0 0L1.97561 0.00069053Z"
+              fill="#F2DFC5"
+            />
+          </svg>
+        </div>
+        <a href="#">
+          <h1 class="service-name">{{ projectName }}</h1>
+        </a>
+      </div>
       <nav class="nav-menu" [class.open]="isMenuOpen" [attr.aria-label]="'header.mainNavigationAriaLabel' | translate">
         @for (item of menuItems; track item.label) {
           <a
