@@ -1,0 +1,105 @@
+:host {
+  display: block;
+  padding: var(--adb-spacing-xl) var(--adb-spacing-lg);
+  max-width: var(--adb-content-width);
+
+  @media (max-width: 600px) {
+    padding: 0 var(--adb-spacing-xsm) 0 var(--adb-spacing-xsm);
+  }
+}
+
+.design-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--adb-spacing-xl);
+  row-gap: var(--adb-spacing-md);
+
+  .link-grid {
+    display: inline-grid;
+    row-gap: 19px;
+    column-gap: 79px;
+    grid-template-rows: repeat(3,fit-content(100%));
+    grid-template-columns: repeat(2,fit-content(100%));
+    
+    a {
+      width: fit-content;
+    }
+
+    a.large {
+        font-size: var(--adb-font-size-6);
+        font-style: normal;
+        font-weight: 400;
+        line-height: 172%;
+    };
+
+    a.medium {
+        font-size: var(--adb-font-size-5);
+        font-style: normal;
+        font-weight: 400;
+        line-height: 172%; 
+    }
+
+    a.small {
+        font-size: var(--adb-font-size-3);
+        font-style: normal;
+        font-weight: 400;
+        line-height: 172%; 
+    }
+  }
+
+  .paragraph {
+    p.large {
+      font-size: var(--adb-font-size-6);
+      font-style: normal;
+      font-weight: 400;
+      /* line-height: 172%; */
+    }
+    
+    p.medium {
+      font-size: var(--adb-font-size-5);
+      font-style: normal;
+      font-weight: 400;
+      /* line-height: 172%; */
+    }
+
+    p.small {
+      font-size: var(--adb-font-size-3);
+      font-style: normal;
+      font-weight: 400;
+    }
+  }
+
+  .horizontal-rule-compact {
+    width: 3.75rem;
+    height: 0.25rem;
+    border-radius: var(--radius-sm, 4px);
+    background: var(--adb-surface-brand-1a, #CF3E1C);
+  }
+
+  .button-grid {
+    display: inline-grid;
+    row-gap: 1.25rem;
+    column-gap: 1rem;
+    grid-template-rows: repeat(3,fit-content(100%));
+    grid-template-columns: repeat(6,fit-content(100%));
+
+    @media (max-width: 768px) {
+      grid-template-rows: repeat(18,fit-content(100%));
+      grid-template-columns: repeat(1,fit-content(100%));
+    }
+  }
+
+  .accordion-wrapper {
+    display: flex;
+    flex-direction: column;
+    row-gap: 1rem;
+    max-width: 32rem;
+  }
+
+  .alert-wrapper {
+    display: flex;
+    flex-direction: column;
+    row-gap: 1rem;
+  }
+}
+
