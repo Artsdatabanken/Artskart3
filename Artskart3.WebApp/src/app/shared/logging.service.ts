@@ -1,13 +1,12 @@
 import { Injectable } from "@angular/core";
 import { ApplicationInsights } from "@microsoft/applicationinsights-web";
 import { AngularPlugin } from "@microsoft/applicationinsights-angularplugin-js";
-import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
 
 @Injectable()
 export class LoggingService {
     appInsights: ApplicationInsights;
-    constructor(private router: Router) {
+    constructor() {
         const angularPlugin = new AngularPlugin();
         this.appInsights = new ApplicationInsights({
             config: {
@@ -24,19 +23,19 @@ export class LoggingService {
         this.appInsights.trackPageView({ name, uri: url });
     }
 
-    logEvent(name: string, properties?: { [key: string]: any }) {
+    logEvent(name: string, properties?: Record<string, unknown>) {
         this.appInsights.trackEvent({ name }, properties);
     }
 
-    logMetric(name: string, average: number, properties?: { [key: string]: any }) {
+    logMetric(name: string, average: number, properties?: Record<string, unknown>) {
         this.appInsights.trackMetric({ name, average }, properties);
     }
 
-    logException(exception: Error, properties?: { [key: string]: any }) {
+    logException(exception: Error, properties?: Record<string, unknown>) {
         this.appInsights.trackException({ exception }, properties);
     }
 
-    logTrace(message: string, properties?: { [key: string]: any }) {
+    logTrace(message: string, properties?: Record<string, unknown>) {
         this.appInsights.trackTrace({ message }, properties);
     }
 }

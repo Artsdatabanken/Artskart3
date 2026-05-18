@@ -30,8 +30,6 @@ msbuild.wrn
 
 # Node modules and dependency files
 /node_modules/
-/package-lock.json
-/Artskart3.WebApp/package-lock.json
 
 # Environment files
 /.env

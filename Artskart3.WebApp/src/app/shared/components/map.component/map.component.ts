@@ -1,5 +1,5 @@
 import { createMap, MapEvents, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
-import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
@@ -26,7 +26,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
 
-  private map: MapType = null;
+  //private map: MapType = null;
   private zoomState: ZoomState = new ZoomState();
   private mapZoomController: MapZoomController | null = null;
 
@@ -51,7 +51,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.handleScrollZoom(event);
   };
 
-  constructor(private areasService: AreasService) {}
+  private areasService = inject(AreasService);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private map: any;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);

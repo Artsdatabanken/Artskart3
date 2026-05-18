@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.Entities;
 
@@ -22,6 +23,8 @@ public partial class SensitiveObservationDatum
     public string? Notes { get; set; }
 
     public DateTime? DateTimeCollected { get; set; }
+
+    public Geometry? Geometry { get; set; }
 
     public virtual Observation Observation { get; set; } = null!;
 }

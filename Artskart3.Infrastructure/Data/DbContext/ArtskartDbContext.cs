@@ -126,11 +126,13 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.Name, "NonClusteredIndex-20180305-111522");
 
-            entity.Property(e => e.AreaTypeId).HasColumnName("AreaTypeID");
+            entity.Property(e => e.AreaTypeId);
             entity.Property(e => e.Bbox).HasMaxLength(50);
             entity.Property(e => e.DocumentId).HasMaxLength(200);
             entity.Property(e => e.Fid).HasMaxLength(50);
-            entity.Property(e => e.GmBbox).HasMaxLength(50);
+            entity.Property(e => e.Centroid)
+                .HasComputedColumnSql("([WktPolygon].[STCentroid]())", false)
+                .HasColumnType("geometry");
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.ParentFid).HasMaxLength(50);
             entity.Property(e => e.SyncDateTime).HasColumnType("datetime");
@@ -355,6 +357,7 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.LocationId).HasMaxLength(50);
             entity.Property(e => e.LookupId).HasMaxLength(50);
             entity.Property(e => e.TimeStamp).HasColumnType("datetime");
+            entity.Property(e => e.Geometry).HasColumnType("geometry");
 
             entity.HasMany(d => d.Areas).WithMany(p => p.Locations)
                 .UsingEntity<Dictionary<string, object>>(
@@ -388,6 +391,9 @@ namespace Artskart3.Infrastructure.Data
                 .IsUnicode(false)
                 .IsFixedLength()
                 .HasColumnName("RUTEID");
+            entity.Property(e => e.Shape)
+                .HasColumnType("geometry")
+                .HasColumnName("SHAPE");
         });
 
         modelBuilder.Entity<Maskeringsruter4x4km>(entity =>
@@ -403,6 +409,9 @@ namespace Artskart3.Infrastructure.Data
                 .IsUnicode(false)
                 .IsFixedLength()
                 .HasColumnName("RUTEID");
+            entity.Property(e => e.Shape)
+                .HasColumnType("geometry")
+                .HasColumnName("SHAPE");
         });
 
         modelBuilder.Entity<Maskeringsruter8x8km>(entity =>
@@ -418,6 +427,9 @@ namespace Artskart3.Infrastructure.Data
                 .IsUnicode(false)
                 .IsFixedLength()
                 .HasColumnName("RUTEID");
+            entity.Property(e => e.Shape)
+                .HasColumnType("geometry")
+                .HasColumnName("SHAPE");
         });
 
         modelBuilder.Entity<MediaFile>(entity =>
@@ -537,11 +549,11 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
             entity.Property(e => e.CollectionCode).HasMaxLength(100);
-            entity.Property(e => e.DateTimeRecordProcessed).HasColumnType("datetime").HasColumnName("DateTimeRecordProsessed");
+            entity.Property(e => e.DateTimeRecordProcessed);
             entity.Property(e => e.InstitutionCode).HasMaxLength(100);
             entity.Property(e => e.InstitutionId).HasMaxLength(25);
             entity.Property(e => e.MonthCollected).HasComputedColumnSql("(datepart(month,[DateTimeCollected]))", false);
-            entity.Property(e => e.OccurrenceId).HasMaxLength(255).HasColumnName("OccurenceId");
+            entity.Property(e => e.OccurrenceId).HasMaxLength(255);
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
 
@@ -869,6 +881,7 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.ObservationId, "IX_ObservationId");
 
             entity.Property(e => e.ObservationId).ValueGeneratedNever();
+            entity.Property(e => e.Geometry).HasColumnType("geometry");
             entity.Property(e => e.Locality).HasMaxLength(100);
             entity.Property(e => e.Notes).HasMaxLength(3500);
 
@@ -935,9 +948,8 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.PreferredPopularName, "NonClusteredIndex-20190129-153041");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.ExternalTaxonId).HasColumnName("TaxonId");
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
-            entity.Property(e => e.PreferredPopularName).HasMaxLength(100).HasColumnName("PrefferedPopularname");
+            entity.Property(e => e.ExternalTaxonId);
+            entity.Property(e => e.PreferredPopularName).HasMaxLength(100);
             entity.Property(e => e.ScientificNameIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.TaxonIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.ValidScientificName).HasMaxLength(100);
@@ -960,7 +972,6 @@ namespace Artskart3.Infrastructure.Data
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Name).HasMaxLength(75);
-            entity.Property(e => e.IsDeleted).HasColumnName("Deleted");
         });
 
         modelBuilder.Entity<TaxonName>(entity =>
@@ -974,10 +985,8 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.ScientificNameAuthorship).HasMaxLength(200);
-            entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
 
             entity.HasOne(d => d.Taxon).WithMany(p => p.TaxonNames)
                 .HasForeignKey(d => d.TaxonId)
@@ -992,11 +1001,8 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Language).HasMaxLength(10);
             entity.Property(e => e.Name).HasMaxLength(100);
-            entity.Property(e => e.Preferred).HasColumnName("Preffered");
-            entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
 
             entity.HasOne(d => d.Taxon).WithMany(p => p.TaxonPopularNames)
                 .HasForeignKey(d => d.TaxonId)
@@ -1012,12 +1018,10 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.TaxonId, "IX_Taxon_Id");
 
             entity.Property(e => e.Context).HasMaxLength(50);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasColumnName("DateTimeUpdated");
             entity.Property(e => e.Prefix).HasMaxLength(50);
             entity.Property(e => e.ScientificName).HasMaxLength(100);
             entity.Property(e => e.Tag).HasMaxLength(50);
             entity.Property(e => e.TagGroup).HasMaxLength(50);
-            entity.Property(e => e.TaxonId).HasColumnName("Taxon_Id");
             entity.Property(e => e.Url).HasMaxLength(500);
 
             entity.HasOne(d => d.Taxon).WithMany(p => p.TaxonProperties)

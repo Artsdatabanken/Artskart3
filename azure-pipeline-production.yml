@@ -29,16 +29,17 @@ steps:
 - task: NodeTool@0
   displayName: "Install Node.js"
   inputs:
-    versionSpec: '22.14'
-
-- script: |
-    npm install -g @angular/cli
-  displayName: "Install Angular CLI"
+    versionSpec: '22.x'
 
 - script: |
     cd Artskart3.WebApp
-    npm install
+    npm ci
   displayName: "Install Angular dependencies"
+
+- script: |
+    cd Artskart3.WebApp
+    npm run lint
+  displayName: "Lint Angular app"
 
 - script: |
     cd Artskart3.WebApp
@@ -49,7 +50,7 @@ steps:
     cd Artskart3.WebApp
     npm test -- --watch=false
   displayName: "Run Angular tests"
-  continueOnError: true
+  continueOnError: false
 
 # Copy frontend build into backend wwwroot
 - task: CopyFiles@2

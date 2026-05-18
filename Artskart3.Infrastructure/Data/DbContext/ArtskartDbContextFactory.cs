@@ -23,7 +23,11 @@ namespace Artskart3.Infrastructure.Data
                 ?? throw new InvalidOperationException("Connection string 'ArtskartDb' not found in appsettings.json.");
 
             var optionsBuilder = new DbContextOptionsBuilder<ArtskartDbContext>();
-            optionsBuilder.UseSqlServer(connectionString, sqlOptions => sqlOptions.UseNetTopologySuite());
+            optionsBuilder.UseSqlServer(connectionString, sqlOptions =>
+            {
+                sqlOptions.UseNetTopologySuite();
+                sqlOptions.CommandTimeout(3600);
+            });
 
             return new ArtskartDbContext(optionsBuilder.Options);
         }
