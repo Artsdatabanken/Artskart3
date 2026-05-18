@@ -8,11 +8,12 @@ import {
   OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-resizable-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslateModule],
   templateUrl: './resizable-panel.component.html',
   styleUrl: './resizable-panel.component.css',
 })
