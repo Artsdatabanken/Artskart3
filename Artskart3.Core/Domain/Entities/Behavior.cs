@@ -14,7 +14,5 @@ public partial class Behavior : BaseEntity
 
     public string? Description { get; set; }
 
-    public bool Deleted { get; set; }
-
-    public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();
+    public virtual ICollection<Observation> Observations{ get; set; } = new List<Observation>();
 }
