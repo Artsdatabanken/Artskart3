@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
 
@@ -24,8 +23,6 @@ public partial class Area : BaseEntity
     public int? ObservationCount { get; set; }
 
     public string Bbox { get; set; } = null!;
-
-    public string GmBbox { get; set; } = null!;
 
     public DateTime TimeStamp { get; set; }
 

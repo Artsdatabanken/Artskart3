@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515130111_InitialCleanup")]
+    partial class InitialCleanup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -56,6 +59,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Fid")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("GmBbox")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -805,9 +813,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("East")
                         .HasColumnType("int");
 
-                    b.Property<Geometry>("Geometry")
-                        .HasColumnType("geometry");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -875,10 +880,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
 
-                    b.Property<Geometry>("Shape")
-                        .HasColumnType("geometry")
-                        .HasColumnName("SHAPE");
-
                     b.HasKey("Objectid");
 
                     b.ToTable("Maskeringsruter_16x16km", (string)null);
@@ -904,10 +905,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
 
-                    b.Property<Geometry>("Shape")
-                        .HasColumnType("geometry")
-                        .HasColumnName("SHAPE");
-
                     b.HasKey("Objectid");
 
                     b.ToTable("Maskeringsruter_4x4km", (string)null);
@@ -932,10 +929,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("char(50)")
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
-
-                    b.Property<Geometry>("Shape")
-                        .HasColumnType("geometry")
-                        .HasColumnName("SHAPE");
 
                     b.HasKey("Objectid");
 
@@ -1381,7 +1374,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "Id" }, "IX_Id");
 
-                    b.ToTable("ObservationDetails", (string)null);
+                    b.ToTable("ObservationDetails");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationError", b =>
@@ -1965,15 +1958,12 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(3500)
                         .HasColumnType("nvarchar(3500)");
 
-                    b.Property<Geometry>("Geometry")
-                        .HasColumnType("geometry");
-
                     b.HasKey("ObservationId")
                         .HasName("PK_dbo.SensitiveObservationData");
 
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
-                    b.ToTable("SensitiveObservationData", (string)null);
+                    b.ToTable("SensitiveObservationData");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.SpatialRefSy", b =>
