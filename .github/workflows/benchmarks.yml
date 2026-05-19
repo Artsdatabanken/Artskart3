@@ -1,0 +1,49 @@
+name: Ytelsestester
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # Kjører kl. 02:00 UTC hver natt
+  workflow_dispatch:       # Tillater manuell kjøring fra Actions-fanen
+
+jobs:
+  benchmark:
+    name: Kjør ytelsestester og publiser til GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # Nødvendig for å pushe resultater til gh-pages-grenen
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.x"
+
+      - name: Gjenopprett avhengigheter
+        run: dotnet restore Artskart3.Tests.Performance/Artskart3.Tests.Performance.csproj
+
+      - name: Bygg (Release)
+        run: dotnet build Artskart3.Tests.Performance/Artskart3.Tests.Performance.csproj --configuration Release --no-restore
+
+      - name: Kjør ytelsestester
+        run: |
+          dotnet run \
+            --project Artskart3.Tests.Performance/Artskart3.Tests.Performance.csproj \
+            --configuration Release \
+            --no-build \
+            -- --exporters json --filter '*'
+        env:
+          ARTSKART_BENCH_CONNECTION_STRING: ${{ secrets.BENCHMARK_CONNECTION_STRING }}
+
+      - name: Publiser resultater til GitHub Pages
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: benchmarkdotnet
+          output-file-path: BenchmarkDotNet.Artifacts/results/Artskart3.Tests.Performance.SearchServiceBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          benchmark-data-dir-path: dev/bench
+          alert-threshold: "120%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: ""
