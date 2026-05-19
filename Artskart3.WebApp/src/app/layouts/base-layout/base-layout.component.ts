@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { SharedModule } from '../../shared/shared.module';
 
 @Component({
@@ -10,6 +11,7 @@ import { SharedModule } from '../../shared/shared.module';
     CommonModule,
     RouterOutlet,
     SharedModule,
+    TranslateModule,
   ],
   templateUrl: './base-layout.component.html',
   styleUrls: ['./base-layout.component.css'],
