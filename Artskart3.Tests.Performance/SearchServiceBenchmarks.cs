@@ -125,4 +125,34 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetAreasByTypeIdsAsync(1, 2);
     }
+
+    [Benchmark]
+    public async Task GetLocations_WithTaxonGroupAndPrecisionFilter()
+    {
+        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = "1",
+            CoordinatePrecisionFrom = 1,
+            CoordinatePrecisionTo = 1000,
+            MaxResults = 500
+        });
+    }
+
+    [Benchmark]
+    public async Task GetAreas_MunicipalitiesOnly()
+    {
+        _ = await _searchService.GetAreasByTypeIdsAsync(1);
+    }
+
+    [Benchmark]
+    public async Task GetAreas_CountiesOnly()
+    {
+        _ = await _searchService.GetAreasByTypeIdsAsync(2);
+    }
+
+    [Benchmark]
+    public async Task GetLocations_MaxResults_5000()
+    {
+        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 5000 });
+    }
 }
