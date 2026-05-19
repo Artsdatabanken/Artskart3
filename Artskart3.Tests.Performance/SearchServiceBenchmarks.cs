@@ -4,20 +4,21 @@ using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using BenchmarkDotNet.Attributes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Artskart3.Tests.Performance;
 
 /// <summary>
-/// Benchmarks for the SearchService layer against a real database.
+/// Ytelsestester for SearchService-laget mot en ekte database.
 ///
-/// Usage:
+/// Kjøring:
 ///   dotnet run -c Release
 ///
-/// The connection string is read from the ARTSKART_BENCH_CONNECTION_STRING
-/// environment variable, or falls back to appsettings.Performance.json.
+/// Tilkoblingsstrengen leses fra miljøvariabelen ARTSKART_BENCH_CONNECTION_STRING,
+/// eller fra bruker-secrets hvis miljøvariabelen ikke er satt.
 ///
-/// Results are exported to BenchmarkDotNet.Artifacts/ as markdown and HTML.
+/// Resultater eksporteres til BenchmarkDotNet.Artifacts/ som markdown og HTML.
 /// </summary>
 [MemoryDiagnoser]
 [MarkdownExporter]
@@ -30,9 +31,14 @@ public class SearchServiceBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ARTSKART_BENCH_CONNECTION_STRING")
+        var config = new ConfigurationBuilder()
+            .AddUserSecrets<SearchServiceBenchmarks>()
+            .AddEnvironmentVariables()
+            .Build();
+
+        var connectionString = config["ARTSKART_BENCH_CONNECTION_STRING"]
             ?? throw new InvalidOperationException(
-                "Set environment variable ARTSKART_BENCH_CONNECTION_STRING to a production-like database connection string.");
+                "Tilkoblingsstreng ikke funnet. Sett bruker-secret eller miljøvariabel: ARTSKART_BENCH_CONNECTION_STRING");
 
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
             .UseSqlServer(connectionString, x => x.UseNetTopologySuite())
@@ -51,13 +57,13 @@ public class SearchServiceBenchmarks
     }
 
     // -----------------------------------------------------------------------
-    // SearchTaxons — covers the three-level match strategy (exact / starts-with / contains)
+    // SearchTaxons — tester tre-nivå søkestrategi (eksakt / starter-med / inneholder)
     // -----------------------------------------------------------------------
 
     [Benchmark]
     public async Task SearchTaxons_ExactMatch()
     {
-        // Use a common species name that should hit the exact-match branch
+        // Vanlig artsnavn som skal treffe eksakt-match-grenen
         _ = await _searchService.GetTaxonsAsync("parus major", 20);
     }
 
@@ -80,7 +86,7 @@ public class SearchServiceBenchmarks
     }
 
     // -----------------------------------------------------------------------
-    // GetLocations — covers aggregation query + GeoJSON serialization
+    // GetLocations — tester aggregeringsspørring og GeoJSON-serialisering
     // -----------------------------------------------------------------------
 
     [Benchmark]
@@ -111,7 +117,7 @@ public class SearchServiceBenchmarks
     }
 
     // -----------------------------------------------------------------------
-    // GetAreas — covers area retrieval and centroid calculation
+    // GetAreas — tester henting av områder og beregning av tyngdepunkt
     // -----------------------------------------------------------------------
 
     [Benchmark]
