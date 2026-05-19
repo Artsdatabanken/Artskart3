@@ -12,8 +12,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @Output() mapReadyAction = new EventEmitter<boolean>();
   @Output() iconClickAction = new EventEmitter<string>();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  map: any;
+  map: ReturnType<typeof createMap> | null = null;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), 100);
@@ -43,7 +42,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       // Add base layers
       this.map.addLayer(nbicMapPresets.osm);
 
-      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' };
+      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as const };
       if (topoLayer.source.type === 'wmts') {
         topoLayer.source.options.projection = 'EPSG:25833';
         topoLayer.source.options.matrixSet = 'utm33n';
@@ -52,7 +51,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
       this.map.on(MapEvents.Ready, () => {
         this.mapReadyAction.emit(true);
-        this.map.activateHoverInfo();
+        this.map!.activateHoverInfo();
       });
     } catch (error) {
       console.error('Error initializing map:', error);

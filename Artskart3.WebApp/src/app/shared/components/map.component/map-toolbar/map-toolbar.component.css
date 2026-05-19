@@ -7,27 +7,22 @@
   pointer-events: none;
 }
 
-.map-toolbar-top {
-  position: absolute;
-  right: 12px;
-  top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 100;
-  pointer-events: auto;
-}
-
-.map-toolbar-right {
-  position: absolute;
-  right: 12px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 100;
-  pointer-events: auto;
-}
+.map-toolbar-top,
+  .map-toolbar-right {
+    position: absolute;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+    pointer-events: auto;
+  }
+  .map-toolbar-top {
+    top: 20px;
+  }
+  .map-toolbar-right {
+    bottom: 20px;
+  }
 
 .map-control-icon {
   display: flex;
@@ -44,62 +39,41 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 
-.map-control-icon svg {
-  width: 20px;
-  height: 20px;
-  color: var(--adb-text-accent);
-  transition: color 0.2s ease;
-}
-
-.map-control-icon:hover {
-  background-color: #0066a1;
-  border-color: #0066a1;
-  box-shadow: 0 2px 6px rgba(0, 102, 161, 0.2);
-}
-
-.map-control-icon:hover svg {
-  color: white;
-}
-
-.map-control-icon:active {
-  background-color: #0066a1;
-  border-color: #0066a1;
-  transform: scale(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset;
-}
-
-.map-control-icon:active svg {
-  color: white;
-}
-
-.map-control-icon:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 90, 113, 0.15);
-}
-
-.map-control-icon:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-  background-color: #f0f0f0;
-}
-
-.map-control-icon:disabled:hover {
-  background-color: #f0f0f0;
-  border-color: var(--adb-border-default);
-}
-
-svg.geolocating {
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+ & svg {
+    width: 20px;
+    height: 20px;
+    color: var(--adb-text-accent);
+    transition: color 0.2s ease;
   }
-  50% {
-    opacity: 0.5;
+  &:hover {
+    background-color: #0066a1;
+    border-color: #0066a1;
+    box-shadow: 0 2px 6px rgba(0, 102, 161, 0.2);
+    & svg {
+      color: white;
+    }
+  }
+  &:active {
+    background-color: #0066a1;
+    border-color: #0066a1;
+    transform: scale(0.95);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset;
+    & svg {
+      color: white;
+    }
+  }
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 90, 113, 0.15);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    background-color: #f0f0f0;
+    &:hover {
+      background-color: #f0f0f0;
+      border-color: var(--adb-border-default);
+    }
   }
 }
-
