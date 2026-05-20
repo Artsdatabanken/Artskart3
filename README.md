@@ -14,13 +14,6 @@ Install the package from `artskart3.webapp`:
     npm install @artsdatabanken/nbic-map-component
     ```
 
-## Lage commits
-Alle commits til prosjektet skal være verifisert. Dette betyr at du må generere en SSH nøkkel med å skrive denne kommandoen i git bash: 
-
-`ssh-keygen -t ed25519 -C "your_email@example.com"` 
-
-og legger til .pub nøkkelen under signing keys og authentication keys på GitHub. 
-
 [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) og spesifikt seksjonen Generate new SSH Key.
 ## Kjøre Artskart 3 lokalt
 * Kjør `gh repo clone Artsdatabanken/Artskart3` eller bruk Github Desktop for å laste ned repositoriet
