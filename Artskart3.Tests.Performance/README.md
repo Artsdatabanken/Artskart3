@@ -2,8 +2,6 @@
 
 BenchmarkDotNet-baserte ytelsestester for `SearchService`- og repository-laget. Testene kjøres mot en ekte SQL Server-database med produksjonslignende datamengder for å gi meningsfulle resultater.
 
-Resultater fra nattlige CI-kjøringer publiseres til [GitHub Pages](#se-resultater-på-github-pages).
-
 ---
 
 ## Hvordan benchmark-tester fungerer
@@ -106,73 +104,54 @@ Resultater skrives til `BenchmarkDotNet.Artifacts/results/` i prosjektmappen:
 
 ---
 
-## Sammenligne kjøringer over tid (lokalt)
+## Lokal Grafana-dashboard (tidsserie over tid)
 
-Bruk Microsofts [ResultsComparer](https://github.com/dotnet/performance/tree/main/src/tools/ResultsComparer)-verktøy til å sammenligne to sett med resultater.
+Grafana-dashbordet viser de samme tidsserie-grafene som GitHub Pages, men kjører lokalt.
+Etter hver benchmark-kjøring importerer du resultater til en lokal InfluxDB-instans.
 
-### Installer
+### Forutsetninger
 
-```bash
-dotnet tool install -g ResultsComparer
-```
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) eller [Podman Desktop](https://podman-desktop.io/)
 
-### Sammenlign
+### 1. Start Grafana og InfluxDB
 
-Lagre resultatmapper med beskrivende navn før og etter en endring:
-
-```
-BenchmarkDotNet.Artifacts/
-  results-før-optimalisering/
-  results-etter-optimalisering/
-```
-
-Sammenlign deretter:
+Fra `Artskart3.Tests.Performance/dashboard/`:
 
 ```bash
-ResultsComparer --base results-før-optimalisering/ --diff results-etter-optimalisering/ --threshold 5%
+docker compose up -d
 ```
 
-Resultatet viser **regresjoner**, **forbedringer** og **ingen endring** per benchmark, basert på en statistisk test fremfor rene tall.
+Grafana åpnes på **http://localhost:4242** (bruker: `admin` / passord: `admin`).
+Dashbordet **Artskart3 Ytelsestester** er ferdig konfigurert og venter på data.
 
----
+### 2. Kjør ytelsestester — import skjer automatisk
 
-## GitHub Actions — nattlig CI-kjøring
+Kjør benchmark-testene som vanlig:
 
-Benchmark-pipelinen kjøres nattlig kl. **02:00 UTC** fra `develop`-grenen og publiserer resultater til GitHub Pages.
-
-### Workflow-fil
-
-`.github/workflows/benchmarks.yml` — kjører tester og pusher resultater til `gh-pages`-grenen ved hjelp av [github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark).
-
-### Påkrevd GitHub-secret
-
-Workflow-en trenger en tilkoblingsstreng til en produksjonslignende database. Legg den til som repository-secret i GitHub:
-
-1. Gå til **Settings → Secrets and variables → Actions**
-2. Klikk **New repository secret**
-3. Navn: `BENCHMARK_CONNECTION_STRING`
-4. Verdi: den fullstendige SQL Server-tilkoblingsstrengen
-
-### Aktivere GitHub Pages
-
-1. Gå til **Settings → Pages**
-2. Sett **Source** til `Deploy from a branch`
-3. Sett **Branch** til `gh-pages` / `(root)`
-4. Lagre
-
-Etter den første vellykkede workflow-kjøringen vil resultater være tilgjengelig på:
-
-```
-https://<org>.github.io/Artskart3/dev/bench/
+```bash
+dotnet run -c Release
 ```
 
----
+Etter at benchmark-kjøringen er ferdig importerer programmet automatisk resultater til InfluxDB.
+Åpne **http://localhost:4242** og velg tidsperioden `Last 90 days` for å se trendutviklingen.
 
-## Se resultater på GitHub Pages
+> **Merk:** Dersom InfluxDB ikke kjører vises en advarsel, men benchmark-kjøringen feiler ikke.
 
-GitHub Pages-dashbordet viser et tidsseriediagram per benchmark-metode, oppdatert etter hver nattlig kjøring. Hvert datapunkt lenker tilbake til workflow-kjøringen som produserte det.
+### Stopp containerne
 
-Regresjoner over 120 % av grunnlinjen flagges som advarsler på workflow-kjøringen, men stopper ikke bygget.
+```bash
+docker compose down        # stopp, behold data
+docker compose down -v     # stopp og slett all data
+```
+
+### Dashboard-struktur
+
+| Panel | Innhold |
+|---|---|
+| SearchTaxons | Responstid (ms) for taksonnavnsøk — eksakt, starter-med, inneholder |
+| GetLocations | Responstid (ms) for stedssøk med ulike filtre |
+| GetAreas | Responstid (ms) for henting av kommuner og fylker |
+| Minnebruk | Bytes allokert per operasjon for alle benchmarks |
 
 ---
 
