@@ -3,7 +3,7 @@ using Artskart3.Import.Core.Domain.Enums;
 namespace Artskart3.Import.Core.Domain.Entities;
 
 /// <summary>
-/// Provider configuration for a remote data source (formerly SourceDataBase in RavenDB).
+/// Provider configuration for a remote data source.
 /// One flat table; use typed views or application-layer filtering to work with specific provider types.
 /// </summary>
 public class DataSource
