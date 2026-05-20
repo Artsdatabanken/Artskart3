@@ -52,6 +52,9 @@ yarn-error.log*
 # Idea
 .idea/
 
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/
+
 # Visual Studio Code
 */.vscode/*
 !*/.vscode/settings.json
