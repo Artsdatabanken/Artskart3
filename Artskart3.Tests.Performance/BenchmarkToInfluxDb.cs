@@ -79,18 +79,25 @@ internal static class BenchmarkToInfluxDb
 
         foreach (var b in benchmarks)
         {
+            if (b.Statistics is null)
+                continue;
+
             var method   = EscapeTagValue(b.FullName.Split('.').Last());
             var category = EscapeTagValue(method.Split('_')[0]);
 
             Console.WriteLine($"  {method,-55} mean = {b.Statistics.Mean / 1e6,8:F2} ms");
 
-            sb.AppendLine(
+            var allocatedField = b.Memory?.BytesAllocatedPerOperation is long allocated
+                ? $",allocated={allocated}i"
+                : string.Empty;
+
+            sb.Append(
                 $"benchmark,category={category},method={method},machine={machine} " +
                 $"mean={b.Statistics.Mean}," +
                 $"median={b.Statistics.Median}," +
-                $"stddev={b.Statistics.StandardDeviation}," +
-                $"allocated={b.Memory.BytesAllocatedPerOperation}i " +
-                $"{nanos}");
+                $"stddev={b.Statistics.StandardDeviation}" +
+                $"{allocatedField} " +
+                $"{nanos}\n");
         }
 
         return sb.ToString().TrimEnd();
@@ -132,7 +139,7 @@ internal static class BenchmarkToInfluxDb
     // ---------------------------------------------------------------------------
 
     private record BenchmarkReport(List<BenchmarkEntry> Benchmarks);
-    private record BenchmarkEntry(string FullName, BenchmarkStatistics Statistics, BenchmarkMemory Memory);
+    private record BenchmarkEntry(string FullName, BenchmarkStatistics? Statistics, BenchmarkMemory? Memory);
     private record BenchmarkStatistics(double Mean, double Median, double StandardDeviation);
-    private record BenchmarkMemory(long BytesAllocatedPerOperation);
+    private record BenchmarkMemory(long? BytesAllocatedPerOperation);
 }
