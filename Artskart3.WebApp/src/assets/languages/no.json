@@ -5,7 +5,17 @@
     "menu": "Meny",
     "close": "Lukk",
     "darkMode": "Veksle mørk modus",
-    "login": "Logg inn"
+    "login": "Logg inn",
+    "logout": "Logg ut",
+    "loginAriaLabel": "Logg inn",
+    "logoutAriaLabel": "Logg ut",
+    "mainNavigationAriaLabel": "Hovedmeny",
+    "openMenuAriaLabel": "Åpne navigasjonsmeny",
+    "closeMenuAriaLabel": "Lukk navigasjonsmeny",
+    "selectLanguageAriaLabel": "Åpne meny for språkvalg",
+    "selectLanguageOptionAriaLabel": "Velg {{language}} språk",
+    "switchToLightModeAriaLabel": "Bytt til lyst tema",
+    "switchToDarkModeAriaLabel": "Bytt til mørkt tema"
   },
   "navigation": {
     "menuItem1": "Menypunkt 1",
@@ -18,5 +28,11 @@
     "loading": "Laster...",
     "error": "Feil",
     "success": "Suksess"
+  },
+  "baseLayout": {
+    "searchPlaceholder": "Søk i Artskart"
+  },
+  "resizablePanel": {
+    "resizeAriaLabel": "Endre størrelse på filter panelet"
   }
 }

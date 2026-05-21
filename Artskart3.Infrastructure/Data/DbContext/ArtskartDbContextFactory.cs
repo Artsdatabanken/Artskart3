@@ -19,8 +19,8 @@ namespace Artskart3.Infrastructure.Data
                 .AddUserSecrets("8dc47386-a52c-4e4e-8671-c5d5cd04ea81")
                 .Build();
 
-            var connectionString = configuration.GetConnectionString("ArtskartDb")
-                ?? throw new InvalidOperationException("Connection string 'ArtskartDb' not found in appsettings.json.");
+            var connectionString = configuration.GetConnectionString("ArtskartIndex")
+                ?? throw new InvalidOperationException("Connection string 'ArtskartIndex' not found in appsettings.json.");
 
             var optionsBuilder = new DbContextOptionsBuilder<ArtskartDbContext>();
             optionsBuilder.UseSqlServer(connectionString, sqlOptions =>

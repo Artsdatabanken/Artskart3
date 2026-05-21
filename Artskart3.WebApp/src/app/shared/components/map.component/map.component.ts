@@ -1,4 +1,4 @@
-import { createMap, MapEvents, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -52,8 +52,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   };
 
   private areasService = inject(AreasService);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private map: any;
+
+  @Output() iconClickAction = new EventEmitter<string>();
+
+  map!: NbicMapComponent;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
@@ -104,6 +106,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           minZoom: MAP_CONFIG.minZoom,
           maxZoom: MAP_CONFIG.maxZoom,
           controls: { scaleLine: true, fullscreen: true, geolocation: true, zoom: true, attribution: true },
+          id: 'artskart-map',
+          projection: 'EPSG:25833',
+          center: [300000, 7220000],  // Centered on Norway in UTM 33N
+          zoom: 6.2,
+          minZoom: 0,
+          maxZoom: 18,
+          controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true },
         }
       );
 
@@ -170,6 +179,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       } else {
         this.zoomState.setZoom(targetZoom);
         this.zoomState.setAnimationFrameId(null);
+      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as const };
+      if (topoLayer.source.type === 'wmts') {
+        topoLayer.source.options.projection = 'EPSG:25833';
+        topoLayer.source.options.matrixSet = 'utm33n';
       }
     };
 
@@ -409,6 +422,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (!this.processHoverForLayer(layerId, event.items, 0, 0)) {
           this.hideTooltip();
         }
+      this.map.on(MapEvents.Ready, () => {
+        this.mapReadyAction.emit(true);
+        this.map!.activateHoverInfo();
       });
     } catch (error) {
       console.error('Error setting up marker interactions:', error);
@@ -464,6 +480,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.map?.destroy?.();
+  }
+  
+  onIconClick(iconName: string): void {
+    this.iconClickAction.emit(iconName);
   }
 
   ngOnDestroy(): void {
