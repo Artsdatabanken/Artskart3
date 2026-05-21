@@ -43,7 +43,7 @@ Rider: Høyreklikk prosjektet og velg Tools->.Net user Secrets
 Filen skal se noe slik ut, endre connectionstring ved behov.
 ```
 {
-  "ConnectionStrings:ArtskartDb": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True",
+  "ConnectionStrings:ArtskartIndex": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True",
   "ClientSafeList": "127.0.0.1;::1"
 }
 ```
@@ -52,7 +52,7 @@ Filen skal se noe slik ut, endre connectionstring ved behov.
 ```powershell
 cd Artskart3.Api
 dotnet user-secrets init
-dotnet user-secrets set "ConnectionStrings:ArtskartDb" "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
+dotnet user-secrets set "ConnectionStrings:ArtskartIndex" "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
 dotnet user-secrets set "ClientSafeList" "127.0.0.1;::1"
 ```
 

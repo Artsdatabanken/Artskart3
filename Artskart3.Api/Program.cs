@@ -109,7 +109,7 @@ try
         logger.LogWarning("ApplicationInsights connection string not configured - telemetry will not be collected");
     }
 
-    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");
+    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex");
     builder.Services.AddBff()
         .ConfigureOpenIdConnect(options =>
         {

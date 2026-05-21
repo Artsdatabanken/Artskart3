@@ -6,7 +6,9 @@
   align-items: stretch;
   height: 100vh;
   background: var(--adb-background-default);
-  overflow: hidden;
+  overflow: clip;
+  position: fixed;
+  inset: 0;
 }
 
 .layout-container {
@@ -55,21 +57,9 @@
 
 .main-content {
   background: var(--adb-background-default);
-  width: 100%;
+  flex: 1;
   height: 100%;
-}
-
-.content-wrapper {
-  width: 100%;
-  padding: var(--adb-spacing-xl) var(--adb-spacing-lg);
-  min-height: 100%;
-  box-sizing: border-box;
-}
-
-@media (max-width: 1024px) {
-  .content-wrapper {
-    padding: var(--adb-spacing-lg) var(--adb-spacing-md);
-  }
+  overflow: auto;
 }
 
 @media (max-width: 768px) {
@@ -87,10 +77,6 @@
     max-width: var(--panel-max-width);
     z-index: 100;
   }
-
-  .content-wrapper {
-    padding: var(--adb-spacing-md);
-  }
 }
 
 @media (max-width: 480px) {
@@ -100,9 +86,5 @@
 
   .sidebar.open {
     max-width: 100%;
-  }
-
-  .content-wrapper {
-    padding: var(--adb-spacing-md) var(--adb-spacing-xsm);
   }
 }
