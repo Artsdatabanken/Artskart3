@@ -23,6 +23,10 @@ X-CSRF: 1
 GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?scientificName=Dermochelys
 X-CSRF: 1
 
+### Paginate observation, no filter
+GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?PageNumber=3&ResultsPerPage=10
+X-CSRF: 1
+
 
 ### Get observation locations (no filter)
 GET {{Artskart3.Server_HostAddress}}/api/Search/Locations

@@ -103,7 +103,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Observation")]
         [Produces("application/json")]
-        public async Task<ActionResult<ObservationDto[]>> GetObservations([FromQuery] ObservationSearchFilterDto? filter = null)
+        public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromQuery] ObservationSearchFilterDto? filter = null)
         {
             filter ??= new ObservationSearchFilterDto();
 
@@ -116,12 +116,14 @@ namespace Artskart3.Api.Controllers
                     return BadRequest(new { error = $"ResultsPerPage must be between {MinResults} and {MaxResults}." });
 
                 var paginationResults = await _searchService.GetObservationsAsync(filter);
-
+                var resultsPerPage = filter.ResultsPerPage!.Value;
+                var lookaheadCount = await paginationResults.CountAsync()/resultsPerPage;
                 var pagedResult = new PagedObservationResponseDto
                 {
-                    Items = paginationResults,
+                    Items = paginationResults.Take(resultsPerPage),
                     PageNumber = filter.PageNumber!.Value,
-                    ResultsPerPage = filter.ResultsPerPage!.Value
+                    ResultsPerPage = filter.ResultsPerPage!.Value,
+                    LookaheadCount = lookaheadCount
                 };
 
                 return Ok(pagedResult);
