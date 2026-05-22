@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using NetTopologySuite.Geometries;
 
 
 namespace Artskart3.Core.Domain.Entities;
@@ -11,4 +10,6 @@ public partial class Maskeringsruter4x4km
     public int? KriteriumMaskeringsrute { get; set; }
 
     public string? Ruteid { get; set; }
+
+    public Geometry? Shape { get; set; }
 }

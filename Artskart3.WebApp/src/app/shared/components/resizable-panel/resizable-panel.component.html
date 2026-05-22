@@ -13,7 +13,7 @@
       class="resize-handle"
       (mousedown)="onResizeStart($event)"
       role="separator"
-      aria-label="Resize filter panel"
+      [attr.aria-label]="'resizablePanel.resizeAriaLabel' | translate"
     >
       <div class="resize-indicator"></div>
   </div>}

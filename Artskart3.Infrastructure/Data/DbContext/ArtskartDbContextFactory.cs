@@ -16,13 +16,18 @@ namespace Artskart3.Infrastructure.Data
                 .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "..", "Artskart3.Api"))
                 .AddJsonFile("appsettings.json", optional: false)
                 .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddUserSecrets("8dc47386-a52c-4e4e-8671-c5d5cd04ea81")
                 .Build();
 
-            var connectionString = configuration.GetConnectionString("ArtskartDb")
-                ?? throw new InvalidOperationException("Connection string 'ArtskartDb' not found in appsettings.json.");
+            var connectionString = configuration.GetConnectionString("ArtskartIndex")
+                ?? throw new InvalidOperationException("Connection string 'ArtskartIndex' not found in appsettings.json.");
 
             var optionsBuilder = new DbContextOptionsBuilder<ArtskartDbContext>();
-            optionsBuilder.UseSqlServer(connectionString);
+            optionsBuilder.UseSqlServer(connectionString, sqlOptions =>
+            {
+                sqlOptions.UseNetTopologySuite();
+                sqlOptions.CommandTimeout(3600);
+            });
 
             return new ArtskartDbContext(optionsBuilder.Options);
         }

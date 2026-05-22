@@ -1,29 +1,36 @@
-import { provideHttpClient, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, HttpBackend } from '@angular/common/http';
 import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
+import { TranslateModule, TranslateLoader, TranslationObject } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
 import { SharedModule } from './shared/shared.module';
 import { LayoutsModule } from './layouts/layouts.module';
-import { MapComponent } from './shared/components/map.component/map.component';
-import { LanguageInterceptor } from './shared/interceptors/language.interceptor';
+import { DesignComponent } from './shared/components/design.component/design.component';
+import { languageInterceptor } from './shared/interceptors/language.interceptor';
+import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
 
 class CustomTranslateLoader implements TranslateLoader {
-  constructor(private http: HttpClient) {}
+  private http: HttpClient;
 
-  getTranslation(lang: string): Observable<any> {
-    return this.http.get(`/assets/languages/${lang}.json`);
+  constructor(handler: HttpBackend) {
+    // HttpClient created from HttpBackend bypasses all interceptors,
+    // avoiding circular dependency with languageInterceptor
+    this.http = new HttpClient(handler);
+  }
+
+  getTranslation(lang: string): Observable<TranslationObject> {
+    return this.http.get<TranslationObject>(`/assets/languages/${lang}.json`);
   }
 }
 
-export function HttpLoaderFactory(http: HttpClient): TranslateLoader {
-  return new CustomTranslateLoader(http);
+export function HttpLoaderFactory(handler: HttpBackend): TranslateLoader {
+  return new CustomTranslateLoader(handler);
 }
 
 export function initializeLanguageFactory(languageService: LanguageService) {
@@ -32,35 +39,30 @@ export function initializeLanguageFactory(languageService: LanguageService) {
 
 @NgModule({
   declarations: [
-    App,
-    MapComponent
+    App
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
     SharedModule,
     LayoutsModule,
+    DesignComponent,
     TranslateModule.forRoot({
       fallbackLang: 'no',
       loader: {
         provide: TranslateLoader,
         useFactory: HttpLoaderFactory,
-        deps: [HttpClient]
+        deps: [HttpBackend]
       }
     })
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([languageInterceptor, csrfInterceptor])),
     {
       provide: APP_INITIALIZER,
       useFactory: initializeLanguageFactory,
       deps: [LanguageService],
-      multi: true
-    },
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: LanguageInterceptor,
       multi: true
     },
     LoggingService,

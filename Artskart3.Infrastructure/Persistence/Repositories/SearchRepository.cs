@@ -1,4 +1,5 @@
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
@@ -147,6 +148,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             {
                 filter ??= new LocationSearchFilterDto();
 
+                // Hvorfor bruker vi ikke arrays i LocationSearchFilterDto?
+                // Dette er noe vi styrer selv, så unødvendig å bruke kommaseparert liste for så å ha egen kode for å lage en liste av dem
                 var taxonGroupIds = ParseIntList(filter.TaxonGroupIds);
                 var categories = ParseIntList(filter.Categories);
                 var basisOfRecords = ParseIntList(filter.BasisOfRecords);

@@ -10,7 +10,9 @@ import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, 
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
-  private map: any;
+  @Output() iconClickAction = new EventEmitter<string>();
+
+  map: ReturnType<typeof createMap> | null = null;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), 100);
@@ -33,14 +35,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           zoom: 6.2,
           minZoom: 0,
           maxZoom: 18,
-          controls: { scaleLine: true, fullscreen: true, geolocation: true, zoom: true, attribution: true },
+          controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true },
         }
       );
 
       // Add base layers
       this.map.addLayer(nbicMapPresets.osm);
 
-      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' };
+      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as const };
       if (topoLayer.source.type === 'wmts') {
         topoLayer.source.options.projection = 'EPSG:25833';
         topoLayer.source.options.matrixSet = 'utm33n';
@@ -49,11 +51,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
       this.map.on(MapEvents.Ready, () => {
         this.mapReadyAction.emit(true);
-        this.map.activateHoverInfo();
+        this.map!.activateHoverInfo();
       });
     } catch (error) {
       console.error('Error initializing map:', error);
     }
+  }
+
+  onIconClick(iconName: string): void {
+    this.iconClickAction.emit(iconName);
   }
 
   ngOnDestroy(): void {
