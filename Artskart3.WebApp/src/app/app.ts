@@ -1,6 +1,5 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, OnInit, inject } from '@angular/core';
 import { LoggingService } from './shared/logging.service';
-import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -8,9 +7,10 @@ import { HttpClient } from '@angular/common/http';
   templateUrl: './app.html',
 })
 export class App implements OnInit {
-  constructor(private loggingService: LoggingService, private http: HttpClient) {
-  }
+  private readonly loggingService = inject(LoggingService);
+
   protected readonly title = signal('artskart3.webapp');
+
   ngOnInit() {
     this.loggingService.logEvent('App Initialized');
   }

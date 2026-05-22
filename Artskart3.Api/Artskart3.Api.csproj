@@ -7,9 +7,14 @@
     <SpaRoot>..\artskart3.WebApp</SpaRoot>
     <SpaProxyLaunchCommand>npm start</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:49219</SpaProxyServerUrl>
+    <UserSecretsId>8dc47386-a52c-4e4e-8671-c5d5cd04ea81</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Duende.BFF" Version="4.1.2" />
+    <PackageReference Include="Duende.BFF.EntityFramework" Version="4.1.2" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="3.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy">

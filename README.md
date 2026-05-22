@@ -1,5 +1,12 @@
 # Artskart3
-Ny versjon av Artskart, påbegynt Februar 2026 
+Ny versjon av Artskart, som per idag (april 2026) ligger på artskart.artsdatabanken.no (videre omtalt som Artskart 2).
+Første innsats i Artskart 3 har som mål å erstatte Artskart 2, så snart det er mulig. Videre er det ambisjoner om å utvide Artskart med mer funksjonalitet enn det som finnes i Artskart 2.
+
+Noen viktige mål
+- Få bukt med ytelsesproblemer
+- Ny og foredret backend som er mer modulær og oversiktlig
+- Få en er moderne frontend
+- Få en portal som er i henhold til Artsdatabankens designsystem og visuelle identitet
 
 ## Requirements
 * Node versjon 22.14 for Angular frontend
@@ -14,13 +21,6 @@ Install the package from `artskart3.webapp`:
     npm install @artsdatabanken/nbic-map-component
     ```
 
-## Lage commits
-Alle commits til prosjektet skal være verifisert. Dette betyr at du må generere en SSH nøkkel med å skrive denne kommandoen i git bash: 
-
-`ssh-keygen -t ed25519 -C "your_email@example.com"` 
-
-og legger til .pub nøkkelen under signing keys og authentication keys på GitHub. 
-
 [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) og spesifikt seksjonen Generate new SSH Key.
 ## Kjøre Artskart 3 lokalt
 * Kjør `gh repo clone Artsdatabanken/Artskart3` eller bruk Github Desktop for å laste ned repositoriet
@@ -29,10 +29,41 @@ og legger til .pub nøkkelen under signing keys og authentication keys på GitHu
 * Kjør kommandoen `ng serve` fra Artskart3/Artskart3.Webapp/ i terminalen for å starte frontend 
 
 ### Backend (API)
-* Åpne løsningsfilen `Artskart3.sln` i Visual Studio og kjør prosjektet
-* API-et starter på `http://localhost:5088`
-* **NB:** Swagger UI er tilgjengelig på `http://localhost:5088/swagger` — bruk denne URL-en direkte og **ikke** SPA-proxy-porten (f.eks. `49219`), da SPA-proxyen vil omdirigere alle ukjente ruter til `index.html`
-* Helsesjekk for databasetilkobling og andre avhengigheter: `http://localhost:5088/hc`
+* Åpne løsningsfilen `Artskart3.slnx` i Visual Studio/Rider og kjør prosjektet med profilen `Artskart3.Api`
+* API-et starter på `https://localhost:5088`
+* Swagger UI er tilgjengelig på `https://localhost:5088/swagger`
+* Helsesjekk for databasetilkobling og andre avhengigheter: `https://localhost:5088/hc`
+
+> **NB:** Første gang du kjører API-et på HTTPS må du sette opp trust mot det lokale utviklersertifikatet:
+> ```powershell
+> dotnet dev-certs https --trust
+> ```
+
+#### Database
+Du vil trenge en sql server database for å kjøre apiet. En .bacpac fil ligger på Teams (Artskart->General->Shared->NyeArtskart->DatabaseDumps->Artskart2Index-2026-3-12-14-27.bacpak) hvis du ønsker å starte med en database med data. Ønsker du å starte med en tom database, se Databasemigrasjoner lenger ned.
+
+#### Sett opp User Secrets
+##### Visual studio/rider
+VS: Høyreklikk prosjektet og velg "Manage User Secrets"
+Rider: Høyreklikk prosjektet og velg Tools->.Net user Secrets
+
+Filen skal se noe slik ut, endre connectionstring ved behov.
+```
+{
+  "ConnectionStrings:ArtskartIndex": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True",
+  "ClientSafeList": "127.0.0.1;::1"
+}
+```
+
+##### Command line
+```powershell
+cd Artskart3.Api
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:ArtskartIndex" "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
+dotnet user-secrets set "ClientSafeList" "127.0.0.1;::1"
+```
+
+Valgfritt — legg til Application Insights ConnectionString hvis du skal teste det lokalt
 
 ### Databasemigrasjoner (EF Core Code-First)
 Prosjektet bruker EF Core code-first migrasjoner. Alle migrasjoner kjøres fra `Artskart3.Infrastructure`-mappen.
@@ -51,7 +82,7 @@ dotnet ef migrations add <NavnPåMigrasjon> --startup-project ..\Artskart3.Api
 **Kjøre migrasjoner mot lokal database:**
 ```powershell
 cd Artskart3.Infrastructure
-dotnet ef database update --startup-project ..\Artskart3.Api
+dotnet ef database update --context ArtskartDbContext --startup-project ..\Artskart3.Api
 ```
 
 **Angre siste migrasjon** (kun hvis den ikke er kjørt mot databasen ennå):
@@ -63,7 +94,7 @@ dotnet ef migrations remove --startup-project ..\Artskart3.Api
 > Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
 
 ## Navngiving av branches
-Standariserer navngiving av branches er `prosjektnavn-sak#-navn_på_oppgave` som for eksempel: `artskart3-sak42-project-setup-and-commits`
+Standariserer navngiving av branches er `feature/navn-på-branch` som for eksempel: `feature/authentication` for features og `bugfix/fix-ip-blocking` hvis det er en bugfix. 
 
 ## Merging av endringer
 For å gjøre endringer i Artskart krever det at det lages en pull request som må godkjennes av en annen utvikler.

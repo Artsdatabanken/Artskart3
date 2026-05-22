@@ -5,22 +5,23 @@ import {
   EventEmitter,
   HostListener,
   signal,
-  computed,
+  OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-resizable-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslateModule],
   templateUrl: './resizable-panel.component.html',
   styleUrl: './resizable-panel.component.css',
 })
-export class ResizablePanelComponent {
-  @Input() initialWidth: number = 280;
-  @Input() minWidth: number = 200;
-  @Input() maxWidth: number = 500;
-  @Input() isDraggable: boolean = true;
+export class ResizablePanelComponent implements OnInit {
+  @Input() initialWidth = 280;
+  @Input() minWidth = 200;
+  @Input() maxWidth = 500;
+  @Input() isDraggable = true;
 
   @Output() widthChanged = new EventEmitter<number>();
 

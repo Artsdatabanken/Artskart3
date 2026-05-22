@@ -1,9 +1,11 @@
-
 using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
-using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Core.Application.Persistence;
 using Artskart3.Infrastructure.Data;
+using Azure.Identity;
+using Duende.Bff;
+using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +26,9 @@ if (!builder.Environment.IsDevelopment())
 {
     builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
     builder.Logging.AddFilter("Microsoft.Extensions.Diagnostics", LogLevel.Information);
+
+    var keyVaultUrl = new Uri($"https://{builder.Configuration["KeyVault:Name"]}.vault.azure.net/");
+    builder.Configuration.AddAzureKeyVault(keyVaultUrl, new DefaultAzureCredential());
 }
 
 var tempLoggerFactory = LoggerFactory.Create(c => c.AddConsole().AddDebug());
@@ -35,6 +40,14 @@ try
     logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
+    
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.ForwardedHostHeaderName = "X-Original-Host";
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
 
     // Configure CORS for local development - allows frontend to call backend API
     builder.Services.AddCors(options =>
@@ -96,10 +109,44 @@ try
         logger.LogWarning("ApplicationInsights connection string not configured - telemetry will not be collected");
     }
 
-    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartDb");   
+    var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex");
+    builder.Services.AddBff()
+        .ConfigureOpenIdConnect(options =>
+        {
+            options.Authority = builder.Configuration["Auth:Authority"];
+            options.ClientId = builder.Configuration["Auth:ClientId"];
+            options.ClientSecret = builder.Configuration["Auth:ClientSecret"];
+            options.ResponseType = "code";
+            options.ResponseMode = "query";
+
+            options.GetClaimsFromUserInfoEndpoint = true;
+            options.SaveTokens = true;
+            options.MapInboundClaims = false;
+
+            options.Scope.Clear();
+            options.Scope.Add("openid");
+            options.Scope.Add("email");
+            options.Scope.Add("profile");
+            options.Scope.Add("roles");
+        }).ConfigureCookies(options =>
+        {
+            options.Cookie.SameSite = SameSiteMode.Lax;
+        })
+        .AddServerSideSessions()
+        .AddEntityFrameworkServerSideSessions(options =>
+        {
+            options.UseSqlServer(dbConnectionString, sqlOptions => sqlOptions.MigrationsAssembly("Artskart3.Infrastructure"));
+        })
+        .AddSessionCleanupBackgroundProcess();
+
+    builder.Services.AddAuthorization();
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
     {
-        options.UseSqlServer(dbConnectionString, x => x.UseNetTopologySuite());
+        options.UseSqlServer(dbConnectionString, x =>
+        {
+            x.UseNetTopologySuite();
+            x.CommandTimeout(600);
+        });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 
@@ -112,6 +159,8 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
+    
+    app.UseForwardedHeaders();
 
     // Auto-apply pending migrations only if enabled in configuration
     var autoMigrateDb = Convert.ToBoolean(builder.Configuration["Database:AutoMigrate"] ?? "false");
@@ -130,6 +179,10 @@ try
                 logger.LogInformation("Applying pending database migrations...");
                 dbContext.Database.Migrate();
                 logger.LogInformation("Database migrations applied successfully");
+                var sessionDbContext = scope.ServiceProvider.GetRequiredService<SessionDbContext>();
+                logger.LogInformation("Applying pending session database migrations...");
+                sessionDbContext.Database.Migrate();
+                logger.LogInformation("Database session migrations applied successfully");
             }
         }
         catch (Exception ex)
@@ -148,7 +201,11 @@ try
 
     // CORS must be early in the pipeline - before controllers and static files
     app.UseCors();
-    
+
+    app.UseAuthentication();
+
+    app.UseRouting();
+
     app.UseDefaultFiles();
     app.MapStaticAssets();
 
@@ -161,6 +218,7 @@ try
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");
             c.RoutePrefix = "swagger";
             c.DisplayRequestDuration();
+            c.UseRequestInterceptor("(req) => { req.headers['X-CSRF'] = '1'; return req; }");
         });
     }
     else
@@ -176,9 +234,13 @@ try
     
     app.MapHealthChecks("/hc", healthCheckOptions);
     logger.LogInformation("Health check endpoint mapped to '/hc'");
-
+    
+    app.UseBff();
     app.UseAuthorization();
-    app.MapControllers();
+    app.MapBffManagementEndpoints();
+    app.MapControllers()
+        .RequireAuthorization()
+        .AsBffApiEndpoint();
 
     app.MapFallbackToFile("/index.html");
 

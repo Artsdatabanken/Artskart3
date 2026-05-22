@@ -6,20 +6,22 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 
 #nullable disable
 
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260421122238_AddBaseEntityToObservation")]
-    partial class AddBaseEntityToObservation
+    [Migration("20260512212920_InitialBaseline")]
+    partial class InitialBaseline
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .UseCollation("Danish_Norwegian_CI_AS")
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -42,11 +44,10 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<Geometry>("Centroid")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("geometry")
+                        .HasComputedColumnSql("([WktPolygon].[STCentroid]())", false);
 
                     b.Property<string>("DocumentId")
                         .IsRequired()
@@ -64,9 +65,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<bool>("IsCurrent")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -90,8 +88,13 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("datetime")
                         .HasDefaultValue(new DateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<Geometry>("WktPolygon")
+                        .IsRequired()
+                        .HasColumnType("geometry");
+
+                    b.Property<Geometry>("WktPolygonGm")
+                        .IsRequired()
+                        .HasColumnType("geometry");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
@@ -103,6 +106,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ParentFid" }, "IX_ParentFid");
 
                     b.HasIndex(new[] { "Name" }, "NonClusteredIndex-20180305-111522");
+
+                    b.HasIndex(new[] { "WktPolygon" }, "SpatialIndex-WktPolygon");
 
                     b.ToTable("Area", (string)null);
                 });
@@ -117,15 +122,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsRequired")
                         .HasColumnType("bit");
 
@@ -133,9 +129,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.AreaType");
@@ -148,18 +141,12 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Description")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -168,9 +155,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ObservationCount")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Variants")
                         .IsRequired()
@@ -188,21 +172,12 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<bool>("Deleted")
                         .HasColumnType("bit");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -211,9 +186,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ObservationCount")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Variants")
                         .IsRequired()
@@ -239,15 +211,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("nvarchar(2)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -255,9 +218,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ObservationCount")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Category");
@@ -272,22 +232,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.CategoryType");
@@ -313,15 +261,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("DatabaseName")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
@@ -341,9 +283,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<byte?>("IndexType")
                         .HasColumnType("tinyint");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("ObjectName")
                         .HasMaxLength(128)
@@ -369,9 +308,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
                     b.ToTable("CommandLog", (string)null);
@@ -385,15 +321,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("RecordId")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -404,9 +331,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("TimeStamp")
                         .HasColumnType("datetime");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.DeletedItem");
@@ -422,14 +346,8 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ExportStatus", b =>
                 {
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Doi")
                         .HasColumnType("nvarchar(max)");
@@ -453,14 +371,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("StatusCode")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.ExportStatus");
@@ -473,18 +385,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.FAB4Exclude");
 
@@ -493,19 +393,10 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Filter", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("uniqueidentifier")
                         .HasDefaultValueSql("(newsequentialid())");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -516,9 +407,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(3700)
                         .HasColumnType("nvarchar(3700)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Filter");
@@ -556,12 +444,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("coord_dimension");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("GeometryType")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -569,18 +451,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("varchar(30)")
                         .HasColumnName("geometry_type");
 
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("Srid")
                         .HasColumnType("int")
                         .HasColumnName("srid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("FTableCatalog", "FTableSchema", "FTableName", "FGeometryColumn")
                         .HasName("geometry_columns_pk");
@@ -595,15 +468,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int>("ModeCommand")
                         .HasColumnType("int")
@@ -657,9 +521,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("TimestampFinished")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.ImportLog");
 
@@ -675,15 +536,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Message")
                         .IsRequired()
@@ -705,9 +557,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.ImportNotification");
 
@@ -721,9 +570,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DateLastProcessed")
                         .HasColumnType("datetime2");
 
@@ -731,9 +577,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateLastProcessedWithChangeInRecords")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Doi")
@@ -748,9 +591,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("ImportedNumberOfRecords")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("LastProcessResult")
                         .HasColumnType("nvarchar(max)");
@@ -779,9 +619,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("UpdateMode")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.ImportState");
 
@@ -799,17 +636,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("CoordinatePrecision")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("East")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
 
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
@@ -838,9 +669,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("TimeStamp")
                         .HasColumnType("datetime");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.Location");
 
@@ -851,6 +679,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "East" }, "IX_EastNorthGeom");
 
                     b.HasIndex(new[] { "LookupId" }, "IX_LookupId");
+
+                    b.HasIndex(new[] { "Geometry" }, "SpatialIndex-Geometry");
 
                     b.ToTable("Location", (string)null);
                 });
@@ -875,7 +705,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
 
+                    b.Property<Geometry>("Shape")
+                        .HasColumnType("geometry")
+                        .HasColumnName("SHAPE");
+
                     b.HasKey("Objectid");
+
+                    b.HasIndex(new[] { "Shape" }, "SpatialIndex-WktPolygon");
+
+                    b.HasIndex(new[] { "Shape" }, "qgs_SHAPE_sidx");
 
                     b.ToTable("Maskeringsruter_16x16km", (string)null);
                 });
@@ -900,7 +738,13 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
 
+                    b.Property<Geometry>("Shape")
+                        .HasColumnType("geometry")
+                        .HasColumnName("SHAPE");
+
                     b.HasKey("Objectid");
+
+                    b.HasIndex(new[] { "Shape" }, "qgs_SHAPE_sidx");
 
                     b.ToTable("Maskeringsruter_4x4km", (string)null);
                 });
@@ -925,7 +769,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("RUTEID")
                         .IsFixedLength();
 
+                    b.Property<Geometry>("Shape")
+                        .HasColumnType("geometry")
+                        .HasColumnName("SHAPE");
+
                     b.HasKey("Objectid");
+
+                    b.HasIndex(new[] { "Shape" }, "SpatialIndex-WktPolygon");
+
+                    b.HasIndex(new[] { "Shape" }, "qgs_SHAPE_sidx");
 
                     b.ToTable("Maskeringsruter_8x8km", (string)null);
                 });
@@ -937,12 +789,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
@@ -958,9 +804,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("varbinary(max)");
 
                     b.Property<bool>("InDownloadqueue")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("License")
@@ -986,9 +829,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Size")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id")
                         .HasName("PK_dbo.MediaFile");
 
@@ -1006,15 +846,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("MediaTypeName")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -1022,9 +853,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<string>("MimeType")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.MediaFileType");
@@ -1082,9 +910,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("CoordinatePrecisionInMeters")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DateLastModified")
                         .HasColumnType("datetime2");
 
@@ -1094,14 +919,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("DateTimeRecordImported")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("DateTimeRecordProcessed")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeRecordProsessed");
+                    b.Property<DateTime>("DateTimeRecordProsessed")
+                        .HasColumnType("datetime");
 
                     b.Property<DateTime?>("DatetimeIdentified")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("East")
@@ -1123,9 +944,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<string>("InstitutionId")
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<double>("Latitude")
                         .HasColumnType("float");
@@ -1153,10 +971,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("ObservationQualityTypeId")
                         .HasColumnType("int");
 
-                    b.Property<string>("OccurrenceId")
+                    b.Property<string>("OccurenceId")
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("OccurenceId");
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("ProcessEngineId")
                         .HasColumnType("int");
@@ -1170,9 +987,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("TaxonId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int?>("YearCollected")
                         .ValueGeneratedOnAddOrUpdate()
@@ -1207,7 +1021,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "ObservationQualityTypeId" }, "IX_ObservationQualityTypeId");
 
-                    b.HasIndex(new[] { "OccurrenceId" }, "IX_OccurenceId");
+                    b.HasIndex(new[] { "OccurenceId" }, "IX_OccurenceId");
 
                     b.HasIndex(new[] { "ProxyId" }, "IX_ProxyId");
 
@@ -1245,9 +1059,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("DatasetId")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
@@ -1259,9 +1070,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<string>("DateTimeCollectedStr")
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("DynamicProperties")
                         .HasColumnType("nvarchar(max)");
@@ -1289,9 +1097,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<string>("IndividualCount")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Locality")
                         .HasMaxLength(100)
@@ -1339,9 +1144,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("VerbatimDepth")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1365,27 +1167,15 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("AnnotationId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DateTimeModified")
                         .HasColumnType("datetime");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("ErrorContext")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("ObservationId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("ValidationCode")
                         .HasColumnType("int");
@@ -1408,15 +1198,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int?>("LinkedObservationId")
                         .HasColumnType("int");
 
@@ -1425,9 +1206,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.ObservationLink");
@@ -1443,18 +1221,6 @@ namespace Artskart3.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Value")
                         .IsRequired()
@@ -1479,17 +1245,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DateCreated")
                         .HasColumnType("datetime");
 
                     b.Property<DateTime>("DateModified")
                         .HasColumnType("datetime");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
@@ -1498,9 +1258,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<string>("ExternalId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1515,9 +1272,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ParentId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Organization");
@@ -1539,15 +1293,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<int>("ObservationId")
                         .HasColumnType("int");
 
@@ -1556,9 +1301,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("RelationTypeId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.OrganizationRelation");
@@ -1577,27 +1319,15 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.OrganizationRelationType");
@@ -1610,27 +1340,15 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.OrganizationType");
@@ -1646,19 +1364,10 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ErrorContext")
                         .IsRequired()
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int>("NotificationCode")
                         .HasColumnType("int");
@@ -1666,9 +1375,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("RejectedRecordId")
                         .HasColumnType("int")
                         .HasColumnName("RejectedRecord_Id");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("ValidationCode")
                         .HasColumnType("int");
@@ -1693,20 +1399,11 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("DeletedRecordsCount")
                         .HasColumnType("int");
 
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<int>("NewImportedRecordsCount")
                         .HasColumnType("int");
@@ -1732,9 +1429,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("TimeStampStarted")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("WarningRecordsCount")
                         .HasColumnType("int");
 
@@ -1749,19 +1443,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1770,9 +1455,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("PublishDate")
                         .HasColumnType("datetime");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.ProsessEngineHistory");
@@ -1785,20 +1467,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<bool>("Deleted")
                         .HasColumnType("bit");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Value")
                         .IsRequired()
@@ -1816,20 +1486,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<bool>("Deleted")
                         .HasColumnType("bit");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Value")
                         .IsRequired()
@@ -1855,13 +1513,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DatetimeRecordProsessed")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Gid")
@@ -1873,9 +1525,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
 
                     b.Property<string>("RecordId")
                         .IsRequired()
@@ -1889,9 +1538,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.RejectedRecord");
@@ -1923,6 +1569,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("East")
                         .HasColumnType("int");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
 
                     b.Property<double>("Latitude")
                         .HasColumnType("float");
@@ -1978,7 +1627,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnName("srtext");
 
                     b.HasKey("Srid")
-                        .HasName("PK__spatial___36B11BD5A2397CD6");
+                        .HasName("PK__spatial___36B11BD521FD7814");
 
                     b.ToTable("spatial_ref_sys", (string)null);
                 });
@@ -1988,15 +1637,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -2004,9 +1644,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ObservationCount")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Tag");
@@ -2019,9 +1656,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int?>("CumulativeObservationCount")
                         .HasColumnType("int");
 
@@ -2031,15 +1665,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("DailyObservationCount")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime>("DateTimeUpdated")
+                        .HasColumnType("datetime");
 
                     b.Property<bool>("ExistsInCountry")
                         .HasColumnType("bit");
-
-                    b.Property<int>("ExternalTaxonId")
-                        .HasColumnType("int")
-                        .HasColumnName("TaxonId");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -2050,10 +1680,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("ParentTaxonId")
                         .HasColumnType("int");
 
-                    b.Property<string>("PreferredPopularName")
+                    b.Property<string>("PrefferedPopularname")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("PrefferedPopularname");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ScientificNameIdHiarchy")
                         .IsRequired()
@@ -2063,6 +1692,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("TaxonGroupId")
                         .HasColumnType("int");
 
+                    b.Property<int>("TaxonId")
+                        .HasColumnType("int");
+
                     b.Property<string>("TaxonIdHiarchy")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2070,10 +1702,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("TaxonRankId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
 
                     b.Property<string>("ValidScientificName")
                         .HasMaxLength(100)
@@ -2095,7 +1723,7 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("PK_dbo.Taxon");
 
-                    b.HasIndex(new[] { "PreferredPopularName" }, "IX_PrefferedPopularname");
+                    b.HasIndex(new[] { "PrefferedPopularname" }, "IX_PrefferedPopularname");
 
                     b.HasIndex(new[] { "TaxonGroupId" }, "IX_TaxonGroupId");
 
@@ -2109,7 +1737,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "ParentTaxonId" }, "IxParentTaxonId_Id_ObsCount");
 
-                    b.HasIndex(new[] { "PreferredPopularName" }, "NonClusteredIndex-20190129-153041");
+                    b.HasIndex(new[] { "PrefferedPopularname" }, "NonClusteredIndex-20190129-153041");
 
                     b.ToTable("Taxon", (string)null);
                 });
@@ -2119,15 +1747,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
-                        .HasColumnName("Deleted");
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2136,9 +1757,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int?>("ObservationCount")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonGroup");
@@ -2154,11 +1772,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<bool>("Accepted")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime>("DateTimeUpdated")
+                        .HasColumnType("datetime");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -2175,10 +1790,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("TaxonId")
                         .HasColumnType("int")
                         .HasColumnName("Taxon_Id");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonName");
@@ -2198,11 +1809,8 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime>("DateTimeUpdated")
+                        .HasColumnType("datetime");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -2217,9 +1825,8 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("Preferred")
-                        .HasColumnType("bit")
-                        .HasColumnName("Preffered");
+                    b.Property<bool>("Preffered")
+                        .HasColumnType("bit");
 
                     b.Property<int>("SourceId")
                         .HasColumnType("int");
@@ -2227,10 +1834,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("TaxonId")
                         .HasColumnType("int")
                         .HasColumnName("Taxon_Id");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonPopularName");
@@ -2253,11 +1856,8 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<DateTime>("DateTimeUpdated")
+                        .HasColumnType("datetime");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -2285,10 +1885,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("Taxon_Id");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
-
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -2307,22 +1903,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonRank");
@@ -2338,25 +1922,1900 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("LastEventProcessedTimeStamp")
                         .HasColumnType("datetime");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonomyState");
 
                     b.ToTable("TaxonomyState", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode1Time2601052127", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode1Time2601052127", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode1Time2601052134", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode1Time2601052134", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode40Time2601131542", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode40Time2601131542", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode40Time2601151351", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode40Time2601151351", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode40Time2601190922", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode40Time2601190922", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode40Time2601191055", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode40Time2601191055", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode40Time2601241602", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode40Time2601241602", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TempIndexNode8Time2601052207", b =>
+                {
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("ProxyId");
+
+                    b.ToTable("TempIndexNode8Time2601052207", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewArtslisteTilMd", b =>
+                {
+                    b.Property<int?>("CumulativeObservationCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Grunnlag")
+                        .IsRequired()
+                        .HasMaxLength(55)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(55)");
+
+                    b.Property<string>("PrefferedPopularname")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TagGroup")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TaxonGroupName")
+                        .IsRequired()
+                        .HasMaxLength(75)
+                        .HasColumnType("nvarchar(75)");
+
+                    b.Property<int>("TaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaxonRankId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ValidScientificName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ValidScientificNameAuthorship")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ValidScientificNameId")
+                        .HasColumnType("int");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_ArtslisteTilMD", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewExport", b =>
+                {
+                    b.Property<int>("Absent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssociatedReferences")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CoordinatePrecisionInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DatasetId")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DatasetName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("DateTimeCollected")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DateTimeCollectedStr")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime?>("DatetimeIdentified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Dead")
+                        .HasColumnType("int")
+                        .HasColumnName("dead");
+
+                    b.Property<string>("DynamicProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("East")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EventTime")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Feeding")
+                        .HasColumnType("int")
+                        .HasColumnName("feeding");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("GeoreferenceRemarks")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("HasImage")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionId")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kategori")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LocalityName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("LookupId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MaximumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MeasurementMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("MinimumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Moving")
+                        .HasColumnType("int")
+                        .HasColumnName("moving");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("NodeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("North")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NotRecovered")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(3500)
+                        .HasColumnType("nvarchar(3500)");
+
+                    b.Property<string>("OccurenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("OtherCatalogNumbers")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Polularname")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Possiblereproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("possiblereproductive");
+
+                    b.Property<string>("Preparations")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("RecordNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelatedResourceId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelationshipOfResource")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Reproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("reproductive");
+
+                    b.Property<string>("ScientificName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ScientificNameAuthorship")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Stationary")
+                        .HasColumnType("int")
+                        .HasColumnName("stationary");
+
+                    b.Property<string>("TaxonGroupName")
+                        .IsRequired()
+                        .HasMaxLength(75)
+                        .HasColumnType("nvarchar(75)");
+
+                    b.Property<DateTime>("TimeStamp")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Unspontaneus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnsureIdentification")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Validated")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VerbatimDepth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_Export", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewExportPoint", b =>
+                {
+                    b.Property<int>("Absent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssociatedReferences")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CoordinatePrecisionInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DatasetId")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DatasetName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("DateTimeCollected")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DateTimeCollectedStr")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime?>("DatetimeIdentified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Dead")
+                        .HasColumnType("int")
+                        .HasColumnName("dead");
+
+                    b.Property<string>("DynamicProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("East")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EventTime")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Feeding")
+                        .HasColumnType("int")
+                        .HasColumnName("feeding");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("GeoreferenceRemarks")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("HasImage")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionId")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kategori")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LocalityName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("LookupId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MaximumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MeasurementMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("MinimumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Moving")
+                        .HasColumnType("int")
+                        .HasColumnName("moving");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("NodeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("North")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NotRecovered")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(3500)
+                        .HasColumnType("nvarchar(3500)");
+
+                    b.Property<string>("OccurenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("OtherCatalogNumbers")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Polularname")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Possiblereproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("possiblereproductive");
+
+                    b.Property<string>("Preparations")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("RecordNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelatedResourceId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelationshipOfResource")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Reproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("reproductive");
+
+                    b.Property<string>("ScientificName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ScientificNameAuthorship")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Stationary")
+                        .HasColumnType("int")
+                        .HasColumnName("stationary");
+
+                    b.Property<string>("TaxonGroupName")
+                        .IsRequired()
+                        .HasMaxLength(75)
+                        .HasColumnType("nvarchar(75)");
+
+                    b.Property<DateTime>("TimeStamp")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Unspontaneus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnsureIdentification")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Validated")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VerbatimDepth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_Export_POINT", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewExportPolygon", b =>
+                {
+                    b.Property<int>("Absent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssociatedReferences")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CoordinatePrecisionInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DatasetId")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DatasetName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("DateTimeCollected")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DateTimeCollectedStr")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime?>("DatetimeIdentified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Dead")
+                        .HasColumnType("int")
+                        .HasColumnName("dead");
+
+                    b.Property<string>("DynamicProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("East")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EventTime")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Feeding")
+                        .HasColumnType("int")
+                        .HasColumnName("feeding");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("GeoreferenceRemarks")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("HasImage")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionId")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kategori")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LocalityName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("LookupId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MaximumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MeasurementMethod")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("MinimumElevationInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Moving")
+                        .HasColumnType("int")
+                        .HasColumnName("moving");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("NodeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("North")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NotRecovered")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(3500)
+                        .HasColumnType("nvarchar(3500)");
+
+                    b.Property<string>("OccurenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("OtherCatalogNumbers")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Polularname")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Possiblereproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("possiblereproductive");
+
+                    b.Property<string>("Preparations")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("RecordNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelatedResourceId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RelationshipOfResource")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Reproductive")
+                        .HasColumnType("int")
+                        .HasColumnName("reproductive");
+
+                    b.Property<string>("ScientificName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ScientificNameAuthorship")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Stationary")
+                        .HasColumnType("int")
+                        .HasColumnName("stationary");
+
+                    b.Property<string>("TaxonGroupName")
+                        .IsRequired()
+                        .HasMaxLength(75)
+                        .HasColumnType("nvarchar(75)");
+
+                    b.Property<DateTime>("TimeStamp")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Unspontaneus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnsureIdentification")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Validated")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VerbatimDepth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_Export_POLYGON", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewShapeExport2", b =>
+                {
+                    b.Property<int>("Antropokor")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ArtsGruppe")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("BasisOfRecord")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BoundingBox")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Class")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Cname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("CName");
+
+                    b.Property<int>("CollId")
+                        .HasColumnType("int")
+                        .HasColumnName("collId");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("CollectorNumber")
+                        .HasMaxLength(36)
+                        .HasColumnType("nvarchar(36)");
+
+                    b.Property<string>("ContinentOcean")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(6)");
+
+                    b.Property<string>("County")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CountyId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("CountyID");
+
+                    b.Property<string>("CountyOrg")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<DateTime>("DateLastModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DayCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DayIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ElevationKilde")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Family")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Genus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IdentificationPrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Iname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("IName");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("InstId")
+                        .HasColumnType("int")
+                        .HasColumnName("instId");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kingdom")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("KoordKilde")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("MaxDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MaxElevation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Mgrsfra")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRSfra");
+
+                    b.Property<string>("Mgrstil")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRStil");
+
+                    b.Property<string>("MinDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MinElevation")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MuniName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MunicipalityId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("MunicipalityID");
+
+                    b.Property<int>("NodeDatabaseId")
+                        .HasColumnType("int")
+                        .HasColumnName("NodeDatabaseID");
+
+                    b.Property<string>("NorskNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Okologi")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Order")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Phylum")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PreparationType")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("PreviousCatalogNumber")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("RelatedCatalogItem")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelationshipType")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelativeAboundance")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("StateProvince")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("Subspecies")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("Substrat")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasColumnName("URL");
+
+                    b.Property<int>("Utm33nord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33nord");
+
+                    b.Property<int>("Utm33ost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33ost");
+
+                    b.Property<int>("Utmnord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMnord");
+
+                    b.Property<int>("Utmost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMost");
+
+                    b.Property<string>("Utmsone")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)")
+                        .HasColumnName("UTMsone");
+
+                    b.Property<string>("VitNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("YearCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("YearIdentified")
+                        .HasColumnType("int");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_ShapeExport2", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewShapeExportBlacklist2", b =>
+                {
+                    b.Property<int>("Antropokor")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ArtsGruppe")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("BasisOfRecord")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BoundingBox")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Class")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Cname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("CName");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("CollectorNumber")
+                        .HasMaxLength(36)
+                        .HasColumnType("nvarchar(36)");
+
+                    b.Property<string>("ContinentOcean")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(6)");
+
+                    b.Property<string>("County")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CountyId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("CountyID");
+
+                    b.Property<string>("CountyOrg")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<int>("DayCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DayIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ElevationKilde")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Family")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Fid")
+                        .HasColumnType("int")
+                        .HasColumnName("FID");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Genus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("IdentificationPrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Iname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("IName");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kingdom")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("KoordKilde")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("MaxDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MaxElevation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Mgrsfra")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRSfra");
+
+                    b.Property<string>("Mgrstil")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRStil");
+
+                    b.Property<string>("MinDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MinElevation")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MuniName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MunicipalityId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("MunicipalityID");
+
+                    b.Property<int>("NodeDatabaseId")
+                        .HasColumnType("int")
+                        .HasColumnName("NodeDatabaseID");
+
+                    b.Property<string>("NorskNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Okologi")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Order")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Phylum")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PreparationType")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("PreviousCatalogNumber")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("RelatedCatalogItem")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelationshipType")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelativeAboundance")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("StateProvince")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("Subspecies")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("Substrat")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasColumnName("URL");
+
+                    b.Property<int>("Utm33nord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33nord");
+
+                    b.Property<int>("Utm33ost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33ost");
+
+                    b.Property<int>("Utmnord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMnord");
+
+                    b.Property<int>("Utmost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMost");
+
+                    b.Property<string>("Utmsone")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)")
+                        .HasColumnName("UTMsone");
+
+                    b.Property<string>("VitNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("YearCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("YearIdentified")
+                        .HasColumnType("int");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_ShapeExportBlacklist2", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ViewShapeExportRedlist2", b =>
+                {
+                    b.Property<int>("Antropokor")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ArtsGruppe")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("BasisOfRecord")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BoundingBox")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("CatalogNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Class")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Cname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("CName");
+
+                    b.Property<string>("CollectingMethod")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Collector")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("CollectorNumber")
+                        .HasMaxLength(36)
+                        .HasColumnType("nvarchar(36)");
+
+                    b.Property<string>("ContinentOcean")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("CoordinatePrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(6)");
+
+                    b.Property<string>("County")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CountyId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("CountyID");
+
+                    b.Property<string>("CountyOrg")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<int>("DayCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DayIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ElevationKilde")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Family")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Fid")
+                        .HasColumnType("int")
+                        .HasColumnName("FID");
+
+                    b.Property<string>("FieldNumber")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Genus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
+                    b.Property<string>("Habitat")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("IdentificationPrecision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Iname")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("IName");
+
+                    b.Property<string>("IndividualCount")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Kingdom")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("KoordKilde")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Locality")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("MaxDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MaxElevation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Mgrsfra")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRSfra");
+
+                    b.Property<string>("Mgrstil")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)")
+                        .HasColumnName("MGRStil");
+
+                    b.Property<string>("MinDepth")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<int?>("MinElevation")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthIdentified")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MuniName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MunicipalityId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("MunicipalityID");
+
+                    b.Property<int>("NodeDatabaseId")
+                        .HasColumnType("int")
+                        .HasColumnName("NodeDatabaseID");
+
+                    b.Property<string>("NorskNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Okologi")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Order")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Phylum")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PreparationType")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("PreviousCatalogNumber")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("ProxyId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("RelatedCatalogItem")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelationshipType")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("RelativeAboundance")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("StateProvince")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("Subspecies")
+                        .HasMaxLength(70)
+                        .HasColumnType("nvarchar(70)");
+
+                    b.Property<string>("Substrat")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1)");
+
+                    b.Property<string>("TypeStatus")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasColumnName("URL");
+
+                    b.Property<int>("Utm33nord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33nord");
+
+                    b.Property<int>("Utm33ost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTM33ost");
+
+                    b.Property<int>("Utmnord")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMnord");
+
+                    b.Property<int>("Utmost")
+                        .HasColumnType("int")
+                        .HasColumnName("UTMost");
+
+                    b.Property<string>("Utmsone")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)")
+                        .HasColumnName("UTMsone");
+
+                    b.Property<string>("VitNavn")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("YearCollected")
+                        .HasColumnType("int");
+
+                    b.Property<int>("YearIdentified")
+                        .HasColumnType("int");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("View_ShapeExportRedlist2", (string)null);
                 });
 
             modelBuilder.Entity("LocationArea", b =>

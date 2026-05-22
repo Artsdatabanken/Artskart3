@@ -2,15 +2,12 @@
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Artskart3.Api.Controllers
 {
     [ApiController]
+    [AllowAnonymous]
     [Route("api/[controller]")]
     public class SearchController : ControllerBase
     {
@@ -62,6 +59,7 @@ namespace Artskart3.Api.Controllers
         /// <summary>
         /// Searches for observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
         /// Returns aggregated observation counts grouped by location with UTM Zone 33N coordinates.
+        /// Defaults to MaxResults = 1000
         /// </summary>
         [HttpGet("Locations")]
         [Produces("application/json")]
@@ -83,7 +81,7 @@ namespace Artskart3.Api.Controllers
 
                 _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
                 var result = await _searchService.GetLocationsAsync(filter);
-                return Ok(result);
+                return Content(result, "application/json");
             }
             catch (ApplicationException ex)
             {
