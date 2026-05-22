@@ -51,7 +51,7 @@ X-CSRF: 1
 Content-Type: application/json
 
 {
-  "organizationIds": [10, 20, 30]
+  "organizationIds": [1301, 1305, 3100]
 }
 
 ### Search observation, filter on multiple RisikokategoriIder
@@ -69,7 +69,7 @@ X-CSRF: 1
 Content-Type: application/json
 
 {
-  "municipalityIds": ["301", "302", "303"]
+  "municipalityIds": ["1101", "1145", "1260"]
 }
 
 ### Search observation, all list filters combined with multiple ids
