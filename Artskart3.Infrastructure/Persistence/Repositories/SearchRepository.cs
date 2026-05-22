@@ -3,6 +3,7 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.IO;
@@ -127,6 +128,79 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 )
                 .Select(t => t.Id);
         }
+
+
+        public async IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter)
+        {
+            var query = _context.Set<Observation>()
+                                .Include(o => o.Taxon)
+                                .Include(o => o.MatchedScientificName)
+                                .Include(o => o.Location).ThenInclude(l => l.Areas)
+                                .Include(o => o.OrganizationRelations).ThenInclude(or => or.Organization)
+                                .AsNoTracking();
+
+            //Where clauses
+            if (!string.IsNullOrEmpty(filter.PreferredPopularName))
+            {
+                var popularNamePattern = SqlWildcard + filter.PreferredPopularName + SqlWildcard;
+                query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
+            }
+
+            if (!string.IsNullOrEmpty(filter.ScientificName))
+            {
+                var scientificNamePattern = SqlWildcard + filter.ScientificName + SqlWildcard;
+                query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
+            }
+
+            if (!string.IsNullOrEmpty(filter.Author))
+            {
+                var authorPattern = SqlWildcard + filter.Author + SqlWildcard;
+                query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
+            }
+
+            if (!string.IsNullOrEmpty(filter.Locality))
+            {
+                query = query.Where(o => EF.Functions.Like(o.Location.Locality, filter.Locality));
+            }
+
+            if (filter.TaxonGroupIds?.Any() == true)
+            {
+                query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
+            }
+
+            if(filter.OrganizationIds?.Any() == true)
+            {
+                query = query.Where(o => o.OrganizationRelations
+                                          .Any(x => x.RelationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution 
+                                               && filter.OrganizationIds.Contains(x.OrganizationId)));
+            }
+
+            if(filter.MunicipalityIds?.Any() == true)
+            {
+                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x => filter.MunicipalityIds.Contains(x.Fid)));
+            }
+
+            if(filter.IsPaginated)
+            {
+                if(filter.PageNumber > 1)
+                {
+                    query = query.Skip(filter.PageNumber!.Value * filter.ResultsPerPage!.Value);
+                }
+                query = query.Take(filter.ResultsPerPage!.Value);
+            }
+            else
+            {
+                query = query.Take(DefaultMaxSearchResults);
+            }
+
+            await foreach (var observation in query.AsAsyncEnumerable())
+            {
+                // Her kan du legge på eventuell ekstra C#-logikk om nødvendig
+                yield return observation.ToObervationDto();
+            }
+        }
+
+
         /// <summary>
         /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
         /// Aggregates observation counts by location, sorted by count descending.
@@ -141,6 +215,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 yield return model;
             }
         }
+
 
         private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter)
         {

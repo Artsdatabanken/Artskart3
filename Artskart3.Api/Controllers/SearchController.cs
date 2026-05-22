@@ -15,6 +15,7 @@ namespace Artskart3.Api.Controllers
         private const int MaxTaxonCount = 1000;
         private const int MinResults = 1;
         private const int MaxResults = 10000;
+        private const int DefaultMaxObservationCount = 100;
 
         private readonly ISearchService _searchService;
         private readonly ILogger<SearchController> _logger;
@@ -93,6 +94,41 @@ namespace Artskart3.Api.Controllers
                 _logger.LogError(ex, "Unexpected error retrieving locations");
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
+        }
+
+        /// <summary>
+        /// Searches for observations using optional filters.
+        /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
+        /// When pagination parameters are omitted, returns a flat list capped at DefaultMaxObservationCount.
+        /// </summary>
+        [HttpGet("Observation")]
+        [Produces("application/json")]
+        public async Task<ActionResult<ObservationDto[]>> GetObservations([FromQuery] ObservationSearchFilterDto? filter = null)
+        {
+            filter ??= new ObservationSearchFilterDto();
+
+            if (filter.IsPaginated)
+            {
+                if (filter.PageNumber < 1)
+                    return BadRequest(new { error = "PageNumber must be 1 or greater." });
+
+                if (filter.ResultsPerPage < MinResults || filter.ResultsPerPage > MaxResults)
+                    return BadRequest(new { error = $"ResultsPerPage must be between {MinResults} and {MaxResults}." });
+
+                var paginationResults = await _searchService.GetObservationsAsync(filter);
+
+                var pagedResult = new PagedObservationResponseDto
+                {
+                    Items = paginationResults,
+                    PageNumber = filter.PageNumber!.Value,
+                    ResultsPerPage = filter.ResultsPerPage!.Value
+                };
+
+                return Ok(pagedResult);
+            }
+
+            var results = await _searchService.GetObservationsAsync(filter);
+            return Ok(results);
         }
 
         /// <summary>

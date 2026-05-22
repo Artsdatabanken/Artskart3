@@ -9,6 +9,7 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces
     {
         Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20);
         IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null);
+        IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter);
         Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds);
     }
 }
