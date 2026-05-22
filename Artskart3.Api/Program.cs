@@ -142,7 +142,11 @@ try
     builder.Services.AddAuthorization();
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
     {
-        options.UseSqlServer(dbConnectionString, x => x.UseNetTopologySuite());
+        options.UseSqlServer(dbConnectionString, x =>
+        {
+            x.UseNetTopologySuite();
+            x.CommandTimeout(600);
+        });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 
