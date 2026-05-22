@@ -6,14 +6,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 
 #nullable disable
 
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260427110259_AddObservationSearchStandaloneIndexes")]
-    partial class AddObservationSearchStandaloneIndexes
+    [Migration("20260515130111_InitialCleanup")]
+    partial class InitialCleanup
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -34,13 +35,17 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AreaTypeId")
-                        .HasColumnType("int")
-                        .HasColumnName("AreaTypeID");
+                        .HasColumnType("int");
 
                     b.Property<string>("Bbox")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<Geometry>("Centroid")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("geometry")
+                        .HasComputedColumnSql("([WktPolygon].[STCentroid]())", false);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -92,6 +97,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Geometry>("WktPolygon")
+                        .HasColumnType("geometry");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
@@ -190,9 +198,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -1095,8 +1100,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateTimeRecordProcessed")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeRecordProsessed");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DatetimeIdentified")
                         .HasColumnType("datetime2");
@@ -1155,8 +1159,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<string>("OccurrenceId")
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("OccurenceId");
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("ProcessEngineId")
                         .HasColumnType("int");
@@ -1808,9 +1811,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -1838,9 +1838,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("Deleted")
-                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -2058,8 +2055,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<int>("ExternalTaxonId")
-                        .HasColumnType("int")
-                        .HasColumnName("TaxonId");
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -2072,8 +2068,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<string>("PreferredPopularName")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("PrefferedPopularname");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ScientificNameIdHiarchy")
                         .IsRequired()
@@ -2092,8 +2087,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ValidScientificName")
                         .HasMaxLength(100)
@@ -2146,8 +2140,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
-                        .HasColumnName("Deleted");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2193,12 +2186,10 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("TaxonId")
-                        .HasColumnType("int")
-                        .HasColumnName("Taxon_Id");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonName");
@@ -2238,19 +2229,16 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("Preferred")
-                        .HasColumnType("bit")
-                        .HasColumnName("Preffered");
+                        .HasColumnType("bit");
 
                     b.Property<int>("SourceId")
                         .HasColumnType("int");
 
                     b.Property<int?>("TaxonId")
-                        .HasColumnType("int")
-                        .HasColumnName("Taxon_Id");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id")
                         .HasName("PK_dbo.TaxonPopularName");
@@ -2302,12 +2290,10 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<int?>("TaxonId")
-                        .HasColumnType("int")
-                        .HasColumnName("Taxon_Id");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime")
-                        .HasColumnName("DateTimeUpdated");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Url")
                         .IsRequired()

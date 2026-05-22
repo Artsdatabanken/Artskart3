@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
 
 namespace Artskart3.Core.Domain.Entities;
@@ -25,6 +26,8 @@ public partial class Location : BaseEntity
     public int NodeId { get; set; }
 
     public string? LocationId { get; set; }
+
+    public Geometry? Geometry { get; set; }
 
     public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();
 

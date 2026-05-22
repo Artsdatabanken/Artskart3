@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
 
@@ -25,13 +24,13 @@ public partial class Area : BaseEntity
 
     public string Bbox { get; set; } = null!;
 
-    public string GmBbox { get; set; } = null!;
-
     public DateTime TimeStamp { get; set; }
 
     public bool IsCurrent { get; set; }
 
     public Geometry? WktPolygon { get; set; }
+
+    public Geometry? Centroid { get; set; }
 
     public virtual AreaType AreaType { get; set; } = null!;
 
