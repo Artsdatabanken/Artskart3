@@ -11,21 +11,103 @@ X-CSRF: 1
 GET {{Artskart3.Server_HostAddress}}/api/Search/SearchTaxons?name=ixodes%20ricinus&maxCount=5
 X-CSRF: 1
 
-### Search observation, no filters 
-GET {{Artskart3.Server_HostAddress}}/api/Search/Observation
+### Search observation, no filters
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
+Content-Type: application/json
+
+{}
 
 ### Search observation, filter on preferred popular name
-GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?preferredPopularName=slettsnok
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
+Content-Type: application/json
+
+{
+  "preferredPopularName": "slettsnok"
+}
 
 ### Search observation, filter on scientific name
-GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?scientificName=Dermochelys
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
+Content-Type: application/json
 
-### Paginate observation, no filter
-GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?PageNumber=3&ResultsPerPage=10
+{
+  "scientificName": "Dermochelys"
+}
+
+### Search observation, filter on multiple TaxonGroupIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
+Content-Type: application/json
+
+{
+  "taxonGroupIds": [1, 2, 3]
+}
+
+### Search observation, filter on multiple OrganizationIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "organizationIds": [10, 20, 30]
+}
+
+### Search observation, filter on multiple RisikokategoriIder
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "risikokategoriIder": [1, 2, 3]
+}
+
+### Search observation, filter on multiple MunicipalityIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "municipalityIds": ["301", "302", "303"]
+}
+
+### Search observation, all list filters combined with multiple ids
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "taxonGroupIds": [1, 2],
+  "organizationIds": [10, 20],
+  "risikokategoriIder": [1, 2],
+  "municipalityIds": ["301", "302", "303"]
+}
+
+### Search observation, paginated
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "pageNumber": 3,
+  "resultsPerPage": 10
+}
+
+### Search observation, all list filters combined with pagination
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "preferredPopularName": "slettsnok",
+  "taxonGroupIds": [1, 2],
+  "organizationIds": [10, 20],
+  "risikokategoriIder": [1, 2],
+  "municipalityIds": ["301", "302", "303"],
+  "pageNumber": 1,
+  "resultsPerPage": 10
+}
 
 
 ### Get observation locations (no filter)

@@ -101,9 +101,9 @@ namespace Artskart3.Api.Controllers
         /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
         /// When pagination parameters are omitted, returns a flat list capped at DefaultMaxObservationCount.
         /// </summary>
-        [HttpGet("Observation")]
+        [HttpPost("Observation")]
         [Produces("application/json")]
-        public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromQuery] ObservationSearchFilterDto? filter = null)
+        public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromBody] ObservationSearchFilterDto? filter = null)
         {
             filter ??= new ObservationSearchFilterDto();
 
