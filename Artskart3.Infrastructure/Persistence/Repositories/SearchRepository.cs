@@ -186,7 +186,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 {
                     query = query.Skip(filter.PageNumber!.Value * filter.ResultsPerPage!.Value);
                 }
-                query = query.Take(filter.ResultsPerPage!.Value);
+                // todo: fix so that *4 below is read from a constant somewhere
+                query = query.Take(filter.ResultsPerPage!.Value * 4);
             }
             else
             {
