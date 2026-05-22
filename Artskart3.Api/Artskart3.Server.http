@@ -11,6 +11,19 @@ X-CSRF: 1
 GET {{Artskart3.Server_HostAddress}}/api/Search/SearchTaxons?name=ixodes%20ricinus&maxCount=5
 X-CSRF: 1
 
+### Search observation, no filters 
+GET {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+
+### Search observation, filter on preferred popular name
+GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?preferredPopularName=slettsnok
+X-CSRF: 1
+
+### Search observation, filter on scientific name
+GET {{Artskart3.Server_HostAddress}}/api/Search/Observation?scientificName=Dermochelys
+X-CSRF: 1
+
+
 ### Get observation locations (no filter)
 GET {{Artskart3.Server_HostAddress}}/api/Search/Locations
 X-CSRF: 1

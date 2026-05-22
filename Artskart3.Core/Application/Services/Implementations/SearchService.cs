@@ -36,6 +36,24 @@ namespace Artskart3.Core.Application.Services.Implementations
             }
         }
 
+
+        public async Task<IAsyncEnumerable<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter)
+        {
+            try
+            {
+                return _searchRepository.GetObservationsAsync(filter);
+            }
+            catch (ApplicationException ex)
+            {
+                throw new ApplicationException("An error occurred while processing observation search request.", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while processing observation search request.", ex);
+            }
+        }
+
+
         public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20)
         {
            var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount);           

@@ -4,7 +4,7 @@ using Artskart3.Core.Domain.Entities.Base;
 
 namespace Artskart3.Core.Domain.Entities;
 
-public partial class Observation : BaseEntity
+public partial class    Observation : BaseEntity
 {
     public string? ProxyId { get; set; }
 

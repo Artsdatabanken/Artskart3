@@ -1,0 +1,11 @@
+namespace Artskart3.Core.Application.DTOs
+{
+    public class PagedObservationResponseDto
+    {
+        public IAsyncEnumerable<ObservationDto>? Items { get; set; }
+
+        public int PageNumber { get; set; }
+
+        public int ResultsPerPage { get; set; }
+    }
+}
