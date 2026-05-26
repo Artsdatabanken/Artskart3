@@ -6,15 +6,6 @@ import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ImageTile } from 'ol';
 
-interface WmtsSource {
-  type?: string;
-  options?: {
-    projection?: string;
-    matrixSet?: string;
-    tileLoadFunction?: (tile: ImageTile, src: string) => void;
-  };
-}
-
 @Component({
   selector: 'app-map',
   standalone: true,
@@ -74,18 +65,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.addLayer(osmLayer);
 
     const nib = { ...nbicMapPresets.nib, id: 'nib' };
-    const nibSource = nib.source as WmtsSource;
-    if (nibSource.type === 'wmts') {
-      if (!nibSource.options) {
-        nibSource.options = {};
-      }
-      nibSource.options.tileLoadFunction = (tile: ImageTile, src: string) => {
-        const token = this.sharedMapService.getNibToken();
-        const separator = src.includes('?') ? '&' : '?';
-        (tile.getImage() as HTMLImageElement).src = token
-          ? `${src}${separator}token=${token}`
-          : src;
-      };
+    const nibSource = nib.source;
+      if (nibSource.type === 'wmts') {
+        nibSource.options.tileLoadFunction = (tile, src) => {
+          const token = this.sharedMapService.getNibToken();
+          const separator = src.includes('?') ? '&' : '?';
+          const img = (tile as ImageTile).getImage() as HTMLImageElement;
+          img.src = token ? `${src}${separator}token=${token}` : src;
+        };
     }
 
     this.map.addLayer(this.createWmtsLayer(nbicMapPresets.topografiskBaseLayer, 'topografiskBaseLayer'));
@@ -96,13 +83,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private createWmtsLayer(layer: LayerDef, id: string): LayerDef {
-    const configuredLayer = { ...layer, base: 'regional' as const, id } as LayerDef;
-    const source = configuredLayer.source as WmtsSource;
-    if (source.options) {
-      source.options.projection = this.PROJECTION;
-      source.options.matrixSet = this.MATRIX_SET;
-    }
-    return configuredLayer;
+    if (layer.source.type !== 'wmts') return { ...layer, base: 'regional' as const, id }
+    const configuredLayer: LayerDef = {
+     ...layer,
+     base: 'regional' as const,
+     id,
+     source: {
+       ...layer.source,
+       options: { ...layer.source.options, projection: this.PROJECTION, matrixSet: this.MATRIX_SET },
+     },
+   };
+   return configuredLayer;
   }
 
   onIconClick(iconName: string): void {
@@ -123,8 +114,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     this.updateMapLayers(config);
-    this.map.setCenter(config.center);
-    this.map.setZoom(config.zoom);
   }
 
   private updateMapLayers(config: MapLayerConfig): void {
