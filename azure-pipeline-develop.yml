@@ -87,7 +87,7 @@ steps:
   inputs:
     command: 'test'
     projects: '**/*Tests.csproj'
-    arguments: '--configuration Release --no-build'
+    arguments: '--configuration Release --no-build --settings coverage.runsettings'
 
 - task: DotNetCoreCLI@2
   displayName: "Publish .NET backend"
