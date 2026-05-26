@@ -3,13 +3,13 @@
   <DataCollectionRunSettings>
     <DataCollectors>
 
-      <!-- Visual Studio built-in coverage collector -->
+      <!-- Visual Studio innebygd dekningsverktøy -->
       <DataCollector friendlyName="Code Coverage" uri="datacollector://Microsoft/CodeCoverage/2.0">
         <Configuration>
           <CodeCoverage>
             <ModulePaths>
               <Exclude>
-                <!-- Third-party NuGet packages -->
+                <!-- Tredjeparts NuGet-pakker -->
                 <ModulePath>.*\\robotstxtcore\.dll</ModulePath>
                 <ModulePath>.*\\duende\..*\.dll</ModulePath>
                 <ModulePath>.*\\testcontainers.*\.dll</ModulePath>
@@ -18,13 +18,13 @@
             </ModulePaths>
             <Functions>
               <Exclude>
-                <!-- OpenAPI source generator -->
+                <!-- OpenAPI-kildegenerator -->
                 <Function>^Microsoft\.AspNetCore\.OpenApi\.Generated\..*</Function>
-                <!-- System.Runtime.CompilerServices namespace -->
+                <!-- System.Runtime.CompilerServices-navnerom -->
                 <Function>^System\.Runtime\.CompilerServices\..*</Function>
-                <!-- Compiler-generated async state machines: <MethodName>d__N -->
+                <!-- Kompilatorgenererte async-tilstandsmaskiner: <MetodeNavn>d__N -->
                 <Function>.*&lt;.*&gt;d__\d+.*</Function>
-                <!-- Compiler-generated lambda/closure containers: <>c and <>c__DisplayClass -->
+                <!-- Kompilatorgenererte lambda/closure-klasser: <>c og <>c__DisplayClass -->
                 <Function>.*&lt;&gt;c.*</Function>
               </Exclude>
             </Functions>
@@ -37,7 +37,7 @@
         </Configuration>
       </DataCollector>
 
-      <!-- Coverlet (XPlat / CI) coverage collector -->
+      <!-- Coverlet (XPlat / CI) dekningsverktøy -->
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
           <ExcludeByFile>**/Migrations/**/*.cs</ExcludeByFile>

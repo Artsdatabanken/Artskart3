@@ -28,7 +28,7 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // Health check
+    // Helsesjekk
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -64,8 +64,8 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task SearchTaxons_WithValidName_Returns200WithJsonArray()
     {
-        // Relies on seed data having at least one taxon.
-        // If no seed data, returns empty array — still a valid 200.
+        // Avhenger av at testdata inneholder minst ett takson.
+        // Uten testdata returneres tom liste — fremdeles gyldig 200.
         var response = await _client.GetAsync("/api/Search/SearchTaxons?name=a&maxCount=5");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -161,7 +161,7 @@ public class SearchEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var json = await response.Content.ReadAsStringAsync();
-        // With seed data: each area should have a "name" property (camelCase, ASP.NET Core default)
+        // Med testdata: hvert område skal ha en "name"-egenskap (camelCase, ASP.NET Core standard)
         json.Should().Contain("\"name\":");
     }
 }

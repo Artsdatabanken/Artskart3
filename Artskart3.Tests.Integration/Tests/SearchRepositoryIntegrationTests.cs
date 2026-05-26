@@ -247,7 +247,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetTaxonsAsync_ExcludesDeletedTaxa()
+    public async Task GetTaxonsAsync_ExcludesDeletedTaxons()
     {
         var result = await _repository.GetTaxonsAsync("repo-slettet-art", 20);
 

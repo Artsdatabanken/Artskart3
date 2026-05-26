@@ -7,6 +7,7 @@
   <Project Path="Artskart3.Infrastructure/Artskart3.Infrastructure.csproj" Id="b311381c-62cd-48e2-a738-a8a1386cc9d1" />
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
+    <File Path="coverage.runsettings" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Artskart3.Tests.Integration/Artskart3.Tests.Integration.csproj" />

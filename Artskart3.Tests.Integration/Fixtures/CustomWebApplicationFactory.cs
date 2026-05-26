@@ -8,8 +8,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Artskart3.Tests.Integration.Fixtures;
 
 /// <summary>
-/// Custom WebApplicationFactory that wires the test SQL Server container's
-/// connection string into the full ASP.NET Core pipeline.
+/// Tilpasset WebApplicationFactory som kobler testens SQL Server-container
+/// til den fullstendige ASP.NET Core-pipeline.
 /// </summary>
 public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
@@ -24,15 +24,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Test");
 
-        // Disable auto-migration so Program.cs doesn't call Database.Migrate() against
-        // the test container. EnsureCreatedAsync() in DatabaseFixture already created
-        // the full schema; running migrations on top of it would fail because migration
-        // history is empty and InitialRefactor would try to re-create existing objects.
+        // Deaktiver automatisk migrasjon så Program.cs ikke kaller Database.Migrate() mot
+        // testcontaineren. EnsureCreatedAsync() i DatabaseFixture har allerede opprettet
+        // hele skjemaet; å kjøre migrasjoner oppå dette vil feile fordi migrasjons-
+        // historikken er tom og InitialRefactor vil forsøke å gjenopprette eksisterende objekter.
         builder.UseSetting("Database:AutoMigrate", "false");
 
         builder.ConfigureServices(services =>
         {
-            // Replace the registered DbContext with one pointing at the test container
+            // Erstatt registrert DbContext med en som peker mot testcontaineren
             services.RemoveAll<DbContextOptions<ArtskartDbContext>>();
             services.RemoveAll<ArtskartDbContext>();
 

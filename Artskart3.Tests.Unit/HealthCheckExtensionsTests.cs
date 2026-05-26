@@ -19,7 +19,7 @@ public class HealthCheckExtensionsTests
         new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
     // -----------------------------------------------------------------------
-    // AddCustomHealthChecks — registration
+    // AddCustomHealthChecks — registrering
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -101,7 +101,7 @@ public class HealthCheckExtensionsTests
     }
 
     // -----------------------------------------------------------------------
-    // Key Vault health check — execution
+    // Key Vault helsesjekk — utførelse
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -231,7 +231,7 @@ public class HealthCheckExtensionsTests
     }
 
     // -----------------------------------------------------------------------
-    // Helpers
+    // Hjelpemetoder
     // -----------------------------------------------------------------------
 
     private static (DefaultHttpContext ctx, MemoryStream body) CreateHttpContext()

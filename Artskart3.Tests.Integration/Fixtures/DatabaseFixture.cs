@@ -10,9 +10,9 @@ using Testcontainers.MsSql;
 namespace Artskart3.Tests.Integration.Fixtures;
 
 /// <summary>
-/// Shared fixture that starts one SQL Server container for the entire test collection.
-/// Applies EF migrations and loads seed data once, then uses Respawn to reset
-/// between test classes without recreating the container.
+/// Delt fixture som starter én SQL Server-container for hele testsamlingen.
+/// Kjører EF-migrasjoner og laster testdata én gang, deretter brukes Respawn for å nullstille
+/// mellom testklasser uten å gjenskape containeren.
 /// </summary>
 public sealed class DatabaseFixture : IAsyncLifetime
 {
@@ -47,9 +47,9 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
         await using var context = new ArtskartDbContext(options);
 
-        // InitialBaseline is intentionally empty (existing DB baseline), so MigrateAsync
-        // won't create any tables in a fresh container. EnsureCreatedAsync creates the
-        // full schema from the current model, which is correct for test databases.
+        // InitialBaseline er bevisst tom (eksisterende DB-grunnlag), så MigrateAsync
+        // vil ikke opprette tabeller i en ny container. EnsureCreatedAsync oppretter
+        // fullstendig skjema fra gjeldende modell, noe som er riktig for testdatabaser.
         await context.Database.EnsureCreatedAsync();
     }
 
@@ -60,17 +60,17 @@ public sealed class DatabaseFixture : IAsyncLifetime
 
         if (!File.Exists(seedFile))
         {
-            // No seed file yet — tests that require data will skip or use empty DB.
-            // Generate seed_data.sql by running extract_seed_data.sql against
-            // production/staging and placing the output in SeedData/seed_data.sql.
+            // Ingen testdatafil ennå — tester som krever data vil hoppe over eller bruke tom database.
+            // Generer seed_data.sql ved å kjøre extract_seed_data.sql mot
+            // produksjon/staging og plassere resultatet i SeedData/seed_data.sql.
             return;
         }
 
         var sql = await File.ReadAllTextAsync(seedFile);
 
-        // Split on semicolons to execute one statement at a time.
-        // All statements run on a single open connection so SET IDENTITY_INSERT
-        // and other session-level settings persist across statements.
+        // Del på semikolon for å kjøre én setning om gangen.
+        // Alle setninger kjøres på én åpen tilkobling slik at SET IDENTITY_INSERT
+        // og andre sesjonsnivå-innstillinger beholdes mellom setningene.
         var statements = sql
             .Split(';')
             .Select(s => s.Trim())
@@ -95,7 +95,7 @@ public sealed class DatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>
-/// xUnit collection definition — all tests in this collection share one container.
+/// xUnit samlingsdefinisjon — alle tester i denne samlingen deler én container.
 /// </summary>
 [CollectionDefinition(nameof(DatabaseCollection))]
 public class DatabaseCollection : ICollectionFixture<DatabaseFixture> { }

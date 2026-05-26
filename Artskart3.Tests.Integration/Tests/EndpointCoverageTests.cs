@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Mvc.Routing;
 namespace Artskart3.Tests.Integration.Tests;
 
 /// <summary>
-/// Fails if any controller action in Artskart3.Api lacks at least one integration test.
-/// Convention: an integration test "covers" an action when its method name starts with
-/// the action method name, e.g. "GetLocations_WithNoFilter_Returns200" covers "GetLocations".
+/// Feiler hvis noen kontroller-handling i Artskart3.Api mangler minst én integrasjonstest.
+/// Konvensjon: en integrasjonstest «dekker» en handling når metodenavnet starter med
+/// handlingens metodenavn, f.eks. «GetLocations_WithNoFilter_Returns200» dekker «GetLocations».
 /// </summary>
 public class EndpointCoverageTests
 {
@@ -29,7 +29,7 @@ public class EndpointCoverageTests
             .ToList();
 
         uncovered.Should().BeEmpty(
-            "every controller action must have at least one integration test whose name starts with the action name");
+            "alle kontroller-handlinger må ha minst én integrasjonstest der metodenavnet starter med handlingsnavnet");
     }
 
     private static IEnumerable<(string ControllerName, string ActionName)> GetApiActions()

@@ -142,7 +142,7 @@ public class SearchServiceTests
     }
 
     // -----------------------------------------------------------------------
-    // Helpers
+    // Hjelpemetoder
     // -----------------------------------------------------------------------
 
     private static async IAsyncEnumerable<T> AsyncEnumerable<T>(IEnumerable<T> items)
