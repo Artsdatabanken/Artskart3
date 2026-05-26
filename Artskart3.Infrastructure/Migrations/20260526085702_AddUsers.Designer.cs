@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526085702_AddUsers")]
+    partial class AddUsers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -492,9 +495,8 @@ namespace Artskart3.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("int")
+                        .HasDefaultValueSql("(newsequentialid())");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1193,17 +1195,32 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("PK_dbo.Observation");
 
-                    b.HasIndex("MatchedScientificNameId");
+                    b.HasIndex(new[] { "BasisOfRecordId" }, "IX_BasisOfRecordId");
 
-                    b.HasIndex("ObservationQualityTypeId");
+                    b.HasIndex(new[] { "CatalogNumber" }, "IX_CatalogNumber");
+
+                    b.HasIndex(new[] { "CategoryId", "DateTimeRecordImported" }, "IX_CategoryId");
+
+                    b.HasIndex(new[] { "DateTimeCollected" }, "IX_DateTimeCollected")
+                        .IsDescending();
+
+                    b.HasIndex(new[] { "DateTimeRecordImported" }, "IX_DateTimeRecordImported");
+
+                    b.HasIndex(new[] { "DatetimeIdentified" }, "IX_DatetimeIdentified");
+
+                    b.HasIndex(new[] { "LocationId", "Id" }, "IX_LocationCatProxy");
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
 
-                    b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
+                    b.HasIndex(new[] { "MatchedScientificNameId" }, "IX_MatchedScientificName");
+
+                    b.HasIndex(new[] { "MonthCollected" }, "IX_MonthCollected");
+
+                    b.HasIndex(new[] { "NodeId" }, "IX_NodeId");
+
+                    b.HasIndex(new[] { "ObservationQualityTypeId" }, "IX_ObservationQualityTypeId");
 
                     b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
-
-                    b.HasIndex(new[] { "CoordinatePrecisionInMeters" }, "IX_Observation_CoordinatePrecisionInMeters");
 
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
@@ -1219,15 +1236,27 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "TaxonGroupId" }, "IX_Observation_TaxonGroupId");
 
-                    b.HasIndex(new[] { "TaxonGroupId", "LocationId" }, "IX_Observation_TaxonGroupId_LocationId");
-
                     b.HasIndex(new[] { "YearCollected" }, "IX_Observation_YearCollected");
 
                     b.HasIndex(new[] { "YearCollected", "LocationId" }, "IX_Observation_YearCollected_LocationId");
 
+                    b.HasIndex(new[] { "OccurrenceId" }, "IX_OccurenceId");
+
+                    b.HasIndex(new[] { "ProxyId" }, "IX_ProxyId");
+
                     b.HasIndex(new[] { "TaxonId", "Id", "CoordinatePrecisionInMeters", "YearCollected" }, "IX_Rodliste");
 
                     b.HasIndex(new[] { "TaxonGroupId", "CategoryId" }, "IX_TaxonGroupId");
+
+                    b.HasIndex(new[] { "TaxonGroupId", "LocationId" }, "IX_TaxonGroupIdLocationId");
+
+                    b.HasIndex(new[] { "TaxonId", "MatchedScientificNameId" }, "IX_TaxonId");
+
+                    b.HasIndex(new[] { "YearCollected", "MonthCollected" }, "IX_YearCollected");
+
+                    b.HasIndex(new[] { "CoordinatePrecisionInMeters" }, "Ix_CoordPrec");
+
+                    b.HasIndex(new[] { "TaxonGroupId" }, "TaxonGroupId");
 
                     b.ToTable("Observation", (string)null);
                 });
