@@ -9,4 +9,6 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="Artskart3.Api/Artskart3.Api.csproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+  <Project Path="Artskart3.Import.Core/Artskart3.Import.Core.csproj" />
+  <Project Path="Artskart3.Import.Infrastructure/Artskart3.Import.Infrastructure.csproj" />
 </Solution>
