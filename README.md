@@ -1,5 +1,12 @@
 # Artskart3
-Ny versjon av Artskart, påbegynt Februar 2026 
+Ny versjon av Artskart, som per idag (april 2026) ligger på artskart.artsdatabanken.no (videre omtalt som Artskart 2).
+Første innsats i Artskart 3 har som mål å erstatte Artskart 2, så snart det er mulig. Videre er det ambisjoner om å utvide Artskart med mer funksjonalitet enn det som finnes i Artskart 2.
+
+Noen viktige mål
+- Få bukt med ytelsesproblemer
+- Ny og foredret backend som er mer modulær og oversiktlig
+- Få en er moderne frontend
+- Få en portal som er i henhold til Artsdatabankens designsystem og visuelle identitet
 
 ## Requirements
 * Node versjon 22.14 for Angular frontend
