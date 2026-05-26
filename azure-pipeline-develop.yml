@@ -87,7 +87,8 @@ steps:
   inputs:
     command: 'test'
     projects: '**/*Tests.csproj'
-    arguments: '--configuration Release --no-build --settings coverage.runsettings'
+    arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
+    publishTestResults: true
 
 - task: DotNetCoreCLI@2
   displayName: "Publish .NET backend"
