@@ -22,7 +22,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Test");
+        builder.UseEnvironment("Development");
 
         // Deaktiver automatisk migrasjon så Program.cs ikke kaller Database.Migrate() mot
         // testcontaineren. EnsureCreatedAsync() i DatabaseFixture har allerede opprettet
