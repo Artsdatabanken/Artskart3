@@ -22,3 +22,4 @@ X-CSRF: 1
 ### Get all area markers (counties and municipalities)
 GET {{Artskart3.Server_HostAddress}}/api/Search/Areas
 X-CSRF: 1
+  
