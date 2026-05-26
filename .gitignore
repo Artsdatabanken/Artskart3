@@ -65,3 +65,6 @@ BenchmarkDotNet.Artifacts/
 
 # Benchmark results
 BenchmarkDotNet.Artifacts/
+
+# Test Results
+TestResults/

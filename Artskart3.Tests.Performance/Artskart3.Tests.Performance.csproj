@@ -20,4 +20,8 @@
     <ProjectReference Include="..\Artskart3.Infrastructure\Artskart3.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+	<AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+  </ItemGroup>
+
 </Project>
