@@ -3,7 +3,6 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
-using Artskart3.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.IO;
@@ -133,10 +132,6 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         public async IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter)
         {
             var query = _context.Set<Observation>()
-                                .Include(o => o.Taxon)
-                                .Include(o => o.MatchedScientificName)
-                                .Include(o => o.Location).ThenInclude(l => l.Areas)
-                                .Include(o => o.OrganizationRelations).ThenInclude(or => or.Organization)
                                 .AsNoTracking();
 
             //Where clauses
@@ -180,11 +175,14 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => o.Location != null && o.Location.Areas.Any(x => filter.MunicipalityIds.Contains(x.Fid)));
             }
 
+            query = query.OrderBy(o => o.Id);
+
             if(filter.IsPaginated)
             {
-                if(filter.PageNumber > 1)
+                var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
+                if (skip > 0)
                 {
-                    query = query.Skip(filter.PageNumber!.Value * filter.ResultsPerPage!.Value);
+                    query = query.Skip(skip);
                 }
                 // todo: fix so that *4 below is read from a constant somewhere
                 query = query.Take(filter.ResultsPerPage!.Value * 4);
@@ -194,10 +192,31 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Take(DefaultMaxSearchResults);
             }
 
-            await foreach (var observation in query.AsAsyncEnumerable())
+            var projectedQuery = query.Select(o => new ObservationDto
             {
-                // Her kan du legge på eventuell ekstra C#-logikk om nødvendig
-                yield return observation.ToObervationDto();
+                Id = o.Id,
+                PreferredPopularName = o.Taxon.PreferredPopularName,
+                ScientificName = o.Taxon.ValidScientificName,
+                Author = o.Taxon.ValidScientificNameAuthorship,
+                Institution = o.OrganizationRelations
+                    .Where(x => x.Organization.OrganizationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution)
+                    .Select(x => x.Organization.Name)
+                    .FirstOrDefault(),
+                Locality = o.Location != null ? o.Location.Locality : null,
+                MunicipalityId = o.Location != null
+                    ? o.Location.Areas
+                        .Where(x => x.IsCurrent == true && x.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality)
+                        .Select(x => x.Fid)
+                        .FirstOrDefault()
+                    : null,
+                TaxonGroupId = o.TaxonGroupId,
+                CategoryId = o.CategoryId,
+                DateTimeCollected = o.DateTimeCollected
+            });
+
+            await foreach (var dto in projectedQuery.AsAsyncEnumerable())
+            {
+                yield return dto;
             }
         }
 
