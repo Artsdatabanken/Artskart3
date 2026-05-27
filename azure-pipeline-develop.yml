@@ -16,14 +16,13 @@ steps:
 # Frontend (Angular) build
 # ---------------------------
 
-- task: NodeTool@1
+- task: NodeTool@0
   displayName: "Install Node.js"
   inputs:
     versionSpec: '22.x'
 
 - script: |
     cd Artskart3.WebApp
-    npm cache clean --force
     npm ci
   displayName: "Install Angular dependencies"
 
