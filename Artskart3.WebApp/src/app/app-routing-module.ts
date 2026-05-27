@@ -1,10 +1,10 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { MapComponent } from './shared/components/map.component/map.component';
+import { HomeComponent } from './pages/home/home.component';
 import { DesignComponent } from './shared/components/design.component/design.component';
 
 const routes: Routes = [
-  { path: '', component: MapComponent },
+  { path: '', component: HomeComponent },
   { path: 'design', component: DesignComponent },
 ];
 

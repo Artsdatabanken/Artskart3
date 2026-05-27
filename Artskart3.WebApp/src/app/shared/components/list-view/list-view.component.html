@@ -1,0 +1,53 @@
+<div class="list-view">
+  @if (observationsResource.isLoading()) {
+    <p class="status-message">{{ 'common.loading' | translate }}</p>
+  }
+
+  @if (observationsResource.error()) {
+    <p class="status-message error">{{ 'common.error' | translate }}</p>
+  }
+
+  @if (observationsResource.hasValue()) {
+    <div class="table-container">
+      <table class="observations-table">
+        <thead>
+          <tr>
+            <th>{{ 'listView.name' | translate }}</th>
+            <th>{{ 'listView.scientificName' | translate }}</th>
+            <th>{{ 'listView.author' | translate }}</th>
+            <th>{{ 'listView.institution' | translate }}</th>
+            <th>{{ 'listView.date' | translate }}</th>
+            <th>{{ 'listView.locality' | translate }}</th>
+            <th>{{ 'listView.municipality' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (obs of observationsResource.value().items; track obs.id ?? $index) {
+           <tr>
+             <td>{{ obs.preferredPopularName }}</td>
+             <td [innerHTML]="obs.scientificName"></td>
+             <td>{{ obs.author }}</td>
+             <td>{{ obs.institution }}</td>
+             <td>{{ obs.dateTimeCollected | localeDate }}</td>
+             <td>{{ obs.locality }}</td>
+             <td>{{ obs.municipalityId }}</td>
+           </tr>
+          } @empty {
+           <tr>
+             <td colspan="7" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+           </tr>
+          }
+        </tbody>
+      </table>
+      <app-pagination
+        [currentPage]="pageNumber()"
+        [totalVisiblePages]="totalVisiblePages()"
+        [hasMorePages]="hasMorePages()"
+        [pageSizeOptions]="pageSizeOptions"
+        [pageSize]="resultsPerPage()"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
+    </div>
+  }
+</div>
