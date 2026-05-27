@@ -5,6 +5,7 @@ import { HeaderComponent } from './components/header/header.component';
 import { ResizablePanelComponent } from './components/resizable-panel/resizable-panel.component';
 import { MapComponent } from './components/map.component/map.component';
 import { MapToolbarComponent } from './components/map.component/map-toolbar/map-toolbar.component';
+import { MapTypeSelectorComponent } from './components/map.component/map-toolbar/map-type-selector';
 
 @NgModule({
   imports: [
@@ -12,15 +13,16 @@ import { MapToolbarComponent } from './components/map.component/map-toolbar/map-
     TranslateModule,
     HeaderComponent,
     ResizablePanelComponent,
+    MapComponent,
+    MapToolbarComponent,
+    MapTypeSelectorComponent,
   ],
   exports: [
     HeaderComponent,
     ResizablePanelComponent,
     MapComponent,
-    MapToolbarComponent],
-  declarations: [
-    MapComponent,
-    MapToolbarComponent
+    MapToolbarComponent,
+    MapTypeSelectorComponent,
   ],
 })
 export class SharedModule {}

@@ -1,22 +1,18 @@
 <div class="map-toolbar-container" role="toolbar">
   <!-- Top Controls -->
   <div class="map-toolbar-top">
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.MAP" (click)="onButtonClick(toolbarActions.MAP)" title="Kart" aria-label="Kart">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M15 21L9 18.9L4.35 20.7C4.01667 20.8333 3.70833 20.7958 3.425 20.5875C3.14167 20.3792 3 20.1 3 19.75V5.75C3 5.53333 3.0625 5.34167 3.1875 5.175C3.3125 5.00833 3.48333 4.88333 3.7 4.8L9 3L15 5.1L19.65 3.3C19.9833 3.16667 20.2917 3.20417 20.575 3.4125C20.8583 3.62083 21 3.9 21 4.25V18.25C21 18.4667 20.9375 18.6583 20.8125 18.825C20.6875 18.9917 20.5167 19.1167 20.3 19.2L15 21ZM14 18.55V6.85L10 5.45V17.15L14 18.55ZM16 18.55L19 17.55V5.7L16 6.85V18.55ZM5 18.3L8 17.15V5.45L5 6.45V18.3Z" fill="#005A71"/>
-      </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.LAYERS" (click)="onButtonClick(toolbarActions.LAYERS)" title="Layers" aria-label="Layers">
+    <app-map-type-selector (mapTypeSelected)="onMapTypeSelected($event)"></app-map-type-selector>
+    <button class="map-control-icon" disabled [attr.data-action]="toolbarActions.LAYERS" (click)="onButtonClick(toolbarActions.LAYERS)" title="Layers" aria-label="Layers">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 21.05L3 14.05L4.65 12.8L12 18.5L19.35 12.8L21 14.05L12 21.05ZM12 16L3 9L12 2L21 9L12 16ZM12 13.45L17.75 9L12 4.55L6.25 9L12 13.45Z" fill="#005A71"/>
       </svg>
     </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.FILTER" (click)="onButtonClick(toolbarActions.FILTER)" title="Filter" aria-label="Filter">
+    <button class="map-control-icon" disabled [attr.data-action]="toolbarActions.FILTER" (click)="onButtonClick(toolbarActions.FILTER)" title="Filter" aria-label="Filter">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M11 21V15H13V17H21V19H13V21H11ZM3 19V17H9V19H3ZM7 15V13H3V11H7V9H9V15H7ZM11 13V11H21V13H11ZM15 9V3H17V5H21V7H17V9H15ZM3 7V5H13V7H3Z" fill="#005A71"/>
       </svg>
     </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.POLYGON" (click)="onButtonClick(toolbarActions.POLYGON)" title="Polygon" aria-label="Polygon">
+    <button class="map-control-icon" disabled [attr.data-action]="toolbarActions.POLYGON" (click)="onButtonClick(toolbarActions.POLYGON)" title="Polygon" aria-label="Polygon">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path fill-rule="evenodd" clip-rule="evenodd" d="M15 19.5V22H21V16H18.7208L16 7.83772V2H10V6.9L7.3 10H3V16H8L15 19.5ZM13.9459 8H11.7L9 11.1V14.25L15 17.25V16H16.6126L13.9459 8ZM14 6H12V4H14V6ZM7 14H5V12H7V14ZM19 20H17V18H19V20Z" fill="#005A71"/>
       </svg>
