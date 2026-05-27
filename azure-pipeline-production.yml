@@ -16,7 +16,7 @@ steps:
 # Frontend (Angular) build
 # ---------------------------
 
-- task: NodeTool@0
+- task: NodeTool@1
   displayName: "Install Node.js"
   inputs:
     versionSpec: '22.x'
@@ -77,7 +77,7 @@ steps:
   displayName: "Run .NET tests"
   inputs:
     command: 'test'
-    projects: '**/*Tests.csproj'
+    projects: '**/*Tests*.csproj'
     arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
     publishTestResults: true
 
