@@ -23,6 +23,7 @@ steps:
 
 - script: |
     cd Artskart3.WebApp
+    npm cache clean --force
     npm ci
   displayName: "Install Angular dependencies"
 
