@@ -7,168 +7,89 @@ pr:
     include:
       - staging
 
-jobs:
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
 
 # ---------------------------
-# Job 1: Build
+# Frontend (Angular) build
 # ---------------------------
-- job: build
-  displayName: "Build"
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - task: UseDotNet@2
-    displayName: "Install .NET SDK"
-    inputs:
-      packageType: 'sdk'
-      version: '10.x'
 
-  - task: NodeTool@0
-    displayName: "Install Node.js"
-    inputs:
-      versionSpec: '22.x'
+- task: NodeTool@0
+  displayName: "Install Node.js"
+  inputs:
+    versionSpec: '22.x'
 
-  - script: |
-      cd Artskart3.WebApp
-      npm ci
-    displayName: "Install Angular dependencies"
+- script: |
+    cd Artskart3.WebApp
+    npm ci
+  displayName: "Install Angular dependencies"
 
-  - script: |
-      cd Artskart3.WebApp
-      npm run lint
-    displayName: "Lint Angular app"
+- script: |
+    cd Artskart3.WebApp
+    npm run lint
+  displayName: "Lint Angular app"
 
-  - script: |
-      cd Artskart3.WebApp
-      npm run build -- --configuration production
-    displayName: "Build Angular app"
+- script: |
+    cd Artskart3.WebApp
+    npm run build -- --configuration production
+  displayName: "Build Angular app"
 
-  - task: CopyFiles@2
-    displayName: "Copy Angular dist to backend wwwroot"
-    inputs:
-      SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/artskart3.webapp/browser'
-      Contents: '**'
-      TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
+- script: |
+    cd Artskart3.WebApp
+    npm test -- --watch=false
+  displayName: "Run Angular tests"
+  continueOnError: false
 
-  - task: DotNetCoreCLI@2
-    displayName: "Restore .NET dependencies"
-    inputs:
-      command: 'restore'
-      projects: '**/*.csproj'
-
-  - task: DotNetCoreCLI@2
-    displayName: "Build .NET solution"
-    inputs:
-      command: 'build'
-      projects: '**/*.csproj'
-      arguments: '--configuration Release'
+# Copy frontend build into backend wwwroot
+- task: CopyFiles@2
+  displayName: "Copy Angular dist to backend wwwroot"
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/artskart3.webapp/browser'
+    Contents: '**'
+    TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
 
 # ---------------------------
-# Job 2: Test
+# .NET restore/build/test
 # ---------------------------
-- job: test
-  displayName: "Test"
-  dependsOn: build
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - task: UseDotNet@2
-    displayName: "Install .NET SDK"
-    inputs:
-      packageType: 'sdk'
-      version: '10.x'
 
-  - task: NodeTool@0
-    displayName: "Install Node.js"
-    inputs:
-      versionSpec: '22.x'
+- task: UseDotNet@2
+  displayName: "Install .NET SDK"
+  inputs:
+    packageType: 'sdk'
+    version: '10.x'
 
-  - script: |
-      cd Artskart3.WebApp
-      npm ci
-    displayName: "Install Angular dependencies"
+- task: DotNetCoreCLI@2
+  displayName: "Restore .NET dependencies"
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
 
-  - script: |
-      cd Artskart3.WebApp
-      npm test -- --watch=false
-    displayName: "Run Angular tests"
-    continueOnError: false
+- task: DotNetCoreCLI@2
+  displayName: "Build .NET solution"
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration Release'
 
-  - task: DotNetCoreCLI@2
-    displayName: "Restore .NET dependencies"
-    inputs:
-      command: 'restore'
-      projects: '**/*.csproj'
+- task: DotNetCoreCLI@2
+  displayName: "Run .NET tests"
+  inputs:
+    command: 'test'
+    projects: '**/*Tests.csproj'
+    arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
+    publishTestResults: true
 
-  - task: DotNetCoreCLI@2
-    displayName: "Build .NET solution"
-    inputs:
-      command: 'build'
-      projects: '**/*.csproj'
-      arguments: '--configuration Release'
+- task: DotNetCoreCLI@2
+  displayName: "Publish .NET backend"
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/backend'
+    zipAfterPublish: true
 
-  - task: DotNetCoreCLI@2
-    displayName: "Run .NET tests"
-    inputs:
-      command: 'test'
-      projects: '**/*Tests.csproj'
-      arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
-      publishTestResults: true
-
-# ---------------------------
-# Job 3: Publish (only on staging branch, not PRs)
-# ---------------------------
-- job: publish
-  displayName: "Publish"
-  dependsOn:
-  - build
-  - test
+- publish: $(Build.ArtifactStagingDirectory)/backend
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/staging'))
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - task: UseDotNet@2
-    displayName: "Install .NET SDK"
-    inputs:
-      packageType: 'sdk'
-      version: '10.x'
-
-  - task: NodeTool@0
-    displayName: "Install Node.js"
-    inputs:
-      versionSpec: '22.x'
-
-  - script: |
-      cd Artskart3.WebApp
-      npm ci
-    displayName: "Install Angular dependencies"
-
-  - script: |
-      cd Artskart3.WebApp
-      npm run build -- --configuration production
-    displayName: "Build Angular app"
-
-  - task: CopyFiles@2
-    displayName: "Copy Angular dist to backend wwwroot"
-    inputs:
-      SourceFolder: '$(Build.SourcesDirectory)/Artskart3.WebApp/dist/artskart3.webapp/browser'
-      Contents: '**'
-      TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
-
-  - task: DotNetCoreCLI@2
-    displayName: "Restore .NET dependencies"
-    inputs:
-      command: 'restore'
-      projects: '**/*.csproj'
-
-  - task: DotNetCoreCLI@2
-    displayName: "Publish .NET backend"
-    inputs:
-      command: 'publish'
-      publishWebProjects: true
-      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/backend'
-      zipAfterPublish: true
-
-  - publish: $(Build.ArtifactStagingDirectory)/backend
-    displayName: "Publish backend artifact"
-    artifact: backend
+  displayName: "Publish backend artifact"
+  artifact: backend
