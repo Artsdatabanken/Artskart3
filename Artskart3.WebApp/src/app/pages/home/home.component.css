@@ -1,0 +1,25 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tabs {
+  background-color: var(--adb-surface-primary);
+}
+
+.tab-panels {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.tab-panel {
+  height: 100%;
+  width: 100%;
+}
+
+.tab-panel-hidden {
+  display: none;
+}

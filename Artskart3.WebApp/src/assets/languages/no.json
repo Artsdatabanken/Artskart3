@@ -34,5 +34,27 @@
   },
   "resizablePanel": {
     "resizeAriaLabel": "Endre størrelse på filter panelet"
+  },
+  "tabs": {
+    "map": "Kart",
+    "list": "Liste",
+    "ariaLabel": "Velg visning"
+  },
+  "listView": {
+    "name": "Bokmålsnavn",
+    "scientificName": "Vitenskapelig navn",
+    "author": "Autor",
+    "locality": "Lokalitet",
+    "institution": "Institusjon",
+    "date": "Dato",
+    "municipality": "Kommune",
+    "noResults": "Ingen observasjoner funnet"
+  },
+  "pagination": {
+    "previous": "Forrige",
+    "next": "Neste",
+    "page": "Side",
+    "itemsPerPage": "Antall per side",
+    "ariaLabel": "Paginering"
   }
 }

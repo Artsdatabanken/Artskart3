@@ -34,5 +34,27 @@
   },
   "resizablePanel": {
     "resizeAriaLabel": "Resize filter panel"
+  },
+  "tabs": {
+    "map": "Map",
+    "list": "List",
+    "ariaLabel": "Select view"
+  },
+  "listView": {
+    "name": "Species name",
+    "scientificName": "Scientific name",
+    "author": "Autor",
+    "locality": "Locality",
+    "institution": "Institution",
+    "date": "Date",
+    "municipality": "Municipality",
+    "noResults": "No observations found"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "itemsPerPage": "Items per page",
+    "ariaLabel": "Pagination"
   }
 }
