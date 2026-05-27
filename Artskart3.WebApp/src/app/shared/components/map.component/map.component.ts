@@ -1,4 +1,4 @@
-import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import { createMap, LayerDef, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -13,12 +13,25 @@ import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
 import { ZoomCalculator, ZoomVisibilityHelper, ZoomState, MapZoomController } from '@shared/helpers/zoom';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { MAP_CONFIG } from '@shared/config/map.config';
+import { CommonModule } from '@angular/common';
+import { MAP_LAYER_CONFIGS, MapLayerConfig } from '../../config/map/map-layer.config';
+import { SharedMapService } from '../../services/shared-map.service';
+import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
+import { ImageTile } from 'ol';
 
-type MapType = ReturnType<typeof createMap> | null;
+interface Tooltip {
+  visible: boolean;
+  name: string;
+  type: string;
+  count: number;
+  x: number;
+  y: number;
+}
 
 @Component({
   selector: 'app-map',
-  standalone: false,
+  standalone: true,
+  imports: [CommonModule, MapToolbarComponent],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -26,18 +39,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
 
-  //private map: MapType = null;
   private zoomState: ZoomState = new ZoomState();
   private mapZoomController: MapZoomController | null = null;
-
   private destroy$ = new Subject<void>();
   private areaMarkersLayerId = MAP_CONFIG.areaMarkersLayer;
   private areaMarkerFeatures: AreaMarkerFeature[] = [];
   private areMarkersLoaded = false;
-  private mouseMoveFn?: (e: MouseEvent) => void;
   private mouseLeaveFn?: () => void;
 
-  tooltip = {
+  tooltip: Tooltip = {
     visible: false,
     name: '',
     type: '',
@@ -46,34 +56,27 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     y: 0
   };
 
+  private readonly MAP_TYPE_PREFIX = 'map-type:';
+
+  public map!: NbicMapComponent;
+  private areasService = inject(AreasService);
+  private sharedMapService = inject(SharedMapService);
+
   private handleScrollWheel = (event: WheelEvent) => {
     event.preventDefault();
     this.handleScrollZoom(event);
   };
-
-  private areasService = inject(AreasService);
-
-  @Output() iconClickAction = new EventEmitter<string>();
-
-  map!: NbicMapComponent;
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
   }
 
   /**
-   * Configures base map layers (OSM and topographic)
+   * Configures and adds all background/base map layers
    */
   private setupBaseMapLayers(): void {
     if (!this.map) return;
     this.map.addLayer(nbicMapPresets.osm);
-
-    const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as any };
-    if (topoLayer.source.type === 'wmts') {
-      topoLayer.source.options.projection = MAP_CONFIG.projection;
-      topoLayer.source.options.matrixSet = MAP_CONFIG.projectionMatrix;
-    }
-    this.map.addLayer(topoLayer);
   }
 
   /**
@@ -91,33 +94,30 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private initializeMap(): void {
     try {
-      if (!this.mapEl || !this.mapEl.nativeElement) {
+      if (!this.mapEl?.nativeElement) {
         return;
       }
 
-      this.map = createMap(
-        this.mapEl.nativeElement,
-        {
-          version: 1,
-          id: MAP_CONFIG.mapId,
-          projection: MAP_CONFIG.projection,
-          center: MAP_CONFIG.center,
-          zoom: this.zoomState.getZoom(),
-          minZoom: MAP_CONFIG.minZoom,
-          maxZoom: MAP_CONFIG.maxZoom,
-          controls: { scaleLine: true, fullscreen: true, geolocation: true, zoom: true, attribution: true },
-          id: 'artskart-map',
-          projection: 'EPSG:25833',
-          center: [300000, 7220000],  // Centered on Norway in UTM 33N
-          zoom: 6.2,
-          minZoom: 0,
-          maxZoom: 18,
-          controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true },
+      this.map = createMap(this.mapEl.nativeElement, {
+        version: 1,
+        id: MAP_CONFIG.mapId,
+        projection: MAP_CONFIG.projection,
+        center: MAP_CONFIG.center,
+        zoom: this.zoomState.getZoom(),
+        minZoom: MAP_CONFIG.minZoom,
+        maxZoom: MAP_CONFIG.maxZoom,
+        controls: {
+          scaleLine: true,
+          fullscreen: false,
+          geolocation: true,
+          zoom: false,
+          attribution: true
         }
-      );
+      });
 
       this.mapZoomController = new MapZoomController(this.map);
       this.setupBaseMapLayers();
+      this.generateBackgroundMaps();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
     } catch (error) {
       console.error('Failed to initialize map:', error);
@@ -158,7 +158,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const startZoom = this.zoomState.getZoom();
     const startTime = performance.now();
 
-    // If zoom difference is negligible, apply immediately
     if (ZoomCalculator.isZoomDifferenceNegligible(targetZoom, startZoom)) {
       this.applyZoom(targetZoom);
       this.zoomState.setZoom(targetZoom);
@@ -179,16 +178,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       } else {
         this.zoomState.setZoom(targetZoom);
         this.zoomState.setAnimationFrameId(null);
-      const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as const };
-      if (topoLayer.source.type === 'wmts') {
-        topoLayer.source.options.projection = 'EPSG:25833';
-        topoLayer.source.options.matrixSet = 'utm33n';
       }
     };
 
     const frameId = requestAnimationFrame(animate);
     this.zoomState.setAnimationFrameId(frameId);
   }
+
+
 
   private applyZoom(zoom: number): void {
     if (!this.map || !this.mapZoomController || isNaN(zoom)) return;
@@ -209,22 +206,20 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const shouldShowCounties = ZoomVisibilityHelper.shouldShowCounties(zoom);
-    const shouldShowMunicipalities = ZoomVisibilityHelper.shouldShowMunicipalities(zoom);
     const countiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.countiesSuffix}`;
     const municipalitiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.municipalitiesSuffix}`;
 
-    const countiesLayerExists = !!this.mapZoomController?.getLayerById(countiesLayerId);
-    const municipalitiesLayerExists = !!this.mapZoomController?.getLayerById(municipalitiesLayerId);
+    const shouldShowCounties = ZoomVisibilityHelper.shouldShowCounties(zoom);
+    const shouldShowMunicipalities = ZoomVisibilityHelper.shouldShowMunicipalities(zoom);
 
-    // Check if layer visibility matches current zoom
+    const countiesExists = !!this.mapZoomController?.getLayerById(countiesLayerId);
+    const municipalitiesExists = !!this.mapZoomController?.getLayerById(municipalitiesLayerId);
+
     const needsRecreate =
-      (shouldShowCounties && !countiesLayerExists && municipalitiesLayerExists) ||
-      (shouldShowMunicipalities && !municipalitiesLayerExists && countiesLayerExists) ||
-      (shouldShowCounties && !countiesLayerExists) ||
-      (shouldShowMunicipalities && !municipalitiesLayerExists) ||
-      (shouldShowCounties && municipalitiesLayerExists) ||
-      (shouldShowMunicipalities && countiesLayerExists);
+      (shouldShowCounties && !countiesExists) ||
+      (shouldShowMunicipalities && !municipalitiesExists) ||
+      (countiesExists && !shouldShowCounties) ||
+      (municipalitiesExists && !shouldShowMunicipalities);
 
     if (needsRecreate) {
       this.areMarkersLoaded = false;
@@ -284,11 +279,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const countiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.countiesSuffix}`;
       const municipalitiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.municipalitiesSuffix}`;
 
-      // Remove existing layers
       this.mapZoomController?.removeLayer(countiesLayerId);
       this.mapZoomController?.removeLayer(municipalitiesLayerId);
 
-      // Add layers based on current zoom level
       if (ZoomVisibilityHelper.shouldShowCounties(currentZoom)) {
         const countiesFeatures = this.areaMarkerFeatures.filter(f => f.properties.areaTypeId === 2);
         this.createMarkerLayer(countiesFeatures, countiesLayerId, 2);
@@ -360,12 +353,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupMarkerInteractions(layerId);
   }
 
-  private showTooltip(name: string, areaTypeName: string, observationCount: number, x: number, y: number): void {
+  private showTooltip(name: string, areaTypeName: string, observationCount: number): void {
     this.tooltip.name = name || 'Unknown';
     this.tooltip.type = areaTypeName || 'Area';
     this.tooltip.count = observationCount || 0;
-    this.tooltip.x = x + MAP_CONFIG.tooltipOffset;
-    this.tooltip.y = y + MAP_CONFIG.tooltipOffset;
     this.tooltip.visible = true;
   }
 
@@ -376,16 +367,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   /**
    * Checks if tooltip should be shown for hovered layer
    */
-  private processHoverForLayer(layerId: string, items: any[], mouseX: number, mouseY: number): boolean {
+  private processHoverForLayer(layerId: string, items: { feature: unknown; layer?: { get: (key: string) => unknown } }[]): boolean {
     for (const item of items) {
       const feature = item.feature;
       if (!feature) continue;
 
-      const props = feature.getProperties?.() || feature.properties || {};
-      const featureLayerId = props.fromLayer || feature.layer?.get('id');
+      const featureObj = feature as Record<string, unknown>;
+      const getPropertiesFn = featureObj['getProperties'] as (() => Record<string, unknown>) | undefined;
+      const props = getPropertiesFn?.() || (featureObj['properties'] as Record<string, unknown>) || {};
 
-      if (featureLayerId === layerId && props.name) {
-        this.showTooltip(props.name, props.areaTypeName, props.observationCount, mouseX, mouseY);
+      const featureLayerId = props['fromLayer'] || item.layer?.get('id');
+
+      if (featureLayerId === layerId && props['name']) {
+        this.showTooltip(
+          props['name'] as string,
+          props['areaTypeName'] as string,
+          props['observationCount'] as number
+        );
         return true;
       }
     }
@@ -401,30 +399,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     try {
       const mapElement = this.mapEl.nativeElement;
 
-      this.mouseMoveFn = (e: MouseEvent) => {
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
-      };
-
       this.mouseLeaveFn = () => {
         this.hideTooltip();
       };
 
-      mapElement.addEventListener('mousemove', this.mouseMoveFn);
       mapElement.addEventListener('mouseleave', this.mouseLeaveFn);
 
-      this.map.on('hover:info', (event: any) => {
+      this.map.on('hover:info', (event) => {
         if (!event?.items || event.items.length === 0) {
           this.hideTooltip();
           return;
         }
 
-        if (!this.processHoverForLayer(layerId, event.items, 0, 0)) {
+        if (!this.processHoverForLayer(layerId, event.items)) {
           this.hideTooltip();
         }
-      this.map.on(MapEvents.Ready, () => {
-        this.mapReadyAction.emit(true);
-        this.map!.activateHoverInfo();
       });
     } catch (error) {
       console.error('Error setting up marker interactions:', error);
@@ -439,7 +428,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     this.zoomState.updateLastZoom();
 
-    this.map.on('moveend' as any, () => {
+    (this.map.on as (event: string, handler: () => void) => void)('moveend', () => {
       this.syncZoomFromMap();
 
       if (ZoomVisibilityHelper.hasCrossedThreshold(this.zoomState.getLastZoom(), this.zoomState.getZoom())) {
@@ -464,9 +453,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private cleanupEventListeners(): void {
     if (this.mapEl?.nativeElement) {
       this.mapEl.nativeElement.removeEventListener('wheel', this.handleScrollWheel);
-      if (this.mouseMoveFn) {
-        this.mapEl.nativeElement.removeEventListener('mousemove', this.mouseMoveFn);
-      }
       if (this.mouseLeaveFn) {
         this.mapEl.nativeElement.removeEventListener('mouseleave', this.mouseLeaveFn);
       }
@@ -481,9 +467,77 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.complete();
     this.map?.destroy?.();
   }
-  
+
+  /**
+   * Generates and configures background map layers with proper token handling for NIB layer
+   */
+  private generateBackgroundMaps(): void {
+    if (!this.map) return;
+
+    const nib = { ...nbicMapPresets.nib, id: 'nib' };
+    const nibSource = nib.source;
+
+    if (nibSource.type === 'wmts') {
+      nibSource.options.tileLoadFunction = (tile, src) => {
+        const token = this.sharedMapService.getNibToken();
+        const separator = src.includes('?') ? '&' : '?';
+        const img = (tile as ImageTile).getImage() as HTMLImageElement;
+        img.src = token ? `${src}${separator}token=${token}` : src;
+      };
+    }
+
+    this.map.addLayer(this.createWmtsLayer(nbicMapPresets.topografiskBaseLayer, 'topografiskBaseLayer'));
+    this.map.addLayer(this.createWmtsLayer(nbicMapPresets.topo4graatoneBaseLayer, 'topo4graatoneBaseLayer'));
+    this.map.addLayer(this.createWmtsLayer(nbicMapPresets.svalbardBaseLayer, 'svalbardBaseLayer'));
+    this.map.addLayer(this.createWmtsLayer(nbicMapPresets.janmayenBaseLayer, 'janmayenBaseLayer'));
+    this.map.addLayer(nib);
+  }
+
+  private createWmtsLayer(layer: LayerDef, id: string): LayerDef {
+    if (layer.source.type !== 'wmts') {
+      return { ...layer, base: 'regional' as const, id };
+    }
+
+    return {
+      ...layer,
+      base: 'regional' as const,
+      id,
+      source: {
+        ...layer.source,
+        options: {
+          ...layer.source.options,
+          projection: MAP_CONFIG.projection,
+          matrixSet: MAP_CONFIG.projectionMatrix
+        }
+      }
+    };
+  }
+
   onIconClick(iconName: string): void {
-    this.iconClickAction.emit(iconName);
+    if (!iconName.startsWith(this.MAP_TYPE_PREFIX)) {
+      return;
+    }
+    const layerId = iconName.slice(this.MAP_TYPE_PREFIX.length);
+    this.handleMapTypeChange(layerId);
+  }
+
+  private handleMapTypeChange(layerId: string): void {
+    if (!this.map || !layerId) return;
+
+    const config = MAP_LAYER_CONFIGS[layerId];
+    if (!config) {
+      console.warn(`Unknown map layer: ${layerId}`);
+      return;
+    }
+
+    this.updateMapLayers(config);
+  }
+
+  private updateMapLayers(config: MapLayerConfig): void {
+    const baseLayerIds = this.map.getBaseLayerIds();
+    baseLayerIds.forEach((id: string) => {
+      this.map.setLayerVisibility(id, config.visibleLayers.includes(id));
+    });
   }
 
   ngOnDestroy(): void {
