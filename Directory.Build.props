@@ -1,0 +1,26 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Common properties shared across all projects -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Treat all warnings as errors -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NU1902: Sårbarheter i nuget pakker. Beholder denne som warning, vi ønsker ikke å stoppe alle fra å bygge fordi det er en pakke som har sårbarheter.
+      Noen ganger er det ikke noen fiks klar og det er unødvendig at alle må fikse samme feilen.
+    -->
+    <WarningsNotAsErrors>NU1902</WarningsNotAsErrors>
+
+    <!--
+      Uncomment to also enforce .editorconfig code style rules during build.
+      Only enable this once the team has aligned on and applied the style rules,
+      as it will cause build failures for style violations (not just IDE hints).
+    -->
+    <!-- <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild> -->
+  </PropertyGroup>
+
+</Project>
