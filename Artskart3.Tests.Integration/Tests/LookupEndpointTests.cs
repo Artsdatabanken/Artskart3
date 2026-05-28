@@ -31,14 +31,15 @@ public class LookupEndpointTests : IAsyncLifetime
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetCategories_Returns200WithJsonArray()
+    public async Task GetCategories_Returns200WithJsonObject()
     {
         var response = await _client.GetAsync("/api/Lookup/Categories");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
-        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Object);
+        doc.RootElement.TryGetProperty("categoryTypes", out _).Should().BeTrue();
     }
 
     [Fact]
