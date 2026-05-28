@@ -1,5 +1,4 @@
-# Editor configuration, see https://editorconfig.org
-root = true
+# WebApp overrides — inherits from root .editorconfig
 
 [*]
 charset = utf-8
