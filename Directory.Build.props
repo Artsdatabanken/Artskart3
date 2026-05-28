@@ -12,17 +12,13 @@
     <!--
       Warnings temporarily kept as warnings — fix these and remove from this list:
 
-      CS8618: Non-nullable properties not initialized in constructor.
-              Affected: ObservationBaseModel.cs, StyleTypeModel.cs
-              Fix: Add 'required' modifier or make properties nullable.
-
       NU1603: NuGet resolved a higher version than requested (NetTopologySuite).
               Fix: Pin NetTopologySuite version in Artskart3.Core.csproj.
 
       NU1902: Known vulnerability in a transitive dependency (OpenTelemetry.Api).
               Fix: Update the package that pulls in OpenTelemetry.Api.
     -->
-    <WarningsNotAsErrors>CS8618;NU1603;NU1902</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1603;NU1902</WarningsNotAsErrors>
 
     <!--
       Uncomment to also enforce .editorconfig code style rules during build.

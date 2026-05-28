@@ -5,7 +5,7 @@ namespace Artskart3.Core.Domain.BusinessModels;
 public abstract class ObservationBaseModel
 {
     public int Id { get; set; }
-    public string ProxyId { get; set; }
+    public string? ProxyId { get; set; }
 }
 
 public class ObservationWithNodeModel : ObservationBaseModel
@@ -32,59 +32,59 @@ public class ObservationModel : ObservationBaseModel
     public DateTime? Identified { get; set; }
     
     // Identification and collection information
-    public string Uid { get; set; }
-    public string CatalogNumber { get; set; }
-    public string IdentifiedBy { get; set; }
-    public string IdentificationQualifier { get; set; }
-    public string Collector { get; set; }
-    
+    public string? Uid { get; set; }
+    public string? CatalogNumber { get; set; }
+    public string? IdentifiedBy { get; set; }
+    public string? IdentificationQualifier { get; set; }
+    public string? Collector { get; set; }
+
     // Specimen information
-    public string Habitat { get; set; }
-    public string Sex { get; set; }
-    public string IndividualCount { get; set; }
-    public string CollectingMethod { get; set; }
-    
+    public string? Habitat { get; set; }
+    public string? Sex { get; set; }
+    public string? IndividualCount { get; set; }
+    public string? CollectingMethod { get; set; }
+
     // Record metadata
-    public string RecordNumber { get; set; }
-    public string FieldNumber { get; set; }
-    public string MeasurementMethod { get; set; }
-    public string GeoreferenceRemarks { get; set; }
-    public string Preparations { get; set; }
-    public string OtherCatalogNumbers { get; set; }
-    
+    public string? RecordNumber { get; set; }
+    public string? FieldNumber { get; set; }
+    public string? MeasurementMethod { get; set; }
+    public string? GeoreferenceRemarks { get; set; }
+    public string? Preparations { get; set; }
+    public string? OtherCatalogNumbers { get; set; }
+
     // Related resources
-    public string RelatedResourceId { get; set; }
-    public string RelationshipOfResource { get; set; }
-    public string TypeStatus { get; set; }
-    public string EventTime { get; set; }
-    
+    public string? RelatedResourceId { get; set; }
+    public string? RelationshipOfResource { get; set; }
+    public string? TypeStatus { get; set; }
+    public string? EventTime { get; set; }
+
     // Elevation information
     public int? MaximumElevationInMeters { get; set; }
     public int? MinimumElevationInMeters { get; set; }
-    public string VerbatimDepth { get; set; }
-    
+    public string? VerbatimDepth { get; set; }
+
     // Occurrence and processing information
-    public string OccurrenceId { get; set; }
+    public string? OccurrenceId { get; set; }
     public int HashCode { get; set; }
     public int ProcessEngineId { get; set; }
-    
+
     // Status flags
     public bool HasErrors { get; set; }
     public bool HasAnnotations { get; set; }
-    
+
     // Additional properties
-    public string DynamicProperties { get; set; }
-    public string[] AssociatedReferences { get; set; }
-    
+    public string? DynamicProperties { get; set; }
+    public string[]? AssociatedReferences { get; set; }
+
     // Display and classification
-    public string CategoryUrl { get; set; }
-    public string Locality { get; set; }
-    public string MatchedScientificName { get; set; }
-    public string MatchedScientificNameAuthor { get; set; }
-    
+    public string? CategoryUrl { get; set; }
+    public string? Locality { get; set; }
+    public string? MatchedScientificName { get; set; }
+    public string? MatchedScientificNameAuthor { get; set; }
+
     // Links and quality
     public ICollection<ObservationLink> LinkedObservations { get; set; } = new List<ObservationLink>();
-    public ObservationQuality ObservationQuality { get; set; }
+    public ObservationQuality? ObservationQuality { get; set; }
     public ICollection<int> MediaFileIds { get; set; } = new List<int>();
     
     public ObservationModel()
@@ -98,20 +98,20 @@ public class ObservationWithLocationModel : ObservationModel
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public int NodeId { get; set; }
-    public string DoiId { get; set; }
+    public string? DoiId { get; set; }
     public Guid GBIFDataSetId { get; set; }
 }
 
 public class ObservationLink
 {
     public bool IsSource { get; set; }
-    public string OccurrenceId { get; set; }
+    public string? OccurrenceId { get; set; }
 }
 
 public class ObservationQuality
 {
     public int Score { get; set; }
-    public string Status { get; set; }
+    public string? Status { get; set; }
     public ICollection<string> Issues { get; set; } = new List<string>();
 }
 
