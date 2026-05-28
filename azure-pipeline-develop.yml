@@ -13,16 +13,6 @@ pool:
 steps:
 
 # ---------------------------
-# Backend prerequisites
-# ---------------------------
-
-- task: UseDotNet@2
-  displayName: "Install .NET SDK"
-  inputs:
-    packageType: 'sdk'
-    version: '10.x'
-
-# ---------------------------
 # Frontend (Angular) build
 # ---------------------------
 
@@ -60,14 +50,15 @@ steps:
     Contents: '**'
     TargetFolder: '$(Build.SourcesDirectory)/Artskart3.Api/wwwroot'
 
-- script: |
-    echo "wwwroot contents:"
-    ls -la $(Build.SourcesDirectory)/Artskart3.Api/wwwroot
-  displayName: "List wwwroot for debugging"
-
 # ---------------------------
 # .NET restore/build/test
 # ---------------------------
+
+- task: UseDotNet@2
+  displayName: "Install .NET SDK"
+  inputs:
+    packageType: 'sdk'
+    version: '10.x'
 
 - task: DotNetCoreCLI@2
   displayName: "Restore .NET dependencies"
@@ -86,8 +77,9 @@ steps:
   displayName: "Run .NET tests"
   inputs:
     command: 'test'
-    projects: '**/*Tests.csproj'
-    arguments: '--configuration Release --no-build'
+    projects: '**/*Tests*.csproj'
+    arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
+    publishTestResults: true
 
 - task: DotNetCoreCLI@2
   displayName: "Publish .NET backend"

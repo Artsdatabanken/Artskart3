@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+
+      <!-- Visual Studio innebygd dekningsverktøy -->
+      <DataCollector friendlyName="Code Coverage" uri="datacollector://Microsoft/CodeCoverage/2.0">
+        <Configuration>
+          <CodeCoverage>
+            <ModulePaths>
+              <Exclude>
+                <!-- Tredjeparts NuGet-pakker -->
+                <ModulePath>.*\\robotstxtcore\.dll</ModulePath>
+                <ModulePath>.*\\duende\..*\.dll</ModulePath>
+                <ModulePath>.*\\testcontainers.*\.dll</ModulePath>
+                <ModulePath>.*\\docker\.dotnet\.dll</ModulePath>
+              </Exclude>
+            </ModulePaths>
+            <Functions>
+              <Exclude>
+                <!-- OpenAPI-kildegenerator -->
+                <Function>^Microsoft\.AspNetCore\.OpenApi\.Generated\..*</Function>
+                <!-- System.Runtime.CompilerServices-navnerom -->
+                <Function>^System\.Runtime\.CompilerServices\..*</Function>
+                <!-- Kompilatorgenererte async-tilstandsmaskiner: <MetodeNavn>d__N -->
+                <Function>.*&lt;.*&gt;d__\d+.*</Function>
+                <!-- Kompilatorgenererte lambda/closure-klasser: <>c og <>c__DisplayClass -->
+                <Function>.*&lt;&gt;c.*</Function>
+              </Exclude>
+            </Functions>
+            <Sources>
+              <Exclude>
+                <Source>.*\\Migrations\\.*</Source>
+              </Exclude>
+            </Sources>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+
+      <!-- Coverlet (XPlat / CI) dekningsverktøy -->
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <ExcludeByFile>**/Migrations/**/*.cs</ExcludeByFile>
+          <Exclude>[Artskart3.Api]Microsoft.AspNetCore.OpenApi.Generated*</Exclude>
+          <ExcludeByAttribute>CompilerGeneratedAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
