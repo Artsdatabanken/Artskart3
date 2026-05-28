@@ -1,16 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Artskart3.Infrastructure.Migrations
+namespace Artskart3.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class UpdateAreaZoomLevels : Migration
 {
     /// <inheritdoc />
-    public partial class UpdateAreaZoomLevels : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql(@"
+        migrationBuilder.Sql(@"
                 UPDATE [dbo].[Area] 
                 SET ZoomLevel = 1 
                 WHERE AreaTypeID = 2;
@@ -19,16 +19,15 @@ namespace Artskart3.Infrastructure.Migrations
                 SET ZoomLevel = 2 
                 WHERE AreaTypeID = 1;
             ");
-        }
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql(@"
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql(@"
                 UPDATE [dbo].[Area] 
                 SET ZoomLevel = NULL 
                 WHERE AreaTypeID IN (1, 2);
             ");
-        }
     }
 }

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.Entities;
 

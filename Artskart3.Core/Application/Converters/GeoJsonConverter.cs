@@ -1,7 +1,6 @@
-﻿using Artskart3.Core.Domain.BusinessModels;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Artskart3.Core.Domain.BusinessModels;
 
 namespace Artskart3.Core.Application.Converters;
 
@@ -91,7 +90,7 @@ public static class GeoJsonConverter
 
         writer.WriteStartObject();
         writer.WriteString("type", "FeatureCollection");
-        
+
         writer.WritePropertyName("features");
         writer.WriteStartArray();
         foreach (var feature in features)

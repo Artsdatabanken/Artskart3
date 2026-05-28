@@ -1,4 +1,4 @@
-﻿using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;

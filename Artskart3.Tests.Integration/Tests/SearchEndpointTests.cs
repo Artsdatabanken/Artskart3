@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using Artskart3.Core.Application.DTOs;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
 
@@ -118,7 +117,7 @@ public class SearchEndpointTests : IAsyncLifetime
     {
         // MaxLocationResults = 100000, so 100001 exceeds the limit
         var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=100001");
-    
+
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");

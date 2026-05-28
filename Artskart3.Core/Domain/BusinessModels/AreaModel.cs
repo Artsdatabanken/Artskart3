@@ -1,9 +1,7 @@
-using System;
+using System.Text.Json.Serialization;
+using Artskart3.Core.Domain.Enums;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
-using Artskart3.Core.Domain.Enums;
-using System.Data.SqlTypes;
-using System.Text.Json.Serialization;
 
 namespace Artskart3.Core.Domain.BusinessModels;
 
