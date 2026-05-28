@@ -166,13 +166,21 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             if(filter.OrganizationIds?.Any() == true)
             {
                 query = query.Where(o => o.OrganizationRelations
-                                          .Any(x => x.RelationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution 
+                                          .Any(x => x.Organization.OrganizationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution 
                                                && filter.OrganizationIds.Contains(x.OrganizationId)));
+            }
+
+            if(filter.RisikokategoriIder?.Any() == true)
+            {
+                query = query.Where(o => o.CategoryId != null && filter.RisikokategoriIder.Contains(o.CategoryId.Value));
             }
 
             if(filter.MunicipalityIds?.Any() == true)
             {
-                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x => filter.MunicipalityIds.Contains(x.Fid)));
+                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x => 
+                    x.IsCurrent == true &&
+                    x.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality &&
+                    filter.MunicipalityIds.Contains(x.Fid)));
             }
 
             query = query.OrderBy(o => o.Id);

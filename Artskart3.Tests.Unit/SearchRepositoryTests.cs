@@ -484,6 +484,196 @@ public class SearchRepositoryTests
         result[0].ObservationCount.Should().Be(30);
     }
 
+    [Fact]
+    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_ReturnsObservationInMatchingMunicipality()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var municipalityArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(municipalityArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().Add(municipalityArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotMatchOutdatedMunicipalityArea()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        // Outdated area with the requested Fid — must NOT match (IsCurrent = false)
+        var outdatedArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo (old)",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = false
+        };
+        // Current area with a different Fid — what the projection would return
+        var currentArea = new Area
+        {
+            Id = 2, DocumentId = "doc-2", Fid = "4631", Name = "Sogndal",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(outdatedArea);
+        location.Areas.Add(currentArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().AddRange(outdatedArea, currentArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        // Filter by the outdated Fid — should return nothing because the area is not current
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotReturnObservationMatchingOnlyCountyFid()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        // County area whose Fid happens to be in the filter — must NOT match
+        var countyArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo County",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(countyArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().Add(countyArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        // Filter by the county's Fid — should return nothing because it's not a municipality area
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["03"] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationLinkedToInstitutionOrg()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var org = new Organization
+        {
+            Id = 1, Name = "NHM",
+            OrganizationTypeId = (int)Core.Domain.Enums.OrganizationType.Institution,
+            DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow
+        };
+        var relation = new OrganizationRelation
+        {
+            Id = 1, ObservationId = 1, OrganizationId = 1, RelationTypeId = 1
+        };
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Organization>().Add(org);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<OrganizationRelation>().Add(relation);
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { OrganizationIds = [1] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ExcludesObservationLinkedToNonInstitutionOrg()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        // Organisation of type Collection, not Institution — must NOT match
+        var org = new Organization
+        {
+            Id = 1, Name = "SomeCollection",
+            OrganizationTypeId = (int)Core.Domain.Enums.OrganizationType.Collection,
+            DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow
+        };
+        // RelationTypeId = 1 (same int as Institution) — old code would have matched this
+        var relation = new OrganizationRelation
+        {
+            Id = 1, ObservationId = 1, OrganizationId = 1, RelationTypeId = 1
+        };
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Organization>().Add(org);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<OrganizationRelation>().Add(relation);
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { OrganizationIds = [1] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithRisikokategoriIderFilter_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, categoryId: 5));
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0, categoryId: 10));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { RisikokategoriIder = [5] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithRisikokategoriIderFilter_ExcludesObservationsWithOtherCategories()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, categoryId: 10));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { RisikokategoriIder = [5] }));
+
+        results.Should().BeEmpty();
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
@@ -566,6 +756,19 @@ public class SearchRepositoryTests
             IsCurrent = true,
             WktPolygon = null,
             Centroid = null
+        };
+
+    private static Taxon CreateTaxon(int id) =>
+        new()
+        {
+            Id = id,
+            TaxonRankId = 1,
+            ExternalTaxonId = id,
+            ParentTaxonId = 0,
+            ValidScientificNameId = 1,
+            TaxonGroupId = 1,
+            ScientificNameIdHiarchy = id.ToString(),
+            TaxonIdHiarchy = id.ToString()
         };
 
     private static async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> source)
