@@ -10,15 +10,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
     <!--
-      Warnings temporarily kept as warnings — fix these and remove from this list:
-
-      NU1603: NuGet resolved a higher version than requested (NetTopologySuite).
-              Fix: Pin NetTopologySuite version in Artskart3.Core.csproj.
-
-      NU1902: Known vulnerability in a transitive dependency (OpenTelemetry.Api).
-              Fix: Update the package that pulls in OpenTelemetry.Api.
+      NU1902: Sårbarheter i nuget pakker. Beholder denne som warning, vi ønsker ikke å stoppe alle fra å bygge fordi det er en pakke som har sårbarheter.
+      Noen ganger er det ikke noen fiks klar og det er unødvendig at alle må fikse samme feilen.
     -->
-    <WarningsNotAsErrors>NU1603;NU1902</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1902</WarningsNotAsErrors>
 
     <!--
       Uncomment to also enforce .editorconfig code style rules during build.
