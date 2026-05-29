@@ -36,5 +36,28 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 })
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<AreaTypeDto>> GetAreasAsync()
+        {
+            return await _context.Set<AreaType>()
+                .Where(at => !at.IsDeleted)
+                .OrderBy(at => at.Name)
+                .Select(at => new AreaTypeDto
+                {
+                    Id = at.Id,
+                    Name = at.Name,
+                    Areas = at.Areas
+                        .Where(a => !a.IsDeleted && a.IsCurrent)
+                        .OrderBy(a => a.Name)
+                        .Select(a => new AreaDto
+                        {
+                            Id = a.Id,
+                            Fid = a.Fid,
+                            Name = a.Name,
+                            IsCurrent = a.IsCurrent
+                        })
+                })
+                .ToListAsync();
+        }
     }
 }

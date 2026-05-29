@@ -37,5 +37,24 @@ namespace Artskart3.Api.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
         }
+
+        /// <summary>
+        /// Returns all area types with their areas, intended for populating filter dropdowns.
+        /// </summary>
+        [HttpGet("Areas")]
+        [Produces("application/json")]
+        public async Task<ActionResult<IEnumerable<AreaTypeDto>>> GetAreas()
+        {
+            try
+            {
+                var areas = await _lookupService.GetAreasAsync();
+                return Ok(areas);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving areas");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
     }
 }

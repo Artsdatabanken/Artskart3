@@ -125,3 +125,7 @@ X-CSRF: 1
 ### Get all categories with category type (for filter dropdowns)
 GET {{Artskart3.Server_HostAddress}}/api/Lookup/Categories
 X-CSRF: 1
+
+### Get all area types with their areas (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Areas
+X-CSRF: 1

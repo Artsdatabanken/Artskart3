@@ -24,5 +24,6 @@ var benchmarkConfig = ManualConfig.Create(DefaultConfig.Instance)
     .AddExporter(JsonExporter.FullCompressed);
 
 BenchmarkRunner.Run<SearchServiceBenchmarks>(benchmarkConfig, args);
+BenchmarkRunner.Run<LookupServiceBenchmarks>(benchmarkConfig, args);
 
 await BenchmarkToInfluxDb.ImportAsync(appConfig);
