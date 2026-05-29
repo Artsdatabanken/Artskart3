@@ -193,6 +193,16 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
             }
 
+            if(filter.CoordinatePrecision?.From.HasValue == true)
+            {
+                query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
+            }
+
+            if(filter.CoordinatePrecision?.To.HasValue == true)
+            {
+                query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
+            }
+
             query = query.OrderBy(o => o.Id);
 
             if(filter.IsPaginated)
@@ -229,7 +239,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     : null,
                 TaxonGroupId = o.TaxonGroupId,
                 CategoryId = o.CategoryId,
-                DateTimeCollected = o.DateTimeCollected
+                DateTimeCollected = o.DateTimeCollected,
+                CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
             });
 
             await foreach (var dto in projectedQuery.AsAsyncEnumerable())

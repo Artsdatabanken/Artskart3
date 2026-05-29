@@ -90,6 +90,15 @@ Content-Type: application/json
   "basisOfRecordIds": [1, 2]
 }
 
+### Search observation, filter on coordinate precision range
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "coordinatePrecision": { "from": 0, "to": 100 }
+}
+
 ### Search observation, all list filters combined with multiple ids
 POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1

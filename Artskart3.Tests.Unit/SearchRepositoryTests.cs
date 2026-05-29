@@ -746,6 +746,58 @@ public class SearchRepositoryTests
         results.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetObservationsAsync_WithCoordinatePrecisionFrom_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, coordinatePrecisionInMeters: 50));
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0, coordinatePrecisionInMeters: 10));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 25 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithCoordinatePrecisionTo_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, coordinatePrecisionInMeters: 50));
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0, coordinatePrecisionInMeters: 200));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithCoordinatePrecisionRange_ReturnsMatchingObservations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, coordinatePrecisionInMeters: 50));
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0, coordinatePrecisionInMeters: 5));
+        context.Set<Observation>().Add(CreateObservation(3, locationId: 0, coordinatePrecisionInMeters: 500));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()

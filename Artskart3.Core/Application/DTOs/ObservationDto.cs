@@ -22,5 +22,7 @@ namespace Artskart3.Core.Application.DTOs
 
         public DateTime? DateTimeCollected { get; set; }
 
+        public int? CoordinatePrecisionInMeters { get; set; }
+
     }
 }
