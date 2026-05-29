@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { SharedModule } from '../../shared/shared.module';
+import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 
 @Component({
   selector: 'app-base-layout',
@@ -12,6 +13,7 @@ import { SharedModule } from '../../shared/shared.module';
     RouterOutlet,
     SharedModule,
     TranslateModule,
+    SidebarComponent,
   ],
   templateUrl: './base-layout.component.html',
   styleUrls: ['./base-layout.component.css'],
@@ -24,7 +26,7 @@ export class BaseLayoutComponent {
 
   private getPanelMinWidth(): number {
     const value = getComputedStyle(document.documentElement).getPropertyValue('--panel-min-width').trim();
-    return parseInt(value) || 280;
+    return parseInt(value) || 300;
   }
 
   private getPanelMaxWidth(): number {

@@ -50,6 +50,15 @@
     "municipality": "Municipality",
     "noResults": "No observations found"
   },
+  "sidebar": {
+    "categories": "Red List & Alien Species Categories",
+    "heading": "Filter",
+    "clearFilter": "Clear filter",
+    "categoryType": {
+      "Fremmedart": "Alien Species Categories",
+      "Rødliste": "Red List Categories"
+    }
+  },
   "pagination": {
     "previous": "Previous",
     "next": "Next",

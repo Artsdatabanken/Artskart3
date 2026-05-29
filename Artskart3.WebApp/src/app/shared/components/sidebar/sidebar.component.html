@@ -1,0 +1,47 @@
+<div class="sidebar-content">
+  <div class="filter-section search-field">
+    <input
+      id="search"
+      type="text"
+      [attr.placeholder]="'baseLayout.searchPlaceholder' | translate"
+      class="filter-input"
+    />
+  </div>
+  <div class="sidebar-header">
+    <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
+    <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+  </div>
+  @if (categoryTypes(); as types) {
+    <adb-accordion>
+      <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
+        <adb-accordion >
+          @for (type of types; track type.id ?? $index) {
+            <adb-accordion-item>
+              <adb-checkbox
+                slot="heading"
+                [attr.checked]="isAllInTypeSelected(type) ? '' : null"
+                [attr.indeterminate]="isSomeInTypeSelected(type) ? '' : null"
+                (click)="$event.stopPropagation()"
+                (change)="onTypeToggle(type)"
+              >
+                {{ 'sidebar.categoryType.' + type.name | translate }}
+              </adb-checkbox>
+              <div class="category-children">
+                @for (category of type.categories ?? []; track category.id ?? $index) {
+                  @if (category.id !== undefined) {
+                    <adb-checkbox
+                      [attr.checked]="isCategorySelected(category.id) ? '' : null"
+                      (change)="onCategoryToggle(category.id)"
+                    >
+                      {{ category.name }} {{ category.code }}
+                    </adb-checkbox>
+                  }
+                }
+              </div>
+            </adb-accordion-item>
+          }
+        </adb-accordion>
+      </adb-accordion-item>
+    </adb-accordion>
+  }
+</div>

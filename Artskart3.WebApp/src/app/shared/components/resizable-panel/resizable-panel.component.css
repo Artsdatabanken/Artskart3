@@ -20,6 +20,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  background-color: var(--adb-surface-primary);
 }
 
 .resize-handle {

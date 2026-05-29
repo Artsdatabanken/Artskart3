@@ -18,7 +18,7 @@ import { TranslateModule } from '@ngx-translate/core';
   styleUrl: './resizable-panel.component.css',
 })
 export class ResizablePanelComponent implements OnInit {
-  @Input() initialWidth = 280;
+  @Input() initialWidth = 300;
   @Input() minWidth = 200;
   @Input() maxWidth = 500;
   @Input() isDraggable = true;

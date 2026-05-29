@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
+import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
@@ -16,8 +17,18 @@ import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 })
 export class ListViewComponent {
   private readonly observationService = inject(ObservationService);
+  private readonly filterState = inject(FilterStateService);
 
   readonly pageNumber = signal(1);
+
+  private readonly resetPageOnFilterChange = effect(() => {
+    this.filterState.selectedCategoryIds();
+    untracked(() => {
+      if (this.pageNumber() !== 1) {
+        this.pageNumber.set(1);
+      }
+    });
+  });
   readonly pageSizeOptions = [10, 25, 50];
   readonly resultsPerPage = signal(this.pageSizeOptions[0]);
 
@@ -25,11 +36,13 @@ export class ListViewComponent {
     params: () => ({
       pageNumber: this.pageNumber(),
       resultsPerPage: this.resultsPerPage(),
+      risikokategoriIder: this.filterState.selectedCategoryIds(),
     }),
     stream: ({ params }) => {
       const filter: ObservationSearchFilter = {
         pageNumber: params.pageNumber ?? 1,
         resultsPerPage: params.resultsPerPage ?? 10,
+        risikokategoriIder: params.risikokategoriIder?.length ? params.risikokategoriIder : undefined,
       };
       return this.observationService.searchObservations(filter);
     },

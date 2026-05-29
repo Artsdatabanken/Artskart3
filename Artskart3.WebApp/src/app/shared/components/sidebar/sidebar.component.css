@@ -1,0 +1,36 @@
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-left: 1rem;
+  margin-right: 0.5rem;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin-top: 1rem;
+  row-gap: 0.75rem;
+
+  .sidebar-heading {
+    margin-bottom: 0;
+  }
+}
+
+.search-field {
+  display: none;
+}
+
+/* Remove default beige border from all accordions in sidebar */
+adb-accordion {
+  --adb-border-default: transparent;
+}
+
+/* Indent child checkboxes to align with parent checkbox label */
+.category-children {
+  padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm, 8px);
+}

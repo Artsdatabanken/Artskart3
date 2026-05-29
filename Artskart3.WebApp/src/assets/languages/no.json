@@ -50,6 +50,15 @@
     "municipality": "Kommune",
     "noResults": "Ingen observasjoner funnet"
   },
+  "sidebar": {
+    "categories": "Rødliste- og fremmedartkategorier",
+    "heading": "Filter",
+    "clearFilter": "Tøm filter",
+    "categoryType": {
+      "Fremmedart": "Fremmedartkategorier",
+      "Rødliste": "Rødlistekategorier"
+    }
+  },
   "pagination": {
     "previous": "Forrige",
     "next": "Neste",
