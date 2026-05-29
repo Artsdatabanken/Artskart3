@@ -56,5 +56,24 @@ namespace Artskart3.Api.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
         }
+
+        /// <summary>
+        /// Returns all institutions, intended for populating filter dropdowns.
+        /// </summary>
+        [HttpGet("Institutions")]
+        [Produces("application/json")]
+        public async Task<ActionResult<IEnumerable<InstitutionDto>>> GetInstitutions()
+        {
+            try
+            {
+                var institutions = await _lookupService.GetInstitutionsAsync();
+                return Ok(institutions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving institutions");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
     }
 }

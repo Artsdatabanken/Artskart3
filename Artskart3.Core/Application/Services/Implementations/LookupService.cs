@@ -22,5 +22,10 @@ namespace Artskart3.Core.Application.Services.Implementations
         {
             return _lookupRepository.GetAreasAsync();
         }
+
+        public Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync()
+        {
+            return _lookupRepository.GetInstitutionsAsync();
+        }
     }
 }

@@ -6,5 +6,6 @@ namespace Artskart3.Core.Application.Services.Interfaces
     {
         Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync();
         Task<IEnumerable<AreaTypeDto>> GetAreasAsync();
+        Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync();
     }
 }

@@ -73,4 +73,14 @@ public class LookupServiceBenchmarks
     {
         _ = await _lookupService.GetAreasAsync();
     }
+
+    // -----------------------------------------------------------------------
+    // GetInstitutions — tester henting av institusjoner
+    // -----------------------------------------------------------------------
+
+    [Benchmark]
+    public async Task GetInstitutions()
+    {
+        _ = await _lookupService.GetInstitutionsAsync();
+    }
 }

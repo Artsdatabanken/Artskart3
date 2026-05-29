@@ -129,3 +129,7 @@ X-CSRF: 1
 ### Get all area types with their areas (for filter dropdowns)
 GET {{Artskart3.Server_HostAddress}}/api/Lookup/Areas
 X-CSRF: 1
+
+### Get all institutions (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Institutions
+X-CSRF: 1

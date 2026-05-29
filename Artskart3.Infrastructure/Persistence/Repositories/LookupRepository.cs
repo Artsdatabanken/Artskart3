@@ -59,5 +59,21 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 })
                 .ToListAsync();
         }
+
+        private const int InstitutionOrganizationTypeId = 1;
+
+        public async Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync()
+        {
+            return await _context.Set<Organization>()
+                .Where(o => !o.IsDeleted && o.OrganizationTypeId == InstitutionOrganizationTypeId)
+                .OrderBy(o => o.Name)
+                .Select(o => new InstitutionDto
+                {
+                    Id = o.Id,
+                    Name = o.Name,
+                    Code = o.Code
+                })
+                .ToListAsync();
+        }
     }
 }
