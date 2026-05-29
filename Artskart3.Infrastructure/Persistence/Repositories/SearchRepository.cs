@@ -203,6 +203,18 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
             }
 
+            if(filter.Period?.From.HasValue == true)
+            {
+                var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+                query = query.Where(o => o.DateTimeCollected >= fromDate);
+            }
+
+            if(filter.Period?.To.HasValue == true)
+            {
+                var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+                query = query.Where(o => o.DateTimeCollected <= toDate);
+            }
+
             query = query.OrderBy(o => o.Id);
 
             if(filter.IsPaginated)

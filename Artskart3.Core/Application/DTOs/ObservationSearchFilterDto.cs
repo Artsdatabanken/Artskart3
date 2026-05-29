@@ -23,5 +23,7 @@ namespace Artskart3.Core.Application.DTOs
         public int[]? BasisOfRecordIds { get; set; }
 
         public CoordinatePrecisionDto? CoordinatePrecision { get; set; }
+
+        public PeriodDto? Period { get; set; }
     }
 }

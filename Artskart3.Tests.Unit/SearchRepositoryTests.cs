@@ -798,6 +798,68 @@ public class SearchRepositoryTests
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetObservationsAsync_WithPeriodFrom_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        var obs1 = CreateObservation(1, locationId: 0);
+        obs1.DateTimeCollected = new DateTime(2022, 6, 1);
+        var obs2 = CreateObservation(2, locationId: 0);
+        obs2.DateTimeCollected = new DateTime(2019, 3, 1);
+        context.Set<Observation>().AddRange(obs1, obs2);
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithPeriodTo_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        var obs1 = CreateObservation(1, locationId: 0);
+        obs1.DateTimeCollected = new DateTime(2020, 6, 1);
+        var obs2 = CreateObservation(2, locationId: 0);
+        obs2.DateTimeCollected = new DateTime(2024, 3, 1);
+        context.Set<Observation>().AddRange(obs1, obs2);
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { To = 2023 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithPeriodRange_ReturnsMatchingObservations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        var obs1 = CreateObservation(1, locationId: 0);
+        obs1.DateTimeCollected = new DateTime(2021, 6, 1);
+        var obs2 = CreateObservation(2, locationId: 0);
+        obs2.DateTimeCollected = new DateTime(2018, 3, 1);
+        var obs3 = CreateObservation(3, locationId: 0);
+        obs3.DateTimeCollected = new DateTime(2025, 1, 1);
+        context.Set<Observation>().AddRange(obs1, obs2, obs3);
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020, To = 2023 } }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()

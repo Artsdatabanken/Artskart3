@@ -99,6 +99,15 @@ Content-Type: application/json
   "coordinatePrecision": { "from": 0, "to": 100 }
 }
 
+### Search observation, filter on period (date range)
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "period": { "from": 2000, "to": 2005 }
+}
+
 ### Search observation, all list filters combined with multiple ids
 POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
