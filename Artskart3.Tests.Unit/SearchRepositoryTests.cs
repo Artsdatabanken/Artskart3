@@ -674,6 +674,78 @@ public class SearchRepositoryTests
         results.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetObservationsAsync_WithBasisOfRecordIdsFilter_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, basisOfRecordId: 5));
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0, basisOfRecordId: 10));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BasisOfRecordIds = [5] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithBasisOfRecordIdsFilter_ExcludesNonMatchingObservations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0, basisOfRecordId: 10));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BasisOfRecordIds = [5] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithBehaviorIdsFilter_ReturnsMatchingObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        var behavior = new Behavior { Id = 3, Name = "Hekking", Variants = "Hekking" };
+        context.Set<Behavior>().Add(behavior);
+        var observation = CreateObservation(1, locationId: 0);
+        observation.Behaviors.Add(behavior);
+        context.Set<Observation>().Add(observation);
+        context.Set<Observation>().Add(CreateObservation(2, locationId: 0));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BehaviorIds = [3] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithBehaviorIdsFilter_ExcludesNonMatchingObservations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        var behavior = new Behavior { Id = 3, Name = "Hekking", Variants = "Hekking" };
+        context.Set<Behavior>().Add(behavior);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BehaviorIds = [3] }));
+
+        results.Should().BeEmpty();
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()

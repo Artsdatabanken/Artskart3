@@ -17,5 +17,9 @@ namespace Artskart3.Core.Application.DTOs
         public string? Locality { get; set; }
 
         public string[]? MunicipalityIds { get; set; }
+
+        public int[]? BehaviorIds { get; set; }
+
+        public int[]? BasisOfRecordIds { get; set; }
     }
 }

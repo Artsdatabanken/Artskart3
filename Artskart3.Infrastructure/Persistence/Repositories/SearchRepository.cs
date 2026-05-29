@@ -183,6 +183,16 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     filter.MunicipalityIds.Contains(x.Fid)));
             }
 
+            if(filter.BehaviorIds?.Any() == true)
+            {
+                query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+            }
+
+            if(filter.BasisOfRecordIds?.Any() == true)
+            {
+                query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
+            }
+
             query = query.OrderBy(o => o.Id);
 
             if(filter.IsPaginated)
