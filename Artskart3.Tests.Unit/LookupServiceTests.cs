@@ -63,4 +63,77 @@ public class LookupServiceTests
 
         result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task GetAreasAsync_DelegatesCallToRepository()
+    {
+        _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+
+        await _sut.GetAreasAsync();
+
+        _repositoryMock.Verify(r => r.GetAreasAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAreasAsync_ReturnsResultFromRepository()
+    {
+        var expected = new List<AreaTypeDto>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "Fylke",
+                Areas = [new AreaDto { Id = 10, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
+            }
+        };
+        _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetAreasAsync();
+
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetAreasAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    {
+        _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+
+        var result = await _sut.GetAreasAsync();
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetInstitutionsAsync_DelegatesCallToRepository()
+    {
+        _repositoryMock.Setup(r => r.GetInstitutionsAsync()).ReturnsAsync(Enumerable.Empty<InstitutionDto>());
+
+        await _sut.GetInstitutionsAsync();
+
+        _repositoryMock.Verify(r => r.GetInstitutionsAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetInstitutionsAsync_ReturnsResultFromRepository()
+    {
+        var expected = new List<InstitutionDto>
+        {
+            new() { Id = 1, Name = "Naturhistorisk museum", Code = "NHM", ObservationCount = 1000 }
+        };
+        _repositoryMock.Setup(r => r.GetInstitutionsAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetInstitutionsAsync();
+
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetInstitutionsAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    {
+        _repositoryMock.Setup(r => r.GetInstitutionsAsync()).ReturnsAsync(Enumerable.Empty<InstitutionDto>());
+
+        var result = await _sut.GetInstitutionsAsync();
+
+        result.Should().BeEmpty();
+    }
 }

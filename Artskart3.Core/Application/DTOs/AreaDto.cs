@@ -6,5 +6,6 @@ namespace Artskart3.Core.Application.DTOs
         public string Fid { get; set; } = null!;
         public string Name { get; set; } = null!;
         public bool IsCurrent { get; set; }
+        public int? ObservationCount { get; set; }
     }
 }

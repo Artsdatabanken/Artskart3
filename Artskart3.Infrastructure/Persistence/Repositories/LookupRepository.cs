@@ -31,7 +31,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                         {
                             Id = c.Id,
                             Code = c.Code,
-                            Name = c.Name
+                            Name = c.Name,
+                            ObservationCount = c.ObservationCount
                         })
                 })
                 .ToListAsync();
@@ -54,7 +55,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                             Id = a.Id,
                             Fid = a.Fid,
                             Name = a.Name,
-                            IsCurrent = a.IsCurrent
+                            IsCurrent = a.IsCurrent,
+                            ObservationCount = a.ObservationCount
                         })
                 })
                 .ToListAsync();
@@ -71,7 +73,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 {
                     Id = o.Id,
                     Name = o.Name,
-                    Code = o.Code
+                    Code = o.Code,
+                    ObservationCount = o.ObservationCount
                 })
                 .ToListAsync();
         }

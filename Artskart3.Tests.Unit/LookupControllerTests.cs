@@ -91,4 +91,109 @@ public class LookupControllerTests
 
         _serviceMock.Verify(s => s.GetCategoriesAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task GetAreas_ReturnsOkWithAreas()
+    {
+        var areas = new List<AreaTypeDto>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "Fylke",
+                Areas = [new AreaDto { Id = 10, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
+            }
+        };
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(areas);
+
+        var result = await _sut.GetAreas();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(areas);
+    }
+
+    [Fact]
+    public async Task GetAreas_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    {
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+
+        var result = await _sut.GetAreas();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<AreaTypeDto>>()
+            .Which.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAreas_WhenServiceThrowsUnexpectedException_Returns500()
+    {
+        _serviceMock
+            .Setup(s => s.GetAreasAsync())
+            .ThrowsAsync(new InvalidOperationException("Unexpected"));
+
+        var result = await _sut.GetAreas();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetAreas_CallsServiceOnce()
+    {
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+
+        await _sut.GetAreas();
+
+        _serviceMock.Verify(s => s.GetAreasAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetInstitutions_ReturnsOkWithInstitutions()
+    {
+        var institutions = new List<InstitutionDto>
+        {
+            new() { Id = 1, Name = "Naturhistorisk museum", Code = "NHM", ObservationCount = 1000 }
+        };
+        _serviceMock.Setup(s => s.GetInstitutionsAsync()).ReturnsAsync(institutions);
+
+        var result = await _sut.GetInstitutions();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(institutions);
+    }
+
+    [Fact]
+    public async Task GetInstitutions_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    {
+        _serviceMock.Setup(s => s.GetInstitutionsAsync()).ReturnsAsync(Enumerable.Empty<InstitutionDto>());
+
+        var result = await _sut.GetInstitutions();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<InstitutionDto>>()
+            .Which.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetInstitutions_WhenServiceThrowsUnexpectedException_Returns500()
+    {
+        _serviceMock
+            .Setup(s => s.GetInstitutionsAsync())
+            .ThrowsAsync(new InvalidOperationException("Unexpected"));
+
+        var result = await _sut.GetInstitutions();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetInstitutions_CallsServiceOnce()
+    {
+        _serviceMock.Setup(s => s.GetInstitutionsAsync()).ReturnsAsync(Enumerable.Empty<InstitutionDto>());
+
+        await _sut.GetInstitutions();
+
+        _serviceMock.Verify(s => s.GetInstitutionsAsync(), Times.Once);
+    }
 }
