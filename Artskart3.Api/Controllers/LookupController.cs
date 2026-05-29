@@ -24,12 +24,12 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Categories")]
         [Produces("application/json")]
-        public async Task<ActionResult<CategoryListDto>> GetCategories()
+        public async Task<ActionResult<IEnumerable<CategoryTypeDto>>> GetCategories()
         {
             try
             {
-                var categorylist = await _lookupService.GetCategoriesAsync();
-                return Ok(categorylist);
+                var categories = await _lookupService.GetCategoriesAsync();
+                return Ok(categories);
             }
             catch (Exception ex)
             {

@@ -38,39 +38,35 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetCategories_ReturnsOkWithCategoryListDto()
+    public async Task GetCategories_ReturnsOkWithCategories()
     {
-        var categoryList = new CategoryListDto
+        var categories = new List<CategoryTypeDto>
         {
-            CategoryTypes =
-            [
-                new CategoryTypeDto
-                {
-                    Id = 1,
-                    Name = "Rødliste",
-                    Categories = [new CategoryDto { Id = 10, Code = "CR", Name = "Critically Endangered" }]
-                }
-            ]
+            new()
+            {
+                Id = 1,
+                Name = "Rødliste",
+                Categories = [new CategoryDto { Id = 10, Code = "CR", Name = "Critically Endangered" }]
+            }
         };
-        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(categoryList);
+        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(categories);
 
         var result = await _sut.GetCategories();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeEquivalentTo(categoryList);
+            .Which.Value.Should().BeEquivalentTo(categories);
     }
 
     [Fact]
-    public async Task GetCategories_WhenServiceReturnsEmptyCategoryTypes_ReturnsOkWithEmptyCategoryListDto()
+    public async Task GetCategories_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
     {
-        var emptyList = new CategoryListDto { CategoryTypes = [] };
-        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(emptyList);
+        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(Enumerable.Empty<CategoryTypeDto>());
 
         var result = await _sut.GetCategories();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeOfType<CategoryListDto>()
-            .Which.CategoryTypes.Should().BeEmpty();
+            .Which.Value.Should().BeAssignableTo<IEnumerable<CategoryTypeDto>>()
+            .Which.Should().BeEmpty();
     }
 
     [Fact]
@@ -89,7 +85,7 @@ public class LookupControllerTests
     [Fact]
     public async Task GetCategories_CallsServiceOnce()
     {
-        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(new CategoryListDto());
+        _serviceMock.Setup(s => s.GetCategoriesAsync()).ReturnsAsync(Enumerable.Empty<CategoryTypeDto>());
 
         await _sut.GetCategories();
 

@@ -4,6 +4,6 @@ namespace Artskart3.Core.Application.Services.Interfaces
 {
     public interface ILookupService
     {
-        Task<CategoryListDto> GetCategoriesAsync();
+        Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync();
     }
 }

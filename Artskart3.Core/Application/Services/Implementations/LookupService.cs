@@ -13,19 +13,9 @@ namespace Artskart3.Core.Application.Services.Implementations
             _lookupRepository = lookupRepository ?? throw new ArgumentNullException(nameof(lookupRepository));
         }
 
-        public async Task<CategoryListDto> GetCategoriesAsync()
+        public Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync()
         {
-
-            var result = new CategoryListDto();
-
-            var categoryTypes = await _lookupRepository.GetCategoriesAsync();
-
-            if(categoryTypes != null)
-            {
-                result.CategoryTypes = categoryTypes!.ToArray();
-            }
-
-            return result;
+            return _lookupRepository.GetCategoriesAsync();
         }
     }
 }

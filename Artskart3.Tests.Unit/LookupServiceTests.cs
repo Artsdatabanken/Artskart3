@@ -38,7 +38,7 @@ public class LookupServiceTests
     [Fact]
     public async Task GetCategoriesAsync_ReturnsResultFromRepository()
     {
-        var categoryTypes = new List<CategoryTypeDto>
+        var expected = new List<CategoryTypeDto>
         {
             new()
             {
@@ -47,22 +47,20 @@ public class LookupServiceTests
                 Categories = [new CategoryDto { Id = 10, Code = "CR", Name = "Critically Endangered" }]
             }
         };
-        _repositoryMock.Setup(r => r.GetCategoriesAsync()).ReturnsAsync(categoryTypes);
+        _repositoryMock.Setup(r => r.GetCategoriesAsync()).ReturnsAsync(expected);
 
         var result = await _sut.GetCategoriesAsync();
 
-        result.Should().BeOfType<CategoryListDto>();
-        result.CategoryTypes.Should().BeEquivalentTo(categoryTypes);
+        result.Should().BeEquivalentTo(expected);
     }
 
     [Fact]
-    public async Task GetCategoriesAsync_WhenRepositoryReturnsEmpty_ReturnsCategoryListDtoWithEmptyTypes()
+    public async Task GetCategoriesAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
     {
         _repositoryMock.Setup(r => r.GetCategoriesAsync()).ReturnsAsync(Enumerable.Empty<CategoryTypeDto>());
 
         var result = await _sut.GetCategoriesAsync();
 
-        result.Should().BeOfType<CategoryListDto>();
-        result.CategoryTypes.Should().BeEmpty();
+        result.Should().BeEmpty();
     }
 }
