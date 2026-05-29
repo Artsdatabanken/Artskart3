@@ -108,5 +108,21 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 })
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync()
+        {
+            return await _context.Set<BasisOfRecord>()
+                .Where(b => !b.IsDeleted)
+                .OrderBy(b => b.Name)
+                .Select(b => new BasisOfRecordDto
+                {
+                    Id = b.Id,
+                    Name = b.Name,
+                    Description = b.Description,
+                    Variants = b.Variants,
+                    ObservationCount = b.ObservationCount
+                })
+                .ToListAsync();
+        }
     }
 }

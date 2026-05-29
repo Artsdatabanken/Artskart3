@@ -37,5 +37,10 @@ namespace Artskart3.Core.Application.Services.Implementations
         {
             return _lookupRepository.GetBehaviorsAsync();
         }
+
+        public Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync()
+        {
+            return _lookupRepository.GetBasisOfRecordsAsync();
+        }
     }
 }

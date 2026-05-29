@@ -296,4 +296,54 @@ public class LookupControllerTests
 
         _serviceMock.Verify(s => s.GetBehaviorsAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task GetBasisOfRecords_ReturnsOkWithBasisOfRecords()
+    {
+        var basisOfRecords = new List<BasisOfRecordDto>
+        {
+            new() { Id = 1, Name = "HumanObservation", Description = "Observasjon", Variants = "HumanObservation", ObservationCount = 5000 }
+        };
+        _serviceMock.Setup(s => s.GetBasisOfRecordsAsync()).ReturnsAsync(basisOfRecords);
+
+        var result = await _sut.GetBasisOfRecords();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(basisOfRecords);
+    }
+
+    [Fact]
+    public async Task GetBasisOfRecords_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    {
+        _serviceMock.Setup(s => s.GetBasisOfRecordsAsync()).ReturnsAsync(Enumerable.Empty<BasisOfRecordDto>());
+
+        var result = await _sut.GetBasisOfRecords();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<BasisOfRecordDto>>()
+            .Which.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetBasisOfRecords_WhenServiceThrowsUnexpectedException_Returns500()
+    {
+        _serviceMock
+            .Setup(s => s.GetBasisOfRecordsAsync())
+            .ThrowsAsync(new InvalidOperationException("Unexpected"));
+
+        var result = await _sut.GetBasisOfRecords();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetBasisOfRecords_CallsServiceOnce()
+    {
+        _serviceMock.Setup(s => s.GetBasisOfRecordsAsync()).ReturnsAsync(Enumerable.Empty<BasisOfRecordDto>());
+
+        await _sut.GetBasisOfRecords();
+
+        _serviceMock.Verify(s => s.GetBasisOfRecordsAsync(), Times.Once);
+    }
 }

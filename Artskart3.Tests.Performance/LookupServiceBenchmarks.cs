@@ -103,4 +103,14 @@ public class LookupServiceBenchmarks
     {
         _ = await _lookupService.GetBehaviorsAsync();
     }
+
+    // -----------------------------------------------------------------------
+    // GetBasisOfRecords — tester henting av funntyper
+    // -----------------------------------------------------------------------
+
+    [Benchmark]
+    public async Task GetBasisOfRecords()
+    {
+        _ = await _lookupService.GetBasisOfRecordsAsync();
+    }
 }

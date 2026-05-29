@@ -113,5 +113,24 @@ namespace Artskart3.Api.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
         }
+
+        /// <summary>
+        /// Returns all basis of record types, intended for populating filter dropdowns.
+        /// </summary>
+        [HttpGet("BasisOfRecords")]
+        [Produces("application/json")]
+        public async Task<ActionResult<IEnumerable<BasisOfRecordDto>>> GetBasisOfRecords()
+        {
+            try
+            {
+                var basisOfRecords = await _lookupService.GetBasisOfRecordsAsync();
+                return Ok(basisOfRecords);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving basis of records");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
     }
 }

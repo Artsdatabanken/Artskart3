@@ -204,4 +204,38 @@ public class LookupServiceTests
 
         result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task GetBasisOfRecordsAsync_DelegatesCallToRepository()
+    {
+        _repositoryMock.Setup(r => r.GetBasisOfRecordsAsync()).ReturnsAsync(Enumerable.Empty<BasisOfRecordDto>());
+
+        await _sut.GetBasisOfRecordsAsync();
+
+        _repositoryMock.Verify(r => r.GetBasisOfRecordsAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBasisOfRecordsAsync_ReturnsResultFromRepository()
+    {
+        var expected = new List<BasisOfRecordDto>
+        {
+            new() { Id = 1, Name = "HumanObservation", Description = "Observasjon", Variants = "HumanObservation", ObservationCount = 5000 }
+        };
+        _repositoryMock.Setup(r => r.GetBasisOfRecordsAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetBasisOfRecordsAsync();
+
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetBasisOfRecordsAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    {
+        _repositoryMock.Setup(r => r.GetBasisOfRecordsAsync()).ReturnsAsync(Enumerable.Empty<BasisOfRecordDto>());
+
+        var result = await _sut.GetBasisOfRecordsAsync();
+
+        result.Should().BeEmpty();
+    }
 }
