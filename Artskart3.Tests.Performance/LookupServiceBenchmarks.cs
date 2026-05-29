@@ -83,4 +83,14 @@ public class LookupServiceBenchmarks
     {
         _ = await _lookupService.GetInstitutionsAsync();
     }
+
+    // -----------------------------------------------------------------------
+    // GetTaxonGroups — tester henting av artsgrupper
+    // -----------------------------------------------------------------------
+
+    [Benchmark]
+    public async Task GetTaxonGroups()
+    {
+        _ = await _lookupService.GetTaxonGroupsAsync();
+    }
 }

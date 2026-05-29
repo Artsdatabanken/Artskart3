@@ -7,5 +7,6 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces
         Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync();
         Task<IEnumerable<AreaTypeDto>> GetAreasAsync();
         Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync();
+        Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync();
     }
 }

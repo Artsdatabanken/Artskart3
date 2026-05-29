@@ -78,5 +78,19 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 })
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync()
+        {
+            return await _context.Set<TaxonGroup>()
+                .Where(tg => !tg.IsDeleted)
+                .OrderBy(tg => tg.Name)
+                .Select(tg => new TaxonGroupDto
+                {
+                    Id = tg.Id,
+                    Name = tg.Name,
+                    ObservationCount = tg.ObservationCount
+                })
+                .ToListAsync();
+        }
     }
 }

@@ -136,4 +136,38 @@ public class LookupServiceTests
 
         result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task GetTaxonGroupsAsync_DelegatesCallToRepository()
+    {
+        _repositoryMock.Setup(r => r.GetTaxonGroupsAsync()).ReturnsAsync(Enumerable.Empty<TaxonGroupDto>());
+
+        await _sut.GetTaxonGroupsAsync();
+
+        _repositoryMock.Verify(r => r.GetTaxonGroupsAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTaxonGroupsAsync_ReturnsResultFromRepository()
+    {
+        var expected = new List<TaxonGroupDto>
+        {
+            new() { Id = 1, Name = "Fugler", ObservationCount = 2000 }
+        };
+        _repositoryMock.Setup(r => r.GetTaxonGroupsAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetTaxonGroupsAsync();
+
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetTaxonGroupsAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    {
+        _repositoryMock.Setup(r => r.GetTaxonGroupsAsync()).ReturnsAsync(Enumerable.Empty<TaxonGroupDto>());
+
+        var result = await _sut.GetTaxonGroupsAsync();
+
+        result.Should().BeEmpty();
+    }
 }

@@ -75,5 +75,24 @@ namespace Artskart3.Api.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
         }
+
+        /// <summary>
+        /// Returns all taxon groups, intended for populating filter dropdowns.
+        /// </summary>
+        [HttpGet("TaxonGroups")]
+        [Produces("application/json")]
+        public async Task<ActionResult<IEnumerable<TaxonGroupDto>>> GetTaxonGroups()
+        {
+            try
+            {
+                var taxonGroups = await _lookupService.GetTaxonGroupsAsync();
+                return Ok(taxonGroups);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving taxon groups");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
     }
 }

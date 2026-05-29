@@ -196,4 +196,54 @@ public class LookupControllerTests
 
         _serviceMock.Verify(s => s.GetInstitutionsAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task GetTaxonGroups_ReturnsOkWithTaxonGroups()
+    {
+        var taxonGroups = new List<TaxonGroupDto>
+        {
+            new() { Id = 1, Name = "Fugler", ObservationCount = 2000 }
+        };
+        _serviceMock.Setup(s => s.GetTaxonGroupsAsync()).ReturnsAsync(taxonGroups);
+
+        var result = await _sut.GetTaxonGroups();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(taxonGroups);
+    }
+
+    [Fact]
+    public async Task GetTaxonGroups_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    {
+        _serviceMock.Setup(s => s.GetTaxonGroupsAsync()).ReturnsAsync(Enumerable.Empty<TaxonGroupDto>());
+
+        var result = await _sut.GetTaxonGroups();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<TaxonGroupDto>>()
+            .Which.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetTaxonGroups_WhenServiceThrowsUnexpectedException_Returns500()
+    {
+        _serviceMock
+            .Setup(s => s.GetTaxonGroupsAsync())
+            .ThrowsAsync(new InvalidOperationException("Unexpected"));
+
+        var result = await _sut.GetTaxonGroups();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetTaxonGroups_CallsServiceOnce()
+    {
+        _serviceMock.Setup(s => s.GetTaxonGroupsAsync()).ReturnsAsync(Enumerable.Empty<TaxonGroupDto>());
+
+        await _sut.GetTaxonGroups();
+
+        _serviceMock.Verify(s => s.GetTaxonGroupsAsync(), Times.Once);
+    }
 }

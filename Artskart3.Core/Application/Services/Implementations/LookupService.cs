@@ -27,5 +27,10 @@ namespace Artskart3.Core.Application.Services.Implementations
         {
             return _lookupRepository.GetInstitutionsAsync();
         }
+
+        public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync()
+        {
+            return _lookupRepository.GetTaxonGroupsAsync();
+        }
     }
 }

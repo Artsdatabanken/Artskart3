@@ -133,3 +133,7 @@ X-CSRF: 1
 ### Get all institutions (for filter dropdowns)
 GET {{Artskart3.Server_HostAddress}}/api/Lookup/Institutions
 X-CSRF: 1
+
+### Get all taxon groups (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/TaxonGroups
+X-CSRF: 1
