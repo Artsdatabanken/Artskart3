@@ -137,3 +137,7 @@ X-CSRF: 1
 ### Get all taxon groups (for filter dropdowns)
 GET {{Artskart3.Server_HostAddress}}/api/Lookup/TaxonGroups
 X-CSRF: 1
+
+### Get all behaviors (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Behaviors
+X-CSRF: 1

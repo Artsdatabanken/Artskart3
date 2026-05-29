@@ -170,4 +170,38 @@ public class LookupServiceTests
 
         result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task GetBehaviorsAsync_DelegatesCallToRepository()
+    {
+        _repositoryMock.Setup(r => r.GetBehaviorsAsync()).ReturnsAsync(Enumerable.Empty<BehaviorDto>());
+
+        await _sut.GetBehaviorsAsync();
+
+        _repositoryMock.Verify(r => r.GetBehaviorsAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBehaviorsAsync_ReturnsResultFromRepository()
+    {
+        var expected = new List<BehaviorDto>
+        {
+            new() { Id = 1, Name = "Hekking", Variants = "Hekking;Breeding", ObservationCount = 300, Description = "Hekkeatferd" }
+        };
+        _repositoryMock.Setup(r => r.GetBehaviorsAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetBehaviorsAsync();
+
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetBehaviorsAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    {
+        _repositoryMock.Setup(r => r.GetBehaviorsAsync()).ReturnsAsync(Enumerable.Empty<BehaviorDto>());
+
+        var result = await _sut.GetBehaviorsAsync();
+
+        result.Should().BeEmpty();
+    }
 }

@@ -93,4 +93,14 @@ public class LookupServiceBenchmarks
     {
         _ = await _lookupService.GetTaxonGroupsAsync();
     }
+
+    // -----------------------------------------------------------------------
+    // GetBehaviors — tester henting av atferd
+    // -----------------------------------------------------------------------
+
+    [Benchmark]
+    public async Task GetBehaviors()
+    {
+        _ = await _lookupService.GetBehaviorsAsync();
+    }
 }

@@ -92,5 +92,21 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 })
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync()
+        {
+            return await _context.Set<Behavior>()
+                .Where(b => !b.IsDeleted)
+                .OrderBy(b => b.Name)
+                .Select(b => new BehaviorDto
+                {
+                    Id = b.Id,
+                    Name = b.Name,
+                    Variants = b.Variants,
+                    ObservationCount = b.ObservationCount,
+                    Description = b.Description
+                })
+                .ToListAsync();
+        }
     }
 }

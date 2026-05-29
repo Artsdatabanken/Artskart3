@@ -246,4 +246,54 @@ public class LookupControllerTests
 
         _serviceMock.Verify(s => s.GetTaxonGroupsAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task GetBehaviors_ReturnsOkWithBehaviors()
+    {
+        var behaviors = new List<BehaviorDto>
+        {
+            new() { Id = 1, Name = "Hekking", Variants = "Hekking;Breeding", ObservationCount = 300, Description = "Hekkeatferd" }
+        };
+        _serviceMock.Setup(s => s.GetBehaviorsAsync()).ReturnsAsync(behaviors);
+
+        var result = await _sut.GetBehaviors();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(behaviors);
+    }
+
+    [Fact]
+    public async Task GetBehaviors_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    {
+        _serviceMock.Setup(s => s.GetBehaviorsAsync()).ReturnsAsync(Enumerable.Empty<BehaviorDto>());
+
+        var result = await _sut.GetBehaviors();
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<BehaviorDto>>()
+            .Which.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetBehaviors_WhenServiceThrowsUnexpectedException_Returns500()
+    {
+        _serviceMock
+            .Setup(s => s.GetBehaviorsAsync())
+            .ThrowsAsync(new InvalidOperationException("Unexpected"));
+
+        var result = await _sut.GetBehaviors();
+
+        result.Result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetBehaviors_CallsServiceOnce()
+    {
+        _serviceMock.Setup(s => s.GetBehaviorsAsync()).ReturnsAsync(Enumerable.Empty<BehaviorDto>());
+
+        await _sut.GetBehaviors();
+
+        _serviceMock.Verify(s => s.GetBehaviorsAsync(), Times.Once);
+    }
 }

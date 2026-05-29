@@ -32,5 +32,10 @@ namespace Artskart3.Core.Application.Services.Implementations
         {
             return _lookupRepository.GetTaxonGroupsAsync();
         }
+
+        public Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync()
+        {
+            return _lookupRepository.GetBehaviorsAsync();
+        }
     }
 }

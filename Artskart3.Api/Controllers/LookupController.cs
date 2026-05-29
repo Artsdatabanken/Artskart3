@@ -94,5 +94,24 @@ namespace Artskart3.Api.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
             }
         }
+
+        /// <summary>
+        /// Returns all behaviors, intended for populating filter dropdowns.
+        /// </summary>
+        [HttpGet("Behaviors")]
+        [Produces("application/json")]
+        public async Task<ActionResult<IEnumerable<BehaviorDto>>> GetBehaviors()
+        {
+            try
+            {
+                var behaviors = await _lookupService.GetBehaviorsAsync();
+                return Ok(behaviors);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving behaviors");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+            }
+        }
     }
 }
