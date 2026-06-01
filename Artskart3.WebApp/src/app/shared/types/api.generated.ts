@@ -34,6 +34,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AreaTypeDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/Observation": {
         parameters: {
             query?: never;
@@ -85,6 +120,12 @@ export interface components {
             name?: string | null;
             categories?: components["schemas"]["CategoryDto"][] | null;
         };
+        AreaTypeDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
+            areas?: components["schemas"]["AreaDto"][] | null;
+        };
         ObservationSearchFilterDto: {
             /** Format: int32 */
             pageNumber?: number | null;
@@ -99,6 +140,10 @@ export interface components {
             organizationIds?: number[] | null;
             locality?: string | null;
             municipalityIds?: string[] | null;
+            behaviorIds?: number[] | null;
+            basisOfRecordIds?: number[] | null;
+            coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
+            period?: components["schemas"]["PeriodDto"];
         };
         PagedObservationResponseDto: {
             items?: components["schemas"]["ObservationDto"][] | null;
@@ -114,6 +159,29 @@ export interface components {
             id?: number;
             code?: string | null;
             name?: string | null;
+            /** Format: int32 */
+            observationCount?: number | null;
+        };
+        AreaDto: {
+            /** Format: int32 */
+            id?: number;
+            fid?: string | null;
+            name?: string | null;
+            isCurrent?: boolean;
+            /** Format: int32 */
+            observationCount?: number | null;
+        };
+        CoordinatePrecisionDto: {
+            /** Format: int32 */
+            from?: number | null;
+            /** Format: int32 */
+            to?: number | null;
+        };
+        PeriodDto: {
+            /** Format: int32 */
+            from?: number | null;
+            /** Format: int32 */
+            to?: number | null;
         };
         ObservationDto: {
             /** Format: int32 */
@@ -130,6 +198,8 @@ export interface components {
             categoryId?: number | null;
             /** Format: date-time */
             dateTimeCollected?: string | null;
+            /** Format: int32 */
+            coordinatePrecisionInMeters?: number | null;
         };
     };
     responses: never;

@@ -52,6 +52,7 @@
   },
   "sidebar": {
     "categories": "Rødliste- og fremmedartkategorier",
+    "areas": "Områder",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "categoryType": {

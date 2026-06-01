@@ -1,15 +1,17 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { AsyncPipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
+import { AreaNamePipe } from '../../pipes/area-name.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, PaginationComponent, LocaleDatePipe],
+  imports: [AsyncPipe, TranslateModule, PaginationComponent, LocaleDatePipe, AreaNamePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
@@ -23,6 +25,7 @@ export class ListViewComponent {
 
   private readonly resetPageOnFilterChange = effect(() => {
     this.filterState.selectedCategoryIds();
+    this.filterState.selectedAreaIds();
     untracked(() => {
       if (this.pageNumber() !== 1) {
         this.pageNumber.set(1);
@@ -37,12 +40,14 @@ export class ListViewComponent {
       pageNumber: this.pageNumber(),
       resultsPerPage: this.resultsPerPage(),
       risikokategoriIder: this.filterState.selectedCategoryIds(),
+      municipalityIds: this.filterState.selectedAreaIds(),
     }),
     stream: ({ params }) => {
       const filter: ObservationSearchFilter = {
         pageNumber: params.pageNumber ?? 1,
         resultsPerPage: params.resultsPerPage ?? 10,
         risikokategoriIder: params.risikokategoriIder?.length ? params.risikokategoriIder : undefined,
+        municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
       };
       return this.observationService.searchObservations(filter);
     },

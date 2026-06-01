@@ -17,6 +17,19 @@ describe('SidebarComponent', () => {
     { id: 2, name: 'Fremmedart', categories: [{ id: 7, code: 'SE', name: 'Svært høy risiko' }] },
   ];
 
+  const mockAreaTypes = [
+    {
+      id: 1,
+      name: 'County',
+      areas: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
+    },
+    {
+      id: 2,
+      name: 'Municipality',
+      areas: [{ id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true }],
+    },
+  ];
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SidebarComponent, TranslateModule.forRoot()],
@@ -31,9 +44,9 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
   });
 
-  async function flushCategories() {
-    const req = httpTesting.expectOne('/api/Lookup/Categories');
-    req.flush(mockCategoryTypes);
+  async function flushAll() {
+    httpTesting.expectOne('/api/Lookup/Categories').flush(mockCategoryTypes);
+    httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaTypes);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -43,22 +56,28 @@ describe('SidebarComponent', () => {
   });
 
   it('should render accordion after categories load', async () => {
-    await flushCategories();
+    await flushAll();
     const accordion = fixture.nativeElement.querySelector('adb-accordion');
     expect(accordion).toBeTruthy();
   });
 
   it('should set accordion heading from translation key', async () => {
-    await flushCategories();
-    const accordionItem = fixture.nativeElement.querySelector('adb-accordion-item');
-    expect(accordionItem.getAttribute('heading')).toBe('sidebar.categories');
+    await flushAll();
+    const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
+    const categoriesItem = Array.from(accordionItems).find(
+      (el: any) => el.getAttribute('heading') === 'sidebar.categories',
+    );
+    expect(categoriesItem).toBeTruthy();
   });
 
   it('should render nested accordions for category types', async () => {
-    await flushCategories();
-    const nestedAccordion = fixture.nativeElement.querySelector(
-      'adb-accordion-item adb-accordion',
+    await flushAll();
+    const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
+    const categoriesItem: any = Array.from(accordionItems).find(
+      (el: any) => el.getAttribute('heading') === 'sidebar.categories',
     );
+    expect(categoriesItem).toBeTruthy();
+    const nestedAccordion = categoriesItem.querySelector('adb-accordion');
     expect(nestedAccordion).toBeTruthy();
     const nestedItems = nestedAccordion.querySelectorAll('adb-accordion-item');
     expect(nestedItems.length).toBe(2);
@@ -93,6 +112,47 @@ describe('SidebarComponent', () => {
 
     it('should return false for unselected category', () => {
       expect(component.isCategorySelected(3)).toBe(false);
+    });
+  });
+
+  describe('area filtering', () => {
+    it('should render areas accordion after load', async () => {
+      await flushAll();
+      const accordions = fixture.nativeElement.querySelectorAll('adb-accordion');
+      // Categories accordion + Areas accordion
+      expect(accordions.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should toggle area in filter state', () => {
+      component.onAreaToggle('0301');
+      expect(filterState.selectedAreaIds()).toEqual(['0301']);
+
+      component.onAreaToggle('0301');
+      expect(filterState.selectedAreaIds()).toEqual([]);
+    });
+
+    it('should select all municipalities and county when county is toggled', async () => {
+      await flushAll();
+      const groups = component.countyGroups();
+      expect(groups.length).toBe(1);
+
+      component.onCountyToggle(groups[0]);
+      expect(filterState.selectedAreaIds()).toContain('03');
+      expect(filterState.selectedAreaIds()).toContain('0301');
+    });
+
+    it('should deselect all when county is toggled again', async () => {
+      await flushAll();
+      const groups = component.countyGroups();
+      component.onCountyToggle(groups[0]);
+      component.onCountyToggle(groups[0]);
+      expect(filterState.selectedAreaIds()).toEqual([]);
+    });
+
+    it('should report isAreaSelected correctly', () => {
+      filterState.addArea('0301');
+      expect(component.isAreaSelected('0301')).toBe(true);
+      expect(component.isAreaSelected('03')).toBe(false);
     });
   });
 });

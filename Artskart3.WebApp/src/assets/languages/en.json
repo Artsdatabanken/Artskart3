@@ -52,6 +52,7 @@
   },
   "sidebar": {
     "categories": "Red List & Alien Species Categories",
+    "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
     "categoryType": {

@@ -34,6 +34,9 @@
                       (change)="onCategoryToggle(category.id)"
                     >
                       {{ category.name }} {{ category.code }}
+                      @if (category.observationCount != null) {
+                        <span slot="counter">{{ category.observationCount }}</span>
+                      }
                     </adb-checkbox>
                   }
                 }
@@ -43,5 +46,46 @@
         </adb-accordion>
       </adb-accordion-item>
     </adb-accordion>
+  }
+  @if (countyGroups(); as groups) {
+    @if (groups.length > 0) {
+      <adb-accordion>
+        <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+          <adb-accordion>
+            @for (group of groups; track group.county.fid) {
+              <adb-accordion-item>
+                <adb-checkbox
+                  slot="heading"
+                  [attr.checked]="isAllInCountySelected(group) ? '' : null"
+                  [attr.indeterminate]="isSomeInCountySelected(group) ? '' : null"
+                  (click)="$event.stopPropagation()"
+                  (change)="onCountyToggle(group)"
+                >
+                  {{ group.county.name }}
+                  @if (group.county.observationCount != null) {
+                    <span slot="counter">{{ group.county.observationCount }}</span>
+                  }
+                </adb-checkbox>
+                <div class="category-children">
+                  @for (municipality of group.municipalities; track municipality.fid) {
+                    @if (municipality.fid) {
+                      <adb-checkbox
+                        [attr.checked]="isAreaSelected(municipality.fid) ? '' : null"
+                        (change)="onAreaToggle(municipality.fid)"
+                      >
+                        {{ municipality.name }}
+                        @if (municipality.observationCount != null) {
+                          <span slot="counter">{{ municipality.observationCount }}</span>
+                        }
+                      </adb-checkbox>
+                    }
+                  }
+                </div>
+              </adb-accordion-item>
+            }
+          </adb-accordion>
+        </adb-accordion-item>
+      </adb-accordion>
+    }
   }
 </div>

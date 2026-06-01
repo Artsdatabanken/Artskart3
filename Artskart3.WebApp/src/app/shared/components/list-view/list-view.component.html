@@ -30,7 +30,7 @@
              <td>{{ obs.institution }}</td>
              <td>{{ obs.dateTimeCollected | localeDate }}</td>
              <td>{{ obs.locality }}</td>
-             <td>{{ obs.municipalityId }}</td>
+             <td>{{ obs.municipalityId | areaName | async }}</td>
            </tr>
           } @empty {
            <tr>

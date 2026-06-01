@@ -15,6 +15,7 @@ describe('FilterStateService', () => {
 
   it('should start with empty selection', () => {
     expect(service.selectedCategoryIds()).toEqual([]);
+    expect(service.selectedAreaIds()).toEqual([]);
   });
 
   describe('toggleCategory', () => {
@@ -50,6 +51,59 @@ describe('FilterStateService', () => {
       service.toggleCategory(2);
       service.clearCategories();
       expect(service.selectedCategoryIds()).toEqual([]);
+    });
+  });
+
+  describe('toggleArea', () => {
+    it('should add area fid when not selected', () => {
+      service.toggleArea('0301');
+      expect(service.selectedAreaIds()).toEqual(['0301']);
+    });
+
+    it('should remove area fid when already selected', () => {
+      service.toggleArea('0301');
+      service.toggleArea('0301');
+      expect(service.selectedAreaIds()).toEqual([]);
+    });
+
+    it('should handle multiple selections', () => {
+      service.toggleArea('03');
+      service.toggleArea('0301');
+      expect(service.selectedAreaIds()).toEqual(['03', '0301']);
+    });
+  });
+
+  describe('addArea / removeArea', () => {
+    it('should add without duplicates', () => {
+      service.addArea('03');
+      service.addArea('03');
+      expect(service.selectedAreaIds()).toEqual(['03']);
+    });
+
+    it('should remove only the specified fid', () => {
+      service.addArea('03');
+      service.addArea('0301');
+      service.removeArea('03');
+      expect(service.selectedAreaIds()).toEqual(['0301']);
+    });
+  });
+
+  describe('clearAreas', () => {
+    it('should reset area selection to empty', () => {
+      service.addArea('03');
+      service.addArea('0301');
+      service.clearAreas();
+      expect(service.selectedAreaIds()).toEqual([]);
+    });
+  });
+
+  describe('clearAll', () => {
+    it('should clear both categories and areas', () => {
+      service.toggleCategory(1);
+      service.addArea('03');
+      service.clearAll();
+      expect(service.selectedCategoryIds()).toEqual([]);
+      expect(service.selectedAreaIds()).toEqual([]);
     });
   });
 });

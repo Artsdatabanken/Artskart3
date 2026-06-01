@@ -5,6 +5,7 @@ import { Injectable, signal } from '@angular/core';
 })
 export class FilterStateService {
   readonly selectedCategoryIds = signal<number[]>([]);
+  readonly selectedAreaIds = signal<string[]>([]);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -25,5 +26,31 @@ export class FilterStateService {
 
   clearCategories(): void {
     this.selectedCategoryIds.set([]);
+  }
+
+  toggleArea(fid: string): void {
+    this.selectedAreaIds.update((ids) =>
+      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
+    );
+  }
+
+  addArea(fid: string): void {
+    this.selectedAreaIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  }
+
+  removeArea(fid: string): void {
+    this.selectedAreaIds.update((ids) => {
+      if (!ids.includes(fid)) return ids;
+      return ids.filter((i) => i !== fid);
+    });
+  }
+
+  clearAreas(): void {
+    this.selectedAreaIds.set([]);
+  }
+
+  clearAll(): void {
+    this.clearCategories();
+    this.clearAreas();
   }
 }

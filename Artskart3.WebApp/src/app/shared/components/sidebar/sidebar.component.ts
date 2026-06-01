@@ -3,12 +3,19 @@ import {
   ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
+  computed,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
+import { AreaService } from '../../services/area/area.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { CategoryTypeDto } from '../../types/api.types';
+import { AreaDto, AreaTypeDto, CategoryTypeDto } from '../../types/api.types';
+
+export interface CountyGroup {
+  county: AreaDto;
+  municipalities: AreaDto[];
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -20,13 +27,34 @@ import { CategoryTypeDto } from '../../types/api.types';
 })
 export class SidebarComponent {
   private readonly categoryService = inject(CategoryService);
+  private readonly areaService = inject(AreaService);
   private readonly filterState = inject(FilterStateService);
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
   });
 
+  readonly areasResource = rxResource<AreaTypeDto[], void>({
+    stream: () => this.areaService.getAreas(),
+  });
+
   readonly categoryTypes = this.categoriesResource.value;
+
+  readonly countyGroups = computed<CountyGroup[]>(() => {
+    const areaTypes = this.areasResource.value();
+    if (!areaTypes) return [];
+
+    const countyType = areaTypes.find((t) => t.name === 'County');
+    const municipalityType = areaTypes.find((t) => t.name === 'Municipality');
+
+    const counties = (countyType?.areas ?? []).filter((a) => a.fid && a.isCurrent);
+    const municipalities = (municipalityType?.areas ?? []).filter((a) => a.fid && a.isCurrent);
+
+    return counties.map((county) => ({
+      county,
+      municipalities: municipalities.filter((m) => m.fid!.substring(0, 2) === county.fid),
+    }));
+  });
 
   isCategorySelected(id: number): boolean {
     return this.filterState.selectedCategoryIds().includes(id);
@@ -51,7 +79,7 @@ export class SidebarComponent {
   }
 
   onClearFilter(): void {
-    this.filterState.clearCategories();
+    this.filterState.clearAll();
   }
 
   onTypeToggle(type: CategoryTypeDto): void {
@@ -60,6 +88,36 @@ export class SidebarComponent {
       ids.forEach((id) => this.filterState.removeCategory(id));
     } else {
       ids.forEach((id) => this.filterState.addCategory(id));
+    }
+  }
+
+  isAreaSelected(fid: string): boolean {
+    return this.filterState.selectedAreaIds().includes(fid);
+  }
+
+  isAllInCountySelected(group: CountyGroup): boolean {
+    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
+    const selected = this.filterState.selectedAreaIds();
+    return fids.every((fid) => selected.includes(fid));
+  }
+
+  isSomeInCountySelected(group: CountyGroup): boolean {
+    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
+    const selected = this.filterState.selectedAreaIds();
+    const count = fids.filter((fid) => selected.includes(fid)).length;
+    return count > 0 && count < fids.length;
+  }
+
+  onAreaToggle(fid: string): void {
+    this.filterState.toggleArea(fid);
+  }
+
+  onCountyToggle(group: CountyGroup): void {
+    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
+    if (this.isAllInCountySelected(group)) {
+      fids.forEach((fid) => this.filterState.removeArea(fid));
+    } else {
+      fids.forEach((fid) => this.filterState.addArea(fid));
     }
   }
 }
