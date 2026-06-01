@@ -1,5 +1,6 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
@@ -9,7 +10,8 @@ type ActionHandler = () => void;
 @Component({
   selector: 'app-map-toolbar',
   standalone: true,
-  imports: [CommonModule, MapTypeSelectorComponent],
+  imports: [CommonModule, TranslateModule, MapTypeSelectorComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
