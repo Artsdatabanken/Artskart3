@@ -15,12 +15,12 @@ namespace Artskart3.Core.Application.Converters
         /// </summary>
         private const int DefaultEpsg = 25833;
 
-        public static async Task<string> LocationsToGeoJson(IAsyncEnumerable<LocationModel> locations, StyleType styleType = StyleType.Unknown, int? targetEpsg = null)
+        public static async Task<string> LocationsToGeoJson(IAsyncEnumerable<LocationModel> locations, StyleType styleType = StyleType.Unknown, int? targetEpsg = null, CancellationToken cancellationToken = default)
         {
             int featureCollectionEpsg = (int)(targetEpsg ?? DefaultEpsg);
             var features = new List<Feature>();
 
-            await foreach (var location in locations)
+            await foreach (var location in locations.WithCancellation(cancellationToken))
             {
                 if (location == null) continue;
 

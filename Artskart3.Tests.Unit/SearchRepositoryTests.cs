@@ -413,7 +413,7 @@ public class SearchRepositoryTests
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var result = await sut.GetAreasByTypeIdsAsync();
+        var result = await sut.GetAreasByTypeIdsAsync([]);
 
         result.Should().BeEmpty();
     }
@@ -429,7 +429,7 @@ public class SearchRepositoryTests
             CreateArea(2, "Vestland", 2, 20));
         await context.SaveChangesAsync();
 
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+        var result = (await sut.GetAreasByTypeIdsAsync([1])).ToList();
 
         result.Should().ContainSingle();
         result[0].Name.Should().Be("Oslo");
@@ -446,7 +446,7 @@ public class SearchRepositoryTests
             CreateArea(2, "Oslo", 1, 15));
         await context.SaveChangesAsync();
 
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+        var result = (await sut.GetAreasByTypeIdsAsync([1])).ToList();
 
         result.Should().ContainSingle();
         result[0].ObservationCount.Should().Be(25);
@@ -461,7 +461,7 @@ public class SearchRepositoryTests
         context.Set<Area>().Add(CreateArea(1, "Oslo", 1, 10, wktPolygon: null));
         await context.SaveChangesAsync();
 
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+        var result = (await sut.GetAreasByTypeIdsAsync([1])).ToList();
 
         result.Should().ContainSingle();
         result[0].Centroid.Should().BeNull();
@@ -478,7 +478,7 @@ public class SearchRepositoryTests
             CreateArea(2, "Felles navn", 2, 20));
         await context.SaveChangesAsync();
 
-        var result = (await sut.GetAreasByTypeIdsAsync(1, 2)).ToList();
+        var result = (await sut.GetAreasByTypeIdsAsync([1, 2])).ToList();
 
         result.Should().ContainSingle();
         result[0].ObservationCount.Should().Be(30);

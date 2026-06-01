@@ -185,7 +185,7 @@ public class SearchControllerTests
         {
             new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 500 }
         };
-        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(1, 2)).ReturnsAsync(areas);
+        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(new[] { 1, 2 }, It.IsAny<CancellationToken>())).ReturnsAsync(areas);
 
         var result = await _sut.GetAreas();
 

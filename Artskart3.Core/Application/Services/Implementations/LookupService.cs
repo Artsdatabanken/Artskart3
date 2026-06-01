@@ -13,34 +13,34 @@ namespace Artskart3.Core.Application.Services.Implementations
             _lookupRepository = lookupRepository ?? throw new ArgumentNullException(nameof(lookupRepository));
         }
 
-        public Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync()
+        public Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetCategoriesAsync();
+            return _lookupRepository.GetCategoriesAsync(cancellationToken);
         }
 
-        public Task<IEnumerable<AreaTypeDto>> GetAreasAsync()
+        public Task<IEnumerable<AreaTypeDto>> GetAreasAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetAreasAsync();
+            return _lookupRepository.GetAreasAsync(cancellationToken);
         }
 
-        public Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync()
+        public Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetInstitutionsAsync();
+            return _lookupRepository.GetInstitutionsAsync(cancellationToken);
         }
 
-        public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync()
+        public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetTaxonGroupsAsync();
+            return _lookupRepository.GetTaxonGroupsAsync(cancellationToken);
         }
 
-        public Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync()
+        public Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetBehaviorsAsync();
+            return _lookupRepository.GetBehaviorsAsync(cancellationToken);
         }
 
-        public Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync()
+        public Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync(CancellationToken cancellationToken = default)
         {
-            return _lookupRepository.GetBasisOfRecordsAsync();
+            return _lookupRepository.GetBasisOfRecordsAsync(cancellationToken);
         }
     }
 }

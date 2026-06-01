@@ -4,11 +4,11 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces
 {
     public interface ILookupRepository
     {
-        Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync();
-        Task<IEnumerable<AreaTypeDto>> GetAreasAsync();
-        Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync();
-        Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync();
-        Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync();
-        Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync();
+        Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<AreaTypeDto>> GetAreasAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync(CancellationToken cancellationToken = default);
     }
 }

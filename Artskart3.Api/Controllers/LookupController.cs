@@ -24,11 +24,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Categories")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<CategoryTypeDto>>> GetCategories()
+        public async Task<ActionResult<IEnumerable<CategoryTypeDto>>> GetCategories(CancellationToken cancellationToken = default)
         {
             try
             {
-                var categories = await _lookupService.GetCategoriesAsync();
+                var categories = await _lookupService.GetCategoriesAsync(cancellationToken);
                 return Ok(categories);
             }
             catch (Exception ex)
@@ -43,11 +43,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Areas")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<AreaTypeDto>>> GetAreas()
+        public async Task<ActionResult<IEnumerable<AreaTypeDto>>> GetAreas(CancellationToken cancellationToken = default)
         {
             try
             {
-                var areas = await _lookupService.GetAreasAsync();
+                var areas = await _lookupService.GetAreasAsync(cancellationToken);
                 return Ok(areas);
             }
             catch (Exception ex)
@@ -62,11 +62,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Institutions")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<InstitutionDto>>> GetInstitutions()
+        public async Task<ActionResult<IEnumerable<InstitutionDto>>> GetInstitutions(CancellationToken cancellationToken = default)
         {
             try
             {
-                var institutions = await _lookupService.GetInstitutionsAsync();
+                var institutions = await _lookupService.GetInstitutionsAsync(cancellationToken);
                 return Ok(institutions);
             }
             catch (Exception ex)
@@ -81,11 +81,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("TaxonGroups")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<TaxonGroupDto>>> GetTaxonGroups()
+        public async Task<ActionResult<IEnumerable<TaxonGroupDto>>> GetTaxonGroups(CancellationToken cancellationToken = default)
         {
             try
             {
-                var taxonGroups = await _lookupService.GetTaxonGroupsAsync();
+                var taxonGroups = await _lookupService.GetTaxonGroupsAsync(cancellationToken);
                 return Ok(taxonGroups);
             }
             catch (Exception ex)
@@ -100,11 +100,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Behaviors")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<BehaviorDto>>> GetBehaviors()
+        public async Task<ActionResult<IEnumerable<BehaviorDto>>> GetBehaviors(CancellationToken cancellationToken = default)
         {
             try
             {
-                var behaviors = await _lookupService.GetBehaviorsAsync();
+                var behaviors = await _lookupService.GetBehaviorsAsync(cancellationToken);
                 return Ok(behaviors);
             }
             catch (Exception ex)
@@ -119,11 +119,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("BasisOfRecords")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<BasisOfRecordDto>>> GetBasisOfRecords()
+        public async Task<ActionResult<IEnumerable<BasisOfRecordDto>>> GetBasisOfRecords(CancellationToken cancellationToken = default)
         {
             try
             {
-                var basisOfRecords = await _lookupService.GetBasisOfRecordsAsync();
+                var basisOfRecords = await _lookupService.GetBasisOfRecordsAsync(cancellationToken);
                 return Ok(basisOfRecords);
             }
             catch (Exception ex)

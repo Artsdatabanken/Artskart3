@@ -33,7 +33,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("SearchTaxons")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount)
+        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -43,7 +43,7 @@ namespace Artskart3.Api.Controllers
                 if (maxCount < MinResults || maxCount > MaxTaxonCount)
                     return BadRequest($"Max count must be between {MinResults} and {MaxTaxonCount}.");
 
-                var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
+                var taxons = await _searchService.GetTaxonsAsync(name, maxCount, cancellationToken);
                 return Ok(taxons);
             }
             catch (ApplicationException ex)
@@ -65,7 +65,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Locations")]
         [Produces("application/json")]
-        public async Task<ActionResult<string>> GetLocations([FromQuery] LocationSearchFilterDto? filter = null)
+        public async Task<ActionResult<string>> GetLocations([FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -82,7 +82,7 @@ namespace Artskart3.Api.Controllers
                 }               
 
                 _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
-                var result = await _searchService.GetLocationsAsync(filter);
+                var result = await _searchService.GetLocationsAsync(filter, cancellationToken);
                 return Content(result, "application/json");
             }
             catch (ApplicationException ex)
@@ -105,7 +105,7 @@ namespace Artskart3.Api.Controllers
         [HttpPost("Observation")]
         [Produces("application/json")]
         [ServiceFilter(typeof(SlowQueryLoggingFilter))]
-        public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromBody] ObservationSearchFilterDto? filter = null)
+        public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromBody] ObservationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
         {
             filter ??= new ObservationSearchFilterDto();
 
@@ -117,9 +117,9 @@ namespace Artskart3.Api.Controllers
                 if (filter.ResultsPerPage < MinResults || filter.ResultsPerPage > MaxResults)
                     return BadRequest(new { error = $"ResultsPerPage must be between {MinResults} and {MaxResults}." });
 
-                var paginationResults = await _searchService.GetObservationsAsync(filter);
+                var paginationResults = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
-                var lookaheadCount = await paginationResults.CountAsync()/resultsPerPage;
+                var lookaheadCount = await paginationResults.CountAsync(cancellationToken)/resultsPerPage;
                 var pagedResult = new PagedObservationResponseDto
                 {
                     Items = paginationResults.Take(resultsPerPage),
@@ -131,7 +131,7 @@ namespace Artskart3.Api.Controllers
                 return Ok(pagedResult);
             }
 
-            var results = await _searchService.GetObservationsAsync(filter);
+            var results = await _searchService.GetObservationsAsync(filter, cancellationToken);
             return Ok(results);
         }
 
@@ -140,11 +140,11 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Areas")]
         [Produces("application/json")]
-        public async Task<ActionResult<AreaMarkerDto[]>> GetAreas()
+        public async Task<ActionResult<AreaMarkerDto[]>> GetAreas(CancellationToken cancellationToken = default)
         {
             try
             {
-                var areas = await _searchService.GetAreasByTypeIdsAsync(1, 2); // This Hard coded need to be changed when we have more area types and want to filter by them. For now we just want all areas of type 1 and 2.
+                var areas = await _searchService.GetAreasByTypeIdsAsync([1, 2], cancellationToken); // This Hard coded need to be changed when we have more area types and want to filter by them. For now we just want all areas of type 1 and 2.
                 return Ok(areas.ToArray());
             }
             catch (ApplicationException ex)

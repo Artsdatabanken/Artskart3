@@ -5,5 +5,5 @@ public class SlowQueryLoggingOptions
     public const string SectionName = "SlowQueryLogging";
 
     public bool Enabled { get; set; } = true;
-    public long ThresholdMs { get; set; } = 5000;
+    public long ThresholdMs { get; set; } = 1000;
 }

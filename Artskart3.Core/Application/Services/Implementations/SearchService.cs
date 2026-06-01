@@ -17,14 +17,14 @@ namespace Artskart3.Core.Application.Services.Implementations
             _searchRepository = searchRepository;
         }
 
-        public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null)
+        public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
         {
             try
             {
                 filter = filter ?? new LocationSearchFilterDto();
                 
-                var locations = _searchRepository.GetLocationsAsync(filter);
-                return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg);
+                var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
+                return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg, cancellationToken);
             }
             catch (ApplicationException ex)
             {
@@ -37,11 +37,11 @@ namespace Artskart3.Core.Application.Services.Implementations
         }
 
 
-        public async Task<IAsyncEnumerable<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter)
+        public async Task<IAsyncEnumerable<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
         {
             try
             {
-                return _searchRepository.GetObservationsAsync(filter);
+                return _searchRepository.GetObservationsAsync(filter, cancellationToken);
             }
             catch (ApplicationException ex)
             {
@@ -54,15 +54,15 @@ namespace Artskart3.Core.Application.Services.Implementations
         }
 
 
-        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20)
+        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default)
         {
-           var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount);           
+           var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount, cancellationToken);           
            return alltaxons;
         }
 
-        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds)
+        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(int[] areaTypeIds, CancellationToken cancellationToken = default)
         {
-            var areas = await _searchRepository.GetAreasByTypeIdsAsync(areaTypeIds);
+            var areas = await _searchRepository.GetAreasByTypeIdsAsync(areaTypeIds, cancellationToken);
             return areas;
         }
     }

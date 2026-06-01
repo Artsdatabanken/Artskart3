@@ -70,7 +70,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetAreasByTypeIdsAsync_ReturnsAreasOfSpecifiedType()
     {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
+        var result = (await _repository.GetAreasByTypeIdsAsync([TestAreaTypeMunicipalityId])).ToList();
 
         result.Should().OnlyContain(area => area.AreaTypeId == TestAreaTypeMunicipalityId);
         result.Select(area => area.Name).Should().Contain("Repo kommune A");
@@ -79,7 +79,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetAreasByTypeIdsAsync_DoesNotReturnAreasOfOtherType()
     {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
+        var result = (await _repository.GetAreasByTypeIdsAsync([TestAreaTypeMunicipalityId])).ToList();
 
         result.Select(area => area.Name).Should().NotContain("Repo fylke A");
     }
@@ -87,7 +87,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetAreasByTypeIdsAsync_GroupsByName_SumsObservationCounts()
     {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
+        var result = (await _repository.GetAreasByTypeIdsAsync([TestAreaTypeMunicipalityId])).ToList();
 
         var groupedArea = result.Single(area => area.Name == "Repo gruppert kommune");
         groupedArea.ObservationCount.Should().Be(25);
@@ -104,7 +104,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetAreasByTypeIdsAsync_SameNameDifferentAreaType_MergesIntoOneEntry()
     {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId, TestAreaTypeCountyId)).ToList();
+        var result = (await _repository.GetAreasByTypeIdsAsync([TestAreaTypeMunicipalityId, TestAreaTypeCountyId])).ToList();
 
         var mergedArea = result.Where(area => area.Name == "Repo felles område").ToList();
         mergedArea.Should().ContainSingle();

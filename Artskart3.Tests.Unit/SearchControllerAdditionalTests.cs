@@ -92,7 +92,7 @@ public class SearchControllerAdditionalTests
     public async Task GetAreas_ReturnsArrayType_InOkObjectResult()
     {
         var sut = CreateSut();
-        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(1, 2)).ReturnsAsync(new List<AreaMarkerDto>
+        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(new[] { 1, 2 }, It.IsAny<CancellationToken>())).ReturnsAsync(new List<AreaMarkerDto>
         {
             new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 5 }
         });

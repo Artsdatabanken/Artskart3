@@ -15,7 +15,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync()
+        public async Task<IEnumerable<CategoryTypeDto>> GetCategoriesAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<CategoryType>()
                 .Where(ct => !ct.IsDeleted)
@@ -35,10 +35,10 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                             ObservationCount = c.ObservationCount
                         })
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<AreaTypeDto>> GetAreasAsync()
+        public async Task<IEnumerable<AreaTypeDto>> GetAreasAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<AreaType>()
                 .Where(at => !at.IsDeleted)
@@ -59,12 +59,12 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                             ObservationCount = a.ObservationCount
                         })
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         private const int InstitutionOrganizationTypeId = 1;
 
-        public async Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync()
+        public async Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<Organization>()
                 .Where(o => !o.IsDeleted && o.OrganizationTypeId == InstitutionOrganizationTypeId)
@@ -76,10 +76,10 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     Code = o.Code,
                     ObservationCount = o.ObservationCount
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync()
+        public async Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<TaxonGroup>()
                 .Where(tg => !tg.IsDeleted)
@@ -90,10 +90,10 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     Name = tg.Name,
                     ObservationCount = tg.ObservationCount
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync()
+        public async Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<Behavior>()
                 .Where(b => !b.IsDeleted)
@@ -106,10 +106,10 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     ObservationCount = b.ObservationCount,
                     Description = b.Description
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync()
+        public async Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Set<BasisOfRecord>()
                 .Where(b => !b.IsDeleted)
@@ -122,7 +122,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     Variants = b.Variants,
                     ObservationCount = b.ObservationCount
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
     }
 }

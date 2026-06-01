@@ -9,6 +9,7 @@ using NetTopologySuite.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories
@@ -37,7 +38,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// 3. Contains matches
         /// Returns up to maxCount results from active taxa (not deleted and have observation data).
         /// </summary>
-        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults)
+        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -65,7 +66,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     .Where(t => matchingIds.Contains(t.Id))
                     .Include(t => t.TaxonNames)
                     .Include(t => t.TaxonPopularNames)
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
                 return result;
             }
@@ -79,7 +80,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 _logger.LogError(ex, "Database error occurred during taxon search for name: {Name}", name);
                 throw new ApplicationException("A database error occurred while searching taxa. Please try again later.", ex);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Unexpected error during taxon search for name: {Name}", name);
                 throw new ApplicationException("An unexpected error occurred while searching taxa. Please contact support if the problem persists.", ex);
@@ -129,7 +130,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         }
 
 
-        public async IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter)
+        public async IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var query = _context.Set<Observation>()
                                 .AsNoTracking();
@@ -255,7 +256,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
             });
 
-            await foreach (var dto in projectedQuery.AsAsyncEnumerable())
+            await foreach (var dto in projectedQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
             {
                 yield return dto;
             }
@@ -267,9 +268,9 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// Aggregates observation counts by location, sorted by count descending.
         /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
         /// </summary>
-        public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null)
+        public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var locationModels = await FetchLocationModelsAsync(filter);
+            var locationModels = await FetchLocationModelsAsync(filter, cancellationToken);
 
             foreach (var model in locationModels)
             {
@@ -278,7 +279,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         }
 
 
-        private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter)
+        private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -336,7 +337,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     })
                     .OrderByDescending(x => x.ObservationCount)
                     .Take(maxResults)
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
                 if (aggregatedData.Count == 0)
                     return [];
@@ -346,7 +347,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 var locationLookup = await _context.Set<Location>()
                     .Where(l => locationIds.Contains(l.Id))
                     .AsNoTracking()
-                    .ToDictionaryAsync(l => l.Id);
+                    .ToDictionaryAsync(l => l.Id, cancellationToken);
 
                 var locationModels = new List<LocationModel>(aggregatedData.Count);
 
@@ -395,7 +396,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// Returns one centroid per area name in WKT POINT format: POINT(easting northing) in UTM Zone 33N.
         /// Area types: 1 = municipalities, 2 = counties.
         /// </summary>
-        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds)
+        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(int[] areaTypeIds, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -404,7 +405,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
 
                 var areas = await _context.Set<Area>()
                     .Where(a => areaTypeIds.Contains(a.AreaTypeId))
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
                 return areas
                     .GroupBy(a => a.Name)

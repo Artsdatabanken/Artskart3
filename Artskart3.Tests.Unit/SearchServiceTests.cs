@@ -121,10 +121,10 @@ public class SearchServiceTests
             new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 100 }
         };
         _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(1, 2))
+            .Setup(r => r.GetAreasByTypeIdsAsync(new[] { 1, 2 }, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await _sut.GetAreasByTypeIdsAsync(1, 2);
+        var result = await _sut.GetAreasByTypeIdsAsync([1, 2]);
 
         result.Should().BeEquivalentTo(expected);
     }
@@ -133,12 +133,12 @@ public class SearchServiceTests
     public async Task GetAreasByTypeIdsAsync_PassesTypeIdsToRepository()
     {
         _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
+            .Setup(r => r.GetAreasByTypeIdsAsync(It.IsAny<int[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Empty<AreaMarkerDto>());
 
-        await _sut.GetAreasByTypeIdsAsync(1, 2);
+        await _sut.GetAreasByTypeIdsAsync([1, 2]);
 
-        _repositoryMock.Verify(r => r.GetAreasByTypeIdsAsync(1, 2), Times.Once);
+        _repositoryMock.Verify(r => r.GetAreasByTypeIdsAsync(new[] { 1, 2 }, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // -----------------------------------------------------------------------

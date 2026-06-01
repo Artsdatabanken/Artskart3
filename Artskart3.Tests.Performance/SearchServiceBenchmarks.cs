@@ -123,7 +123,7 @@ public class SearchServiceBenchmarks
     [Benchmark]
     public async Task GetAreas_AllCountiesAndMunicipalities()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1, 2);
+        _ = await _searchService.GetAreasByTypeIdsAsync([1, 2]);
     }
 
     [Benchmark]
@@ -141,13 +141,13 @@ public class SearchServiceBenchmarks
     [Benchmark]
     public async Task GetAreas_MunicipalitiesOnly()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1);
+        _ = await _searchService.GetAreasByTypeIdsAsync([1]);
     }
 
     [Benchmark]
     public async Task GetAreas_CountiesOnly()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(2);
+        _ = await _searchService.GetAreasByTypeIdsAsync([2]);
     }
 
     [Benchmark]

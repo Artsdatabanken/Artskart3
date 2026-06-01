@@ -7,9 +7,9 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces
 {
     public interface ISearchRepository
     {
-        Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20);
-        IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null);
-        IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter);
-        Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds);
+        Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default);
+        Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(int[] areaTypeIds, CancellationToken cancellationToken = default);
     }
 }
