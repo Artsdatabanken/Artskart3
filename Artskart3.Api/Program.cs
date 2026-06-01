@@ -7,6 +7,8 @@ using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
+using Artskart3.Api.Configuration;
+using Artskart3.Api.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -153,6 +155,9 @@ try
     builder.Services.AddRepositories();
     builder.Services.AddApplicationServices();
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
+
+    builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
+    builder.Services.AddScoped<SlowQueryLoggingFilter>();
 
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);

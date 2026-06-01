@@ -90,6 +90,8 @@ namespace Artskart3.Infrastructure.Data
 
     public virtual DbSet<SensitiveObservationDatum> SensitiveObservationData { get; set; }
 
+    public virtual DbSet<SlowQueryLog> SlowQueryLogs { get; set; }
+
     public virtual DbSet<SpatialRefSy> SpatialRefSys { get; set; }
 
     public virtual DbSet<Tag> Tags { get; set; }
@@ -989,6 +991,20 @@ namespace Artskart3.Infrastructure.Data
             entity.ToTable("TaxonomyState");
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<SlowQueryLog>(entity =>
+        {
+            entity.ToTable("SlowQueryLog");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Endpoint).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.RequestPath).HasMaxLength(2048);
+            entity.Property(e => e.RequestBody).HasMaxLength(4000);
+            entity.Property(e => e.OccurredAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.Endpoint).HasDatabaseName("IX_SlowQueryLog_Endpoint");
+            entity.HasIndex(e => e.OccurredAt).HasDatabaseName("IX_SlowQueryLog_OccurredAt");
         });
 
         OnModelCreatingPartial(modelBuilder);
