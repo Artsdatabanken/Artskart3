@@ -72,6 +72,15 @@ Content-Type: application/json
   "municipalityIds": ["1101", "1145", "1260"]
 }
 
+### Search observation, filter on multiple CountyIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "countyIds": ["03", "11", "15"]
+}
+
 ### Search observation, filter on multiple BehaviorIds
 POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1

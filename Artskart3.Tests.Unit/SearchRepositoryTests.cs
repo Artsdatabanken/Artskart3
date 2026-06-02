@@ -582,6 +582,101 @@ public class SearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetObservationsAsync_WithCountyIdsFilter_ReturnsObservationInMatchingCounty()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var countyArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(countyArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().Add(countyArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["03"] }));
+
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotMatchOutdatedCountyArea()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var outdatedArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo (old)",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = false
+        };
+        var currentArea = new Area
+        {
+            Id = 2, DocumentId = "doc-2", Fid = "3024", Name = "Oslo (new)",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(outdatedArea);
+        location.Areas.Add(currentArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().AddRange(outdatedArea, currentArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        // Filter by the outdated Fid — should return nothing because the area is not current
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["03"] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotReturnObservationMatchingOnlyMunicipalityFid()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        // Municipality area whose Fid happens to be in the filter — must NOT match
+        var municipalityArea = new Area
+        {
+            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo Municipality",
+            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
+            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
+            TimeStamp = DateTime.UtcNow, IsCurrent = true
+        };
+        var location = CreateLocation(1, "Sentrum");
+        location.Areas.Add(municipalityArea);
+
+        context.Set<Taxon>().Add(CreateTaxon(1));
+        context.Set<Area>().Add(municipalityArea);
+        context.Set<Location>().Add(location);
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        await context.SaveChangesAsync();
+
+        // Filter by the municipality's Fid as a county filter — should return nothing because it's not a county area
+        var results = await ToListAsync(sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["0301"] }));
+
+        results.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationLinkedToInstitutionOrg()
     {
         await using var context = CreateInMemoryContext();

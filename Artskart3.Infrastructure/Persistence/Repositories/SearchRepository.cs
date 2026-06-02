@@ -184,6 +184,14 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     filter.MunicipalityIds.Contains(x.Fid)));
             }
 
+            if(filter.CountyIds?.Any() == true)
+            {
+                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x =>
+                    x.IsCurrent == true &&
+                    x.AreaTypeId == (int)Core.Domain.Enums.AreaType.County &&
+                    filter.CountyIds.Contains(x.Fid)));
+            }
+
             if(filter.BehaviorIds?.Any() == true)
             {
                 query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
