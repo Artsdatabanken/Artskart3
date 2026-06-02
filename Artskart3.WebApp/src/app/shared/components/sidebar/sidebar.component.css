@@ -49,3 +49,58 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   flex-direction: column;
   gap: var(--adb-spacing-xsm, 8px);
 }
+
+/* Coordinate precision filter */
+.coordinate-precision-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--adb-spacing-xsm, 8px);
+  padding: var(--adb-spacing-sm, 12px);
+  flex-wrap: nowrap;
+}
+
+.coordinate-precision-inputs {
+  display: flex;
+  gap: var(--adb-spacing-xsm, 8px);
+  flex: 1;
+  min-width: 0;
+}
+
+.coordinate-precision-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-3xsm, 4px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  flex: 1;
+  min-width: 0;
+}
+
+.coordinate-precision-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: var(--adb-spacing-xsm, 8px);
+  border: 2px solid var(--adb-neutrals-sand-100);
+  background-color: var(--adb-surface-primary, #fff);
+  color: var(--adb-text-default, inherit);
+  border-radius: var(--adb-border-radius-md, 8px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  box-sizing: border-box;
+  outline: none;
+}
+
+:host-context([data-theme="dark"]) .coordinate-precision-input {
+  border-color: var(--adb-neutrals-ocean-80);
+}
+
+.coordinate-precision-input:focus {
+  border-color: var(--adb-border-accent, #005A71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005A71);
+  outline: none;
+}
+
+:host-context([data-theme="dark"]) .coordinate-precision-input:focus {
+  border-color: var(--adb-border-accent, #005A71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005A71);
+  outline: none;
+}

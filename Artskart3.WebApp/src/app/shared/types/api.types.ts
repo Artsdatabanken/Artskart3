@@ -7,6 +7,7 @@ export type CategoryTypeDto = components['schemas']['CategoryTypeDto'];
 export type CategoryDto = components['schemas']['CategoryDto'];
 export type AreaTypeDto = components['schemas']['AreaTypeDto'];
 export type AreaDto = components['schemas']['AreaDto'];
+export type CoordinatePrecisionDto = components['schemas']['CoordinatePrecisionDto'];
 
 // Request DTOs
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];

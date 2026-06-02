@@ -4,6 +4,7 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
   computed,
+  signal,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
@@ -120,5 +121,42 @@ export class SidebarComponent {
     } else {
       municipalityFids.forEach((fid) => this.filterState.addMunicipality(fid));
     }
+  }
+
+  // Coordinate precision filter
+  readonly coordinatePrecisionFromInput = signal('');
+  readonly coordinatePrecisionToInput = signal('');
+
+  onCoordinatePrecisionFromChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const filtered = input.value.replace(/\D/g, '');
+    input.value = filtered;
+    this.coordinatePrecisionFromInput.set(filtered);
+  }
+
+  onCoordinatePrecisionToChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const filtered = input.value.replace(/\D/g, '');
+    input.value = filtered;
+    this.coordinatePrecisionToInput.set(filtered);
+  }
+
+  onApplyCoordinatePrecision(): void {
+    const fromStr = this.coordinatePrecisionFromInput().trim();
+    const toStr = this.coordinatePrecisionToInput().trim();
+
+    let from = fromStr === '' ? null : Number(fromStr);
+    let to = toStr === '' ? null : Number(toStr);
+
+    if (fromStr !== '' && (!Number.isInteger(from) || from! < 0)) return;
+    if (toStr !== '' && (!Number.isInteger(to) || to! < 0)) return;
+
+    if (from != null && to != null && from > to) {
+      [from, to] = [to, from];
+      this.coordinatePrecisionFromInput.set(String(from));
+      this.coordinatePrecisionToInput.set(String(to));
+    }
+
+    this.filterState.setCoordinatePrecision(from, to);
   }
 }

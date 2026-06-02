@@ -28,10 +28,12 @@ export class ListViewComponent {
 
   readonly pageNumber = signal(1);
 
-  private readonly resetPageOnFilterChange = effect(() => {
+  private readonly _resetPageOnFilterChange = effect(() => {
     this.filterState.selectedCategoryIds();
     this.filterState.selectedMunicipalityIds();
     this.filterState.selectedCountyIds();
+    this.filterState.coordinatePrecisionFrom();
+    this.filterState.coordinatePrecisionTo();
     untracked(() => {
       if (this.pageNumber() !== 1) {
         this.pageNumber.set(1);
@@ -86,14 +88,21 @@ export class ListViewComponent {
       risikokategoriIder: this.filterState.selectedCategoryIds(),
       countyIds: this.areaFilter().countyIds,
       municipalityIds: this.areaFilter().municipalityIds,
+      coordinatePrecision: {
+        from: this.filterState.coordinatePrecisionFrom(),
+        to: this.filterState.coordinatePrecisionTo(),
+      },
     }),
     stream: ({ params }) => {
+      const hasCoordinatePrecision =
+        params.coordinatePrecision?.from != null || params.coordinatePrecision?.to != null;
       const filter: ObservationSearchFilter = {
         pageNumber: params.pageNumber ?? 1,
         resultsPerPage: params.resultsPerPage ?? 10,
         risikokategoriIder: params.risikokategoriIder?.length ? params.risikokategoriIder : undefined,
         countyIds: params.countyIds?.length ? params.countyIds : undefined,
         municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
+        coordinatePrecision: hasCoordinatePrecision ? params.coordinatePrecision : undefined,
       };
       return this.observationService.searchObservations(filter);
     },

@@ -59,7 +59,11 @@
     "categoryType": {
       "Fremmedart": "Alien Species Categories",
       "Rødliste": "Red List Categories"
-    }
+    },
+    "coordinatePrecision": "Coordinate Precision",
+    "coordinatePrecisionFrom": "From",
+    "coordinatePrecisionTo": "To",
+    "coordinatePrecisionSearch": "Search"
   },
   "pagination": {
     "previous": "Previous",

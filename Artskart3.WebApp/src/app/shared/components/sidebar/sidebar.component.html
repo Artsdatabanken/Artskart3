@@ -88,4 +88,37 @@
       </adb-accordion>
     }
   }
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.coordinatePrecision' | translate">
+      <div class="coordinate-precision-filter">
+        <div class="coordinate-precision-inputs">
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.coordinatePrecisionFrom' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              class="coordinate-precision-input"
+              placeholder="0"
+              [value]="coordinatePrecisionFromInput()"
+              (input)="onCoordinatePrecisionFromChange($event)"
+            />
+          </label>
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.coordinatePrecisionTo' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              class="coordinate-precision-input"
+              placeholder="1000"
+              [value]="coordinatePrecisionToInput()"
+              (input)="onCoordinatePrecisionToChange($event)"
+            />
+          </label>
+        </div>
+        <adb-button variant="secondary" size="md" (click)="onApplyCoordinatePrecision()">
+          {{ 'sidebar.coordinatePrecisionSearch' | translate }}
+        </adb-button>
+      </div>
+    </adb-accordion-item>
+  </adb-accordion>
 </div>

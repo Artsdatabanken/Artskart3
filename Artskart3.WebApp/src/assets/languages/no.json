@@ -59,7 +59,11 @@
     "categoryType": {
       "Fremmedart": "Fremmedartkategorier",
       "Rødliste": "Rødlistekategorier"
-    }
+    },
+    "coordinatePrecision": "Koordinatpresisjon",
+    "coordinatePrecisionFrom": "Fra",
+    "coordinatePrecisionTo": "Til",
+    "coordinatePrecisionSearch": "Søk"
   },
   "pagination": {
     "previous": "Forrige",

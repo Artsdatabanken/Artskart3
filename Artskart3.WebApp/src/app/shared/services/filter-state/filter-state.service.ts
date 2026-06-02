@@ -7,6 +7,8 @@ export class FilterStateService {
   readonly selectedCategoryIds = signal<number[]>([]);
   readonly selectedCountyIds = signal<string[]>([]);
   readonly selectedMunicipalityIds = signal<string[]>([]);
+  readonly coordinatePrecisionFrom = signal<number | null>(null);
+  readonly coordinatePrecisionTo = signal<number | null>(null);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -68,8 +70,19 @@ export class FilterStateService {
     this.selectedMunicipalityIds.set([]);
   }
 
+  setCoordinatePrecision(from: number | null, to: number | null): void {
+    this.coordinatePrecisionFrom.set(from);
+    this.coordinatePrecisionTo.set(to);
+  }
+
+  clearCoordinatePrecision(): void {
+    this.coordinatePrecisionFrom.set(null);
+    this.coordinatePrecisionTo.set(null);
+  }
+
   clearAll(): void {
     this.clearCategories();
     this.clearAreas();
+    this.clearCoordinatePrecision();
   }
 }
