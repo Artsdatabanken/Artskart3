@@ -18,6 +18,7 @@
             <th>{{ 'listView.institution' | translate }}</th>
             <th>{{ 'listView.date' | translate }}</th>
             <th>{{ 'listView.locality' | translate }}</th>
+            <th>{{ 'listView.precision' | translate }}</th>
             <th>{{ 'listView.municipality' | translate }}</th>
           </tr>
         </thead>
@@ -30,11 +31,12 @@
              <td>{{ obs.institution }}</td>
              <td>{{ obs.dateTimeCollected | localeDate }}</td>
              <td>{{ obs.locality }}</td>
+             <td>{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
              <td>{{ obs.municipalityId | areaName | async }}</td>
            </tr>
           } @empty {
            <tr>
-             <td colspan="7" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+             <td colspan="8" class="empty-message">{{ 'listView.noResults' | translate }}</td>
            </tr>
           }
         </tbody>

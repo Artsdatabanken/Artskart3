@@ -48,6 +48,7 @@
     "institution": "Institution",
     "date": "Date",
     "municipality": "Municipality",
+    "precision": "Precision",
     "noResults": "No observations found"
   },
   "sidebar": {

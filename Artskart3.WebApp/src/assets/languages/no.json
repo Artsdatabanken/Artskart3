@@ -48,6 +48,7 @@
     "institution": "Institusjon",
     "date": "Dato",
     "municipality": "Kommune",
+    "precision": "Presisjon",
     "noResults": "Ingen observasjoner funnet"
   },
   "sidebar": {

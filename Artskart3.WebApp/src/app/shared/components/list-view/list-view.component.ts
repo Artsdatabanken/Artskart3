@@ -8,11 +8,12 @@ import { FilterStateService } from '../../services/filter-state/filter-state.ser
 import { ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
+import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { AreaNamePipe } from '../../pipes/area-name.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [AsyncPipe, TranslateModule, PaginationComponent, LocaleDatePipe, AreaNamePipe],
+  imports: [AsyncPipe, TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe, AreaNamePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
