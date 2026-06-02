@@ -34,7 +34,7 @@
                       (change)="onCategoryToggle(category.id)"
                     >
                       {{ category.name }} {{ category.code }}
-                      @if (category.observationCount != null) {
+                      @if (category.observationCount !== null && category.observationCount !== undefined) {
                         <span slot="counter">{{ category.observationCount }}</span>
                       }
                     </adb-checkbox>
@@ -62,7 +62,7 @@
                   (change)="onCountyToggle(group)"
                 >
                   {{ group.county.name }}
-                  @if (group.county.observationCount != null) {
+                  @if (group.county.observationCount !== null && group.county.observationCount !== undefined) {
                     <span slot="counter">{{ group.county.observationCount }}</span>
                   }
                 </adb-checkbox>
@@ -70,11 +70,11 @@
                   @for (municipality of group.municipalities; track municipality.fid) {
                     @if (municipality.fid) {
                       <adb-checkbox
-                        [attr.checked]="isAreaSelected(municipality.fid) ? '' : null"
-                        (change)="onAreaToggle(municipality.fid)"
+                        [attr.checked]="isMunicipalitySelected(municipality.fid) ? '' : null"
+                        (change)="onMunicipalityToggle(municipality.fid)"
                       >
                         {{ municipality.name }}
-                        @if (municipality.observationCount != null) {
+                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
                           <span slot="counter">{{ municipality.observationCount }}</span>
                         }
                       </adb-checkbox>

@@ -65,7 +65,7 @@ describe('SidebarComponent', () => {
     await flushAll();
     const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
     const categoriesItem = Array.from(accordionItems).find(
-      (el: any) => el.getAttribute('heading') === 'sidebar.categories',
+      (el) => (el as Element).getAttribute('heading') === 'sidebar.categories',
     );
     expect(categoriesItem).toBeTruthy();
   });
@@ -73,11 +73,11 @@ describe('SidebarComponent', () => {
   it('should render nested accordions for category types', async () => {
     await flushAll();
     const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
-    const categoriesItem: any = Array.from(accordionItems).find(
-      (el: any) => el.getAttribute('heading') === 'sidebar.categories',
-    );
+    const categoriesItem = Array.from(accordionItems).find(
+      (el) => (el as Element).getAttribute('heading') === 'sidebar.categories',
+    ) as Element;
     expect(categoriesItem).toBeTruthy();
-    const nestedAccordion = categoriesItem.querySelector('adb-accordion');
+    const nestedAccordion = categoriesItem.querySelector('adb-accordion')!;
     expect(nestedAccordion).toBeTruthy();
     const nestedItems = nestedAccordion.querySelectorAll('adb-accordion-item');
     expect(nestedItems.length).toBe(2);
@@ -123,36 +123,35 @@ describe('SidebarComponent', () => {
       expect(accordions.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('should toggle area in filter state', () => {
-      component.onAreaToggle('0301');
-      expect(filterState.selectedAreaIds()).toEqual(['0301']);
+    it('should toggle municipality in filter state', () => {
+      component.onMunicipalityToggle('0301');
+      expect(filterState.selectedMunicipalityIds()).toEqual(['0301']);
 
-      component.onAreaToggle('0301');
-      expect(filterState.selectedAreaIds()).toEqual([]);
+      component.onMunicipalityToggle('0301');
+      expect(filterState.selectedMunicipalityIds()).toEqual([]);
     });
 
-    it('should select all municipalities and county when county is toggled', async () => {
+    it('should select all municipalities when county is toggled', async () => {
       await flushAll();
       const groups = component.countyGroups();
       expect(groups.length).toBe(1);
 
       component.onCountyToggle(groups[0]);
-      expect(filterState.selectedAreaIds()).toContain('03');
-      expect(filterState.selectedAreaIds()).toContain('0301');
+      expect(filterState.selectedMunicipalityIds()).toContain('0301');
     });
 
-    it('should deselect all when county is toggled again', async () => {
+    it('should deselect all municipalities when county is toggled again', async () => {
       await flushAll();
       const groups = component.countyGroups();
       component.onCountyToggle(groups[0]);
       component.onCountyToggle(groups[0]);
-      expect(filterState.selectedAreaIds()).toEqual([]);
+      expect(filterState.selectedMunicipalityIds()).toEqual([]);
     });
 
-    it('should report isAreaSelected correctly', () => {
-      filterState.addArea('0301');
-      expect(component.isAreaSelected('0301')).toBe(true);
-      expect(component.isAreaSelected('03')).toBe(false);
+    it('should report isMunicipalitySelected correctly', () => {
+      filterState.addMunicipality('0301');
+      expect(component.isMunicipalitySelected('0301')).toBe(true);
+      expect(component.isMunicipalitySelected('0602')).toBe(false);
     });
   });
 });

@@ -27,6 +27,21 @@ adb-accordion {
   --adb-border-default: transparent;
 }
 
+/* Remove bottom border on nested (non-top-level) accordion items */
+adb-accordion-item adb-accordion adb-accordion-item {
+  --adb-border-accent: transparent;
+}
+
+/* Restore border-accent for checkboxes inside nested accordion items */
+adb-accordion-item adb-accordion adb-accordion-item adb-checkbox {
+  --adb-border-accent: #005A71;
+}
+
+/* Reduce summary spacing on nested accordion items */
+adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
+  padding: var(--adb-spacing-3xsm, 4px);
+}
+
 /* Indent child checkboxes to align with parent checkbox label */
 .category-children {
   padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));

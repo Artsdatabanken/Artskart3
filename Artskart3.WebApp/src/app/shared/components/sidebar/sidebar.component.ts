@@ -91,33 +91,34 @@ export class SidebarComponent {
     }
   }
 
-  isAreaSelected(fid: string): boolean {
-    return this.filterState.selectedAreaIds().includes(fid);
+  isMunicipalitySelected(fid: string): boolean {
+    return this.filterState.selectedMunicipalityIds().includes(fid);
   }
 
   isAllInCountySelected(group: CountyGroup): boolean {
-    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
-    const selected = this.filterState.selectedAreaIds();
-    return fids.every((fid) => selected.includes(fid));
+    const municipalityFids = group.municipalities.map((m) => m.fid!);
+    if (municipalityFids.length === 0) return false;
+    const selected = this.filterState.selectedMunicipalityIds();
+    return municipalityFids.every((fid) => selected.includes(fid));
   }
 
   isSomeInCountySelected(group: CountyGroup): boolean {
-    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
-    const selected = this.filterState.selectedAreaIds();
-    const count = fids.filter((fid) => selected.includes(fid)).length;
-    return count > 0 && count < fids.length;
+    const municipalityFids = group.municipalities.map((m) => m.fid!);
+    const selected = this.filterState.selectedMunicipalityIds();
+    const count = municipalityFids.filter((fid) => selected.includes(fid)).length;
+    return count > 0 && count < municipalityFids.length;
   }
 
-  onAreaToggle(fid: string): void {
-    this.filterState.toggleArea(fid);
+  onMunicipalityToggle(fid: string): void {
+    this.filterState.toggleMunicipality(fid);
   }
 
   onCountyToggle(group: CountyGroup): void {
-    const fids = [group.county.fid!, ...group.municipalities.map((m) => m.fid!)];
+    const municipalityFids = group.municipalities.map((m) => m.fid!);
     if (this.isAllInCountySelected(group)) {
-      fids.forEach((fid) => this.filterState.removeArea(fid));
+      municipalityFids.forEach((fid) => this.filterState.removeMunicipality(fid));
     } else {
-      fids.forEach((fid) => this.filterState.addArea(fid));
+      municipalityFids.forEach((fid) => this.filterState.addMunicipality(fid));
     }
   }
 }

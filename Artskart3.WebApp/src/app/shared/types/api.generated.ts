@@ -140,6 +140,7 @@ export interface components {
             organizationIds?: number[] | null;
             locality?: string | null;
             municipalityIds?: string[] | null;
+            countyIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];

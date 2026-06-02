@@ -15,7 +15,8 @@ describe('FilterStateService', () => {
 
   it('should start with empty selection', () => {
     expect(service.selectedCategoryIds()).toEqual([]);
-    expect(service.selectedAreaIds()).toEqual([]);
+    expect(service.selectedCountyIds()).toEqual([]);
+    expect(service.selectedMunicipalityIds()).toEqual([]);
   });
 
   describe('toggleCategory', () => {
@@ -54,56 +55,72 @@ describe('FilterStateService', () => {
     });
   });
 
-  describe('toggleArea', () => {
-    it('should add area fid when not selected', () => {
-      service.toggleArea('0301');
-      expect(service.selectedAreaIds()).toEqual(['0301']);
+  describe('toggleMunicipality', () => {
+    it('should add municipality fid when not selected', () => {
+      service.toggleMunicipality('0301');
+      expect(service.selectedMunicipalityIds()).toEqual(['0301']);
     });
 
-    it('should remove area fid when already selected', () => {
-      service.toggleArea('0301');
-      service.toggleArea('0301');
-      expect(service.selectedAreaIds()).toEqual([]);
+    it('should remove municipality fid when already selected', () => {
+      service.toggleMunicipality('0301');
+      service.toggleMunicipality('0301');
+      expect(service.selectedMunicipalityIds()).toEqual([]);
     });
 
     it('should handle multiple selections', () => {
-      service.toggleArea('03');
-      service.toggleArea('0301');
-      expect(service.selectedAreaIds()).toEqual(['03', '0301']);
+      service.toggleMunicipality('0301');
+      service.toggleMunicipality('0602');
+      expect(service.selectedMunicipalityIds()).toEqual(['0301', '0602']);
     });
   });
 
-  describe('addArea / removeArea', () => {
+  describe('toggleCounty', () => {
+    it('should add county fid when not selected', () => {
+      service.toggleCounty('03');
+      expect(service.selectedCountyIds()).toEqual(['03']);
+    });
+
+    it('should remove county fid when already selected', () => {
+      service.toggleCounty('03');
+      service.toggleCounty('03');
+      expect(service.selectedCountyIds()).toEqual([]);
+    });
+  });
+
+  describe('addMunicipality / removeMunicipality', () => {
     it('should add without duplicates', () => {
-      service.addArea('03');
-      service.addArea('03');
-      expect(service.selectedAreaIds()).toEqual(['03']);
+      service.addMunicipality('0301');
+      service.addMunicipality('0301');
+      expect(service.selectedMunicipalityIds()).toEqual(['0301']);
     });
 
     it('should remove only the specified fid', () => {
-      service.addArea('03');
-      service.addArea('0301');
-      service.removeArea('03');
-      expect(service.selectedAreaIds()).toEqual(['0301']);
+      service.addMunicipality('0301');
+      service.addMunicipality('0602');
+      service.removeMunicipality('0301');
+      expect(service.selectedMunicipalityIds()).toEqual(['0602']);
     });
   });
 
   describe('clearAreas', () => {
-    it('should reset area selection to empty', () => {
-      service.addArea('03');
-      service.addArea('0301');
+    it('should reset both county and municipality selections to empty', () => {
+      service.addCounty('03');
+      service.addMunicipality('0301');
       service.clearAreas();
-      expect(service.selectedAreaIds()).toEqual([]);
+      expect(service.selectedCountyIds()).toEqual([]);
+      expect(service.selectedMunicipalityIds()).toEqual([]);
     });
   });
 
   describe('clearAll', () => {
-    it('should clear both categories and areas', () => {
+    it('should clear categories, counties, and municipalities', () => {
       service.toggleCategory(1);
-      service.addArea('03');
+      service.addCounty('03');
+      service.addMunicipality('0301');
       service.clearAll();
       expect(service.selectedCategoryIds()).toEqual([]);
-      expect(service.selectedAreaIds()).toEqual([]);
+      expect(service.selectedCountyIds()).toEqual([]);
+      expect(service.selectedMunicipalityIds()).toEqual([]);
     });
   });
 });

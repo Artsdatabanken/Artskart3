@@ -5,7 +5,8 @@ import { Injectable, signal } from '@angular/core';
 })
 export class FilterStateService {
   readonly selectedCategoryIds = signal<number[]>([]);
-  readonly selectedAreaIds = signal<string[]>([]);
+  readonly selectedCountyIds = signal<string[]>([]);
+  readonly selectedMunicipalityIds = signal<string[]>([]);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -28,25 +29,43 @@ export class FilterStateService {
     this.selectedCategoryIds.set([]);
   }
 
-  toggleArea(fid: string): void {
-    this.selectedAreaIds.update((ids) =>
+  toggleCounty(fid: string): void {
+    this.selectedCountyIds.update((ids) =>
       ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
     );
   }
 
-  addArea(fid: string): void {
-    this.selectedAreaIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  addCounty(fid: string): void {
+    this.selectedCountyIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
   }
 
-  removeArea(fid: string): void {
-    this.selectedAreaIds.update((ids) => {
+  removeCounty(fid: string): void {
+    this.selectedCountyIds.update((ids) => {
+      if (!ids.includes(fid)) return ids;
+      return ids.filter((i) => i !== fid);
+    });
+  }
+
+  toggleMunicipality(fid: string): void {
+    this.selectedMunicipalityIds.update((ids) =>
+      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
+    );
+  }
+
+  addMunicipality(fid: string): void {
+    this.selectedMunicipalityIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  }
+
+  removeMunicipality(fid: string): void {
+    this.selectedMunicipalityIds.update((ids) => {
       if (!ids.includes(fid)) return ids;
       return ids.filter((i) => i !== fid);
     });
   }
 
   clearAreas(): void {
-    this.selectedAreaIds.set([]);
+    this.selectedCountyIds.set([]);
+    this.selectedMunicipalityIds.set([]);
   }
 
   clearAll(): void {
