@@ -9,6 +9,7 @@ export class FilterStateService {
   readonly selectedMunicipalityIds = signal<string[]>([]);
   readonly selectedInstitutionIds = signal<number[]>([]);
   readonly selectedBehaviorIds = signal<number[]>([]);
+  readonly selectedBasisOfRecordIds = signal<number[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
 
@@ -109,6 +110,27 @@ export class FilterStateService {
     this.selectedBehaviorIds.set([]);
   }
 
+  toggleBasisOfRecord(id: number): void {
+    this.selectedBasisOfRecordIds.update((ids) =>
+      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
+    );
+  }
+
+  addBasisOfRecord(id: number): void {
+    this.selectedBasisOfRecordIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  removeBasisOfRecord(id: number): void {
+    this.selectedBasisOfRecordIds.update((ids) => {
+      if (!ids.includes(id)) return ids;
+      return ids.filter((i) => i !== id);
+    });
+  }
+
+  clearBasisOfRecords(): void {
+    this.selectedBasisOfRecordIds.set([]);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
@@ -129,6 +151,7 @@ export class FilterStateService {
     this.clearAreas();
     this.clearInstitutions();
     this.clearBehaviors();
+    this.clearBasisOfRecords();
     this.clearCoordinatePrecision();
   }
 }

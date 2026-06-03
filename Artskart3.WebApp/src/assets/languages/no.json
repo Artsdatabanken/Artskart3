@@ -73,6 +73,19 @@
       "possiblereproductive": "Mulig Reproduksjon",
       "reproductive": "Reproduksjon",
       "stationary": "Stasjonær"
+    },
+    "basisOfRecords": "Funntype",
+    "basisOfRecordName": {
+      "assessment": "Sakkyndig vurdering",
+      "carcassobservation": "Kadaverundersøkelse",
+      "fossil_specimen": "Fossil",
+      "humanobservation": "Menneskelig observasjon",
+      "litteratur": "Litteratur",
+      "living_specimen": "Levende individ",
+      "machine_observation": "Maskinobservasjon",
+      "materialsample": "Innsamlet matriale",
+      "objekt": "Belagt funn",
+      "observasjon": "Observasjon"
     }
   },
   "pagination": {

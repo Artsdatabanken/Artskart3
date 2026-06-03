@@ -144,6 +144,29 @@
       </adb-accordion>
     }
   }
+  @if (basisOfRecords(); as basisOfRecordList) {
+    @if (basisOfRecordList.length > 0) {
+      <adb-accordion>
+        <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+          <div class="behavior-children">
+            @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
+              @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isBasisOfRecordSelected(basisOfRecord.id) ? '' : null"
+                  (change)="onBasisOfRecordToggle(basisOfRecord.id)"
+                >
+                  {{ getBasisOfRecordDisplayName(basisOfRecord) }}
+                  @if (basisOfRecord.observationCount !== null && basisOfRecord.observationCount !== undefined) {
+                    <span slot="counter">{{ basisOfRecord.observationCount }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        </adb-accordion-item>
+      </adb-accordion>
+    }
+  }
   @if (institutions(); as institutionList) {
     @if (institutionList.length > 0) {
       <adb-accordion>

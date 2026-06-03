@@ -56,7 +56,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AreaTypeDto"][];
+                        "application/json": components["schemas"]["AreaResponseDto"];
                     };
                 };
             };
@@ -139,6 +139,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/BasisOfRecords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BasisOfRecordDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/Observation": {
         parameters: {
             query?: never;
@@ -190,11 +225,11 @@ export interface components {
             name?: string | null;
             categories?: components["schemas"]["CategoryDto"][] | null;
         };
-        AreaTypeDto: {
-            /** Format: int32 */
-            id?: number;
-            name?: string | null;
-            areas?: components["schemas"]["AreaDto"][] | null;
+        AreaResponseDto: {
+            counties?: components["schemas"]["CountyDto"];
+            municipalities?: components["schemas"]["AreaTypeDto"];
+            restrictedAreas?: components["schemas"]["AreaTypeDto"];
+            oceanAreas?: components["schemas"]["AreaTypeDto"];
         };
         InstitutionDto: {
             /** Format: int32 */
@@ -212,6 +247,15 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
             description?: string | null;
+        };
+        BasisOfRecordDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
+            description?: string | null;
+            variants?: string | null;
+            /** Format: int32 */
+            observationCount?: number | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
@@ -250,14 +294,16 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
         };
-        AreaDto: {
+        CountyDto: {
+            fastlandsNorge?: components["schemas"]["AreaDto"][] | null;
+            janMayen?: components["schemas"]["AreaDto"];
+            svalbard?: components["schemas"]["AreaDto"];
+        };
+        AreaTypeDto: {
             /** Format: int32 */
             id?: number;
-            fid?: string | null;
             name?: string | null;
-            isCurrent?: boolean;
-            /** Format: int32 */
-            observationCount?: number | null;
+            areas?: components["schemas"]["AreaDto"][] | null;
         };
         CoordinatePrecisionDto: {
             /** Format: int32 */
@@ -288,6 +334,15 @@ export interface components {
             dateTimeCollected?: string | null;
             /** Format: int32 */
             coordinatePrecisionInMeters?: number | null;
+        };
+        AreaDto: {
+            /** Format: int32 */
+            id?: number;
+            fid?: string | null;
+            name?: string | null;
+            isCurrent?: boolean;
+            /** Format: int32 */
+            observationCount?: number | null;
         };
     };
     responses: never;

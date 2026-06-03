@@ -17,18 +17,16 @@ describe('SidebarComponent', () => {
     { id: 2, name: 'Fremmedart', categories: [{ id: 7, code: 'SE', name: 'Svært høy risiko' }] },
   ];
 
-  const mockAreaTypes = [
-    {
-      id: 1,
-      name: 'County',
-      areas: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
+  const mockAreaResponse = {
+    counties: {
+      fastlandsNorge: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
     },
-    {
+    municipalities: {
       id: 2,
       name: 'Municipality',
       areas: [{ id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true }],
     },
-  ];
+  };
 
   const mockInstitutions = [
     { id: 1, name: 'NINA', code: 'NINA', observationCount: 100 },
@@ -38,6 +36,11 @@ describe('SidebarComponent', () => {
   const mockBehaviors = [
     { id: 1, name: 'Terrestrisk', variants: null, observationCount: 200 },
     { id: 2, name: 'Akvatisk', variants: null, observationCount: 150 },
+  ];
+
+  const mockBasisOfRecords = [
+    { id: 1, name: 'humanobservation', description: 'Human Observation', variants: null, observationCount: 500 },
+    { id: 2, name: 'machine_observation', description: 'Machine Observation', variants: null, observationCount: 300 },
   ];
 
   beforeEach(async () => {
@@ -56,9 +59,10 @@ describe('SidebarComponent', () => {
 
   async function flushAll() {
     httpTesting.expectOne('/api/Lookup/Categories').flush(mockCategoryTypes);
-    httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaTypes);
+    httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaResponse);
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
+    httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush(mockBasisOfRecords);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -214,6 +218,31 @@ describe('SidebarComponent', () => {
       filterState.addBehavior(2);
       expect(component.isBehaviorSelected(2)).toBe(true);
       expect(component.isBehaviorSelected(99)).toBe(false);
+    });
+  });
+
+  describe('basis of record filtering', () => {
+    it('should render basisOfRecords accordion after load', async () => {
+      await flushAll();
+      const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
+      const basisOfRecordItem = Array.from(accordionItems).find(
+        (el) => (el as Element).getAttribute('heading') === 'sidebar.basisOfRecords',
+      );
+      expect(basisOfRecordItem).toBeTruthy();
+    });
+
+    it('should toggle basisOfRecord in filter state', () => {
+      component.onBasisOfRecordToggle(1);
+      expect(filterState.selectedBasisOfRecordIds()).toEqual([1]);
+
+      component.onBasisOfRecordToggle(1);
+      expect(filterState.selectedBasisOfRecordIds()).toEqual([]);
+    });
+
+    it('should report isBasisOfRecordSelected correctly', () => {
+      filterState.addBasisOfRecord(2);
+      expect(component.isBasisOfRecordSelected(2)).toBe(true);
+      expect(component.isBasisOfRecordSelected(99)).toBe(false);
     });
   });
 });

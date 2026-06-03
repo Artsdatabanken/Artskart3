@@ -113,18 +113,20 @@ describe('FilterStateService', () => {
   });
 
   describe('clearAll', () => {
-    it('should clear categories, counties, municipalities, institutions, and behaviors', () => {
+    it('should clear categories, counties, municipalities, institutions, behaviors, and basisOfRecords', () => {
       service.toggleCategory(1);
       service.addCounty('03');
       service.addMunicipality('0301');
       service.addInstitution(5);
       service.addBehavior(10);
+      service.addBasisOfRecord(7);
       service.clearAll();
       expect(service.selectedCategoryIds()).toEqual([]);
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
       expect(service.selectedInstitutionIds()).toEqual([]);
       expect(service.selectedBehaviorIds()).toEqual([]);
+      expect(service.selectedBasisOfRecordIds()).toEqual([]);
     });
   });
 
@@ -211,6 +213,49 @@ describe('FilterStateService', () => {
       service.addBehavior(2);
       service.clearBehaviors();
       expect(service.selectedBehaviorIds()).toEqual([]);
+    });
+  });
+
+  describe('toggleBasisOfRecord', () => {
+    it('should add basisOfRecord id when not selected', () => {
+      service.toggleBasisOfRecord(1);
+      expect(service.selectedBasisOfRecordIds()).toEqual([1]);
+    });
+
+    it('should remove basisOfRecord id when already selected', () => {
+      service.toggleBasisOfRecord(1);
+      service.toggleBasisOfRecord(1);
+      expect(service.selectedBasisOfRecordIds()).toEqual([]);
+    });
+
+    it('should handle multiple selections', () => {
+      service.toggleBasisOfRecord(1);
+      service.toggleBasisOfRecord(2);
+      expect(service.selectedBasisOfRecordIds()).toEqual([1, 2]);
+    });
+  });
+
+  describe('addBasisOfRecord / removeBasisOfRecord', () => {
+    it('should add without duplicates', () => {
+      service.addBasisOfRecord(1);
+      service.addBasisOfRecord(1);
+      expect(service.selectedBasisOfRecordIds()).toEqual([1]);
+    });
+
+    it('should remove only the specified id', () => {
+      service.addBasisOfRecord(1);
+      service.addBasisOfRecord(2);
+      service.removeBasisOfRecord(1);
+      expect(service.selectedBasisOfRecordIds()).toEqual([2]);
+    });
+  });
+
+  describe('clearBasisOfRecords', () => {
+    it('should reset basisOfRecord selection to empty', () => {
+      service.addBasisOfRecord(1);
+      service.addBasisOfRecord(2);
+      service.clearBasisOfRecords();
+      expect(service.selectedBasisOfRecordIds()).toEqual([]);
     });
   });
 });

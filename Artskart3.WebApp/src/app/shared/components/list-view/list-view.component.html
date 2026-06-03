@@ -32,7 +32,7 @@
              <td>{{ obs.dateTimeCollected | localeDate }}</td>
              <td>{{ obs.locality }}</td>
              <td>{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
-             <td>{{ obs.municipalityId | areaName | async }}</td>
+             <td>{{ obs.municipalityId | areaName }}</td>
            </tr>
           } @empty {
            <tr>

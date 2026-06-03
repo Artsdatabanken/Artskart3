@@ -73,6 +73,19 @@
       "possiblereproductive": "Possible Reproductive",
       "reproductive": "Reproductive",
       "stationary": "Stationary"
+    },
+    "basisOfRecords": "Basis of Record",
+    "basisOfRecordName": {
+      "assessment": "Assessment",
+      "carcassobservation": "Carcass observation",
+      "fossil_specimen": "Fossil specimen",
+      "humanobservation": "Human observation",
+      "litteratur": "Literature",
+      "living_specimen": "Living specimen",
+      "machine_observation": "Machine observation",
+      "materialsample": "Material sample",
+      "objekt": "Occurrence",
+      "observasjon": "Observation"
     }
   },
   "pagination": {

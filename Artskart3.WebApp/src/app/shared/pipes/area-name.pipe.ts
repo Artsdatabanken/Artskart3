@@ -1,5 +1,4 @@
 import { Pipe, PipeTransform, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
 import { AreaService } from '../services/area/area.service';
 
 @Pipe({
@@ -8,17 +7,17 @@ import { AreaService } from '../services/area/area.service';
 export class AreaNamePipe implements PipeTransform {
   private readonly areaService = inject(AreaService);
 
-  transform(fid: string | null | undefined): Observable<string> {
-    if (!fid) return new Observable((sub) => sub.next(''));
+  transform(fid: string | null | undefined): string {
+    if (!fid) return '';
 
-    return this.areaService.getAreas().pipe(
-      map((areaTypes) => {
-        for (const type of areaTypes) {
-          const match = type.areas?.find((a) => a.fid === fid);
-          if (match?.name) return match.name;
-        }
-        return fid;
-      }),
-    );
+    const municipalities = this.areaService.municipalities();
+    const match = municipalities.find((a) => a.fid === fid);
+    if (match?.name) return match.name;
+
+    const counties = this.areaService.counties();
+    const countyMatch = counties.find((a) => a.fid === fid);
+    if (countyMatch?.name) return countyMatch.name;
+
+    return fid;
   }
 }

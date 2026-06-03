@@ -3,22 +3,17 @@ import {
   ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
-  computed,
   signal,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
-import { AreaService } from '../../services/area/area.service';
+import { AreaService, CountyGroup } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
 import { BehaviorService } from '../../services/behavior/behavior.service';
+import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { AreaDto, AreaTypeDto, BehaviorDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
-
-export interface CountyGroup {
-  county: AreaDto;
-  municipalities: AreaDto[];
-}
+import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
 
 @Component({
   selector: 'app-sidebar',
@@ -33,15 +28,12 @@ export class SidebarComponent {
   private readonly areaService = inject(AreaService);
   private readonly institutionService = inject(InstitutionService);
   private readonly behaviorService = inject(BehaviorService);
+  private readonly basisOfRecordService = inject(BasisOfRecordService);
   private readonly filterState = inject(FilterStateService);
   private readonly translate = inject(TranslateService);
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
-  });
-
-  readonly areasResource = rxResource<AreaTypeDto[], void>({
-    stream: () => this.areaService.getAreas(),
   });
 
   readonly institutionsResource = rxResource<InstitutionDto[], void>({
@@ -52,25 +44,15 @@ export class SidebarComponent {
     stream: () => this.behaviorService.getBehaviors(),
   });
 
+  readonly basisOfRecordsResource = rxResource<BasisOfRecordDto[], void>({
+    stream: () => this.basisOfRecordService.getBasisOfRecords(),
+  });
+
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
-
-  readonly countyGroups = computed<CountyGroup[]>(() => {
-    const areaTypes = this.areasResource.value();
-    if (!areaTypes) return [];
-
-    const countyType = areaTypes.find((t) => t.name === 'County');
-    const municipalityType = areaTypes.find((t) => t.name === 'Municipality');
-
-    const counties = (countyType?.areas ?? []).filter((a) => a.fid && a.isCurrent);
-    const municipalities = (municipalityType?.areas ?? []).filter((a) => a.fid && a.isCurrent);
-
-    return counties.map((county) => ({
-      county,
-      municipalities: municipalities.filter((m) => m.fid!.substring(0, 2) === county.fid),
-    }));
-  });
+  readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly countyGroups = this.areaService.countyGroups;
 
   isCategorySelected(id: number): boolean {
     return this.filterState.selectedCategoryIds().includes(id);
@@ -159,6 +141,21 @@ export class SidebarComponent {
     const key = 'sidebar.behaviorName.' + behavior.name;
     const translated = this.translate.instant(key);
     return translated !== key ? translated : (behavior.description ?? behavior.name);
+  }
+
+  isBasisOfRecordSelected(id: number): boolean {
+    return this.filterState.selectedBasisOfRecordIds().includes(id);
+  }
+
+  onBasisOfRecordToggle(id: number): void {
+    this.filterState.toggleBasisOfRecord(id);
+  }
+
+  getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
+    if (!basisOfRecord.name) return basisOfRecord.description ?? '';
+    const key = 'sidebar.basisOfRecordName.' + basisOfRecord.name;
+    const translated = this.translate.instant(key);
+    return translated !== key ? translated : (basisOfRecord.description ?? basisOfRecord.name);
   }
 
   // Coordinate precision filter
