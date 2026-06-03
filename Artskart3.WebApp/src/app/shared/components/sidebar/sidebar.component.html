@@ -121,6 +121,29 @@
       </div>
     </adb-accordion-item>
   </adb-accordion>
+  @if (behaviors(); as behaviorList) {
+    @if (behaviorList.length > 0) {
+      <adb-accordion>
+        <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+          <div class="behavior-children">
+            @for (behavior of behaviorList; track behavior.id ?? $index) {
+              @if (behavior.id !== undefined && behavior.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null"
+                  (change)="onBehaviorToggle(behavior.id)"
+                >
+                  {{ getBehaviorDisplayName(behavior) }}
+                  @if (behavior.observationCount !== null && behavior.observationCount !== undefined) {
+                    <span slot="counter">{{ behavior.observationCount }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        </adb-accordion-item>
+      </adb-accordion>
+    }
+  }
   @if (institutions(); as institutionList) {
     @if (institutionList.length > 0) {
       <adb-accordion>

@@ -33,6 +33,7 @@ export class ListViewComponent {
     this.filterState.selectedMunicipalityIds();
     this.filterState.selectedCountyIds();
     this.filterState.selectedInstitutionIds();
+    this.filterState.selectedBehaviorIds();
     this.filterState.coordinatePrecisionFrom();
     this.filterState.coordinatePrecisionTo();
     untracked(() => {
@@ -88,6 +89,7 @@ export class ListViewComponent {
       resultsPerPage: this.resultsPerPage(),
       risikokategoriIder: this.filterState.selectedCategoryIds(),
       organizationIds: this.filterState.selectedInstitutionIds(),
+      behaviorIds: this.filterState.selectedBehaviorIds(),
       countyIds: this.areaFilter().countyIds,
       municipalityIds: this.areaFilter().municipalityIds,
       coordinatePrecision: {
@@ -103,6 +105,7 @@ export class ListViewComponent {
         resultsPerPage: params.resultsPerPage ?? 10,
         risikokategoriIder: params.risikokategoriIder?.length ? params.risikokategoriIder : undefined,
         organizationIds: params.organizationIds?.length ? params.organizationIds : undefined,
+        behaviorIds: params.behaviorIds?.length ? params.behaviorIds : undefined,
         countyIds: params.countyIds?.length ? params.countyIds : undefined,
         municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
         coordinatePrecision: hasCoordinatePrecision ? params.coordinatePrecision : undefined,

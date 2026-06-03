@@ -113,16 +113,18 @@ describe('FilterStateService', () => {
   });
 
   describe('clearAll', () => {
-    it('should clear categories, counties, municipalities, and institutions', () => {
+    it('should clear categories, counties, municipalities, institutions, and behaviors', () => {
       service.toggleCategory(1);
       service.addCounty('03');
       service.addMunicipality('0301');
       service.addInstitution(5);
+      service.addBehavior(10);
       service.clearAll();
       expect(service.selectedCategoryIds()).toEqual([]);
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
       expect(service.selectedInstitutionIds()).toEqual([]);
+      expect(service.selectedBehaviorIds()).toEqual([]);
     });
   });
 
@@ -166,6 +168,49 @@ describe('FilterStateService', () => {
       service.addInstitution(2);
       service.clearInstitutions();
       expect(service.selectedInstitutionIds()).toEqual([]);
+    });
+  });
+
+  describe('toggleBehavior', () => {
+    it('should add behavior id when not selected', () => {
+      service.toggleBehavior(1);
+      expect(service.selectedBehaviorIds()).toEqual([1]);
+    });
+
+    it('should remove behavior id when already selected', () => {
+      service.toggleBehavior(1);
+      service.toggleBehavior(1);
+      expect(service.selectedBehaviorIds()).toEqual([]);
+    });
+
+    it('should handle multiple selections', () => {
+      service.toggleBehavior(1);
+      service.toggleBehavior(2);
+      expect(service.selectedBehaviorIds()).toEqual([1, 2]);
+    });
+  });
+
+  describe('addBehavior / removeBehavior', () => {
+    it('should add without duplicates', () => {
+      service.addBehavior(1);
+      service.addBehavior(1);
+      expect(service.selectedBehaviorIds()).toEqual([1]);
+    });
+
+    it('should remove only the specified id', () => {
+      service.addBehavior(1);
+      service.addBehavior(2);
+      service.removeBehavior(1);
+      expect(service.selectedBehaviorIds()).toEqual([2]);
+    });
+  });
+
+  describe('clearBehaviors', () => {
+    it('should reset behavior selection to empty', () => {
+      service.addBehavior(1);
+      service.addBehavior(2);
+      service.clearBehaviors();
+      expect(service.selectedBehaviorIds()).toEqual([]);
     });
   });
 });

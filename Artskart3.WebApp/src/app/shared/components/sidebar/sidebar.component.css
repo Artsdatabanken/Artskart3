@@ -105,7 +105,8 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   outline: none;
 }
 
-.institution-children {
+.institution-children,
+.behavior-children {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-2xsm);

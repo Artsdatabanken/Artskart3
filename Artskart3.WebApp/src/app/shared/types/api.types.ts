@@ -9,6 +9,7 @@ export type AreaTypeDto = components['schemas']['AreaTypeDto'];
 export type AreaDto = components['schemas']['AreaDto'];
 export type CoordinatePrecisionDto = components['schemas']['CoordinatePrecisionDto'];
 export type InstitutionDto = components['schemas']['InstitutionDto'];
+export type BehaviorDto = components['schemas']['BehaviorDto'];
 
 // Request DTOs
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];

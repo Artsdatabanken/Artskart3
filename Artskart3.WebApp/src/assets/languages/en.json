@@ -64,7 +64,16 @@
     "coordinatePrecisionFrom": "From",
     "coordinatePrecisionTo": "To",
     "coordinatePrecisionSearch": "Search",
-    "institutions": "Data Supplier"
+    "institutions": "Data Supplier",
+    "behaviors": "Habitat & Species Properties",
+    "behaviorName": {
+      "dead": "Dead",
+      "feeding": "Foraging",
+      "moving": "In transit",
+      "possiblereproductive": "Possible Reproductive",
+      "reproductive": "Reproductive",
+      "stationary": "Stationary"
+    }
   },
   "pagination": {
     "previous": "Previous",

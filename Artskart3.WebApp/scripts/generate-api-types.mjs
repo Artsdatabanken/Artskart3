@@ -17,7 +17,13 @@ const OUTPUT_FILE = path.resolve(__dirname, '../src/app/shared/types/api.generat
 const SWAGGER_URL = 'https://localhost:5088/swagger/v1/swagger.json';
 
 // Only generate types for these path prefixes (case-insensitive match)
-const INCLUDED_PATHS = ['/api/search/observation', '/api/lookup/categories', '/api/lookup/areas', '/api/lookup/institutions'];
+const INCLUDED_PATHS = [
+  '/api/search/observation',
+  '/api/lookup/categories',
+  '/api/lookup/areas',
+  '/api/lookup/institutions',
+  '/api/lookup/behaviors'
+];
 
 async function fetchSpec() {
   const response = await fetch(SWAGGER_URL);

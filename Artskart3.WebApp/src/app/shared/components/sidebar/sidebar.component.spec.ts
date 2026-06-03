@@ -35,6 +35,11 @@ describe('SidebarComponent', () => {
     { id: 2, name: 'NIBIO', code: 'NIBIO', observationCount: 50 },
   ];
 
+  const mockBehaviors = [
+    { id: 1, name: 'Terrestrisk', variants: null, observationCount: 200 },
+    { id: 2, name: 'Akvatisk', variants: null, observationCount: 150 },
+  ];
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SidebarComponent, TranslateModule.forRoot()],
@@ -53,6 +58,7 @@ describe('SidebarComponent', () => {
     httpTesting.expectOne('/api/Lookup/Categories').flush(mockCategoryTypes);
     httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaTypes);
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
+    httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -183,6 +189,31 @@ describe('SidebarComponent', () => {
       filterState.addInstitution(2);
       expect(component.isInstitutionSelected(2)).toBe(true);
       expect(component.isInstitutionSelected(99)).toBe(false);
+    });
+  });
+
+  describe('behavior filtering', () => {
+    it('should render behaviors accordion after load', async () => {
+      await flushAll();
+      const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
+      const behaviorItem = Array.from(accordionItems).find(
+        (el) => (el as Element).getAttribute('heading') === 'sidebar.behaviors',
+      );
+      expect(behaviorItem).toBeTruthy();
+    });
+
+    it('should toggle behavior in filter state', () => {
+      component.onBehaviorToggle(1);
+      expect(filterState.selectedBehaviorIds()).toEqual([1]);
+
+      component.onBehaviorToggle(1);
+      expect(filterState.selectedBehaviorIds()).toEqual([]);
+    });
+
+    it('should report isBehaviorSelected correctly', () => {
+      filterState.addBehavior(2);
+      expect(component.isBehaviorSelected(2)).toBe(true);
+      expect(component.isBehaviorSelected(99)).toBe(false);
     });
   });
 });

@@ -7,12 +7,13 @@ import {
   signal,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
 import { AreaService } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
+import { BehaviorService } from '../../services/behavior/behavior.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { AreaDto, AreaTypeDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
+import { AreaDto, AreaTypeDto, BehaviorDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
 
 export interface CountyGroup {
   county: AreaDto;
@@ -31,7 +32,9 @@ export class SidebarComponent {
   private readonly categoryService = inject(CategoryService);
   private readonly areaService = inject(AreaService);
   private readonly institutionService = inject(InstitutionService);
+  private readonly behaviorService = inject(BehaviorService);
   private readonly filterState = inject(FilterStateService);
+  private readonly translate = inject(TranslateService);
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -45,8 +48,13 @@ export class SidebarComponent {
     stream: () => this.institutionService.getInstitutions(),
   });
 
+  readonly behaviorsResource = rxResource<BehaviorDto[], void>({
+    stream: () => this.behaviorService.getBehaviors(),
+  });
+
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
+  readonly behaviors = this.behaviorsResource.value;
 
   readonly countyGroups = computed<CountyGroup[]>(() => {
     const areaTypes = this.areasResource.value();
@@ -136,6 +144,21 @@ export class SidebarComponent {
 
   onInstitutionToggle(id: number): void {
     this.filterState.toggleInstitution(id);
+  }
+
+  isBehaviorSelected(id: number): boolean {
+    return this.filterState.selectedBehaviorIds().includes(id);
+  }
+
+  onBehaviorToggle(id: number): void {
+    this.filterState.toggleBehavior(id);
+  }
+
+  getBehaviorDisplayName(behavior: BehaviorDto): string {
+    if (!behavior.name) return behavior.description ?? '';
+    const key = 'sidebar.behaviorName.' + behavior.name;
+    const translated = this.translate.instant(key);
+    return translated !== key ? translated : (behavior.description ?? behavior.name);
   }
 
   // Coordinate precision filter

@@ -64,7 +64,16 @@
     "coordinatePrecisionFrom": "Fra",
     "coordinatePrecisionTo": "Til",
     "coordinatePrecisionSearch": "Søk",
-    "institutions": "Dataleverandør"
+    "institutions": "Dataleverandør",
+    "behaviors": "Habitat- og Artsegenskaper",
+    "behaviorName": {
+      "dead": "Død",
+      "feeding": "Fødesøkende",
+      "moving": "Forflytning",
+      "possiblereproductive": "Mulig Reproduksjon",
+      "reproductive": "Reproduksjon",
+      "stationary": "Stasjonær"
+    }
   },
   "pagination": {
     "previous": "Forrige",
