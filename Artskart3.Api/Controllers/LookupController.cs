@@ -43,7 +43,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("Areas")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<AreaTypeDto>>> GetAreas(CancellationToken cancellationToken = default)
+        public async Task<ActionResult<AreaResponseDto>> GetAreas(CancellationToken cancellationToken = default)
         {
             try
             {

@@ -23,7 +23,7 @@ public class SearchControllerObservationTests
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(AsyncEnumerable(Array.Empty<ObservationDto>()));
+            .ReturnsAsync(new List<ObservationDto>());
 
         var result = await sut.GetObservations(null);
 
@@ -34,19 +34,19 @@ public class SearchControllerObservationTests
     public async Task GetObservations_WithoutPagination_ReturnsOkWithResults()
     {
         var sut = CreateSut();
-        var observations = new[]
+        var observations = new List<ObservationDto>
         {
             new ObservationDto { Id = 1, ScientificName = "Parus major" },
             new ObservationDto { Id = 2, ScientificName = "Passer domesticus" }
         };
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(AsyncEnumerable(observations));
+            .ReturnsAsync(observations);
 
         var result = await sut.GetObservations(new ObservationSearchFilterDto());
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeAssignableTo<IAsyncEnumerable<ObservationDto>>();
+            .Which.Value.Should().BeAssignableTo<IEnumerable<ObservationDto>>();
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class SearchControllerObservationTests
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(AsyncEnumerable(Array.Empty<ObservationDto>()));
+            .ReturnsAsync(new List<ObservationDto>());
 
         await sut.GetObservations(new ObservationSearchFilterDto());
 
@@ -100,7 +100,7 @@ public class SearchControllerObservationTests
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(new ReusableAsyncEnumerable<ObservationDto>(Array.Empty<ObservationDto>()));
+            .ReturnsAsync(new List<ObservationDto>());
 
         var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10 };
         var result = await sut.GetObservations(filter);
@@ -117,7 +117,7 @@ public class SearchControllerObservationTests
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(new ReusableAsyncEnumerable<ObservationDto>(Array.Empty<ObservationDto>()));
+            .ReturnsAsync(new List<ObservationDto>());
 
         var filter = new ObservationSearchFilterDto { PageNumber = 3, ResultsPerPage = 25 };
         var result = await sut.GetObservations(filter);
@@ -133,30 +133,4 @@ public class SearchControllerObservationTests
     // -----------------------------------------------------------------------
 
     private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);
-
-    private static async IAsyncEnumerable<T> AsyncEnumerable<T>(IEnumerable<T> items)
-    {
-        foreach (var item in items)
-        {
-            yield return item;
-            await Task.Yield();
-        }
-    }
-
-    /// <summary>
-    /// Supports multiple enumerations — required when the controller calls both
-    /// CountAsync() and Take() on the same IAsyncEnumerable instance.
-    /// </summary>
-    private sealed class ReusableAsyncEnumerable<T>(IEnumerable<T> items) : IAsyncEnumerable<T>
-    {
-        public async IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-        {
-            foreach (var item in items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                yield return item;
-                await Task.Yield();
-            }
-        }
-    }
 }

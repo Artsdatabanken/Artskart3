@@ -95,33 +95,37 @@ public class LookupControllerTests
     [Fact]
     public async Task GetAreas_ReturnsOkWithAreas()
     {
-        var areas = new List<AreaTypeDto>
+        var areaResponse = new AreaResponseDto
         {
-            new()
+            Counties = new CountyDto
+            {
+                FastlandsNorge = [new AreaDto { Id = 1, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
+            },
+            Municipalities = new AreaTypeDto
             {
                 Id = 1,
-                Name = "Fylke",
-                Areas = [new AreaDto { Id = 10, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
+                Name = "Kommune",
+                Areas = [new AreaDto { Id = 10, Fid = "0301", Name = "Oslo", IsCurrent = true, ObservationCount = 100 }]
             }
         };
-        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(areas);
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(areaResponse);
 
         var result = await _sut.GetAreas();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeEquivalentTo(areas);
+            .Which.Value.Should().BeEquivalentTo(areaResponse);
     }
 
     [Fact]
-    public async Task GetAreas_WhenServiceReturnsEmpty_ReturnsOkWithEmptyCollection()
+    public async Task GetAreas_WhenServiceReturnsEmptyResponse_ReturnsOkWithAreaResponseDto()
     {
-        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+        var emptyResponse = new AreaResponseDto();
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(emptyResponse);
 
         var result = await _sut.GetAreas();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeAssignableTo<IEnumerable<AreaTypeDto>>()
-            .Which.Should().BeEmpty();
+            .Which.Value.Should().BeOfType<AreaResponseDto>();
     }
 
     [Fact]
@@ -140,7 +144,7 @@ public class LookupControllerTests
     [Fact]
     public async Task GetAreas_CallsServiceOnce()
     {
-        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
+        _serviceMock.Setup(s => s.GetAreasAsync()).ReturnsAsync(new AreaResponseDto());
 
         await _sut.GetAreas();
 

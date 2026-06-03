@@ -117,15 +117,14 @@ namespace Artskart3.Api.Controllers
                 if (filter.ResultsPerPage < MinResults || filter.ResultsPerPage > MaxResults)
                     return BadRequest(new { error = $"ResultsPerPage must be between {MinResults} and {MaxResults}." });
 
-                var paginationResults = await _searchService.GetObservationsAsync(filter, cancellationToken);
+                var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
-                var lookaheadCount = await paginationResults.CountAsync(cancellationToken)/resultsPerPage;
                 var pagedResult = new PagedObservationResponseDto
                 {
-                    Items = paginationResults.Take(resultsPerPage),
+                    Items = allItems.Take(resultsPerPage),
                     PageNumber = filter.PageNumber!.Value,
-                    ResultsPerPage = filter.ResultsPerPage!.Value,
-                    LookaheadCount = lookaheadCount
+                    ResultsPerPage = resultsPerPage,
+                    LookaheadCount = allItems.Count / resultsPerPage
                 };
 
                 return Ok(pagedResult);

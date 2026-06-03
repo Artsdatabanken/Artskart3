@@ -77,30 +77,27 @@ public class LookupServiceTests
     [Fact]
     public async Task GetAreasAsync_ReturnsResultFromRepository()
     {
-        var expected = new List<AreaTypeDto>
-        {
-            new()
-            {
-                Id = 1,
-                Name = "Fylke",
-                Areas = [new AreaDto { Id = 10, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
-            }
-        };
-        _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync(expected);
+        var countyArea = new AreaDto { Id = 1, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 };
+        var municipalityType = new AreaTypeDto { Id = 1, Name = "Kommune", Areas = [new AreaDto { Id = 10, Fid = "0301", Name = "Oslo", IsCurrent = true }] };
+        var countyType = new AreaTypeDto { Id = 2, Name = "Fylke", Areas = [countyArea] };
+        _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync([municipalityType, countyType]);
 
         var result = await _sut.GetAreasAsync();
 
-        result.Should().BeEquivalentTo(expected);
+        result.Municipalities.Should().BeEquivalentTo(municipalityType);
+        result.Counties!.FastlandsNorge.Should().ContainSingle().Which.Fid.Should().Be("03");
     }
 
     [Fact]
-    public async Task GetAreasAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
+    public async Task GetAreasAsync_WhenRepositoryReturnsEmpty_ReturnsAreaResponseDtoWithNullAreas()
     {
         _repositoryMock.Setup(r => r.GetAreasAsync()).ReturnsAsync(Enumerable.Empty<AreaTypeDto>());
 
         var result = await _sut.GetAreasAsync();
 
-        result.Should().BeEmpty();
+        result.Should().NotBeNull();
+        result.Municipalities.Should().BeNull();
+        result.Counties!.FastlandsNorge.Should().BeNullOrEmpty();
     }
 
     [Fact]

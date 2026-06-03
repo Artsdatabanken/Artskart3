@@ -54,13 +54,17 @@ public class SlowQueryLoggingFilter : IAsyncActionFilter
             }
             else if (context.ActionArguments.Count > 0)
             {
+                var serializableArgs = context.ActionArguments
+                    .Where(kvp => kvp.Value is not CancellationToken)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                 try
                 {
-                    requestBody = System.Text.Json.JsonSerializer.Serialize(context.ActionArguments);
+                    requestBody = System.Text.Json.JsonSerializer.Serialize(serializableArgs);
                 }
                 catch
                 {
-                    // Ignore serialization failures for logging
+                    requestBody = System.Text.Json.JsonSerializer.Serialize(
+                        serializableArgs.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.GetType().Name ?? "null"));
                 }
             }
 

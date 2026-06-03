@@ -130,7 +130,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         }
 
 
-        public async IAsyncEnumerable<ObservationDto> GetObservationsAsync(ObservationSearchFilterDto filter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
         {
             var query = _context.Set<Observation>()
                                 .AsNoTracking();
@@ -241,7 +241,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Take(DefaultMaxSearchResults);
             }
 
-            var projectedQuery = query.Select(o => new ObservationDto
+            return await query.Select(o => new ObservationDto
             {
                 Id = o.Id,
                 PreferredPopularName = o.Taxon.PreferredPopularName,
@@ -262,12 +262,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 CategoryId = o.CategoryId,
                 DateTimeCollected = o.DateTimeCollected,
                 CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
-            });
-
-            await foreach (var dto in projectedQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
-            {
-                yield return dto;
-            }
+            }).ToListAsync(cancellationToken);
         }
 
 

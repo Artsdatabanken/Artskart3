@@ -506,8 +506,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -545,8 +545,8 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         // Filter by the outdated Fid — should return nothing because the area is not current
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["0301"] });
 
         results.Should().BeEmpty();
     }
@@ -575,8 +575,8 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         // Filter by the county's Fid — should return nothing because it's not a municipality area
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { MunicipalityIds = ["03"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { MunicipalityIds = ["03"] });
 
         results.Should().BeEmpty();
     }
@@ -603,8 +603,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CountyIds = ["03"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["03"] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -640,8 +640,8 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         // Filter by the outdated Fid — should return nothing because the area is not current
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CountyIds = ["03"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["03"] });
 
         results.Should().BeEmpty();
     }
@@ -670,8 +670,8 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         // Filter by the municipality's Fid as a county filter — should return nothing because it's not a county area
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CountyIds = ["0301"] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CountyIds = ["0301"] });
 
         results.Should().BeEmpty();
     }
@@ -699,8 +699,8 @@ public class SearchRepositoryTests
         context.Set<OrganizationRelation>().Add(relation);
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { OrganizationIds = [1] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { OrganizationIds = [1] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -730,8 +730,8 @@ public class SearchRepositoryTests
         context.Set<OrganizationRelation>().Add(relation);
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { OrganizationIds = [1] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { OrganizationIds = [1] });
 
         results.Should().BeEmpty();
     }
@@ -747,8 +747,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(2, locationId: 0, categoryId: 10));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { RisikokategoriIder = [5] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { RisikokategoriIder = [5] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -763,8 +763,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(1, locationId: 0, categoryId: 10));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { RisikokategoriIder = [5] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { RisikokategoriIder = [5] });
 
         results.Should().BeEmpty();
     }
@@ -780,8 +780,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(2, locationId: 0, basisOfRecordId: 10));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { BasisOfRecordIds = [5] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BasisOfRecordIds = [5] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -796,8 +796,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(1, locationId: 0, basisOfRecordId: 10));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { BasisOfRecordIds = [5] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BasisOfRecordIds = [5] });
 
         results.Should().BeEmpty();
     }
@@ -817,8 +817,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(2, locationId: 0));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { BehaviorIds = [3] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BehaviorIds = [3] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -835,8 +835,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { BehaviorIds = [3] }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { BehaviorIds = [3] });
 
         results.Should().BeEmpty();
     }
@@ -852,8 +852,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(2, locationId: 0, coordinatePrecisionInMeters: 10));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 25 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 25 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -869,8 +869,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(2, locationId: 0, coordinatePrecisionInMeters: 200));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -887,8 +887,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().Add(CreateObservation(3, locationId: 0, coordinatePrecisionInMeters: 500));
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -907,8 +907,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().AddRange(obs1, obs2);
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -927,8 +927,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().AddRange(obs1, obs2);
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { Period = new PeriodDto { To = 2023 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { To = 2023 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -949,8 +949,8 @@ public class SearchRepositoryTests
         context.Set<Observation>().AddRange(obs1, obs2, obs3);
         await context.SaveChangesAsync();
 
-        var results = await ToListAsync(sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020, To = 2023 } }));
+        var results = await sut.GetObservationsAsync(
+            new ObservationSearchFilterDto { Period = new PeriodDto { From = 2020, To = 2023 } });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }

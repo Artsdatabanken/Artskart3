@@ -123,12 +123,7 @@ X-CSRF: 1
 Content-Type: application/json
 
 {
-  "taxonGroupIds": [1, 2],
-  "organizationIds": [10, 20],
-  "risikokategoriIder": [1, 2],
-  "municipalityIds": ["301", "302", "303"],
-  "behaviorIds": [1, 2],
-  "basisOfRecordIds": [1, 2]
+  "organizationIds": [1997]
 }
 
 ### Search observation, paginated

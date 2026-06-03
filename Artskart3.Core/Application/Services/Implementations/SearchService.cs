@@ -37,11 +37,11 @@ namespace Artskart3.Core.Application.Services.Implementations
         }
 
 
-        public async Task<IAsyncEnumerable<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+        public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
         {
             try
             {
-                return _searchRepository.GetObservationsAsync(filter, cancellationToken);
+                return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
             }
             catch (ApplicationException ex)
             {
