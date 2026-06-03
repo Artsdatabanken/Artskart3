@@ -167,8 +167,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             if(filter.OrganizationIds?.Any() == true)
             {
                 query = query.Where(o => o.OrganizationRelations
-                                          .Any(x => x.Organization.OrganizationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution 
-                                               && filter.OrganizationIds.Contains(x.OrganizationId)));
+                                          .Any(x => filter.OrganizationIds.Contains(x.OrganizationId)));
             }
 
             if(filter.RisikokategoriIder?.Any() == true)

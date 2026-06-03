@@ -706,19 +706,17 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ExcludesObservationLinkedToNonInstitutionOrg()
+    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationRegardlessOfOrgType()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        // Organisation of type Collection, not Institution — must NOT match
         var org = new Organization
         {
             Id = 1, Name = "SomeCollection",
             OrganizationTypeId = (int)Core.Domain.Enums.OrganizationType.Collection,
             DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow
         };
-        // RelationTypeId = 1 (same int as Institution) — old code would have matched this
         var relation = new OrganizationRelation
         {
             Id = 1, ObservationId = 1, OrganizationId = 1, RelationTypeId = 1
@@ -733,7 +731,7 @@ public class SearchRepositoryTests
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { OrganizationIds = [1] });
 
-        results.Should().BeEmpty();
+        results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
 
     [Fact]

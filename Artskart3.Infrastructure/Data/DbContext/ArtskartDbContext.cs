@@ -124,6 +124,8 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.Fid, "IX_Fid");
 
+            entity.HasIndex(e => new { e.AreaTypeId, e.Fid, e.IsCurrent }, "IX_Area_AreaTypeId_Fid_IsCurrent");
+
             entity.HasIndex(e => e.ParentFid, "IX_ParentFid");
 
             entity.HasIndex(e => e.Name, "NonClusteredIndex-20180305-111522");
@@ -376,6 +378,7 @@ namespace Artskart3.Infrastructure.Data
                         j.HasIndex(new[] { "AreaId" }, "IX_AreaId");
                         j.HasIndex(new[] { "LocationId" }, "IX_LocationId");
                         j.HasIndex(new[] { "LocationId", "AreaId" }, "IX_LocationIdArea");
+                        j.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
                     });
         });
 
@@ -701,6 +704,8 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.OrganizationId, "IX_OrganizationId");
 
             entity.HasIndex(e => e.RelationTypeId, "IX_RelationTypeId");
+
+            entity.HasIndex(e => new { e.OrganizationId, e.ObservationId }, "IX_OrganizationRelation_OrgId_ObsId");
 
             entity.HasOne(d => d.Observation).WithMany(p => p.OrganizationRelations)
                 .HasForeignKey(d => d.ObservationId)
