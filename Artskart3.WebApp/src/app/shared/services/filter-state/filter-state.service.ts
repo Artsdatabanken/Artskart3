@@ -7,6 +7,7 @@ export class FilterStateService {
   readonly selectedCategoryIds = signal<number[]>([]);
   readonly selectedCountyIds = signal<string[]>([]);
   readonly selectedMunicipalityIds = signal<string[]>([]);
+  readonly selectedInstitutionIds = signal<number[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
 
@@ -65,6 +66,27 @@ export class FilterStateService {
     });
   }
 
+  toggleInstitution(id: number): void {
+    this.selectedInstitutionIds.update((ids) =>
+      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
+    );
+  }
+
+  addInstitution(id: number): void {
+    this.selectedInstitutionIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  removeInstitution(id: number): void {
+    this.selectedInstitutionIds.update((ids) => {
+      if (!ids.includes(id)) return ids;
+      return ids.filter((i) => i !== id);
+    });
+  }
+
+  clearInstitutions(): void {
+    this.selectedInstitutionIds.set([]);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
@@ -83,6 +105,7 @@ export class FilterStateService {
   clearAll(): void {
     this.clearCategories();
     this.clearAreas();
+    this.clearInstitutions();
     this.clearCoordinatePrecision();
   }
 }

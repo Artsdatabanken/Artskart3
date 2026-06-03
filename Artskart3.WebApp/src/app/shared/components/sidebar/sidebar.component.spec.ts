@@ -30,6 +30,11 @@ describe('SidebarComponent', () => {
     },
   ];
 
+  const mockInstitutions = [
+    { id: 1, name: 'NINA', code: 'NINA', observationCount: 100 },
+    { id: 2, name: 'NIBIO', code: 'NIBIO', observationCount: 50 },
+  ];
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SidebarComponent, TranslateModule.forRoot()],
@@ -47,6 +52,7 @@ describe('SidebarComponent', () => {
   async function flushAll() {
     httpTesting.expectOne('/api/Lookup/Categories').flush(mockCategoryTypes);
     httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaTypes);
+    httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -152,6 +158,31 @@ describe('SidebarComponent', () => {
       filterState.addMunicipality('0301');
       expect(component.isMunicipalitySelected('0301')).toBe(true);
       expect(component.isMunicipalitySelected('0602')).toBe(false);
+    });
+  });
+
+  describe('institution filtering', () => {
+    it('should render institutions accordion after load', async () => {
+      await flushAll();
+      const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
+      const institutionItem = Array.from(accordionItems).find(
+        (el) => (el as Element).getAttribute('heading') === 'sidebar.institutions',
+      );
+      expect(institutionItem).toBeTruthy();
+    });
+
+    it('should toggle institution in filter state', () => {
+      component.onInstitutionToggle(1);
+      expect(filterState.selectedInstitutionIds()).toEqual([1]);
+
+      component.onInstitutionToggle(1);
+      expect(filterState.selectedInstitutionIds()).toEqual([]);
+    });
+
+    it('should report isInstitutionSelected correctly', () => {
+      filterState.addInstitution(2);
+      expect(component.isInstitutionSelected(2)).toBe(true);
+      expect(component.isInstitutionSelected(99)).toBe(false);
     });
   });
 });

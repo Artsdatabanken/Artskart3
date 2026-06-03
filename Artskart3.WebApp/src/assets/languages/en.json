@@ -63,7 +63,8 @@
     "coordinatePrecision": "Coordinate Precision",
     "coordinatePrecisionFrom": "From",
     "coordinatePrecisionTo": "To",
-    "coordinatePrecisionSearch": "Search"
+    "coordinatePrecisionSearch": "Search",
+    "institutions": "Data Supplier"
   },
   "pagination": {
     "previous": "Previous",

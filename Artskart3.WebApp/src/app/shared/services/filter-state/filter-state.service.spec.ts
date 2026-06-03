@@ -113,14 +113,59 @@ describe('FilterStateService', () => {
   });
 
   describe('clearAll', () => {
-    it('should clear categories, counties, and municipalities', () => {
+    it('should clear categories, counties, municipalities, and institutions', () => {
       service.toggleCategory(1);
       service.addCounty('03');
       service.addMunicipality('0301');
+      service.addInstitution(5);
       service.clearAll();
       expect(service.selectedCategoryIds()).toEqual([]);
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
+      expect(service.selectedInstitutionIds()).toEqual([]);
+    });
+  });
+
+  describe('toggleInstitution', () => {
+    it('should add institution id when not selected', () => {
+      service.toggleInstitution(1);
+      expect(service.selectedInstitutionIds()).toEqual([1]);
+    });
+
+    it('should remove institution id when already selected', () => {
+      service.toggleInstitution(1);
+      service.toggleInstitution(1);
+      expect(service.selectedInstitutionIds()).toEqual([]);
+    });
+
+    it('should handle multiple selections', () => {
+      service.toggleInstitution(1);
+      service.toggleInstitution(2);
+      expect(service.selectedInstitutionIds()).toEqual([1, 2]);
+    });
+  });
+
+  describe('addInstitution / removeInstitution', () => {
+    it('should add without duplicates', () => {
+      service.addInstitution(1);
+      service.addInstitution(1);
+      expect(service.selectedInstitutionIds()).toEqual([1]);
+    });
+
+    it('should remove only the specified id', () => {
+      service.addInstitution(1);
+      service.addInstitution(2);
+      service.removeInstitution(1);
+      expect(service.selectedInstitutionIds()).toEqual([2]);
+    });
+  });
+
+  describe('clearInstitutions', () => {
+    it('should reset institution selection to empty', () => {
+      service.addInstitution(1);
+      service.addInstitution(2);
+      service.clearInstitutions();
+      expect(service.selectedInstitutionIds()).toEqual([]);
     });
   });
 });

@@ -104,3 +104,9 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   box-shadow: 0 0 0 1px var(--adb-border-accent, #005A71);
   outline: none;
 }
+
+.institution-children {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-2xsm);
+}

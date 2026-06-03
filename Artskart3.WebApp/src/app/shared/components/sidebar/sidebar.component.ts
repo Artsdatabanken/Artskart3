@@ -10,8 +10,9 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
 import { AreaService } from '../../services/area/area.service';
+import { InstitutionService } from '../../services/institution/institution.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { AreaDto, AreaTypeDto, CategoryTypeDto } from '../../types/api.types';
+import { AreaDto, AreaTypeDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
 
 export interface CountyGroup {
   county: AreaDto;
@@ -29,6 +30,7 @@ export interface CountyGroup {
 export class SidebarComponent {
   private readonly categoryService = inject(CategoryService);
   private readonly areaService = inject(AreaService);
+  private readonly institutionService = inject(InstitutionService);
   private readonly filterState = inject(FilterStateService);
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
@@ -39,7 +41,12 @@ export class SidebarComponent {
     stream: () => this.areaService.getAreas(),
   });
 
+  readonly institutionsResource = rxResource<InstitutionDto[], void>({
+    stream: () => this.institutionService.getInstitutions(),
+  });
+
   readonly categoryTypes = this.categoriesResource.value;
+  readonly institutions = this.institutionsResource.value;
 
   readonly countyGroups = computed<CountyGroup[]>(() => {
     const areaTypes = this.areasResource.value();
@@ -121,6 +128,14 @@ export class SidebarComponent {
     } else {
       municipalityFids.forEach((fid) => this.filterState.addMunicipality(fid));
     }
+  }
+
+  isInstitutionSelected(id: number): boolean {
+    return this.filterState.selectedInstitutionIds().includes(id);
+  }
+
+  onInstitutionToggle(id: number): void {
+    this.filterState.toggleInstitution(id);
   }
 
   // Coordinate precision filter

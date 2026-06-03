@@ -121,4 +121,27 @@
       </div>
     </adb-accordion-item>
   </adb-accordion>
+  @if (institutions(); as institutionList) {
+    @if (institutionList.length > 0) {
+      <adb-accordion>
+        <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+          <div class="institution-children">
+            @for (institution of institutionList; track institution.id ?? $index) {
+              @if (institution.id !== undefined && institution.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isInstitutionSelected(institution.id) ? '' : null"
+                  (change)="onInstitutionToggle(institution.id)"
+                >
+                  {{ institution.name }}
+                  @if (institution.observationCount !== null && institution.observationCount !== undefined) {
+                    <span slot="counter">{{ institution.observationCount }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        </adb-accordion-item>
+      </adb-accordion>
+    }
+  }
 </div>

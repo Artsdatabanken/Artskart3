@@ -69,6 +69,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Institutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InstitutionDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/Observation": {
         parameters: {
             query?: never;
@@ -125,6 +160,14 @@ export interface components {
             id?: number;
             name?: string | null;
             areas?: components["schemas"]["AreaDto"][] | null;
+        };
+        InstitutionDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
+            code?: string | null;
+            /** Format: int32 */
+            observationCount?: number | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */

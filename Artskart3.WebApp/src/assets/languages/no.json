@@ -63,7 +63,8 @@
     "coordinatePrecision": "Koordinatpresisjon",
     "coordinatePrecisionFrom": "Fra",
     "coordinatePrecisionTo": "Til",
-    "coordinatePrecisionSearch": "Søk"
+    "coordinatePrecisionSearch": "Søk",
+    "institutions": "Dataleverandør"
   },
   "pagination": {
     "previous": "Forrige",
