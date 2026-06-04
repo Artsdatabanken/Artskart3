@@ -20,10 +20,11 @@ namespace Artskart3.Infrastructure.Migrations
                 table: "LocationAreas",
                 columns: new[] { "AreaId", "LocationId" });
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Area_AreaTypeId_Fid_IsCurrent",
-                table: "Area",
-                columns: new[] { "AreaTypeId", "Fid", "IsCurrent" });
+            migrationBuilder.Sql(@"
+                CREATE NONCLUSTERED INDEX [IX_Area_AreaTypeId_Fid_IsCurrent]
+                ON [Area] ([AreaTypeId], [Fid], [IsCurrent])
+                INCLUDE ([Id]);
+            ");
         }
 
         /// <inheritdoc />

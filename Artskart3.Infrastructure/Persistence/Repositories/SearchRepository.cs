@@ -177,18 +177,32 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
 
             if(filter.MunicipalityIds?.Any() == true)
             {
-                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x => 
-                    x.IsCurrent == true &&
-                    x.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality &&
-                    filter.MunicipalityIds.Contains(x.Fid)));
+                var locationIds = await _context.Set<Area>()
+                    .AsNoTracking()
+                    .Where(a => a.IsCurrent
+                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality
+                        && filter.MunicipalityIds.Contains(a.Fid))
+                    .SelectMany(a => a.Locations)
+                    .Select(l => l.Id)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
             }
 
             if(filter.CountyIds?.Any() == true)
             {
-                query = query.Where(o => o.Location != null && o.Location.Areas.Any(x =>
-                    x.IsCurrent == true &&
-                    x.AreaTypeId == (int)Core.Domain.Enums.AreaType.County &&
-                    filter.CountyIds.Contains(x.Fid)));
+                var locationIds = await _context.Set<Area>()
+                    .AsNoTracking()
+                    .Where(a => a.IsCurrent
+                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.County
+                        && filter.CountyIds.Contains(a.Fid))
+                    .SelectMany(a => a.Locations)
+                    .Select(l => l.Id)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
             }
 
             if(filter.BehaviorIds?.Any() == true)
