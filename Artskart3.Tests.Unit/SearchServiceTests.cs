@@ -98,7 +98,7 @@ public class SearchServiceTests
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WhenRepositoryThrows_WrapsInApplicationException()
+    public async Task GetLocationsAsync_WhenRepositoryThrows_ExceptionPropagates()
     {
         _repositoryMock
             .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
@@ -106,7 +106,7 @@ public class SearchServiceTests
 
         var act = () => _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        await act.Should().ThrowAsync<ApplicationException>();
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // -----------------------------------------------------------------------

@@ -3,7 +3,6 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -11,30 +10,20 @@ namespace Artskart3.Tests.Unit;
 public class LookupControllerTests
 {
     private readonly Mock<ILookupService> _serviceMock;
-    private readonly Mock<ILogger<LookupController>> _loggerMock;
     private readonly LookupController _sut;
 
     public LookupControllerTests()
     {
         _serviceMock = new Mock<ILookupService>();
-        _loggerMock = new Mock<ILogger<LookupController>>();
-        _sut = new LookupController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new LookupController(_serviceMock.Object);
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLookupServiceIsNull()
     {
-        var act = () => new LookupController(null!, _loggerMock.Object);
+        var act = () => new LookupController(null!);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("lookupService");
-    }
-
-    [Fact]
-    public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
-    {
-        var act = () => new LookupController(_serviceMock.Object, null!);
-
-        act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
     [Fact]
@@ -70,16 +59,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetCategories_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetCategories_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetCategoriesAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetCategories();
+        var act = () => _sut.GetCategories();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -129,16 +117,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetAreas_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetAreas_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetAreasAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetAreas();
+        var act = () => _sut.GetAreas();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -179,16 +166,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetInstitutions_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetInstitutions_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetInstitutionsAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetInstitutions();
+        var act = () => _sut.GetInstitutions();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -229,16 +215,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetTaxonGroups_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetTaxonGroups_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetTaxonGroupsAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetTaxonGroups();
+        var act = () => _sut.GetTaxonGroups();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -279,16 +264,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetBehaviors_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetBehaviors_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetBehaviorsAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetBehaviors();
+        var act = () => _sut.GetBehaviors();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -329,16 +313,15 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetBasisOfRecords_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetBasisOfRecords_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetBasisOfRecordsAsync())
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.GetBasisOfRecords();
+        var act = () => _sut.GetBasisOfRecords();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]

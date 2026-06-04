@@ -66,29 +66,15 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task SearchTaxons_WhenServiceThrowsApplicationException_Returns503()
-    {
-        _serviceMock
-            .Setup(s => s.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
-            .ThrowsAsync(new ApplicationException("Service unavailable"));
-
-        var result = await _sut.SearchTaxons("parus");
-
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
-    }
-
-    [Fact]
-    public async Task SearchTaxons_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task SearchTaxons_WhenServiceThrows_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.SearchTaxons("parus");
+        var act = () => _sut.SearchTaxons("parus");
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // -----------------------------------------------------------------------
@@ -149,29 +135,15 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task GetLocations_WhenServiceThrowsApplicationException_Returns503()
+    public async Task GetLocations_WhenServiceThrows_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ThrowsAsync(new ApplicationException("DB error"));
 
-        var result = await _sut.GetLocations(new LocationSearchFilterDto());
+        var act = () => _sut.GetLocations(new LocationSearchFilterDto());
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
-    }
-
-    [Fact]
-    public async Task GetLocations_WhenServiceThrowsUnexpectedException_Returns500()
-    {
-        _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ThrowsAsync(new Exception("Unexpected"));
-
-        var result = await _sut.GetLocations(new LocationSearchFilterDto());
-
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<ApplicationException>();
     }
 
     // -----------------------------------------------------------------------
@@ -195,28 +167,14 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task GetAreas_WhenServiceThrowsApplicationException_Returns503()
+    public async Task GetAreas_WhenServiceThrows_ExceptionPropagates()
     {
         _serviceMock
             .Setup(s => s.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
             .ThrowsAsync(new ApplicationException("Service error"));
 
-        var result = await _sut.GetAreas();
+        var act = () => _sut.GetAreas();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
-    }
-
-    [Fact]
-    public async Task GetAreas_WhenServiceThrowsUnexpectedException_Returns500()
-    {
-        _serviceMock
-            .Setup(s => s.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
-            .ThrowsAsync(new Exception("Unexpected error"));
-
-        var result = await _sut.GetAreas();
-
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<ApplicationException>();
     }
 }

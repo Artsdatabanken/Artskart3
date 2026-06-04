@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
@@ -7,6 +8,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -57,7 +59,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance);
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         await SeedTestDataAsync();
     }

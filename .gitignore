@@ -68,3 +68,10 @@ BenchmarkDotNet.Artifacts/
 
 # Test Results
 TestResults/
+
+# AI
+.claude/
+.copilot/
+.cursor/
+.aider/
+.codeium/
