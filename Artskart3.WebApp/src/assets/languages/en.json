@@ -64,6 +64,10 @@
     "coordinatePrecisionFrom": "From",
     "coordinatePrecisionTo": "To",
     "coordinatePrecisionSearch": "Search",
+    "period": "Period",
+    "periodFrom": "From year",
+    "periodTo": "To year",
+    "periodSearch": "Search",
     "institutions": "Data Supplier",
     "behaviors": "Habitat & Species Properties",
     "behaviorName": {

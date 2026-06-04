@@ -121,6 +121,41 @@
       </div>
     </adb-accordion-item>
   </adb-accordion>
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.period' | translate">
+      <div class="coordinate-precision-filter">
+        <div class="coordinate-precision-inputs">
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.periodFrom' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              class="coordinate-precision-input"
+              placeholder="1800"
+              [value]="periodFromInput()"
+              (input)="onPeriodFromChange($event)"
+            />
+          </label>
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.periodTo' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              class="coordinate-precision-input"
+              placeholder="2026"
+              [value]="periodToInput()"
+              (input)="onPeriodToChange($event)"
+            />
+          </label>
+        </div>
+        <adb-button variant="secondary" size="md" (click)="onApplyPeriod()">
+          {{ 'sidebar.periodSearch' | translate }}
+        </adb-button>
+      </div>
+    </adb-accordion-item>
+  </adb-accordion>
   @if (behaviors(); as behaviorList) {
     @if (behaviorList.length > 0) {
       <adb-accordion>

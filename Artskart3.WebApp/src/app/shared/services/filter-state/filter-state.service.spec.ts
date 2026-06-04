@@ -258,4 +258,36 @@ describe('FilterStateService', () => {
       expect(service.selectedBasisOfRecordIds()).toEqual([]);
     });
   });
+
+  describe('setPeriod', () => {
+    it('should set period from and to values', () => {
+      service.setPeriod(1900, 2020);
+      expect(service.periodFrom()).toBe(1900);
+      expect(service.periodTo()).toBe(2020);
+    });
+
+    it('should allow null values', () => {
+      service.setPeriod(1900, null);
+      expect(service.periodFrom()).toBe(1900);
+      expect(service.periodTo()).toBeNull();
+    });
+  });
+
+  describe('clearPeriod', () => {
+    it('should reset period to null', () => {
+      service.setPeriod(1900, 2020);
+      service.clearPeriod();
+      expect(service.periodFrom()).toBeNull();
+      expect(service.periodTo()).toBeNull();
+    });
+  });
+
+  describe('clearAll', () => {
+    it('should also clear period', () => {
+      service.setPeriod(1900, 2020);
+      service.clearAll();
+      expect(service.periodFrom()).toBeNull();
+      expect(service.periodTo()).toBeNull();
+    });
+  });
 });

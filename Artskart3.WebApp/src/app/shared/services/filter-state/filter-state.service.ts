@@ -12,6 +12,8 @@ export class FilterStateService {
   readonly selectedBasisOfRecordIds = signal<number[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
+  readonly periodFrom = signal<number | null>(null);
+  readonly periodTo = signal<number | null>(null);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -146,6 +148,16 @@ export class FilterStateService {
     this.coordinatePrecisionTo.set(null);
   }
 
+  setPeriod(from: number | null, to: number | null): void {
+    this.periodFrom.set(from);
+    this.periodTo.set(to);
+  }
+
+  clearPeriod(): void {
+    this.periodFrom.set(null);
+    this.periodTo.set(null);
+  }
+
   clearAll(): void {
     this.clearCategories();
     this.clearAreas();
@@ -153,5 +165,6 @@ export class FilterStateService {
     this.clearBehaviors();
     this.clearBasisOfRecords();
     this.clearCoordinatePrecision();
+    this.clearPeriod();
   }
 }

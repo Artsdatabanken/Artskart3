@@ -64,6 +64,10 @@
     "coordinatePrecisionFrom": "Fra",
     "coordinatePrecisionTo": "Til",
     "coordinatePrecisionSearch": "Søk",
+    "period": "Periode",
+    "periodFrom": "Fra år",
+    "periodTo": "Til år",
+    "periodSearch": "Søk",
     "institutions": "Dataleverandør",
     "behaviors": "Habitat- og Artsegenskaper",
     "behaviorName": {

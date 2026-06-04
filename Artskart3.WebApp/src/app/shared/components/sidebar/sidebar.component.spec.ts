@@ -245,4 +245,61 @@ describe('SidebarComponent', () => {
       expect(component.isBasisOfRecordSelected(99)).toBe(false);
     });
   });
+
+  describe('period filtering', () => {
+    it('should render period accordion', async () => {
+      await flushAll();
+      const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
+      const periodItem = Array.from(accordionItems).find(
+        (el) => (el as Element).getAttribute('heading') === 'sidebar.period',
+      );
+      expect(periodItem).toBeTruthy();
+    });
+
+    it('should filter non-numeric characters from period from input', () => {
+      const event = { target: { value: '19abc00' } } as unknown as Event;
+      component.onPeriodFromChange(event);
+      expect(component.periodFromInput()).toBe('1900');
+      expect((event.target as HTMLInputElement).value).toBe('1900');
+    });
+
+    it('should filter non-numeric characters from period to input', () => {
+      const event = { target: { value: '20x26' } } as unknown as Event;
+      component.onPeriodToChange(event);
+      expect(component.periodToInput()).toBe('2026');
+      expect((event.target as HTMLInputElement).value).toBe('2026');
+    });
+
+    it('should limit period input to 4 characters', () => {
+      const event = { target: { value: '19001' } } as unknown as Event;
+      component.onPeriodFromChange(event);
+      expect(component.periodFromInput()).toBe('1900');
+    });
+
+    it('should apply period to filter state', () => {
+      component.periodFromInput.set('1900');
+      component.periodToInput.set('2020');
+      component.onApplyPeriod();
+      expect(filterState.periodFrom()).toBe(1900);
+      expect(filterState.periodTo()).toBe(2020);
+    });
+
+    it('should swap values when from > to', () => {
+      component.periodFromInput.set('2020');
+      component.periodToInput.set('1900');
+      component.onApplyPeriod();
+      expect(filterState.periodFrom()).toBe(1900);
+      expect(filterState.periodTo()).toBe(2020);
+      expect(component.periodFromInput()).toBe('1900');
+      expect(component.periodToInput()).toBe('2020');
+    });
+
+    it('should allow empty values (null)', () => {
+      component.periodFromInput.set('');
+      component.periodToInput.set('2020');
+      component.onApplyPeriod();
+      expect(filterState.periodFrom()).toBeNull();
+      expect(filterState.periodTo()).toBe(2020);
+    });
+  });
 });

@@ -78,6 +78,10 @@ export class SidebarComponent {
 
   onClearFilter(): void {
     this.filterState.clearAll();
+    this.coordinatePrecisionFromInput.set('');
+    this.coordinatePrecisionToInput.set('');
+    this.periodFromInput.set('');
+    this.periodToInput.set('');
   }
 
   onTypeToggle(type: CategoryTypeDto): void {
@@ -193,5 +197,42 @@ export class SidebarComponent {
     }
 
     this.filterState.setCoordinatePrecision(from, to);
+  }
+
+  // Period filter
+  readonly periodFromInput = signal('');
+  readonly periodToInput = signal('');
+
+  onPeriodFromChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const filtered = input.value.replace(/\D/g, '').slice(0, 4);
+    input.value = filtered;
+    this.periodFromInput.set(filtered);
+  }
+
+  onPeriodToChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const filtered = input.value.replace(/\D/g, '').slice(0, 4);
+    input.value = filtered;
+    this.periodToInput.set(filtered);
+  }
+
+  onApplyPeriod(): void {
+    const fromStr = this.periodFromInput().trim();
+    const toStr = this.periodToInput().trim();
+
+    let from = fromStr === '' ? null : Number(fromStr);
+    let to = toStr === '' ? null : Number(toStr);
+
+    if (fromStr !== '' && (!Number.isInteger(from) || from! < 0)) return;
+    if (toStr !== '' && (!Number.isInteger(to) || to! < 0)) return;
+
+    if (from != null && to != null && from > to) {
+      [from, to] = [to, from];
+      this.periodFromInput.set(String(from));
+      this.periodToInput.set(String(to));
+    }
+
+    this.filterState.setPeriod(from, to);
   }
 }

@@ -34,6 +34,8 @@ export class ListViewComponent {
     this.filterState.selectedBasisOfRecordIds();
     this.filterState.coordinatePrecisionFrom();
     this.filterState.coordinatePrecisionTo();
+    this.filterState.periodFrom();
+    this.filterState.periodTo();
     untracked(() => {
       if (this.pageNumber() !== 1) {
         this.pageNumber.set(1);
@@ -57,10 +59,16 @@ export class ListViewComponent {
         from: this.filterState.coordinatePrecisionFrom(),
         to: this.filterState.coordinatePrecisionTo(),
       },
+      period: {
+        from: this.filterState.periodFrom(),
+        to: this.filterState.periodTo(),
+      },
     }),
     stream: ({ params }) => {
       const hasCoordinatePrecision =
         params.coordinatePrecision?.from != null || params.coordinatePrecision?.to != null;
+      const hasPeriod =
+        params.period?.from != null || params.period?.to != null;
       const filter: ObservationSearchFilter = {
         pageNumber: params.pageNumber ?? 1,
         resultsPerPage: params.resultsPerPage ?? 10,
@@ -71,6 +79,7 @@ export class ListViewComponent {
         countyIds: params.countyIds?.length ? params.countyIds : undefined,
         municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
         coordinatePrecision: hasCoordinatePrecision ? params.coordinatePrecision : undefined,
+        period: hasPeriod ? params.period : undefined,
       };
       return this.observationService.searchObservations(filter);
     },
