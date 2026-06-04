@@ -46,13 +46,7 @@ public class SlowQueryLoggingFilter : IAsyncActionFilter
             var requestPath = context.HttpContext.Request.Path + context.HttpContext.Request.QueryString;
 
             string? requestBody = null;
-            if (context.HttpContext.Request.Method == "POST" && context.HttpContext.Request.Body.CanSeek)
-            {
-                context.HttpContext.Request.Body.Position = 0;
-                using var reader = new StreamReader(context.HttpContext.Request.Body, Encoding.UTF8, leaveOpen: true);
-                requestBody = await reader.ReadToEndAsync();
-            }
-            else if (context.ActionArguments.Count > 0)
+            if (context.ActionArguments.Count > 0)
             {
                 var serializableArgs = context.ActionArguments
                     .Where(kvp => kvp.Value is not CancellationToken)

@@ -10,11 +10,9 @@ namespace Artskart3.Core.Application.DTOs
 
         public int[]? TaxonGroupIds { get; set; }
 
-        public int[]? RisikokategoriIder { get; set; }
+        public int[]? CategoryIds { get; set; }
 
         public int[]? OrganizationIds { get; set; }
-
-        public string? Locality { get; set; }
 
         public string[]? MunicipalityIds { get; set; }
 

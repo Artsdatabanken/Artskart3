@@ -1,6 +1,7 @@
-﻿using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Api.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -35,26 +36,21 @@ namespace Artskart3.Api.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                return BadRequest("Name parameter is required.");
+
+            if (maxCount < MinResults || maxCount > MaxTaxonCount)
+                return BadRequest($"Max count must be between {MinResults} and {MaxTaxonCount}.");
+
             try
             {
-                if (string.IsNullOrWhiteSpace(name))
-                    return BadRequest("Name parameter is required.");
-
-                if (maxCount < MinResults || maxCount > MaxTaxonCount)
-                    return BadRequest($"Max count must be between {MinResults} and {MaxTaxonCount}.");
-
                 var taxons = await _searchService.GetTaxonsAsync(name, maxCount, cancellationToken);
                 return Ok(taxons);
             }
-            catch (ApplicationException ex)
-            {
-                _logger.LogWarning(ex, "Application error searching taxons with name: {TaxonName}", name);
-                return StatusCode(503, new { error = "An error occurred while searching taxa. Please try again later." });
-            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error searching taxons with name: {TaxonName}", name);
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Feil ved søk etter takson med navn: {TaxonName}", name);
+                throw; // håndteres av global filter
             }
         }
 
@@ -67,33 +63,29 @@ namespace Artskart3.Api.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<string>> GetLocations([FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
         {
+            filter = filter ?? new LocationSearchFilterDto();
+
+            if (filter.MaxResults < MinResults || filter.MaxResults > MaxResults)
+            {
+                return BadRequest(new { error = $"MaxResults must be between {MinResults} and {MaxResults}." });
+            }
+
+            if (filter.CoordinatePrecisionFrom > 0 && filter.CoordinatePrecisionTo > 0 && filter.CoordinatePrecisionFrom > filter.CoordinatePrecisionTo)
+            {
+                return BadRequest(new { error = "CoordinatePrecisionFrom must be less than or equal to CoordinatePrecisionTo." });
+            }
+
+            _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
+
             try
             {
-                filter = filter ?? new LocationSearchFilterDto();
-
-                if (filter.MaxResults < MinResults || filter.MaxResults > MaxResults)
-                {
-                    return BadRequest(new { error = $"MaxResults must be between {MinResults} and {MaxResults}." });
-                }
-                
-                if (filter.CoordinatePrecisionFrom > 0 && filter.CoordinatePrecisionTo > 0 && filter.CoordinatePrecisionFrom > filter.CoordinatePrecisionTo)
-                {
-                    return BadRequest(new { error = "CoordinatePrecisionFrom must be less than or equal to CoordinatePrecisionTo." });
-                }               
-
-                _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
                 var result = await _searchService.GetLocationsAsync(filter, cancellationToken);
                 return Content(result, "application/json");
             }
-            catch (ApplicationException ex)
-            {
-                _logger.LogWarning(ex, "Application error retrieving locations");
-                return StatusCode(503, new { error = "An error occurred while retrieving locations. Please try again later." });
-            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error retrieving locations");
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Feil ved henting av lokasjoner med MaxResults: {MaxResults}", filter.MaxResults);
+                throw; // håndteres av global filter
             }
         }
 
@@ -116,22 +108,33 @@ namespace Artskart3.Api.Controllers
 
                 if (filter.ResultsPerPage < MinResults || filter.ResultsPerPage > MaxResults)
                     return BadRequest(new { error = $"ResultsPerPage must be between {MinResults} and {MaxResults}." });
-
-                var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
-                var resultsPerPage = filter.ResultsPerPage!.Value;
-                var pagedResult = new PagedObservationResponseDto
-                {
-                    Items = allItems.Take(resultsPerPage),
-                    PageNumber = filter.PageNumber!.Value,
-                    ResultsPerPage = resultsPerPage,
-                    LookaheadCount = allItems.Count / resultsPerPage
-                };
-
-                return Ok(pagedResult);
             }
 
-            var results = await _searchService.GetObservationsAsync(filter, cancellationToken);
-            return Ok(results);
+            try
+            {
+                if (filter.IsPaginated)
+                {
+                    var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
+                    var resultsPerPage = filter.ResultsPerPage!.Value;
+                    var pagedResult = new PagedObservationResponseDto
+                    {
+                        Items = allItems.Take(resultsPerPage),
+                        PageNumber = filter.PageNumber!.Value,
+                        ResultsPerPage = resultsPerPage,
+                        LookaheadCount = (allItems.Count / resultsPerPage) - 1
+                    };
+
+                    return Ok(pagedResult);
+                }
+
+                var results = await _searchService.GetObservationsAsync(filter, cancellationToken);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Feil ved henting av observasjoner med filter: {@Filter}", filter);
+                throw; // håndteres av global filter
+            }
         }
 
         /// <summary>
@@ -143,18 +146,13 @@ namespace Artskart3.Api.Controllers
         {
             try
             {
-                var areas = await _searchService.GetAreasByTypeIdsAsync([1, 2], cancellationToken); // This Hard coded need to be changed when we have more area types and want to filter by them. For now we just want all areas of type 1 and 2.
+                var areas = await _searchService.GetAreasByTypeIdsAsync([(int)AreaType.Municipality, (int)AreaType.County], cancellationToken);
                 return Ok(areas.ToArray());
-            }
-            catch (ApplicationException ex)
-            {
-                _logger.LogWarning(ex, "Application error retrieving areas");
-                return StatusCode(503, new { error = "An error occurred while retrieving areas. Please try again later." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error retrieving areas: {ExceptionMessage}", ex.Message);
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Feil ved henting av områder");
+                throw; // håndteres av global filter
             }
         }
     }

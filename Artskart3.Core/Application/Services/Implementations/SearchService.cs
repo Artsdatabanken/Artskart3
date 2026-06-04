@@ -19,38 +19,16 @@ namespace Artskart3.Core.Application.Services.Implementations
 
         public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                filter = filter ?? new LocationSearchFilterDto();
-                
-                var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
-                return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg, cancellationToken);
-            }
-            catch (ApplicationException ex)
-            {
-                throw new ApplicationException("An error occurred while processing your location search request.", ex);
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("An error occurred while processing your location search request.", ex);
-            }
+            filter = filter ?? new LocationSearchFilterDto();
+
+            var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
+            return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg, cancellationToken);
         }
 
 
         public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
-            }
-            catch (ApplicationException ex)
-            {
-                throw new ApplicationException("An error occurred while processing observation search request.", ex);
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("An error occurred while processing observation search request.", ex);
-            }
+            return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
         }
 
 

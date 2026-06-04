@@ -54,13 +54,13 @@ Content-Type: application/json
   "organizationIds": [1301, 1305, 3100]
 }
 
-### Search observation, filter on multiple RisikokategoriIder
+### Search observation, filter on multiple CategoryIds
 POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1
 Content-Type: application/json
 
 {
-  "risikokategoriIder": [1, 2, 3]
+  "categoryIds": [1, 2, 3]
 }
 
 ### Search observation, filter on multiple MunicipalityIds
@@ -78,7 +78,7 @@ X-CSRF: 1
 Content-Type: application/json
 
 {
-  "countyIds": ["03", "11", "15"]
+  "countyIds": ["15"]
 }
 
 ### Search observation, filter on multiple BehaviorIds

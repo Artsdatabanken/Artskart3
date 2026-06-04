@@ -9,6 +9,7 @@ using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
 using Artskart3.Api.Configuration;
 using Artskart3.Api.Filters;
+using Artskart3.Core.Application.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,7 +92,10 @@ try
         }
     });
 
-    builder.Services.AddControllers().AddJsonOptions(options =>
+    builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<GlobalExceptionFilter>();
+    }).AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
@@ -157,6 +161,7 @@ try
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
+    builder.Services.Configure<PaginationOptions>(builder.Configuration.GetSection(PaginationOptions.SectionName));
     builder.Services.AddScoped<SlowQueryLoggingFilter>();
 
     logger.LogInformation("Configuring health checks...");

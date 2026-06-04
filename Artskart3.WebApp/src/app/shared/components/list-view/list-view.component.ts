@@ -47,7 +47,7 @@ export class ListViewComponent {
     params: () => ({
       pageNumber: this.pageNumber(),
       resultsPerPage: this.resultsPerPage(),
-      risikokategoriIder: this.filterState.selectedCategoryIds(),
+      categoryIds: this.filterState.selectedCategoryIds(),
       organizationIds: this.filterState.selectedInstitutionIds(),
       behaviorIds: this.filterState.selectedBehaviorIds(),
       basisOfRecordIds: this.filterState.selectedBasisOfRecordIds(),
@@ -64,7 +64,7 @@ export class ListViewComponent {
       const filter: ObservationSearchFilter = {
         pageNumber: params.pageNumber ?? 1,
         resultsPerPage: params.resultsPerPage ?? 10,
-        risikokategoriIder: params.risikokategoriIder?.length ? params.risikokategoriIder : undefined,
+        categoryIds: params.categoryIds?.length ? params.categoryIds : undefined,
         organizationIds: params.organizationIds?.length ? params.organizationIds : undefined,
         behaviorIds: params.behaviorIds?.length ? params.behaviorIds : undefined,
         basisOfRecordIds: params.basisOfRecordIds?.length ? params.basisOfRecordIds : undefined,

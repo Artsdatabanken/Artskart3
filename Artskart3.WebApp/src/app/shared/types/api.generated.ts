@@ -267,7 +267,7 @@ export interface components {
             scientificName?: string | null;
             author?: string | null;
             taxonGroupIds?: number[] | null;
-            risikokategoriIder?: number[] | null;
+            categoryIds?: number[] | null;
             organizationIds?: number[] | null;
             locality?: string | null;
             municipalityIds?: string[] | null;

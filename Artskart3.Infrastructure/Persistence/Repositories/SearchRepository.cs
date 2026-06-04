@@ -1,10 +1,13 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NetTopologySuite.IO;
 using System;
 using System.Collections.Generic;
@@ -22,14 +25,16 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         private const int DefaultMaxLocations = 1000;
         private const int MaxLocations = 10000;
         private const string SqlWildcard = "%";
-        
+
         private readonly IArtsKartDbContext _context;
         private readonly ILogger<SearchRepository> _logger;
+        private readonly PaginationOptions _paginationOptions;
 
-        public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger)
+        public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _paginationOptions = paginationOptions.Value;
         }
         /// <summary>
         /// Searches for taxa by name using a three-level matching strategy:
@@ -138,25 +143,20 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             //Where clauses
             if (!string.IsNullOrEmpty(filter.PreferredPopularName))
             {
-                var popularNamePattern = SqlWildcard + filter.PreferredPopularName + SqlWildcard;
+                var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
                 query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
             }
 
             if (!string.IsNullOrEmpty(filter.ScientificName))
             {
-                var scientificNamePattern = SqlWildcard + filter.ScientificName + SqlWildcard;
+                var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
                 query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
             }
 
             if (!string.IsNullOrEmpty(filter.Author))
             {
-                var authorPattern = SqlWildcard + filter.Author + SqlWildcard;
+                var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
                 query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
-            }
-
-            if (!string.IsNullOrEmpty(filter.Locality))
-            {
-                query = query.Where(o => EF.Functions.Like(o.Location.Locality, filter.Locality));
             }
 
             if (filter.TaxonGroupIds?.Any() == true)
@@ -170,9 +170,9 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                                           .Any(x => filter.OrganizationIds.Contains(x.OrganizationId)));
             }
 
-            if(filter.RisikokategoriIder?.Any() == true)
+            if(filter.CategoryIds?.Any() == true)
             {
-                query = query.Where(o => o.CategoryId != null && filter.RisikokategoriIder.Contains(o.CategoryId.Value));
+                query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
             }
 
             if(filter.MunicipalityIds?.Any() == true)
@@ -232,8 +232,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 {
                     query = query.Skip(skip);
                 }
-                // todo: fix so that *4 below is read from a constant somewhere
-                query = query.Take(filter.ResultsPerPage!.Value * 4);
+                query = query.Take(filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier);
             }
             else
             {
@@ -383,11 +382,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             {
                 throw new ApplicationException("A database error occurred while retrieving locations. Please try again later.", ex);
             }
-            catch (OperationCanceledException ex)
-            {
-                throw new ApplicationException("The location search operation was cancelled. Please try again.", ex);
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
             }

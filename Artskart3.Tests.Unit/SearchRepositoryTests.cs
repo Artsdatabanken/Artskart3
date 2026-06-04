@@ -735,7 +735,7 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithRisikokategoriIderFilter_ReturnsMatchingObservation()
+    public async Task GetObservationsAsync_WithCategoryIdsFilter_ReturnsMatchingObservation()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
@@ -746,13 +746,13 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { RisikokategoriIder = [5] });
+            new ObservationSearchFilterDto { CategoryIds = [5] });
 
         results.Should().ContainSingle().Which.Id.Should().Be(1);
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithRisikokategoriIderFilter_ExcludesObservationsWithOtherCategories()
+    public async Task GetObservationsAsync_WithCategoryIdsFilter_ExcludesObservationsWithOtherCategories()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
@@ -762,7 +762,7 @@ public class SearchRepositoryTests
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
-            new ObservationSearchFilterDto { RisikokategoriIder = [5] });
+            new ObservationSearchFilterDto { CategoryIds = [5] });
 
         results.Should().BeEmpty();
     }
