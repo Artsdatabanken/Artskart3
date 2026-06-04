@@ -175,64 +175,44 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
             }
 
-            if(filter.MunicipalityIds?.Any() == true)
+            // Områdefiltre kombineres med OR: en observasjon vises hvis den
+            // tilhører minst ett av de valgte områdene, uavhengig av type.
+            HashSet<int>? areaLocationIds = null;
+
+            async Task UnionAreaLocationsAsync(Core.Domain.Enums.AreaType areaType, string[] fids)
             {
-                var locationIds = await _context.Set<Area>()
+                var ids = await _context.Set<Area>()
                     .AsNoTracking()
                     .Where(a => a.IsCurrent
-                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality
-                        && filter.MunicipalityIds.Contains(a.Fid))
+                        && a.AreaTypeId == (int)areaType
+                        && fids.Contains(a.Fid))
                     .SelectMany(a => a.Locations)
                     .Select(l => l.Id)
                     .Distinct()
                     .ToListAsync(cancellationToken);
 
-                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
+                if (areaLocationIds == null)
+                    areaLocationIds = new HashSet<int>(ids);
+                else
+                    areaLocationIds.UnionWith(ids);
             }
 
-            if(filter.CountyIds?.Any() == true)
+            if (filter.MunicipalityIds?.Any() == true)
+                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.Municipality, filter.MunicipalityIds);
+
+            if (filter.CountyIds?.Any() == true)
+                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.County, filter.CountyIds);
+
+            if (filter.RestrictedAreaIds?.Any() == true)
+                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.RestrictedArea, filter.RestrictedAreaIds);
+
+            if (filter.OceanAreaIds?.Any() == true)
+                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.OceanArea, filter.OceanAreaIds);
+
+            if (areaLocationIds != null)
             {
-                var locationIds = await _context.Set<Area>()
-                    .AsNoTracking()
-                    .Where(a => a.IsCurrent
-                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.County
-                        && filter.CountyIds.Contains(a.Fid))
-                    .SelectMany(a => a.Locations)
-                    .Select(l => l.Id)
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
-            }
-
-            if(filter.RestrictedAreaIds?.Any() == true)
-            {
-                var locationIds = await _context.Set<Area>()
-                    .AsNoTracking()
-                    .Where(a => a.IsCurrent
-                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.RestrictedArea
-                        && filter.RestrictedAreaIds.Contains(a.Fid))
-                    .SelectMany(a => a.Locations)
-                    .Select(l => l.Id)
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
-            }
-
-            if(filter.OceanAreaIds?.Any() == true)
-            {
-                var locationIds = await _context.Set<Area>()
-                    .AsNoTracking()
-                    .Where(a => a.IsCurrent
-                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.OceanArea
-                        && filter.OceanAreaIds.Contains(a.Fid))
-                    .SelectMany(a => a.Locations)
-                    .Select(l => l.Id)
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
+                var locationIdList = areaLocationIds.ToList();
+                query = query.Where(o => locationIdList.Contains(o.LocationId!.Value));
             }
 
             if(filter.BehaviorIds?.Any() == true)
