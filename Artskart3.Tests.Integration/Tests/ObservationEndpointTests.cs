@@ -89,4 +89,30 @@ public class ObservationEndpointTests : IAsyncLifetime
         doc.RootElement.TryGetProperty("resultsPerPage", out var resultsPerPage).Should().BeTrue();
         resultsPerPage.GetInt32().Should().Be(10);
     }
+
+    [Fact]
+    public async Task GetObservations_WithRestrictedAreaFilter_Returns200WithJsonArray()
+    {
+        var filter = new ObservationSearchFilterDto { RestrictedAreaIds = ["1"] };
+
+        var response = await _client.PostAsJsonAsync("/api/Search/Observation", filter);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetObservations_WithOceanAreaFilter_Returns200WithJsonArray()
+    {
+        var filter = new ObservationSearchFilterDto { OceanAreaIds = ["1"] };
+
+        var response = await _client.PostAsJsonAsync("/api/Search/Observation", filter);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
 }

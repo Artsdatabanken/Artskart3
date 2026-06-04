@@ -81,6 +81,24 @@ Content-Type: application/json
   "countyIds": ["15"]
 }
 
+### Search observation, filter on multiple RestrictedAreaIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "restrictedAreaIds": ["1", "2"]
+}
+
+### Search observation, filter on multiple OceanAreaIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "oceanAreaIds": ["1", "2"]
+}
+
 ### Search observation, filter on multiple BehaviorIds
 POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
 X-CSRF: 1

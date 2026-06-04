@@ -205,6 +205,36 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
             }
 
+            if(filter.RestrictedAreaIds?.Any() == true)
+            {
+                var locationIds = await _context.Set<Area>()
+                    .AsNoTracking()
+                    .Where(a => a.IsCurrent
+                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.RestrictedArea
+                        && filter.RestrictedAreaIds.Contains(a.Fid))
+                    .SelectMany(a => a.Locations)
+                    .Select(l => l.Id)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
+            }
+
+            if(filter.OceanAreaIds?.Any() == true)
+            {
+                var locationIds = await _context.Set<Area>()
+                    .AsNoTracking()
+                    .Where(a => a.IsCurrent
+                        && a.AreaTypeId == (int)Core.Domain.Enums.AreaType.OceanArea
+                        && filter.OceanAreaIds.Contains(a.Fid))
+                    .SelectMany(a => a.Locations)
+                    .Select(l => l.Id)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                query = query.Where(o => locationIds.Contains(o.LocationId!.Value));
+            }
+
             if(filter.BehaviorIds?.Any() == true)
             {
                 query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));

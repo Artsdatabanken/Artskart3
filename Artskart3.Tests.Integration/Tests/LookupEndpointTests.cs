@@ -49,4 +49,79 @@ public class LookupEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
     }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/BasisOfRecords
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetBasisOfRecords_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/BasisOfRecords");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Behaviors
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetBehaviors_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Behaviors");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Institutions
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInstitutions_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Institutions");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Areas
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreas_Returns200WithJsonObject()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Areas");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/TaxonGroups
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetTaxonGroups_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/TaxonGroups");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
 }
