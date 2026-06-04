@@ -2,63 +2,10 @@
   position: relative;
 }
 
-.map-control-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  width: 40px;
-  aspect-ratio: 1/1;
-  padding: var(--adb-spacing-xsm, 8px);
-  background-color: var(--adb-background-default, white);
-  border: 1px solid var(--adb-border-default);
+adb-icon-button {
   border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.map-control-icon:hover {
-  background-color: #0066a1;
-  border-color: #0066a1;
-  box-shadow: 0 2px 6px rgba(0, 102, 161, 0.2);
-}
-
-.map-control-icon svg {
-  width: 20px;
-  height: 20px;
-  color: var(--adb-text-primary, #005A71);
-  transition: color 0.2s ease;
-}
-
-.map-control-icon:hover svg {
-  color: var(--adb-background-default, white);
-}
-
-.map-control-icon:active {
-  background-color: #0066a1;
-  border-color: #0066a1;
-  transform: scale(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset;
-}
-
-.map-control-icon:active svg {
-  color: var(--adb-background-default, white);
-}
-
-.map-control-icon:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 90, 113, 0.15);
-}
-
-.map-control-icon[aria-pressed="true"] {
-  background-color: #0066a1;
-  border-color: #0066a1;
-  box-shadow: 0 2px 6px rgba(0, 102, 161, 0.2);
-}
-
-.map-control-icon[aria-pressed="true"] svg {
-  color: var(--adb-background-default, white);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --adb-focus-outer: #262F31;
 }
 
 .map-types-dropdown {
@@ -85,68 +32,4 @@
   font-size: var(--adb-font-size-2, 14px);
   font-weight: var(--adb-font-weight-bold, 700);
   line-height: 120%;
-}
-
-.map-types-list {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  padding-left: 0;
-  gap: var(--adb-spacing-xsm, 8px);
-}
-
-.map-type-option {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  gap: var(--adb-spacing-xsm, 8px);
-  padding: 0 var(--adb-spacing-xsm, 8px);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.map-type-option:hover {
-  opacity: 0.85;
-}
-
-.map-type-radio {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  aspect-ratio: 1 / 1;
-  padding: 0;
-  margin: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--adb-background-default, white);
-  border: 2px solid #0066a1;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.map-type-radio:hover {
-  border-color: #004c7a;
-}
-
-.map-type-radio:checked {
-  background: var(--adb-background-default, white);
-  border-color: #0066a1;
-  box-shadow: inset 0 0 0 4px #0066a1;
-}
-
-.map-type-radio:focus {
-  outline: 2px solid #0066a1;
-  outline-offset: 2px;
-}
-
-.map-type-label {
-  color: #0066a1;
-  font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-1, 13px);
-  font-weight: var(--adb-font-weight-regular, 400);
-  line-height: 160%;
-  user-select: none;
-  cursor: pointer;
-  transition: color 0.2s ease;
 }
