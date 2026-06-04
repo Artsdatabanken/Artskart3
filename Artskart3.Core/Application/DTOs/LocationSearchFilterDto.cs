@@ -1,20 +1,19 @@
 using System;
-using System.Collections.Generic;
 
 namespace Artskart3.Core.Application.DTOs
 {
     public class LocationSearchFilterDto
     {
-        public string? TaxonGroupIds { get; set; }
+        public int[]? TaxonGroupIds { get; set; }
 
-        public string? Categories { get; set; }
+        public int[]? Categories { get; set; }
 
-        public string? BasisOfRecords { get; set; }
+        public int[]? BasisOfRecords { get; set; }
 
         /// <summary>
-        /// Comma-separated list of CollectionIds (InstitutionCodes) to filter by
+        /// Array of CollectionIds (InstitutionCodes) to filter by
         /// </summary>
-        public string? CollectionIds { get; set; }
+        public string[]? CollectionIds { get; set; }
 
         /// <summary>
         /// Minimum coordinate precision in meters (0 = no filter)
@@ -34,6 +33,6 @@ namespace Artskart3.Core.Application.DTOs
         /// <summary>
         /// Maximum number of locations to return (default: 1000, max: 10000)
         /// </summary>
-        public int MaxResults { get; set; } = 1000;
+        public int MaxResults { get; set; } = 1000000;
     }
 }

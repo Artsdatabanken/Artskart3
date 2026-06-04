@@ -7,6 +7,6 @@ namespace Artskart3.Core.Application.Services.Interfaces
     {
         Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20);
         Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null);
-        Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds);
+        Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel);
     }
 }

@@ -18,8 +18,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         private const int DefaultMaxSearchResults = 20;
         private const int MinValidMaxCount = 1;
         private const int MaxValidMaxCount = 1000;
-        private const int DefaultMaxLocations = 1000;
-        private const int MaxLocations = 10000;
+        private const int DefaultMaxLocations = 20000;
+        private const int MaxLocations = 200000;
         private const string SqlWildcard = "%";
         
         private readonly IArtsKartDbContext _context;
@@ -148,89 +148,13 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             {
                 filter ??= new LocationSearchFilterDto();
 
-                // Hvorfor bruker vi ikke arrays i LocationSearchFilterDto?
-                // Dette er noe vi styrer selv, så unødvendig å bruke kommaseparert liste for så å ha egen kode for å lage en liste av dem
-                var taxonGroupIds = ParseIntList(filter.TaxonGroupIds);
-                var categories = ParseIntList(filter.Categories);
-                var basisOfRecords = ParseIntList(filter.BasisOfRecords);
-                var collectionIds = ParseStringList(filter.CollectionIds);
-
-                var query = _context.Set<Observation>()
-                    .AsNoTracking();
-
-                if (taxonGroupIds.Any())
-                {
-                    query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
-                }
-
-                if (collectionIds.Any())
-                {
-                    query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
-                }
-
-                if (categories.Any())
-                {
-                    query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
-                }
-
-                if (basisOfRecords.Any())
-                {
-                    query = query.Where(o => basisOfRecords.Contains(o.BasisOfRecordId));
-                }
-
-                if (filter.CoordinatePrecisionFrom > 0)
-                {
-                    query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
-                }
-
-                if (filter.CoordinatePrecisionTo > 0)
-                {
-                    query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
-                }
-
-                var maxResults = filter.MaxResults > 0 && filter.MaxResults <= MaxLocations ? filter.MaxResults : DefaultMaxLocations;
-
-                var aggregatedData = await query
-                    .Where(o => o.LocationId != null)
-                    .GroupBy(o => o.LocationId!.Value)
-                    .Select(g => new
-                    {
-                        LocationId = g.Key,
-                        ObservationCount = g.Count()
-                    })
-                    .OrderByDescending(x => x.ObservationCount)
-                    .Take(maxResults)
-                    .ToListAsync();
+                var query = BuildLocationsQuery(filter);
+                var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults);
 
                 if (aggregatedData.Count == 0)
                     return [];
 
-                var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
-
-                var locationLookup = await _context.Set<Location>()
-                    .Where(l => locationIds.Contains(l.Id))
-                    .AsNoTracking()
-                    .ToDictionaryAsync(l => l.Id);
-
-                var locationModels = new List<LocationModel>(aggregatedData.Count);
-
-                foreach (var item in aggregatedData)
-                {
-                    if (locationLookup.TryGetValue(item.LocationId, out var location))
-                    {
-                        locationModels.Add(new LocationModel
-                        {
-                            Id = location.Id,
-                            Locality = location.Locality ?? string.Empty,
-                            Latitude = location.Latitude ?? 0,
-                            Longitude = location.Longitude ?? 0,
-                            East = location.East,
-                            North = location.North,
-                            CoordinatePrecision = location.CoordinatePrecision,
-                            ObservationCount = item.ObservationCount
-                        });
-                    }
-                }
+                var locationModels = await BuildLocationModels(aggregatedData);
 
                 _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
 
@@ -254,67 +178,147 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             }
         }
 
+        private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+        {
+            var query = _context.Set<Observation>().AsNoTracking();
+
+            if (filter.CollectionIds?.Any() == true)
+            {
+                var collectionIds = filter.CollectionIds.ToList();
+                query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
+            }
+
+            if (filter.Categories?.Any() == true)
+            {
+                var categories = filter.Categories.ToList();
+                query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
+            }
+
+            if (filter.BasisOfRecords?.Any() == true)
+            {
+                var basisOfRecords = filter.BasisOfRecords.ToList();
+                query = query.Where(o => basisOfRecords.Contains(o.BasisOfRecordId));
+            }
+
+            if (filter.CoordinatePrecisionFrom > 0)
+            {
+                query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
+            }
+
+            if (filter.CoordinatePrecisionTo > 0)
+            {
+                query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
+            }
+
+            return query;
+        }
+
+        private async Task<List<AggregatedLocationData>> AggregateLocationObservations(
+            IQueryable<Observation> query,
+            int requestedMaxResults)
+        {
+            var maxResults = requestedMaxResults > 0 && requestedMaxResults <= MaxLocations
+                ? requestedMaxResults
+                : DefaultMaxLocations;
+
+            return await query
+                .Where(o => o.LocationId != null)
+                .GroupBy(o => new { o.LocationId!.Value, o.TaxonId })
+                .Select(g => new AggregatedLocationData
+                {
+                    LocationId = g.Key.Value,
+                    TaxonId = g.Key.TaxonId,
+                    ObservationCount = g.Count()
+                })
+                .OrderByDescending(x => x.ObservationCount)
+                .Take(maxResults)
+                .ToListAsync();
+        }
+
+        private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData)
+        {
+            var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
+
+            var locationLookup = await _context.Set<Location>()
+                .Where(l => locationIds.Contains(l.Id))
+                .AsNoTracking()
+                .ToDictionaryAsync(l => l.Id);
+
+            var locationModels = new List<LocationModel>(aggregatedData.Count);
+
+            foreach (var item in aggregatedData)
+            {
+                if (locationLookup.TryGetValue(item.LocationId, out var location))
+                {
+                    locationModels.Add(MapLocationToModel(location, item));
+                }
+            }
+
+            return locationModels;
+        }
+        private static LocationModel MapLocationToModel(Location location, AggregatedLocationData aggregatedData)
+        {
+            return new LocationModel
+            {
+                Id = location.Id,
+                Locality = location.Locality ?? string.Empty,
+                Latitude = location.Latitude ?? 0,
+                Longitude = location.Longitude ?? 0,
+                East = location.East,
+                North = location.North,
+                CoordinatePrecision = location.CoordinatePrecision,
+                TaxonId = aggregatedData.TaxonId,
+                ObservationCount = aggregatedData.ObservationCount
+            };
+        }
+
+        private class AggregatedLocationData
+        {
+            public int LocationId { get; set; }
+            public int? TaxonId { get; set; }
+            public int ObservationCount { get; set; }
+        }
+
         /// <summary>
         /// Retrieves all area markers (counties/municipalities) grouped by name with aggregated observation counts.
-        /// Returns one centroid per area name in WKT POINT format: POINT(easting northing) in UTM Zone 33N.
+        /// Returns one polygon per area name in WKT POLYGON format in UTM Zone 33N.
         /// Area types: 1 = municipalities, 2 = counties.
+        /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
         /// </summary>
-        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds)
+        public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel)
         {
             try
             {
-                if (areaTypeIds.Length == 0)
-                    return [];
-
                 var areas = await _context.Set<Area>()
-                    .Where(a => areaTypeIds.Contains(a.AreaTypeId))
+                    .Where(a => a.ZoomLevel == zoomLevel)
                     .ToListAsync();
 
                 return areas
                     .GroupBy(a => a.Name)
-                    .Select(g => new AreaMarkerDto
-                    {
-                        Id = g.Min(a => a.Id),
-                        Name = g.Key,
-                        AreaTypeId = g.First().AreaTypeId,
-                        ObservationCount = g.Sum(a => a.ObservationCount),
-                        Centroid = g.FirstOrDefault(a => a.WktPolygon != null)
-                            ?.WktPolygon?.Centroid?.AsText()
+                    .Select(g => {
+                        var firstArea = g.FirstOrDefault(a => a.WktPolygon != null) ?? g.First();
+                        return new AreaMarkerDto
+                        {
+                            Id = g.Min(a => a.Id),
+                            DocumentId = firstArea.DocumentId,
+                            Fid = firstArea.Fid,
+                            Name = g.Key,
+                            AreaTypeId = firstArea.AreaTypeId,
+                            ParentFid = firstArea.ParentFid,
+                            ObservationCount = g.Sum(a => a.ObservationCount),
+                            WktsPolygon = firstArea.WktPolygon?.AsText()
+                        };
                     })
                     .ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving areas for type IDs: {AreaTypeIds}", 
-                    string.Join(",", areaTypeIds));
+                _logger.LogError(ex, "Error retrieving areas for zoom level: {ZoomLevel}", zoomLevel);
                 throw new ApplicationException(
                     "An error occurred while retrieving areas. Please try again later.", ex);
             }
         }
 
-        private List<int> ParseIntList(string? values)
-        {
-            if (string.IsNullOrWhiteSpace(values))
-                return new List<int>();
 
-            return values
-                .Split(',')
-                .Select(s => s.Trim())
-                .Where(s => int.TryParse(s, out _))
-                .Select(s => int.Parse(s))
-                .ToList();
-        }
-
-        private List<string> ParseStringList(string? values)
-        {
-            if (string.IsNullOrWhiteSpace(values))
-                return new List<string>();
-
-            return values
-                .Split(',')
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrEmpty(s))
-                .ToList();
-        }
     }
 }
