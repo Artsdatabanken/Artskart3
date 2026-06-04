@@ -25,16 +25,20 @@ export class AreaService {
 
   private readonly areaResponse = toSignal(this.areas$, { initialValue: undefined });
 
-  readonly counties = computed<AreaDto[]>(() => {
+  readonly counties = computed(() => {
     const response = this.areaResponse();
     if (!response?.counties) return [];
-    return (response.counties.fastlandsNorge ?? []).filter((a) => a.fid && a.isCurrent);
+    return (response.counties.fastlandsNorge ?? []).filter(
+      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
+    );
   });
 
-  readonly municipalities = computed<AreaDto[]>(() => {
+  readonly municipalities = computed(() => {
     const response = this.areaResponse();
     if (!response?.municipalities) return [];
-    return (response.municipalities.areas ?? []).filter((a) => a.fid && a.isCurrent);
+    return (response.municipalities.areas ?? []).filter(
+      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
+    );
   });
 
   readonly countyGroups = computed<CountyGroup[]>(() => {
@@ -44,7 +48,9 @@ export class AreaService {
 
     return counties.map((county) => ({
       county,
-      municipalities: municipalities.filter((m) => m.fid!.substring(0, 2) === county.fid),
+      municipalities: municipalities.filter(
+        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
+      ),
     }));
   });
 
@@ -63,18 +69,18 @@ export class AreaService {
 
     for (const county of counties) {
       const countyMunicipalities = allMunicipalities.filter(
-        (m) => m.fid!.substring(0, 2) === county.fid,
+        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
       );
       const selectedInCounty = countyMunicipalities.filter((m) =>
-        selectedMunicipalities.includes(m.fid!),
+        selectedMunicipalities.includes(m.fid),
       );
 
       if (selectedInCounty.length === 0) continue;
 
       if (selectedInCounty.length === countyMunicipalities.length) {
-        countyIds.push(county.fid!);
+        countyIds.push(county.fid);
       } else {
-        selectedInCounty.forEach((m) => municipalityIds.push(m.fid!));
+        selectedInCounty.forEach((m) => municipalityIds.push(m.fid));
       }
     }
 

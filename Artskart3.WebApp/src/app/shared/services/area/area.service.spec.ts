@@ -91,6 +91,41 @@ describe('AreaService', () => {
     expect(resolved.municipalityIds).toEqual(['1101']);
   });
 
+  it('should group municipalities correctly when fids are not zero-padded', () => {
+    const unpadded: AreaResponseDto = {
+      counties: {
+        fastlandsNorge: [
+          { id: 1, fid: '3', name: 'Oslo', isCurrent: true, observationCount: 100 },
+          { id: 2, fid: '11', name: 'Rogaland', isCurrent: true, observationCount: 200 },
+        ],
+      },
+      municipalities: {
+        id: 2,
+        name: 'Municipality',
+        areas: [
+          { id: 10, fid: '301', name: 'Oslo kommune', isCurrent: true, observationCount: 100 },
+          { id: 11, fid: '1101', name: 'Eigersund', isCurrent: true, observationCount: 50 },
+          { id: 12, fid: '1103', name: 'Stavanger', isCurrent: true, observationCount: 150 },
+        ],
+      },
+    };
+
+    httpTesting.expectOne('/api/Lookup/Areas').flush(unpadded);
+    TestBed.flushEffects();
+
+    // Fids remain unpadded as returned by the API
+    expect(service.counties()[0].fid).toBe('3');
+    expect(service.municipalities()[0].fid).toBe('301');
+
+    // But grouping still works correctly
+    const groups = service.countyGroups();
+    expect(groups[0].county.name).toBe('Oslo');
+    expect(groups[0].municipalities.length).toBe(1);
+    expect(groups[0].municipalities[0].name).toBe('Oslo kommune');
+    expect(groups[1].county.name).toBe('Rogaland');
+    expect(groups[1].municipalities.length).toBe(2);
+  });
+
   it('should return empty arrays when areas endpoint fails', () => {
     httpTesting.expectOne('/api/Lookup/Areas').error(new ProgressEvent('error'));
     TestBed.flushEffects();
