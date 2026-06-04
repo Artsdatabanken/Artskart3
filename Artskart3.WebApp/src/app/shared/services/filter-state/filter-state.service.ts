@@ -11,6 +11,7 @@ export class FilterStateService {
   readonly selectedBehaviorIds = signal<number[]>([]);
   readonly selectedBasisOfRecordIds = signal<number[]>([]);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
+  readonly selectedOceanAreaIds = signal<string[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
@@ -155,9 +156,20 @@ export class FilterStateService {
     this.selectedTaxonGroupIds.set([]);
   }
 
+  toggleOceanArea(fid: string): void {
+    this.selectedOceanAreaIds.update((ids) =>
+      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
+    );
+  }
+
+  clearOceanAreas(): void {
+    this.selectedOceanAreaIds.set([]);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
+    this.selectedOceanAreaIds.set([]);
   }
 
   setCoordinatePrecision(from: number | null, to: number | null): void {

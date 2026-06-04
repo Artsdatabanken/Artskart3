@@ -60,6 +60,9 @@ export class SidebarComponent {
   readonly basisOfRecords = this.basisOfRecordsResource.value;
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
+  readonly janMayenGroup = this.areaService.janMayenGroup;
+  readonly svalbardGroup = this.areaService.svalbardGroup;
+  readonly oceanAreaGroup = this.areaService.oceanAreaGroup;
 
   isCategorySelected(id: number): boolean {
     return this.filterState.selectedCategoryIds().includes(id);
@@ -102,6 +105,22 @@ export class SidebarComponent {
 
   isMunicipalitySelected(fid: string): boolean {
     return this.filterState.selectedMunicipalityIds().includes(fid);
+  }
+
+  isOceanAreaSelected(fid: string): boolean {
+    return this.filterState.selectedOceanAreaIds().includes(fid);
+  }
+
+  onOceanAreaToggle(fid: string): void {
+    this.filterState.toggleOceanArea(fid);
+  }
+
+  isCountySelected(fid: string): boolean {
+    return this.filterState.selectedCountyIds().includes(fid);
+  }
+
+  onCountyCheckboxToggle(fid: string): void {
+    this.filterState.toggleCounty(fid);
   }
 
   isAllInCountySelected(group: CountyGroup): boolean {

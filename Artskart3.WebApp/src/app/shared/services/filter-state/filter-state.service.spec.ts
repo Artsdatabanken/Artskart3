@@ -290,4 +290,40 @@ describe('FilterStateService', () => {
       expect(service.periodTo()).toBeNull();
     });
   });
+
+  describe('toggleOceanArea', () => {
+    it('should add ocean area fid when not selected', () => {
+      service.toggleOceanArea('91');
+      expect(service.selectedOceanAreaIds()).toEqual(['91']);
+    });
+
+    it('should remove ocean area fid when already selected', () => {
+      service.toggleOceanArea('91');
+      service.toggleOceanArea('91');
+      expect(service.selectedOceanAreaIds()).toEqual([]);
+    });
+
+    it('should handle multiple selections', () => {
+      service.toggleOceanArea('91');
+      service.toggleOceanArea('92');
+      service.toggleOceanArea('93');
+      expect(service.selectedOceanAreaIds()).toEqual(['91', '92', '93']);
+    });
+
+    it('should remove only the toggled fid', () => {
+      service.toggleOceanArea('91');
+      service.toggleOceanArea('92');
+      service.toggleOceanArea('91');
+      expect(service.selectedOceanAreaIds()).toEqual(['92']);
+    });
+  });
+
+  describe('clearOceanAreas', () => {
+    it('should reset selection to empty', () => {
+      service.toggleOceanArea('91');
+      service.toggleOceanArea('92');
+      service.clearOceanAreas();
+      expect(service.selectedOceanAreaIds()).toEqual([]);
+    });
+  });
 });

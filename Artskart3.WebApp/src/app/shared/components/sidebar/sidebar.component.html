@@ -74,6 +74,7 @@
     @if (groups.length > 0) {
       <adb-accordion>
         <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+          <h6 class="area-section-heading">{{ 'sidebar.areaSection.fastlandsNorge' | translate }}</h6>
           <adb-accordion>
             @for (group of groups; track group.county.fid) {
               <adb-accordion-item>
@@ -107,6 +108,72 @@
               </adb-accordion-item>
             }
           </adb-accordion>
+          @if (janMayenGroup(); as janMayen) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.janMayen' | translate }}</h6>
+            <adb-accordion>
+              <adb-accordion-item>
+                <adb-checkbox
+                  slot="heading"
+                  [attr.checked]="isAllInCountySelected(janMayen) ? '' : null"
+                  [attr.indeterminate]="isSomeInCountySelected(janMayen) ? '' : null"
+                  (click)="$event.stopPropagation()"
+                  (change)="onCountyToggle(janMayen)"
+                >
+                  {{ janMayen.county.name }}
+                  @if (janMayen.county.observationCount !== null && janMayen.county.observationCount !== undefined) {
+                    <span slot="counter">{{ janMayen.county.observationCount }}</span>
+                  }
+                </adb-checkbox>
+                <div class="category-children">
+                  @for (municipality of janMayen.municipalities; track municipality.fid) {
+                    @if (municipality.fid) {
+                      <adb-checkbox
+                        [attr.checked]="isMunicipalitySelected(municipality.fid) ? '' : null"
+                        (change)="onMunicipalityToggle(municipality.fid)"
+                      >
+                        {{ municipality.name }}
+                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
+                          <span slot="counter">{{ municipality.observationCount }}</span>
+                        }
+                      </adb-checkbox>
+                    }
+                  }
+                </div>
+              </adb-accordion-item>
+            </adb-accordion>
+          }
+          @if (svalbardGroup(); as svalbard) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.svalbard' | translate }}</h6>
+            <div class="category-flat">
+              <adb-checkbox
+                [attr.checked]="isCountySelected(svalbard.county.fid!) ? '' : null"
+                (change)="onCountyCheckboxToggle(svalbard.county.fid!)"
+              >
+                {{ svalbard.county.name }}
+                @if (svalbard.county.observationCount !== null && svalbard.county.observationCount !== undefined) {
+                  <span slot="counter">{{ svalbard.county.observationCount }}</span>
+                }
+              </adb-checkbox>
+            </div>
+          }
+          @if (oceanAreaGroup(); as oceanAreas) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.oceanAreas' | translate }}</h6>
+            <div class="category-flat">
+              @for (area of oceanAreas.municipalities; track area.fid) {
+                @if (area.fid) {
+                  <adb-checkbox
+                    [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null"
+                    (change)="onOceanAreaToggle(area.fid)"
+                  >
+                    {{ area.name }}
+                    @if (area.observationCount !== null && area.observationCount !== undefined) {
+                      <span slot="counter">{{ area.observationCount }}</span>
+                    }
+                  </adb-checkbox>
+                }
+              }
+            </div>
+          }
         </adb-accordion-item>
       </adb-accordion>
     }

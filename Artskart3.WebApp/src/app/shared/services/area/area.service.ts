@@ -54,33 +54,88 @@ export class AreaService {
     }));
   });
 
+  readonly janMayenGroup = computed<CountyGroup | null>(() => {
+    const response = this.areaResponse();
+    const county = response?.counties?.janMayen;
+    if (!county?.fid || !county.isCurrent) return null;
+    const municipalities = this.municipalities();
+    return {
+      county: county as AreaDto & { fid: string },
+      municipalities: municipalities.filter(
+        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid!.padStart(2, '0'),
+      ),
+    };
+  });
+
+  readonly svalbardGroup = computed<CountyGroup | null>(() => {
+    const response = this.areaResponse();
+    const county = response?.counties?.svalbard;
+    if (!county?.fid || !county.isCurrent) return null;
+    const municipalities = this.municipalities();
+    return {
+      county: county as AreaDto & { fid: string },
+      municipalities: municipalities.filter(
+        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid!.padStart(2, '0'),
+      ),
+    };
+  });
+
+  readonly oceanAreaGroup = computed<CountyGroup | null>(() => {
+    const response = this.areaResponse();
+    const oceanAreas = response?.oceanAreas;
+    if (!oceanAreas) return null;
+    const areas = (oceanAreas.areas ?? []).filter(
+      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
+    );
+    if (areas.length === 0) return null;
+    return {
+      county: { id: oceanAreas.id, name: oceanAreas.name, fid: 'ocean', isCurrent: true },
+      municipalities: areas,
+    };
+  });
+
   /**
    * Resolves selected municipality IDs into optimized county/municipality ID sets for the API:
    * - If all municipalities under a county are selected → send county fid only
    * - If only some municipalities are selected → send those municipality fids only
+   * - Directly selected county IDs (e.g. Svalbard) are always included
    */
   readonly resolvedAreaFilter = computed(() => {
     const selectedMunicipalities = this.filterState.selectedMunicipalityIds();
+    const directlySelectedCounties = this.filterState.selectedCountyIds();
     const counties = this.counties();
     const allMunicipalities = this.municipalities();
 
-    const countyIds: string[] = [];
+    const countyIds: string[] = [...directlySelectedCounties];
     const municipalityIds: string[] = [];
 
-    for (const county of counties) {
-      const countyMunicipalities = allMunicipalities.filter(
-        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
-      );
-      const selectedInCounty = countyMunicipalities.filter((m) =>
-        selectedMunicipalities.includes(m.fid),
+    const allGroups: CountyGroup[] = [
+      ...counties.map((county) => ({
+        county,
+        municipalities: allMunicipalities.filter(
+          (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
+        ),
+      })),
+    ];
+
+    const janMayen = this.janMayenGroup();
+    if (janMayen) allGroups.push(janMayen);
+
+    const svalbard = this.svalbardGroup();
+    if (svalbard) allGroups.push(svalbard);
+
+    for (const group of allGroups) {
+      const groupMunicipalities = group.municipalities;
+      const selectedInGroup = groupMunicipalities.filter((m) =>
+        selectedMunicipalities.includes(m.fid!),
       );
 
-      if (selectedInCounty.length === 0) continue;
+      if (selectedInGroup.length === 0) continue;
 
-      if (selectedInCounty.length === countyMunicipalities.length) {
-        countyIds.push(county.fid);
+      if (selectedInGroup.length === groupMunicipalities.length && group.county.fid) {
+        countyIds.push(group.county.fid);
       } else {
-        selectedInCounty.forEach((m) => municipalityIds.push(m.fid));
+        selectedInGroup.forEach((m) => municipalityIds.push(m.fid!));
       }
     }
 

@@ -53,7 +53,7 @@
   },
   "sidebar": {
     "categories": "Rødliste- og fremmedartkategorier",
-    "areas": "Områder",
+    "areas": "Område",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "categoryType": {
@@ -68,7 +68,7 @@
     "periodFrom": "Fra år",
     "periodTo": "Til år",
     "periodSearch": "Søk",
-    "institutions": "Dataleverandør",
+    "institutions": "Dataleverandører",
     "behaviors": "Habitat- og Artsegenskaper",
     "behaviorName": {
       "dead": "Død",
@@ -90,6 +90,12 @@
       "materialsample": "Innsamlet matriale",
       "objekt": "Belagt funn",
       "observasjon": "Observasjon"
+    },
+    "areaSection": {
+      "fastlandsNorge": "Fastlands-Norge",
+      "janMayen": "Jan Mayen",
+      "svalbard": "Svalbard",
+      "oceanAreas": "Havområder"
     },
     "taxonGroups": "Artsgrupper"
   },

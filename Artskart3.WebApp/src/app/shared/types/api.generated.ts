@@ -313,6 +313,8 @@ export interface components {
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
+            restrictedAreaIds?: string[] | null;
+            oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];

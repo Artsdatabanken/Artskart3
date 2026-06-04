@@ -91,6 +91,12 @@
       "objekt": "Occurrence",
       "observasjon": "Observation"
     },
+    "areaSection": {
+      "fastlandsNorge": "Mainland Norway",
+      "janMayen": "Jan Mayen",
+      "svalbard": "Svalbard",
+      "oceanAreas": "Ocean Areas"
+    },
     "taxonGroups": "Taxon groups"
   },
   "pagination": {

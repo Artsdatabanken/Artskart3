@@ -50,6 +50,13 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-xsm, 8px);
 }
 
+.category-flat {
+  padding-inline-start: var(--adb-spacing-3xsm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm, 8px);
+}
+
 /* Coordinate precision filter */
 .coordinate-precision-filter {
   display: flex;
@@ -109,4 +116,11 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-2xsm);
+}
+
+.area-section-heading {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  margin: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
+  padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
