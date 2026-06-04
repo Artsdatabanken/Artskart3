@@ -3,14 +3,11 @@ export * from './area-map-layer.service';
 
 export type {
   AreaMarkerDto,
-  AreaMarker,
-  AreaMarkerFeature,
-  ZoomLevelConfig
+  AreaMarkerFeature
 } from '@shared/models/area/area-marker.model';
 
 export {
   AREA_TYPE_CONFIG,
   getAreaTypeName,
-  getAreaTypeColor,
-  isAreaTypeVisibleAtZoom
+  getAreaTypeColor
 } from '@shared/models/area/area-marker.model';

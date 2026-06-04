@@ -1,13 +1,10 @@
 export type {
   AreaMarkerDto,
-  AreaMarker,
-  AreaMarkerFeature,
-  ZoomLevelConfig
+  AreaMarkerFeature
 } from './area-marker.model';
 
 export {
   AREA_TYPE_CONFIG,
   getAreaTypeName,
-  getAreaTypeColor,
-  isAreaTypeVisibleAtZoom
+  getAreaTypeColor
 } from './area-marker.model';

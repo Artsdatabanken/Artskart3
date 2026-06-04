@@ -1,9 +1,7 @@
-/**
- * Zoom configuration constants for map area visibility
- */
+
 export class ZoomConfig {
   static readonly ZOOM_COUNTIES_THRESHOLD = 9;
-  static readonly ZOOM_MUNICIPALITIES_THRESHOLD = 12;
+  static readonly ZOOM_MUNICIPALITIES_THRESHOLD = 11;
 
   static readonly SCROLL_SENSITIVITY = 0.1;
   static readonly SCROLL_THROTTLE_MS = 50;
@@ -14,4 +12,16 @@ export class ZoomConfig {
   static readonly MAX_ZOOM = 18;
 
   static readonly NEGLIGIBLE_ZOOM_DIFFERENCE = 0.05;
+
+  static getApiZoomLevel(openLayerZoom: number): number {
+    if (openLayerZoom >= 0 && openLayerZoom <= 8) {
+      return 1;
+    } else if (openLayerZoom >= 9 && openLayerZoom <= 11) {
+      return 2;
+    } else if (openLayerZoom > 11) {
+
+      return 3;
+    }
+    return 1;
+  }
 }

@@ -1,16 +1,17 @@
 import { createMap, LayerDef, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject } from '@angular/core';
+import { LoggingService } from '@shared/logging.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
 import type { AreaMarkerFeature } from '@shared/models/area/area-marker.model';
-import { getAreaTypeColor } from '@shared/models/area/area-marker.model';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
-import { Point } from 'ol/geom';
-import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
-import { ZoomCalculator, ZoomVisibilityHelper, ZoomState, MapZoomController } from '@shared/helpers/zoom';
+import { Polygon, Point } from 'ol/geom';
+import { Style, Fill, Stroke, Text, Icon } from 'ol/style';
+import { transform } from 'ol/proj';
+import { ZoomCalculator, ZoomVisibilityHelper, ZoomState, ZoomConfig } from '@shared/helpers/zoom';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -18,15 +19,7 @@ import { MAP_LAYER_CONFIGS, MapLayerConfig } from '../../config/map/map-layer.co
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ImageTile } from 'ol';
-
-interface Tooltip {
-  visible: boolean;
-  name: string;
-  type: string;
-  count: number;
-  x: number;
-  y: number;
-}
+import { LayerConfig, AreaTypeId, ApiZoomLevel, AreaTypeStyle } from './map.types';
 
 @Component({
   selector: 'app-map',
@@ -39,28 +32,36 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   @Output() mapReadyAction = new EventEmitter<boolean>();
 
-  private zoomState: ZoomState = new ZoomState();
-  private mapZoomController: MapZoomController | null = null;
-  private destroy$ = new Subject<void>();
-  private areaMarkersLayerId = MAP_CONFIG.areaMarkersLayer;
-  private areaMarkerFeatures: AreaMarkerFeature[] = [];
-  private areMarkersLoaded = false;
-  private mouseLeaveFn?: () => void;
-
-  tooltip: Tooltip = {
-    visible: false,
-    name: '',
-    type: '',
-    count: 0,
-    x: 0,
-    y: 0
-  };
-
   private readonly MAP_TYPE_PREFIX = 'map-type:';
+  private readonly AREA_TYPE_STYLES: Map<AreaTypeId, AreaTypeStyle> = new Map<AreaTypeId, AreaTypeStyle>([
+    [AreaTypeId.LocationPoints, { zIndex: 100, fontSize: '9px' }],
+    [AreaTypeId.County, { zIndex: 50, fontSize: '11px' }],
+    [AreaTypeId.Municipality, { zIndex: 50, fontSize: '9px' }]
+  ]);
+
+  private readonly isLocationPointsZoom = (apiZoomLevel: number): boolean => apiZoomLevel === ApiZoomLevel.LocationPoints;
 
   public map!: NbicMapComponent;
+  private zoomState: ZoomState = new ZoomState();
+  private previousApiZoomLevel: number | null = null;
+
+  private areaMarkerFeatures: AreaMarkerFeature[] = [];
+  private featuresCacheByApiZoom = new Map<number, AreaMarkerFeature[]>();
+
+  private destroy$ = new Subject<void>();
+
   private areasService = inject(AreasService);
   private sharedMapService = inject(SharedMapService);
+  private logger = inject(LoggingService);
+
+  private getLayerConfig(): LayerConfig {
+    const baseLayerId = MAP_CONFIG.areaMarkersLayer;
+    return {
+      countiesLayerId: `${baseLayerId}${MAP_CONFIG.countiesSuffix}`,
+      municipalitiesLayerId: `${baseLayerId}${MAP_CONFIG.municipalitiesSuffix}`,
+      locationPointsLayerId: `${baseLayerId}-location-points`
+    };
+  }
 
   private handleScrollWheel = (event: WheelEvent) => {
     event.preventDefault();
@@ -71,17 +72,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
   }
 
-  /**
-   * Configures and adds all background/base map layers
-   */
   private setupBaseMapLayers(): void {
     if (!this.map) return;
     this.map.addLayer(nbicMapPresets.osm);
+
+    const topoLayer = { ...nbicMapPresets.topografiskBaseLayer, base: 'regional' as const };
+    if (topoLayer.source.type === 'wmts') {
+      topoLayer.source.options.projection = MAP_CONFIG.projection;
+      topoLayer.source.options.matrixSet = MAP_CONFIG.projectionMatrix;
+    }
+    this.map.addLayer(topoLayer);
   }
 
-  /**
-   * Initializes map and sets up event listeners
-   */
   private onMapReady(): void {
     this.mapReadyAction.emit(true);
     if (!this.map) return;
@@ -89,7 +91,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.syncZoomFromMap();
     this.setupScrollZoom();
     this.setupAreaMarkers();
-    this.setupZoomChangeListener();
   }
 
   private initializeMap(): void {
@@ -98,29 +99,25 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.map = createMap(this.mapEl.nativeElement, {
-        version: 1,
-        id: MAP_CONFIG.mapId,
-        projection: MAP_CONFIG.projection,
-        center: MAP_CONFIG.center,
-        zoom: this.zoomState.getZoom(),
-        minZoom: MAP_CONFIG.minZoom,
-        maxZoom: MAP_CONFIG.maxZoom,
-        controls: {
-          scaleLine: true,
-          fullscreen: false,
-          geolocation: true,
-          zoom: false,
-          attribution: true
+      this.map = createMap(
+        this.mapEl.nativeElement,
+        {
+          version: 1,
+          id: MAP_CONFIG.mapId,
+          projection: MAP_CONFIG.projection,
+          center: MAP_CONFIG.center,
+          zoom: this.zoomState.getZoom(),
+          minZoom: MAP_CONFIG.minZoom,
+          maxZoom: MAP_CONFIG.maxZoom,
+          controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true }
         }
-      });
+      );
 
-      this.mapZoomController = new MapZoomController(this.map);
       this.setupBaseMapLayers();
       this.generateBackgroundMaps();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
     } catch (error) {
-      console.error('Failed to initialize map:', error);
+      this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
   }
 
@@ -130,28 +127,25 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private syncZoomFromMap(): void {
-    if (!this.map || !this.mapZoomController) return;
-    const zoom = this.mapZoomController.getCurrentZoom();
+    if (!this.map) return;
+    const zoom = this.map.getCamera().zoom;
     if (zoom !== null && !isNaN(zoom)) {
       this.zoomState.setZoom(zoom);
     }
   }
 
   private handleScrollZoom(event: WheelEvent): void {
-    if (!this.map || !this.mapZoomController) return;
+    if (!this.map) return;
     if (!this.zoomState.canProcessScroll()) return;
     const newTargetZoom = this.zoomState.calculateScrollZoom(
       event.deltaY,
-      this.mapZoomController.getMinZoom(),
-      this.mapZoomController.getMaxZoom()
+      MAP_CONFIG.minZoom,
+      MAP_CONFIG.maxZoom
     );
     if (newTargetZoom === null) return;
     this.animateZoom(newTargetZoom);
   }
 
-  /**
-   * Animates zoom with requestAnimationFrame for smooth transitions
-   */
   private animateZoom(targetZoom: number): void {
     this.zoomState.cancelAnimation();
 
@@ -185,287 +179,328 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.zoomState.setAnimationFrameId(frameId);
   }
 
-
-
   private applyZoom(zoom: number): void {
-    if (!this.map || !this.mapZoomController || isNaN(zoom)) return;
+    if (!this.map || isNaN(zoom)) return;
     try {
-      this.mapZoomController.setZoom(zoom);
+      const previousZoom = this.zoomState.getZoom();
+      this.map.setZoom(zoom);
       this.zoomState.setZoom(zoom);
-      this.updateMarkerLayersIfNeeded(zoom);
+
+      if (ZoomVisibilityHelper.hasCrossedThreshold(previousZoom, zoom)) {
+        this.setupAreaMarkers();
+      } else if (this.areaMarkerFeatures.length > 0) {
+        this.updateMarkerLayerVisibility(zoom);
+      }
     } catch (error) {
-      console.error('Error applying zoom:', error);
+      this.logger.error('Error applying zoom:', 'MapComponent', error);
     }
   }
 
-  /**
-   * Recreates marker layers if zoom crosses visibility thresholds
-   */
-  private updateMarkerLayersIfNeeded(zoom: number): void {
-    if (!this.areMarkersLoaded || this.areaMarkerFeatures.length === 0) {
-      return;
+  private updateMarkerLayerVisibility(zoom: number): void {
+    const layerConfig = this.getLayerConfig();
+    const apiZoomLevel = this.getApiZoomLevel();
+    const apiZoomLevelChanged = this.previousApiZoomLevel !== null && this.previousApiZoomLevel !== apiZoomLevel;
+
+    if (apiZoomLevelChanged) {
+      this.previousApiZoomLevel = apiZoomLevel;
+      this.setupAreaMarkers();
+    } else if (this.shouldRedrawLayers(zoom, layerConfig, apiZoomLevel)) {
+      this.previousApiZoomLevel = apiZoomLevel;
+      this.addMarkerLayer();
+    } else {
+      this.previousApiZoomLevel = apiZoomLevel;
     }
+  }
 
-    const countiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.countiesSuffix}`;
-    const municipalitiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.municipalitiesSuffix}`;
-
+  private shouldRedrawLayers(zoom: number, layerConfig: LayerConfig, apiZoomLevel: number): boolean {
     const shouldShowCounties = ZoomVisibilityHelper.shouldShowCounties(zoom);
     const shouldShowMunicipalities = ZoomVisibilityHelper.shouldShowMunicipalities(zoom);
+    const shouldShowLocationPoints = this.isLocationPointsZoom(apiZoomLevel);
 
-    const countiesExists = !!this.mapZoomController?.getLayerById(countiesLayerId);
-    const municipalitiesExists = !!this.mapZoomController?.getLayerById(municipalitiesLayerId);
+    const countiesExists = !!this.map?.getLayerById(layerConfig.countiesLayerId);
+    const municipalitiesExists = !!this.map?.getLayerById(layerConfig.municipalitiesLayerId);
+    const locationPointsExists = !!this.map?.getLayerById(layerConfig.locationPointsLayerId);
 
-    const needsRecreate =
-      (shouldShowCounties && !countiesExists) ||
-      (shouldShowMunicipalities && !municipalitiesExists) ||
-      (countiesExists && !shouldShowCounties) ||
-      (municipalitiesExists && !shouldShowMunicipalities);
+    return (shouldShowCounties !== countiesExists) ||
+           (shouldShowMunicipalities !== municipalitiesExists) ||
+           (shouldShowLocationPoints !== locationPointsExists);
+  }
 
-    if (needsRecreate) {
-      this.areMarkersLoaded = false;
-      this.addMarkerLayer();
-      this.zoomState.updateLastZoom();
+
+
+  private getApiZoomLevel(): number {
+    return ZoomConfig.getApiZoomLevel(this.zoomState.getZoom());
+  }
+
+  private setupAreaMarkers(): void {
+    const apiZoomLevel = this.getApiZoomLevel();
+    const currentZoom = this.zoomState.getZoom();
+
+    if (this.previousApiZoomLevel === null) {
+      this.previousApiZoomLevel = apiZoomLevel;
     }
-  }
 
-  public getZoomLevel(): number {
-    return this.zoomState.getZoom();
-  }
-
-  /**
-   * Handles successful loading of area marker features
-   */
-  private onAreaMarkersLoaded(features: AreaMarkerFeature[]): void {
-    if (features.length === 0) {
+    const cachedFeatures = this.featuresCacheByApiZoom.get(apiZoomLevel);
+    if (cachedFeatures) {
+      this.areaMarkerFeatures = cachedFeatures;
+      this.addMarkerLayer();
       return;
     }
 
-    this.areaMarkerFeatures = features;
+    this.fetchAndCacheMarkerFeatures(apiZoomLevel, currentZoom);
+  }
+
+  private fetchAndCacheMarkerFeatures(apiZoomLevel: number, currentZoom: number): void {
+    const serviceCall$ = this.isLocationPointsZoom(apiZoomLevel)
+      ? this.areasService.getLocationsAsGeoJson()
+      : this.areasService.getAreasObservationsAsGeoJson(currentZoom);
+
+    serviceCall$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (features: AreaMarkerFeature[]) => this.onFeaturesReceived(features, apiZoomLevel),
+        error: (err) => this.onFeaturesError(err)
+      });
+  }
+
+  private onFeaturesReceived(features: AreaMarkerFeature[], apiZoomLevel: number): void {
+    let processedFeatures = features;
+    if (this.isLocationPointsZoom(apiZoomLevel)) {
+      processedFeatures = features.filter(f => f.geometry.type === 'Point');
+    }
+
+    this.featuresCacheByApiZoom.set(apiZoomLevel, processedFeatures);
+    this.areaMarkerFeatures = processedFeatures;
 
     if (this.map) {
       this.addMarkerLayer();
     }
   }
 
-  /**
-   * Loads area markers from service and triggers layer creation
-   */
-  private setupAreaMarkers(): void {
-    if (this.areMarkersLoaded) {
-      return;
-    }
-
-    this.areasService.getAreasAsGeoJson()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (features: AreaMarkerFeature[]) => this.onAreaMarkersLoaded(features),
-        error: (err) => {
-          console.error('Failed to load area markers:', err);
-          this.mapReadyAction.emit(false);
-        }
-      });
+  private onFeaturesError(err: unknown): void {
+    this.logger.error('Failed to load area markers:', 'MapComponent', err);
+    this.mapReadyAction.emit(false);
   }
 
-  /**
-   * Creates and adds marker layers based on current zoom level
-   */
+
+  private removeAllMarkerLayers(): void {
+    const layerConfig = this.getLayerConfig();
+    [
+      layerConfig.countiesLayerId,
+      layerConfig.municipalitiesLayerId,
+      layerConfig.locationPointsLayerId
+    ].forEach(layerId => this.map?.removeLayer(layerId));
+  }
+
   private addMarkerLayer(): void {
-    if (!this.map || !this.areaMarkerFeatures.length) {
-      return;
-    }
+    if (!this.map || !this.areaMarkerFeatures.length) return;
 
     try {
       const currentZoom = this.zoomState.getZoom();
-      const countiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.countiesSuffix}`;
-      const municipalitiesLayerId = `${this.areaMarkersLayerId}${MAP_CONFIG.municipalitiesSuffix}`;
+      const apiZoomLevel = this.getApiZoomLevel();
+      const layerConfig = this.getLayerConfig();
 
-      this.mapZoomController?.removeLayer(countiesLayerId);
-      this.mapZoomController?.removeLayer(municipalitiesLayerId);
+      this.removeAllMarkerLayers();
 
-      if (ZoomVisibilityHelper.shouldShowCounties(currentZoom)) {
-        const countiesFeatures = this.areaMarkerFeatures.filter(f => f.properties.areaTypeId === 2);
-        this.createMarkerLayer(countiesFeatures, countiesLayerId, 2);
+      if (this.isLocationPointsZoom(apiZoomLevel)) {
+        if (this.areaMarkerFeatures.length > 0) {
+          this.createMarkerLayer(this.areaMarkerFeatures, layerConfig.locationPointsLayerId, AreaTypeId.LocationPoints);
+        }
+        return;
       }
 
-      if (ZoomVisibilityHelper.shouldShowMunicipalities(currentZoom)) {
-        const municipalitiesFeatures = this.areaMarkerFeatures.filter(f => f.properties.areaTypeId === 1);
-        this.createMarkerLayer(municipalitiesFeatures, municipalitiesLayerId, 1);
-      }
-
-      this.areMarkersLoaded = true;
+      this.addLayerIfFeaturesExist(ZoomVisibilityHelper.shouldShowCounties(currentZoom), AreaTypeId.County, layerConfig.countiesLayerId);
+      this.addLayerIfFeaturesExist(ZoomVisibilityHelper.shouldShowMunicipalities(currentZoom), AreaTypeId.Municipality, layerConfig.municipalitiesLayerId);
     } catch (error) {
-      console.error('Error adding marker layer:', error);
+      this.logger.error('Error adding marker layer:', 'MapComponent', error);
     }
   }
 
-  /**
-   * Creates styled marker circle with observation count label
-   */
-  private createMarkerStyle(areaTypeId: number, formattedCount: string): Style {
+  private addLayerIfFeaturesExist(shouldShow: boolean, areaTypeId: AreaTypeId, layerId: string): void {
+    if (shouldShow) {
+      const features = this.filterFeaturesByType(areaTypeId);
+      if (features.length > 0) {
+        this.createMarkerLayer(features, layerId, areaTypeId);
+      }
+    }
+  }
+
+  private filterFeaturesByType(areaTypeId: number): AreaMarkerFeature[] {
+    return this.areaMarkerFeatures.filter(f => f.properties.areaTypeId === areaTypeId);
+  }
+
+  private createPolygonStyle(): Style {
     return new Style({
-      image: new Circle({
-        radius: 18,
-        fill: new Fill({ color: getAreaTypeColor(areaTypeId) }),
-        stroke: new Stroke({ color: '#FFFFFF', width: 2 })
+      stroke: new Stroke({ color: 'rgba(10, 109, 188, 0.6)', width: 1.5 })
+    });
+  }
+
+  private createMarkerStyle(areaTypeId: AreaTypeId, formattedCount: string): Style {
+    const styleConfig = this.AREA_TYPE_STYLES.get(areaTypeId) || { fontSize: '7px' };
+    const markerSvgUri = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50" fill="none"><circle cx="25" cy="25" r="24.25" fill="#005A71" stroke="#D2DDE0" stroke-width="1.5"/></svg>');
+
+    return new Style({
+      image: new Icon({
+        src: markerSvgUri,
+        scale: 1,
+        anchor: [0.5, 0.5]
       }),
       text: new Text({
         text: formattedCount,
         fill: new Fill({ color: '#FFFFFF' }),
-        font: 'bold 10px Arial',
+        font: `bold ${styleConfig.fontSize} Arial`,
         textAlign: 'center',
-        offsetX: 0,
-        offsetY: 0
+        textBaseline: 'middle'
       })
     });
   }
 
-  /**
-   * Creates and renders marker layer with styled features
-   */
-  private createMarkerLayer(features: AreaMarkerFeature[], layerId: string, areaTypeId: number): void {
+
+  private calculatePolygonCentroid(coordinates: number[][][]): [number, number] {
+    if (!coordinates || coordinates.length === 0) return [0, 0];
+
+    const ring = coordinates[0];
+    let x = 0, y = 0;
+
+    for (const coord of ring) {
+      x += coord[0];
+      y += coord[1];
+    }
+
+    return [x / ring.length, y / ring.length];
+  }
+
+  private createMarkerLayer(features: AreaMarkerFeature[], layerId: string, areaTypeId: AreaTypeId): void {
     if (features.length === 0) return;
 
-    const source = new VectorSource();
+    try {
+      if (areaTypeId === AreaTypeId.LocationPoints) {
+        this.createLocationPointsLayer(features, layerId);
+      } else {
+        this.createPolygonAreaLayer(features, layerId, areaTypeId);
+      }
+    } catch (error) {
+      this.logger.error('Error creating marker layer:', 'MapComponent', error);
+    }
+  }
 
-    for (const feature of features) {
-      const coord = feature.geometry.coordinates;
-      const count = feature.properties.observationCount || 0;
-      const formattedCount = AbbreviateNumberHelper.format(count);
-
-      const olFeature = new Feature({
-        geometry: new Point(coord),
-        ...feature.properties,
-        fromLayer: layerId
-      });
-
-      olFeature.setStyle(this.createMarkerStyle(areaTypeId, formattedCount));
-      source.addFeature(olFeature);
+  private createLocationPointsLayer(features: AreaMarkerFeature[], layerId: string): void {
+    const pointFeatures = features.filter(f => f.geometry.type === 'Point');
+    if (pointFeatures.length === 0) {
+      return;
     }
 
+    const circlePointSvgUri = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none"><circle cx="9.5" cy="9.5" r="8.5" fill="#005A71" stroke="#D2DDE0" stroke-width="2"/></svg>');
+    const redCircleStyle = new Style({
+      image: new Icon({
+        src: circlePointSvgUri,
+        scale: 1,
+        anchor: [0.5, 0.5]
+      })
+    });
+
+    const source = this.createLocationPointVectorSource(pointFeatures, redCircleStyle);
+    const zIndex = this.AREA_TYPE_STYLES.get(AreaTypeId.LocationPoints)?.zIndex || 100;
     const layer = new VectorLayer({
       source,
-      properties: { id: layerId }
+      properties: { id: layerId },
+      zIndex
     });
 
-    if (this.map) {
-      this.map.adoptLayer(layerId, layer);
-    }
-    this.setupMarkerInteractions(layerId);
+    this.map?.adoptLayer(layerId, layer, {
+      role: 'overlay',
+      pickable: true,
+      zIndex
+    });
   }
 
-  private showTooltip(name: string, areaTypeName: string, observationCount: number): void {
-    this.tooltip.name = name || 'Unknown';
-    this.tooltip.type = areaTypeName || 'Area';
-    this.tooltip.count = observationCount || 0;
-    this.tooltip.visible = true;
-  }
+  private createLocationPointVectorSource(features: AreaMarkerFeature[], style: Style): VectorSource {
+    const source = new VectorSource();
 
-  private hideTooltip(): void {
-    this.tooltip.visible = false;
-  }
+    features.forEach(feature => {
+      const coordinates = feature.geometry.coordinates as number[];
+      const transformedCoords = transform([coordinates[1], coordinates[0]], 'EPSG:4326', 'EPSG:25833');
 
-  /**
-   * Checks if tooltip should be shown for hovered layer
-   */
-  private processHoverForLayer(layerId: string, items: { feature: unknown; layer?: { get: (key: string) => unknown } }[]): boolean {
-    for (const item of items) {
-      const feature = item.feature;
-      if (!feature) continue;
-
-      const featureObj = feature as Record<string, unknown>;
-      const getPropertiesFn = featureObj['getProperties'] as (() => Record<string, unknown>) | undefined;
-      const props = getPropertiesFn?.() || (featureObj['properties'] as Record<string, unknown>) || {};
-
-      const featureLayerId = props['fromLayer'] || item.layer?.get('id');
-
-      if (featureLayerId === layerId && props['name']) {
-        this.showTooltip(
-          props['name'] as string,
-          props['areaTypeName'] as string,
-          props['observationCount'] as number
-        );
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Sets up hover interactions for marker layer
-   */
-  private setupMarkerInteractions(layerId: string): void {
-    if (!this.map || !this.mapEl?.nativeElement) return;
-
-    try {
-      const mapElement = this.mapEl.nativeElement;
-
-      this.mouseLeaveFn = () => {
-        this.hideTooltip();
-      };
-
-      mapElement.addEventListener('mouseleave', this.mouseLeaveFn);
-
-      this.map.on('hover:info', (event) => {
-        if (!event?.items || event.items.length === 0) {
-          this.hideTooltip();
-          return;
-        }
-
-        if (!this.processHoverForLayer(layerId, event.items)) {
-          this.hideTooltip();
-        }
+      const markerFeature = new Feature({
+        geometry: new Point(transformedCoords),
+        name: feature.properties.name,
+        count: feature.properties.observationCount
       });
-    } catch (error) {
-      console.error('Error setting up marker interactions:', error);
-    }
+      markerFeature.setStyle(style);
+      source.addFeature(markerFeature);
+    });
+
+    return source;
   }
 
-  /**
-   * Sets up listener for map zoom changes to update marker visibility
-   */
-  private setupZoomChangeListener(): void {
-    if (!this.map) return;
+  private createPolygonAreaLayer(features: AreaMarkerFeature[], layerId: string, areaTypeId: AreaTypeId): void {
+    const source = this.createPolygonAreaVectorSource(features, areaTypeId);
+    if (source === null) return;
 
-    this.zoomState.updateLastZoom();
+    const zIndex = this.AREA_TYPE_STYLES.get(areaTypeId)?.zIndex || 50;
+    const layer = new VectorLayer({
+      source,
+      properties: { id: layerId },
+      zIndex
+    });
 
-    (this.map.on as (event: string, handler: () => void) => void)('moveend', () => {
-      this.syncZoomFromMap();
-
-      if (ZoomVisibilityHelper.hasCrossedThreshold(this.zoomState.getLastZoom(), this.zoomState.getZoom())) {
-        this.areMarkersLoaded = false;
-        this.addMarkerLayer();
-      }
-
-      this.zoomState.updateLastZoom();
+    this.map?.adoptLayer(layerId, layer, {
+      role: 'overlay',
+      pickable: true,
+      zIndex
     });
   }
 
   /**
-   * Cleans up animation frame
+   * Creates VectorSource for polygon areas with centroids ??? fjerne etter på
    */
-  private cleanupAnimation(): void {
+  private createPolygonAreaVectorSource(features: AreaMarkerFeature[], areaTypeId: AreaTypeId): VectorSource | null {
+    const source = new VectorSource();
+    let validFeatureCount = 0;
+
+    features.forEach(feature => {
+      if (feature.geometry.type === 'Point') return;
+
+      const count = feature.properties.observationCount || 0;
+      const formattedCount = AbbreviateNumberHelper.format(count);
+      const polygonCoordinates = feature.geometry.coordinates as number[][][];
+      const centroid = this.calculatePolygonCentroid(polygonCoordinates);
+
+      // Add polygon boundary
+      const polygonFeature = new Feature({
+        geometry: new Polygon(polygonCoordinates),
+        ...feature.properties,
+        fromLayer: `${MAP_CONFIG.areaMarkersLayer}${MAP_CONFIG.countiesSuffix}`
+      });
+      polygonFeature.setStyle(this.createPolygonStyle());
+      source.addFeature(polygonFeature);
+
+      // Add marker at centroid
+      const markerFeature = new Feature({
+        geometry: new Point(centroid),
+        ...feature.properties,
+        fromLayer: `${MAP_CONFIG.areaMarkersLayer}${MAP_CONFIG.countiesSuffix}`
+      });
+      markerFeature.setStyle(this.createMarkerStyle(areaTypeId, formattedCount));
+      source.addFeature(markerFeature);
+      validFeatureCount++;
+    });
+
+    return validFeatureCount > 0 ? source : null;
+  }
+
+  private cleanup(): void {
     this.zoomState.cancelAnimation();
-  }
-
-  /**
-   * Cleans up event listeners
-   */
-  private cleanupEventListeners(): void {
-    if (this.mapEl?.nativeElement) {
-      this.mapEl.nativeElement.removeEventListener('wheel', this.handleScrollWheel);
-      if (this.mouseLeaveFn) {
-        this.mapEl.nativeElement.removeEventListener('mouseleave', this.mouseLeaveFn);
-      }
-    }
-  }
-
-  /**
-   * Cleans up map resources
-   */
-  private cleanupMap(): void {
+    this.cleanupEventListeners();
     this.destroy$.next();
     this.destroy$.complete();
+    this.featuresCacheByApiZoom.clear();
     this.map?.destroy?.();
+  }
+
+  private cleanupEventListeners(): void {
+    if (!this.mapEl?.nativeElement) return;
+    this.mapEl.nativeElement.removeEventListener('wheel', this.handleScrollWheel);
   }
 
   /**
@@ -526,7 +561,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     const config = MAP_LAYER_CONFIGS[layerId];
     if (!config) {
-      console.warn(`Unknown map layer: ${layerId}`);
+      this.logger.warn(`Unknown map layer: ${layerId}`, 'MapComponent');
       return;
     }
 
@@ -541,8 +576,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.cleanupAnimation();
-    this.cleanupEventListeners();
-    this.cleanupMap();
+    this.cleanup();
   }
 }

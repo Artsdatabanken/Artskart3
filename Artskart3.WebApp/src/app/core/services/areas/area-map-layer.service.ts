@@ -3,7 +3,7 @@
  * Creates and manages map layers for area markers with zoom-based visibility
  */
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   AreaMarkerFeature,
   AREA_TYPE_CONFIG,
@@ -11,9 +11,11 @@ import {
 } from '@shared/models/area/area-marker.model';
 import { AreaMarkerPopupTemplate } from '@shared/templates/area-marker-popup.template';
 import { MAP_CONFIG } from '@shared/config/map.config';
+import { LoggingService } from '@shared/logging.service';
 
 export interface MapLayer {
   id: string;
+  kind: 'tile' | 'raster' | 'vector';
   type: 'fill' | 'circle' | 'symbol' | 'line';
   source: {
     type: 'geojson';
@@ -22,9 +24,9 @@ export interface MapLayer {
       features: AreaMarkerFeature[];
     };
   };
-  layout?: Record<string, any>;
-  paint?: Record<string, any>;
-  filter?: any[];
+  layout?: Record<string, unknown>;
+  paint?: Record<string, unknown>;
+  filter?: unknown[];
   minzoom?: number;
   maxzoom?: number;
 }
@@ -33,6 +35,10 @@ export interface MapLayer {
   providedIn: 'root'
 })
 export class AreaMapLayerService {
+  private static readonly SERVICE_NAME = 'AreaMapLayerService';
+
+  private readonly logger = inject(LoggingService);
+
   private readonly CIRCLE_PAINT = {
     'circle-opacity': MAP_CONFIG.circle.opacity,
     'circle-stroke-width': MAP_CONFIG.circle.strokeWidth,
@@ -51,6 +57,7 @@ export class AreaMapLayerService {
 
     const layer: MapLayer = {
       id: layerId,
+      kind: 'vector',
       type: 'circle',
       source: {
         type: 'geojson',
@@ -80,6 +87,7 @@ export class AreaMapLayerService {
 
     return {
       id: layerId,
+      kind: 'vector',
       type: 'symbol',
       source: {
         type: 'geojson',
@@ -108,8 +116,8 @@ export class AreaMapLayerService {
     return AreaMarkerPopupTemplate.createPopup(feature);
   }
 
-  private getCircleRadiusExpression(): any {
-    const conditions: any[] = ['case'];
+  private getCircleRadiusExpression(): unknown[] {
+    const conditions: unknown[] = ['case'];
 
     Object.entries(AREA_TYPE_CONFIG).forEach(([, config]) => {
       conditions.push(
@@ -118,12 +126,12 @@ export class AreaMapLayerService {
       );
     });
 
-    conditions.push(8); // default radius
+    conditions.push(8);
     return conditions;
   }
 
-  private getCircleColorExpression(): any {
-    const conditions: any[] = ['case'];
+  private getCircleColorExpression(): unknown[] {
+    const conditions: unknown[] = ['case'];
 
     Object.entries(AREA_TYPE_CONFIG).forEach(([, config]) => {
       conditions.push(
@@ -132,33 +140,11 @@ export class AreaMapLayerService {
       );
     });
 
-    conditions.push(MAP_CONFIG.colors.default); // default color
+    conditions.push(MAP_CONFIG.colors.default);
     return conditions;
   }
 
-  private getObservationCountTextSize(): any {
-    return [
-      'interpolate',
-      ['linear'],
-      ['zoom'],
-      ...MAP_CONFIG.textSize
-    ];
-  }
-
-  createZoomAwareLayer(layerId: string, features: AreaMarkerFeature[]): MapLayer {
-    const layer = this.createMarkerLayer(layerId, features);
-    layer.filter = this.buildZoomAwareFilter();
-    return layer;
-  }
-
-  private buildZoomAwareFilter(): any[] {
-    const conditions = Object.values(AREA_TYPE_CONFIG).map(config => [
-      'all',
-      ['==', ['get', 'areaTypeId'], config.id],
-      ['>=', ['zoom'], config.zoomLevels.minZoom],
-      ['<=', ['zoom'], config.zoomLevels.maxZoom]
-    ]);
-
-    return conditions.length ? ['any', ...conditions] : ['literal', true];
+  private getObservationCountTextSize(): unknown[] {
+    return ['interpolate', ['linear'], ['zoom'], ...MAP_CONFIG.textSize];
   }
 }

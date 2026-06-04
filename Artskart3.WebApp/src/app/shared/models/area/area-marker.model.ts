@@ -10,73 +10,54 @@ export interface AreaMarkerDto {
   observationCount?: number;
   timeStamp: string;
   isCurrent: boolean;
-  centroid?: string;
-}
-
-export interface AreaMarker extends AreaMarkerDto {
-  coordinates?: [number, number];
-  properties?: {
-    title: string;
-    description: string;
-    observationCount: number | null;
-    areaTypeName: string;
-  };
+  wktsPolygon?: string;
 }
 
 export interface AreaMarkerFeature {
   type: 'Feature';
+  id?: number | string;
   geometry: {
-    type: 'Point';
-    coordinates: [number, number];
+    type: 'Polygon' | 'Point';
+    coordinates: number[][][] | number[];
   };
   properties: {
     id: number;
     name: string;
-    areaTypeId: number;
-    areaTypeName: string;
+    areaTypeId?: number;
+    areaTypeName?: string;
     observationCount: number | null;
     observationCountDisplay: string;
-    fid: string;
+    fid?: string;
+    isPolygon: boolean;
+    'nbic:style'?: {
+      strokeColor: string;
+      fillColor: string;
+      strokeWidth: number;
+      circle?: {
+        radius: number;
+        fillColor: string;
+        strokeColor: string;
+        strokeWidth: number;
+      };
+    };
+    [key: string]: unknown;
   };
-}
-
-export interface ZoomLevelConfig {
-  minZoom: number;
-  maxZoom: number;
-  visibleAreaTypes: number[];
-  clusteringEnabled: boolean;
-  markerSize: 'small' | 'medium' | 'large';
 }
 
 export const AREA_TYPE_CONFIG: Record<number, {
   id: number;
   name: string;
-  zoomLevels: ZoomLevelConfig;
   color: string;
 }> = {
   1: {
     id: 1,
     name: 'Municipality',
-    zoomLevels: {
-      minZoom: 9,
-      maxZoom: 12,
-      visibleAreaTypes: [1],
-      clusteringEnabled: false,
-      markerSize: 'medium'
-    },
     color: '#005A71'
   },
   2: {
     id: 2,
     name: 'County',
-    zoomLevels: {
-      minZoom: 4,
-      maxZoom: 8,
-      visibleAreaTypes: [2], // Todo: for now hard coded to only show county at these zoom levels, but ideally should be dynamic based on config
-      clusteringEnabled: false,
-      markerSize: 'large'
-    },
-    color: '#005A71'
+    color: '#CC0000'
   }
 };
 
@@ -84,13 +65,6 @@ export function getAreaTypeName(areaTypeId: number): string {
   return AREA_TYPE_CONFIG[areaTypeId]?.name ?? `Unknown (${areaTypeId})`;
 }
 
-
 export function getAreaTypeColor(areaTypeId: number): string {
   return AREA_TYPE_CONFIG[areaTypeId]?.color ?? '#005A71';
-}
-
-export function isAreaTypeVisibleAtZoom(areaTypeId: number, zoomLevel: number): boolean {
-  const config = AREA_TYPE_CONFIG[areaTypeId];
-  if (!config) return false;
-  return zoomLevel >= config.zoomLevels.minZoom && zoomLevel <= config.zoomLevels.maxZoom;
 }

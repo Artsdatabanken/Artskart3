@@ -1,8 +1,9 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
+import { LoggingService } from '@shared/logging.service';
 
 type ActionHandler = () => void;
 
@@ -22,6 +23,7 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
 
+  private logger = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
 
 
@@ -69,7 +71,7 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
       try {
         handler();
       } catch (error) {
-        console.error(`Error executing action '${actionName}':`, error);
+        this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
       }
     } else {
       this.iconClick.emit(actionName);
