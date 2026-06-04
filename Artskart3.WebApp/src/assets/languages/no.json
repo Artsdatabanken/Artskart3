@@ -90,7 +90,8 @@
       "materialsample": "Innsamlet matriale",
       "objekt": "Belagt funn",
       "observasjon": "Observasjon"
-    }
+    },
+    "taxonGroups": "Artsgrupper"
   },
   "pagination": {
     "previous": "Forrige",

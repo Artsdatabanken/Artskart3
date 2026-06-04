@@ -32,6 +32,7 @@ export class ListViewComponent {
     this.filterState.selectedInstitutionIds();
     this.filterState.selectedBehaviorIds();
     this.filterState.selectedBasisOfRecordIds();
+    this.filterState.selectedTaxonGroupIds();
     this.filterState.coordinatePrecisionFrom();
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
@@ -53,6 +54,7 @@ export class ListViewComponent {
       organizationIds: this.filterState.selectedInstitutionIds(),
       behaviorIds: this.filterState.selectedBehaviorIds(),
       basisOfRecordIds: this.filterState.selectedBasisOfRecordIds(),
+      taxonGroupIds: this.filterState.selectedTaxonGroupIds(),
       countyIds: this.areaService.resolvedAreaFilter().countyIds,
       municipalityIds: this.areaService.resolvedAreaFilter().municipalityIds,
       coordinatePrecision: {
@@ -76,6 +78,7 @@ export class ListViewComponent {
         organizationIds: params.organizationIds?.length ? params.organizationIds : undefined,
         behaviorIds: params.behaviorIds?.length ? params.behaviorIds : undefined,
         basisOfRecordIds: params.basisOfRecordIds?.length ? params.basisOfRecordIds : undefined,
+        taxonGroupIds: params.taxonGroupIds?.length ? params.taxonGroupIds : undefined,
         countyIds: params.countyIds?.length ? params.countyIds : undefined,
         municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
         coordinatePrecision: hasCoordinatePrecision ? params.coordinatePrecision : undefined,

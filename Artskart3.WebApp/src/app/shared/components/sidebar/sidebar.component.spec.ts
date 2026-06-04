@@ -43,6 +43,11 @@ describe('SidebarComponent', () => {
     { id: 2, name: 'machine_observation', description: 'Machine Observation', variants: null, observationCount: 300 },
   ];
 
+  const mockTaxonGroups = [
+    { id: 1, name: 'Fugler', observationCount: 1000 },
+    { id: 2, name: 'Pattedyr', observationCount: 800 },
+  ];
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SidebarComponent, TranslateModule.forRoot()],
@@ -63,6 +68,7 @@ describe('SidebarComponent', () => {
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
     httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush(mockBasisOfRecords);
+    httpTesting.expectOne('/api/Lookup/TaxonGroups').flush(mockTaxonGroups);
     await fixture.whenStable();
     fixture.detectChanges();
   }

@@ -13,6 +13,7 @@ export type CoordinatePrecisionDto = components['schemas']['CoordinatePrecisionD
 export type InstitutionDto = components['schemas']['InstitutionDto'];
 export type BehaviorDto = components['schemas']['BehaviorDto'];
 export type BasisOfRecordDto = components['schemas']['BasisOfRecordDto'];
+export type TaxonGroupDto = components['schemas']['TaxonGroupDto'];
 
 // Request DTOs
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];

@@ -104,6 +104,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/TaxonGroups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxonGroupDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/Behaviors": {
         parameters: {
             query?: never;
@@ -239,6 +274,13 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
         };
+        TaxonGroupDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
+            /** Format: int32 */
+            observationCount?: number | null;
+        };
         BehaviorDto: {
             /** Format: int32 */
             id?: number;
@@ -269,7 +311,6 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             organizationIds?: number[] | null;
-            locality?: string | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
             behaviorIds?: number[] | null;

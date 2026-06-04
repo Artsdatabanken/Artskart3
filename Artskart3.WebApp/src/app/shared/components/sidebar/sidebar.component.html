@@ -11,6 +11,29 @@
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
   </div>
+  @if (taxonGroups(); as taxonGroupList) {
+    @if (taxonGroupList.length > 0) {
+      <adb-accordion>
+        <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+          <div class="checkbox-accordion-children">
+            @for (taxonGroup of taxonGroupList; track taxonGroup.id ?? $index) {
+              @if (taxonGroup.id !== undefined && taxonGroup.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null"
+                  (change)="onTaxonGroupToggle(taxonGroup.id)"
+                >
+                  {{ taxonGroup.name }}
+                  @if (taxonGroup.observationCount !== null && taxonGroup.observationCount !== undefined) {
+                    <span slot="counter">{{ taxonGroup.observationCount }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        </adb-accordion-item>
+      </adb-accordion>
+    }
+  }
   @if (categoryTypes(); as types) {
     <adb-accordion>
       <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
@@ -160,7 +183,7 @@
     @if (behaviorList.length > 0) {
       <adb-accordion>
         <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
-          <div class="behavior-children">
+          <div class="checkbox-accordion-children">
             @for (behavior of behaviorList; track behavior.id ?? $index) {
               @if (behavior.id !== undefined && behavior.id !== null) {
                 <adb-checkbox
@@ -183,7 +206,7 @@
     @if (basisOfRecordList.length > 0) {
       <adb-accordion>
         <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
-          <div class="behavior-children">
+          <div class="checkbox-accordion-children">
             @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
               @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
                 <adb-checkbox
@@ -206,7 +229,7 @@
     @if (institutionList.length > 0) {
       <adb-accordion>
         <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
-          <div class="institution-children">
+          <div class="checkbox-accordion-children">
             @for (institution of institutionList; track institution.id ?? $index) {
               @if (institution.id !== undefined && institution.id !== null) {
                 <adb-checkbox

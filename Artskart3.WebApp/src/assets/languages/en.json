@@ -90,7 +90,8 @@
       "materialsample": "Material sample",
       "objekt": "Occurrence",
       "observasjon": "Observation"
-    }
+    },
+    "taxonGroups": "Taxon groups"
   },
   "pagination": {
     "previous": "Previous",

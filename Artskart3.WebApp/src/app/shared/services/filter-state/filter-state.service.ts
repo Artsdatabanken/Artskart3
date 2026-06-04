@@ -10,6 +10,7 @@ export class FilterStateService {
   readonly selectedInstitutionIds = signal<number[]>([]);
   readonly selectedBehaviorIds = signal<number[]>([]);
   readonly selectedBasisOfRecordIds = signal<number[]>([]);
+  readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
@@ -133,6 +134,27 @@ export class FilterStateService {
     this.selectedBasisOfRecordIds.set([]);
   }
 
+  toggleTaxonGroup(id: number): void {
+    this.selectedTaxonGroupIds.update((ids) =>
+      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
+    );
+  }
+
+  addTaxonGroup(id: number): void {
+    this.selectedTaxonGroupIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  removeTaxonGroup(id: number): void {
+    this.selectedTaxonGroupIds.update((ids) => {
+      if (!ids.includes(id)) return ids;
+      return ids.filter((i) => i !== id);
+    });
+  }
+
+  clearTaxonGroups(): void {
+    this.selectedTaxonGroupIds.set([]);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
@@ -164,6 +186,7 @@ export class FilterStateService {
     this.clearInstitutions();
     this.clearBehaviors();
     this.clearBasisOfRecords();
+    this.clearTaxonGroups();
     this.clearCoordinatePrecision();
     this.clearPeriod();
   }

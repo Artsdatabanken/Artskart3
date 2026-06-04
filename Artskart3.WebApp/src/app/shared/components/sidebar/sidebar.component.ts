@@ -12,8 +12,9 @@ import { AreaService, CountyGroup } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
+import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto } from '../../types/api.types';
+import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto } from '../../types/api.types';
 
 @Component({
   selector: 'app-sidebar',
@@ -29,6 +30,7 @@ export class SidebarComponent {
   private readonly institutionService = inject(InstitutionService);
   private readonly behaviorService = inject(BehaviorService);
   private readonly basisOfRecordService = inject(BasisOfRecordService);
+  private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
   private readonly translate = inject(TranslateService);
 
@@ -48,10 +50,15 @@ export class SidebarComponent {
     stream: () => this.basisOfRecordService.getBasisOfRecords(),
   });
 
+  readonly taxonGroupsResource = rxResource<TaxonGroupDto[], void>({
+    stream: () => this.taxonGroupService.getTaxonGroups(),
+  });
+
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
   readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
 
   isCategorySelected(id: number): boolean {
@@ -160,6 +167,14 @@ export class SidebarComponent {
     const key = 'sidebar.basisOfRecordName.' + basisOfRecord.name;
     const translated = this.translate.instant(key);
     return translated !== key ? translated : (basisOfRecord.description ?? basisOfRecord.name);
+  }
+
+  isTaxonGroupSelected(id: number): boolean {
+    return this.filterState.selectedTaxonGroupIds().includes(id);
+  }
+
+  onTaxonGroupToggle(id: number): void {
+    this.filterState.toggleTaxonGroup(id);
   }
 
   // Coordinate precision filter

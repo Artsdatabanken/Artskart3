@@ -23,7 +23,8 @@ const INCLUDED_PATHS = [
   '/api/lookup/areas',
   '/api/lookup/institutions',
   '/api/lookup/behaviors',
-  '/api/lookup/basisofrecords'
+  '/api/lookup/basisofrecords',
+  '/api/lookup/taxongroups'
 ];
 
 async function fetchSpec() {
