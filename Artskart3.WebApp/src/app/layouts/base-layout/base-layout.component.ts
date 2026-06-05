@@ -1,4 +1,5 @@
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
@@ -7,7 +8,6 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 
 @Component({
   selector: 'app-base-layout',
-  standalone: true,
   imports: [
     CommonModule,
     RouterOutlet,
@@ -15,24 +15,17 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
     TranslateModule,
     SidebarComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './base-layout.component.html',
   styleUrls: ['./base-layout.component.css'],
 })
 export class BaseLayoutComponent {
-  minWidth = this.getPanelMinWidth();
-  maxWidth = this.getPanelMaxWidth();
-  filterPanelWidth = signal(this.minWidth);
-  showFilterPanel = signal(true);
+  private readonly document = inject(DOCUMENT);
 
-  private getPanelMinWidth(): number {
-    const value = getComputedStyle(document.documentElement).getPropertyValue('--panel-min-width').trim();
-    return parseInt(value) || 300;
-  }
-
-  private getPanelMaxWidth(): number {
-    const value = getComputedStyle(document.documentElement).getPropertyValue('--panel-max-width').trim();
-    return parseInt(value) || 500;
-  }
+  readonly minWidth = this.getCSSVar('--panel-min-width', 300);
+  readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
+  readonly filterPanelWidth = signal(this.minWidth);
+  readonly showFilterPanel = signal(true);
 
   toggleFilterPanel() {
     this.showFilterPanel.update((val) => !val);
@@ -41,5 +34,12 @@ export class BaseLayoutComponent {
   onFilterPanelResize(newWidth: number) {
     const validatedWidth = Math.max(this.minWidth, Math.min(newWidth, this.maxWidth));
     this.filterPanelWidth.set(validatedWidth);
+  }
+
+  private getCSSVar(name: string, fallback: number): number {
+    const value = this.document.documentElement
+      ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
+      : '';
+    return parseInt(value) || fallback;
   }
 }
