@@ -8,11 +8,10 @@ import { ObservationSearchFilter, PagedObservationResponse } from '../../types/a
 import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
-import { AreaNamePipe } from '../../pipes/area-name.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe, AreaNamePipe],
+  imports: [TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
@@ -22,6 +21,17 @@ export class ListViewComponent {
   private readonly observationService = inject(ObservationService);
   private readonly areaService = inject(AreaService);
   private readonly filterState = inject(FilterStateService);
+
+  readonly areaNameMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const m of this.areaService.municipalities()) {
+      map.set(m.fid, m.name ?? m.fid);
+    }
+    for (const c of this.areaService.counties()) {
+      map.set(c.fid, c.name ?? c.fid);
+    }
+    return map;
+  });
 
   readonly pageNumber = signal(1);
 
@@ -110,5 +120,10 @@ export class ListViewComponent {
   onPageSizeChange(size: number) {
     this.resultsPerPage.set(size);
     this.pageNumber.set(1);
+  }
+
+  getAreaName(fid: string | null | undefined): string {
+    if (!fid) return '';
+    return this.areaNameMap().get(fid) ?? fid;
   }
 }
