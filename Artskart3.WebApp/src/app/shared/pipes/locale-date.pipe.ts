@@ -3,7 +3,6 @@ import { TranslateService } from '@ngx-translate/core';
 
 @Pipe({
   name: 'localeDate',
-  standalone: true,
   pure: true,
 })
 export class LocaleDatePipe implements PipeTransform {
