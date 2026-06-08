@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260608073333_AddObservationAreaIndex")]
+    partial class AddObservationAreaIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1236,17 +1239,16 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationAreaIndex", b =>
                 {
-                    b.Property<int>("ObservationId")
-                        .HasColumnType("int");
+                    b.Property<string>("AreaFid")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("AreaTypeId")
                         .HasColumnType("int");
 
-                    b.Property<string>("AreaFid")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("ObservationId", "AreaTypeId", "AreaFid");
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("int");
 
                     b.ToTable("ObservationAreaIndex", (string)null);
                 });

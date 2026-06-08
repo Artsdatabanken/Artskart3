@@ -492,20 +492,10 @@ public class SearchRepositoryTests
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var municipalityArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(municipalityArea);
-
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().Add(municipalityArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 1, AreaFid = "0301" });
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
@@ -515,38 +505,18 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotMatchOutdatedMunicipalityArea()
+    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotMatchFidNotInIndex()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        // Outdated area with the requested Fid — must NOT match (IsCurrent = false)
-        var outdatedArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo (old)",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = false
-        };
-        // Current area with a different Fid — what the projection would return
-        var currentArea = new Area
-        {
-            Id = 2, DocumentId = "doc-2", Fid = "4631", Name = "Sogndal",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(outdatedArea);
-        location.Areas.Add(currentArea);
-
+        // Observasjonen finnes, men den forespurte Fid-en er ikke i indeksen
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().AddRange(outdatedArea, currentArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 1, AreaFid = "4631" });
         await context.SaveChangesAsync();
 
-        // Filter by the outdated Fid — should return nothing because the area is not current
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { MunicipalityIds = ["0301"] });
 
@@ -554,29 +524,18 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotReturnObservationMatchingOnlyCountyFid()
+    public async Task GetObservationsAsync_WithMunicipalityIdsFilter_DoesNotMatchCountyIndexRow()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        // County area whose Fid happens to be in the filter — must NOT match
-        var countyArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo County",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(countyArea);
-
+        // Indeksrad med AreaTypeId=2 (fylke) — kommunefilter skal ikke matche
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().Add(countyArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 2, AreaFid = "03" });
         await context.SaveChangesAsync();
 
-        // Filter by the county's Fid — should return nothing because it's not a municipality area
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { MunicipalityIds = ["03"] });
 
@@ -589,20 +548,10 @@ public class SearchRepositoryTests
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var countyArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(countyArea);
-
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().Add(countyArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 2, AreaFid = "03" });
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
@@ -612,36 +561,18 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotMatchOutdatedCountyArea()
+    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotMatchFidNotInIndex()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var outdatedArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "03", Name = "Oslo (old)",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = false
-        };
-        var currentArea = new Area
-        {
-            Id = 2, DocumentId = "doc-2", Fid = "3024", Name = "Oslo (new)",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.County,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(outdatedArea);
-        location.Areas.Add(currentArea);
-
+        // Observasjonen finnes, men den forespurte Fid-en er ikke i indeksen
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().AddRange(outdatedArea, currentArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 2, AreaFid = "3024" });
         await context.SaveChangesAsync();
 
-        // Filter by the outdated Fid — should return nothing because the area is not current
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { CountyIds = ["03"] });
 
@@ -649,29 +580,18 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotReturnObservationMatchingOnlyMunicipalityFid()
+    public async Task GetObservationsAsync_WithCountyIdsFilter_DoesNotMatchMunicipalityIndexRow()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        // Municipality area whose Fid happens to be in the filter — must NOT match
-        var municipalityArea = new Area
-        {
-            Id = 1, DocumentId = "doc-1", Fid = "0301", Name = "Oslo Municipality",
-            AreaTypeId = (int)Core.Domain.Enums.AreaType.Municipality,
-            ParentFid = "parent", Bbox = "bbox", SyncDateTime = DateTime.UtcNow,
-            TimeStamp = DateTime.UtcNow, IsCurrent = true
-        };
-        var location = CreateLocation(1, "Sentrum");
-        location.Areas.Add(municipalityArea);
-
+        // Indeksrad med AreaTypeId=1 (kommune) — fylkesfilter skal ikke matche
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Area>().Add(municipalityArea);
-        context.Set<Location>().Add(location);
-        context.Set<Observation>().Add(CreateObservation(1, locationId: 1));
+        context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 1, AreaFid = "0301" });
         await context.SaveChangesAsync();
 
-        // Filter by the municipality's Fid as a county filter — should return nothing because it's not a county area
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { CountyIds = ["0301"] });
 
@@ -679,26 +599,15 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationLinkedToInstitutionOrg()
+    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationInIndex()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var org = new Organization
-        {
-            Id = 1, Name = "NHM",
-            OrganizationTypeId = (int)Core.Domain.Enums.OrganizationType.Institution,
-            DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow
-        };
-        var relation = new OrganizationRelation
-        {
-            Id = 1, ObservationId = 1, OrganizationId = 1, RelationTypeId = 1
-        };
-
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Organization>().Add(org);
         context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
-        context.Set<OrganizationRelation>().Add(relation);
+        context.Set<ObservationAreaIndex>().Add(new ObservationAreaIndex
+            { ObservationId = 1, AreaTypeId = 5, AreaFid = "1" });
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
@@ -708,32 +617,20 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetObservationsAsync_WithOrganizationIdsFilter_ReturnsObservationRegardlessOfOrgType()
+    public async Task GetObservationsAsync_WithOrganizationIdsFilter_DoesNotMatchWhenNotInIndex()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var org = new Organization
-        {
-            Id = 1, Name = "SomeCollection",
-            OrganizationTypeId = (int)Core.Domain.Enums.OrganizationType.Collection,
-            DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow
-        };
-        var relation = new OrganizationRelation
-        {
-            Id = 1, ObservationId = 1, OrganizationId = 1, RelationTypeId = 1
-        };
-
+        // Observasjonen finnes, men organisasjonen er ikke i indeksen
         context.Set<Taxon>().Add(CreateTaxon(1));
-        context.Set<Organization>().Add(org);
         context.Set<Observation>().Add(CreateObservation(1, locationId: 0));
-        context.Set<OrganizationRelation>().Add(relation);
         await context.SaveChangesAsync();
 
         var results = await sut.GetObservationsAsync(
             new ObservationSearchFilterDto { OrganizationIds = [1] });
 
-        results.Should().ContainSingle().Which.Id.Should().Be(1);
+        results.Should().BeEmpty();
     }
 
     [Fact]

@@ -20,10 +20,39 @@ var appConfig = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
+var influxUrl = appConfig["ARTSKART_BENCH_INFLUX_URL"] ?? "http://localhost:8086";
+var influxReachable = await CheckInfluxDbAsync(influxUrl);
+if (!influxReachable)
+{
+    Console.WriteLine($"[InfluxDB] Kan ikke na InfluxDB pa {influxUrl}");
+    Console.WriteLine("[InfluxDB] Er Docker-containerne oppe? Kjor: docker compose up -d");
+    return;
+}
+else
+{
+    Console.WriteLine($"[InfluxDB] Tilkoblet {influxUrl} — resultater vil bli eksportert etter kjoring.");
+    Console.WriteLine();
+}
+
 var benchmarkConfig = ManualConfig.Create(DefaultConfig.Instance)
     .AddExporter(JsonExporter.FullCompressed);
 
-BenchmarkRunner.Run<SearchServiceBenchmarks>(benchmarkConfig, args);
-BenchmarkRunner.Run<LookupServiceBenchmarks>(benchmarkConfig, args);
+BenchmarkSwitcher
+    .FromTypes([typeof(SearchServiceBenchmarks), typeof(ObservationSearchBenchmarks), typeof(LookupServiceBenchmarks)])
+    .Run(args, benchmarkConfig);
 
 await BenchmarkToInfluxDb.ImportAsync(appConfig);
+
+static async Task<bool> CheckInfluxDbAsync(string url)
+{
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+    try
+    {
+        var response = await client.GetAsync($"{url}/health");
+        return response.IsSuccessStatusCode;
+    }
+    catch
+    {
+        return false;
+    }
+}

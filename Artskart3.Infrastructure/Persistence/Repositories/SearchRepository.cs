@@ -140,7 +140,6 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             var query = _context.Set<Observation>()
                                 .AsNoTracking();
 
-            //Where clauses
             if (!string.IsNullOrEmpty(filter.PreferredPopularName))
             {
                 var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
@@ -164,56 +163,40 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
             }
 
-            if(filter.OrganizationIds?.Any() == true)
-            {
-                query = query.Where(o => o.OrganizationRelations
-                                          .Any(x => filter.OrganizationIds.Contains(x.OrganizationId)));
-            }
-
             if(filter.CategoryIds?.Any() == true)
             {
                 query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
             }
 
-            // Områdefiltre kombineres med OR: en observasjon vises hvis den
-            // tilhører minst ett av de valgte områdene, uavhengig av type.
-            HashSet<int>? areaLocationIds = null;
-
-            async Task UnionAreaLocationsAsync(Core.Domain.Enums.AreaType areaType, string[] fids)
-            {
-                var ids = await _context.Set<Area>()
-                    .AsNoTracking()
-                    .Where(a => a.IsCurrent
-                        && a.AreaTypeId == (int)areaType
-                        && fids.Contains(a.Fid))
-                    .SelectMany(a => a.Locations)
-                    .Select(l => l.Id)
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                if (areaLocationIds == null)
-                    areaLocationIds = new HashSet<int>(ids);
-                else
-                    areaLocationIds.UnionWith(ids);
-            }
+            // Område- og institusjonsfiltre via ObservationAreaIndex-tabellen.
+            // Kombineres med OR: en observasjon vises hvis den tilhører minst ett av de valgte områdene.
+            var filterQueries = new List<IQueryable<Observation>>();
 
             if (filter.MunicipalityIds?.Any() == true)
-                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.Municipality, filter.MunicipalityIds);
+                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                    idx.ObservationId == o.Id && idx.AreaTypeId == 1 && filter.MunicipalityIds.Contains(idx.AreaFid))));
 
             if (filter.CountyIds?.Any() == true)
-                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.County, filter.CountyIds);
+                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                    idx.ObservationId == o.Id && idx.AreaTypeId == 2 && filter.CountyIds.Contains(idx.AreaFid))));
 
             if (filter.RestrictedAreaIds?.Any() == true)
-                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.RestrictedArea, filter.RestrictedAreaIds);
+                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                    idx.ObservationId == o.Id && idx.AreaTypeId == 3 && filter.RestrictedAreaIds.Contains(idx.AreaFid))));
 
             if (filter.OceanAreaIds?.Any() == true)
-                await UnionAreaLocationsAsync(Core.Domain.Enums.AreaType.OceanArea, filter.OceanAreaIds);
+                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                    idx.ObservationId == o.Id && idx.AreaTypeId == 4 && filter.OceanAreaIds.Contains(idx.AreaFid))));
 
-            if (areaLocationIds != null)
+            if (filter.OrganizationIds?.Any() == true)
             {
-                var locationIdList = areaLocationIds.ToList();
-                query = query.Where(o => locationIdList.Contains(o.LocationId!.Value));
+                var institutionFids = filter.OrganizationIds.Select(id => id.ToString()).ToArray();
+                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                    idx.ObservationId == o.Id && idx.AreaTypeId == 5 && institutionFids.Contains(idx.AreaFid))));
             }
+
+            if (filterQueries.Count > 0)
+                query = filterQueries.Aggregate((a, b) => a.Union(b));
 
             if(filter.BehaviorIds?.Any() == true)
             {
@@ -269,17 +252,17 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                 PreferredPopularName = o.Taxon.PreferredPopularName,
                 ScientificName = o.Taxon.ValidScientificName,
                 Author = o.Taxon.ValidScientificNameAuthorship,
-                Institution = o.OrganizationRelations
-                    .Where(x => x.Organization.OrganizationTypeId == (int)Core.Domain.Enums.OrganizationType.Institution)
-                    .Select(x => x.Organization.Name)
+                Institution = _context.Set<ObservationAreaIndex>()
+                    .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 5)
+                    .Join(_context.Set<Organization>(),
+                        idx => idx.AreaFid, org => org.Id.ToString(),
+                        (idx, org) => org.Name)
                     .FirstOrDefault(),
                 Locality = o.Location != null ? o.Location.Locality : null,
-                MunicipalityId = o.Location != null
-                    ? o.Location.Areas
-                        .Where(x => x.IsCurrent == true && x.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality)
-                        .Select(x => x.Fid)
-                        .FirstOrDefault()
-                    : null,
+                MunicipalityId = _context.Set<ObservationAreaIndex>()
+                    .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 1)
+                    .Select(idx => idx.AreaFid)
+                    .FirstOrDefault(),
                 TaxonGroupId = o.TaxonGroupId,
                 CategoryId = o.CategoryId,
                 DateTimeCollected = o.DateTimeCollected,

@@ -1012,6 +1012,13 @@ namespace Artskart3.Infrastructure.Data
             entity.HasIndex(e => e.OccurredAt).HasDatabaseName("IX_SlowQueryLog_OccurredAt");
         });
 
+        modelBuilder.Entity<ObservationAreaIndex>(entity =>
+        {
+            entity.HasKey(e => new { e.ObservationId, e.AreaTypeId, e.AreaFid });
+            entity.ToTable("ObservationAreaIndex");
+            entity.Property(e => e.AreaFid).HasMaxLength(50);
+        });
+
         OnModelCreatingPartial(modelBuilder);
     }
 
