@@ -8,11 +8,10 @@ import { ObservationSearchFilter, PagedObservationResponse } from '../../types/a
 import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
-import { AreaNamePipe } from '../../pipes/area-name.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe, AreaNamePipe],
+  imports: [TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
@@ -22,6 +21,17 @@ export class ListViewComponent {
   private readonly observationService = inject(ObservationService);
   private readonly areaService = inject(AreaService);
   private readonly filterState = inject(FilterStateService);
+
+  readonly areaNameMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const m of this.areaService.municipalities()) {
+      map.set(m.fid, m.name ?? m.fid);
+    }
+    for (const c of this.areaService.counties()) {
+      map.set(c.fid, c.name ?? c.fid);
+    }
+    return map;
+  });
 
   readonly pageNumber = signal(1);
 
@@ -47,48 +57,32 @@ export class ListViewComponent {
   readonly pageSizeOptions = [10, 25, 50];
   readonly resultsPerPage = signal(this.pageSizeOptions[0]);
 
-  readonly observationsResource = rxResource<PagedObservationResponse, Partial<ObservationSearchFilter>>({
-    params: () => ({
-      pageNumber: this.pageNumber(),
-      resultsPerPage: this.resultsPerPage(),
-      categoryIds: this.filterState.selectedCategoryIds(),
-      organizationIds: this.filterState.selectedInstitutionIds(),
-      behaviorIds: this.filterState.selectedBehaviorIds(),
-      basisOfRecordIds: this.filterState.selectedBasisOfRecordIds(),
-      taxonGroupIds: this.filterState.selectedTaxonGroupIds(),
-      countyIds: this.areaService.resolvedAreaFilter().countyIds,
-      municipalityIds: this.areaService.resolvedAreaFilter().municipalityIds,
-      oceanAreaIds: this.filterState.selectedOceanAreaIds(),
-      coordinatePrecision: {
-        from: this.filterState.coordinatePrecisionFrom(),
-        to: this.filterState.coordinatePrecisionTo(),
-      },
-      period: {
-        from: this.filterState.periodFrom(),
-        to: this.filterState.periodTo(),
-      },
-    }),
-    stream: ({ params }) => {
-      const hasCoordinatePrecision =
-        params.coordinatePrecision?.from != null || params.coordinatePrecision?.to != null;
-      const hasPeriod =
-        params.period?.from != null || params.period?.to != null;
-      const filter: ObservationSearchFilter = {
-        pageNumber: params.pageNumber ?? 1,
-        resultsPerPage: params.resultsPerPage ?? 10,
-        categoryIds: params.categoryIds?.length ? params.categoryIds : undefined,
-        organizationIds: params.organizationIds?.length ? params.organizationIds : undefined,
-        behaviorIds: params.behaviorIds?.length ? params.behaviorIds : undefined,
-        basisOfRecordIds: params.basisOfRecordIds?.length ? params.basisOfRecordIds : undefined,
-        taxonGroupIds: params.taxonGroupIds?.length ? params.taxonGroupIds : undefined,
-        countyIds: params.countyIds?.length ? params.countyIds : undefined,
-        municipalityIds: params.municipalityIds?.length ? params.municipalityIds : undefined,
-        oceanAreaIds: params.oceanAreaIds?.length ? params.oceanAreaIds : undefined,
-        coordinatePrecision: hasCoordinatePrecision ? params.coordinatePrecision : undefined,
-        period: hasPeriod ? params.period : undefined,
+  readonly observationsResource = rxResource<PagedObservationResponse, ObservationSearchFilter>({
+    params: () => {
+      const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
+      const coordinatePrecisionFrom = this.filterState.coordinatePrecisionFrom();
+      const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
+      const periodFrom = this.filterState.periodFrom();
+      const periodTo = this.filterState.periodTo();
+      const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
+      const hasPeriod = periodFrom != null || periodTo != null;
+
+      return {
+        pageNumber: this.pageNumber(),
+        resultsPerPage: this.resultsPerPage(),
+        categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
+        organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
+        behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
+        basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+        countyIds: countyIds.length ? countyIds : undefined,
+        municipalityIds: municipalityIds.length ? municipalityIds : undefined,
+        oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
+        coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
+        period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
       };
-      return this.observationService.searchObservations(filter);
     },
+    stream: ({ params }) => this.observationService.searchObservations(params),
   });
 
   readonly totalVisiblePages = computed(() => {
@@ -110,5 +104,10 @@ export class ListViewComponent {
   onPageSizeChange(size: number) {
     this.resultsPerPage.set(size);
     this.pageNumber.set(1);
+  }
+
+  getAreaName(fid: string | null | undefined): string {
+    if (!fid) return '';
+    return this.areaNameMap().get(fid) ?? fid;
   }
 }
