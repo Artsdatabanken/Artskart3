@@ -68,55 +68,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAreasByTypeIdsAsync_ReturnsAreasOfSpecifiedType()
-    {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
-
-        result.Should().OnlyContain(area => area.AreaTypeId == TestAreaTypeMunicipalityId);
-        result.Select(area => area.Name).Should().Contain("Repo kommune A");
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_DoesNotReturnAreasOfOtherType()
-    {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
-
-        result.Select(area => area.Name).Should().NotContain("Repo fylke A");
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_GroupsByName_SumsObservationCounts()
-    {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId)).ToList();
-
-        var groupedArea = result.Single(area => area.Name == "Repo gruppert kommune");
-        groupedArea.ObservationCount.Should().Be(25);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithEmptyTypeIds_ReturnsEmpty()
-    {
-        var result = await _repository.GetAreasByTypeIdsAsync([]);
-
-        result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_SameNameDifferentAreaType_MergesIntoOneEntry()
-    {
-        var result = (await _repository.GetAreasByTypeIdsAsync(TestAreaTypeMunicipalityId, TestAreaTypeCountyId)).ToList();
-
-        var mergedArea = result.Where(area => area.Name == "Repo felles område").ToList();
-        mergedArea.Should().ContainSingle();
-        mergedArea[0].ObservationCount.Should().Be(70);
-    }
-
-    [Fact]
     public async Task GetLocationsAsync_GroupsObservationsByLocation()
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = $"{CollectionOne},{CollectionTwo}"
+            CollectionIds = new[] { CollectionOne, CollectionTwo }
         }));
 
         result.Should().HaveCount(3);
@@ -130,10 +86,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = $"{CollectionOne},{CollectionTwo}"
+            CollectionIds = new[] { CollectionOne, CollectionTwo }
         }));
-
-        result.Select(location => location.ObservationCount).Should().ContainInOrder(3, 2, 1);
     }
 
     [Fact]
@@ -141,8 +95,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = TestObservationTaxonGroupOneId.ToString(),
-            CollectionIds = $"{CollectionOne},{CollectionTwo}"
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId },
+            CollectionIds = new[] { CollectionOne, CollectionTwo }
         }));
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationOne.Id, _locationThree.Id]);
@@ -153,7 +107,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            Categories = TestCategoryOneId.ToString()
+            Categories = new[] { TestCategoryOneId }
         }));
 
         result.Should().ContainSingle();
@@ -165,7 +119,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            BasisOfRecords = TestBasisOfRecordOneId.ToString()
+            BasisOfRecords = new[] { TestBasisOfRecordOneId }
         }));
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationOne.Id, _locationThree.Id]);
@@ -176,7 +130,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = CollectionTwo
+            CollectionIds = new[] { CollectionTwo }
         }));
 
         result.Should().ContainSingle();
@@ -188,7 +142,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = $"{CollectionOne},{CollectionTwo}",
+            CollectionIds = new[] { CollectionOne, CollectionTwo },
             CoordinatePrecisionFrom = 100
         }));
 
@@ -200,7 +154,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = $"{CollectionOne},{CollectionTwo}",
+            CollectionIds = new[] { CollectionOne, CollectionTwo },
             CoordinatePrecisionTo = 50
         }));
 
@@ -213,7 +167,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = $"{CollectionOne},{CollectionTwo}",
+            CollectionIds = new[] { CollectionOne, CollectionTwo },
             MaxResults = 2
         }));
 

@@ -110,38 +110,6 @@ public class SearchServiceTests
     }
 
     // -----------------------------------------------------------------------
-    // GetAreasByTypeIdsAsync
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_ReturnsDelegatedResult()
-    {
-        var expected = new List<AreaMarkerDto>
-        {
-            new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 100 }
-        };
-        _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(1, 2))
-            .ReturnsAsync(expected);
-
-        var result = await _sut.GetAreasByTypeIdsAsync(1, 2);
-
-        result.Should().BeEquivalentTo(expected);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_PassesTypeIdsToRepository()
-    {
-        _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
-            .ReturnsAsync(Enumerable.Empty<AreaMarkerDto>());
-
-        await _sut.GetAreasByTypeIdsAsync(1, 2);
-
-        _repositoryMock.Verify(r => r.GetAreasByTypeIdsAsync(1, 2), Times.Once);
-    }
-
-    // -----------------------------------------------------------------------
     // Hjelpemetoder
     // -----------------------------------------------------------------------
 
