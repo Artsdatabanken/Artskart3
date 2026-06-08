@@ -37,7 +37,7 @@ export class LoggingService {
         });
         try {
             this.appInsights.loadAppInsights();
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to initialize Application Insights', error);
         }
     }

@@ -72,9 +72,9 @@ function parsePolygonWkt(wkt: string | undefined): number[][][] | null {
 export class AreasService {
   private static readonly SERVICE_NAME = 'AreasService';
 
-  private readonly apiClientService = inject(ApiClientService);
-  private readonly loggerService = inject(LoggingService);
-  private readonly validationService = inject(ValidationService);
+  private readonly apiClientService: ApiClientService = inject(ApiClientService);
+  private readonly loggerService: LoggingService = inject(LoggingService);
+  private readonly validationService: ValidationService = inject(ValidationService);
 
   private readonly areasBaseEndpoint = '/api/Search/AreasObservations';
   private readonly locationsEndpoint = '/api/Search/Locations';
@@ -118,9 +118,9 @@ export class AreasService {
    */
   getLocationsAsGeoJson(): Observable<AreaMarkerFeature[]> {
     return this.apiClientService.fetchJson<string>(this.locationsEndpoint, { responseType: 'text' }).pipe(
-      map(responseText => {
+      map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
-        const features = this.mapLocationsToGeoJson(parsed);
+        const features: AreaMarkerFeature[] = this.mapLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
         return features;
       }),

@@ -17,9 +17,9 @@ import { LoggingService } from '@shared/logging.service';
 export class ApiClientService {
   private static readonly SERVICE_NAME = 'ApiClientService';
 
-  private readonly http = inject(HttpClient);
-  private readonly logger = inject(LoggingService);
-  private readonly apiUrl = environment.apiUrl;
+  private readonly http: HttpClient = inject(HttpClient);
+  private readonly logger: LoggingService = inject(LoggingService);
+  private readonly apiUrl: string = environment.apiUrl;
 
   fetchJson<T>(endpoint: string, options?: { responseType?: 'json' | 'text' }): Observable<T> {
     const url = this.buildUrl(endpoint);
@@ -49,9 +49,10 @@ export class ApiClientService {
 
     try {
       return JSON.parse(responseText) as T;
-    } catch (error) {
+    } catch (error: unknown) {
+      const parseError = new Error(ApiMessages.Errors.GeoJsonParseError);
       this.logger.error(ApiMessages.Errors.GeoJsonParseError, ApiClientService.SERVICE_NAME, error);
-      throw new Error(ApiMessages.Errors.GeoJsonParseError, { cause: error });
+      throw parseError;
     }
   }
 
@@ -77,7 +78,7 @@ export class ApiClientService {
       errorMessage = error.message;
     }
 
-    this.logger.error(errorMessage, ApiClientService.SERVICE_NAME, error);
+    this.logger.error(errorMessage, ApiClientService.SERVICE_NAME, error as unknown);
     return throwError(() => new Error(errorMessage, { cause: error }));
   }
 

@@ -9,7 +9,6 @@ import {
   AREA_TYPE_CONFIG,
   getAreaTypeColor
 } from '@shared/models/area/area-marker.model';
-import { AreaMarkerPopupTemplate } from '@shared/templates/area-marker-popup.template';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { LoggingService } from '@shared/logging.service';
 
@@ -35,7 +34,6 @@ export interface MapLayer {
   providedIn: 'root'
 })
 export class AreaMapLayerService {
-  private static readonly SERVICE_NAME = 'AreaMapLayerService';
 
   private readonly logger = inject(LoggingService);
 
@@ -80,51 +78,16 @@ export class AreaMapLayerService {
     return layer;
   }
 
-  createLabelLayer(layerId: string, features: AreaMarkerFeature[]): MapLayer {
-    const labelFeatures = features.filter(f =>
-      f.properties.observationCountDisplay?.trim()
-    );
-
-    return {
-      id: layerId,
-      kind: 'vector',
-      type: 'symbol',
-      source: {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: labelFeatures
-        }
-      },
-      layout: {
-        'text-field': ['get', 'observationCountDisplay'],
-        'text-size': this.getObservationCountTextSize(),
-        'text-offset': MAP_CONFIG.textOffset,
-        'text-anchor': 'center',
-        'text-allow-overlap': true,
-        'text-ignore-placement': true
-      },
-      paint: {
-        'text-color': MAP_CONFIG.textColor,
-        'text-halo-color': MAP_CONFIG.textHaloColor,
-        'text-halo-width': 1
-      }
-    };
-  }
-
-  createMarkerPopup(feature: AreaMarkerFeature): string {
-    return AreaMarkerPopupTemplate.createPopup(feature);
-  }
-
   private getCircleRadiusExpression(): unknown[] {
     const conditions: unknown[] = ['case'];
+    const areaConfigs = Object.values(AREA_TYPE_CONFIG) as { id: number; name: string; color: string }[];
 
-    Object.entries(AREA_TYPE_CONFIG).forEach(([, config]) => {
+    for (const config of areaConfigs) {
       conditions.push(
         ['==', ['get', 'areaTypeId'], config.id],
         ['interpolate', ['linear'], ['zoom'], ...MAP_CONFIG.markerRadiusInterpolation[config.id as keyof typeof MAP_CONFIG.markerRadiusInterpolation] || [6, 6, 11, 16]]
       );
-    });
+    }
 
     conditions.push(8);
     return conditions;
@@ -132,19 +95,16 @@ export class AreaMapLayerService {
 
   private getCircleColorExpression(): unknown[] {
     const conditions: unknown[] = ['case'];
+    const areaConfigs = Object.values(AREA_TYPE_CONFIG) as { id: number; name: string; color: string }[];
 
-    Object.entries(AREA_TYPE_CONFIG).forEach(([, config]) => {
+    for (const config of areaConfigs) {
       conditions.push(
         ['==', ['get', 'areaTypeId'], config.id],
         getAreaTypeColor(config.id)
       );
-    });
+    }
 
     conditions.push(MAP_CONFIG.colors.default);
     return conditions;
-  }
-
-  private getObservationCountTextSize(): unknown[] {
-    return ['interpolate', ['linear'], ['zoom'], ...MAP_CONFIG.textSize];
   }
 }

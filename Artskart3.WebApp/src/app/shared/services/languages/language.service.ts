@@ -17,7 +17,7 @@ export class LanguageService {
   private currentLanguage$ = new BehaviorSubject<SupportedLanguage>(this.DEFAULT_LANGUAGE);
 
   private readonly translate = inject(TranslateService);
-  private readonly logger = inject(LoggingService);
+  private readonly logger: LoggingService = inject(LoggingService);
 
   constructor() {
     this.translate.setDefaultLang('no');
@@ -70,7 +70,7 @@ export class LanguageService {
   private saveLanguage(lang: SupportedLanguage): void {
     try {
       localStorage.setItem(this.STORAGE_KEY, lang);
-    } catch (e) {
+    } catch (e: unknown) {
       this.logger.warn('Failed to save language preference to localStorage:', 'LanguageService', e);
     }
   }
@@ -78,7 +78,7 @@ export class LanguageService {
   private getSavedLanguage(): SupportedLanguage | null {
     try {
       return localStorage.getItem(this.STORAGE_KEY) as SupportedLanguage | null;
-    } catch (e) {
+    } catch (e: unknown) {
       this.logger.warn('Failed to retrieve language preference from localStorage:', 'LanguageService', e);
       return null;
     }

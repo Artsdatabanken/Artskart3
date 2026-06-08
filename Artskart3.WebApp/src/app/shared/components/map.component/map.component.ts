@@ -1,7 +1,7 @@
 import { createMap, LayerDef, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
-import { Subject } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
 import type { AreaMarkerFeature } from '@shared/models/area/area-marker.model';
@@ -11,7 +11,7 @@ import Feature from 'ol/Feature';
 import { Polygon, Point } from 'ol/geom';
 import { Style, Fill, Stroke, Text, Icon } from 'ol/style';
 import { transform } from 'ol/proj';
-import { ZoomCalculator, ZoomVisibilityHelper, ZoomState, ZoomConfig } from '@shared/helpers/zoom';
+import { ZoomVisibilityHelper, ZoomConfig } from '@shared/helpers/zoom';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -42,7 +42,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly isLocationPointsZoom = (apiZoomLevel: number): boolean => apiZoomLevel === ApiZoomLevel.LocationPoints;
 
   public map!: NbicMapComponent;
-  private zoomState: ZoomState = new ZoomState();
   private previousApiZoomLevel: number | null = null;
 
   private areaMarkerFeatures: AreaMarkerFeature[] = [];
@@ -50,9 +49,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  private areasService = inject(AreasService);
-  private sharedMapService = inject(SharedMapService);
-  private logger = inject(LoggingService);
+  private areasService: AreasService = inject(AreasService);
+  private sharedMapService: SharedMapService = inject(SharedMapService);
+  private logger: LoggingService = inject(LoggingService);
 
   private getLayerConfig(): LayerConfig {
     const baseLayerId = MAP_CONFIG.areaMarkersLayer;
@@ -106,7 +105,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           id: MAP_CONFIG.mapId,
           projection: MAP_CONFIG.projection,
           center: MAP_CONFIG.center,
-          zoom: this.zoomState.getZoom(),
+          zoom: ZoomConfig.DEFAULT_ZOOM_LEVEL,
           minZoom: MAP_CONFIG.minZoom,
           maxZoom: MAP_CONFIG.maxZoom,
           controls: { scaleLine: true, fullscreen: false, geolocation: true, zoom: false, attribution: true }
@@ -116,7 +115,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.setupBaseMapLayers();
       this.generateBackgroundMaps();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
   }
@@ -128,70 +127,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private syncZoomFromMap(): void {
     if (!this.map) return;
-    const zoom = this.map.getCamera().zoom;
-    if (zoom !== null && !isNaN(zoom)) {
-      this.zoomState.setZoom(zoom);
-    }
   }
 
   private handleScrollZoom(event: WheelEvent): void {
     if (!this.map) return;
-    if (!this.zoomState.canProcessScroll()) return;
-    const newTargetZoom = this.zoomState.calculateScrollZoom(
-      event.deltaY,
+    const currentZoom = this.map.getCamera().zoom;
+    const delta = ZoomConfig.calculateZoomDelta(event.deltaY);
+    const newTargetZoom = ZoomConfig.constrainZoom(
+      currentZoom + delta,
       MAP_CONFIG.minZoom,
       MAP_CONFIG.maxZoom
     );
-    if (newTargetZoom === null) return;
-    this.animateZoom(newTargetZoom);
+    if (newTargetZoom === currentZoom) return;
+    this.applyZoom(newTargetZoom);
   }
 
-  private animateZoom(targetZoom: number): void {
-    this.zoomState.cancelAnimation();
-
-    const startZoom = this.zoomState.getZoom();
-    const startTime = performance.now();
-
-    if (ZoomCalculator.isZoomDifferenceNegligible(targetZoom, startZoom)) {
-      this.applyZoom(targetZoom);
-      this.zoomState.setZoom(targetZoom);
-      return;
-    }
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = ZoomCalculator.calculateAnimationProgress(elapsed);
-      const currentZoom = ZoomCalculator.interpolateZoom(startZoom, targetZoom, progress);
-
-      this.applyZoom(currentZoom);
-      this.zoomState.setZoom(currentZoom);
-
-      if (progress < 1) {
-        const frameId = requestAnimationFrame(animate);
-        this.zoomState.setAnimationFrameId(frameId);
-      } else {
-        this.zoomState.setZoom(targetZoom);
-        this.zoomState.setAnimationFrameId(null);
-      }
-    };
-
-    const frameId = requestAnimationFrame(animate);
-    this.zoomState.setAnimationFrameId(frameId);
+  onToolbarZoomChange(newZoom: number): void {
+    const constrainedZoom = ZoomConfig.constrainZoom(
+      newZoom,
+      MAP_CONFIG.minZoom,
+      MAP_CONFIG.maxZoom
+    );
+    this.applyZoom(constrainedZoom);
   }
+
 
   private applyZoom(zoom: number): void {
     if (!this.map || isNaN(zoom)) return;
     try {
-      const previousZoom = this.zoomState.getZoom();
+      const previousZoom = this.map.getCamera().zoom;
       this.map.setZoom(zoom);
-      this.zoomState.setZoom(zoom);
 
       if (ZoomVisibilityHelper.hasCrossedThreshold(previousZoom, zoom)) {
         this.setupAreaMarkers();
       } else if (this.areaMarkerFeatures.length > 0) {
         this.updateMarkerLayerVisibility(zoom);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error applying zoom:', 'MapComponent', error);
     }
   }
@@ -229,12 +201,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
   private getApiZoomLevel(): number {
-    return ZoomConfig.getApiZoomLevel(this.zoomState.getZoom());
+    const currentZoom = this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
+    return ZoomConfig.getApiZoomLevel(currentZoom);
   }
 
   private setupAreaMarkers(): void {
     const apiZoomLevel = this.getApiZoomLevel();
-    const currentZoom = this.zoomState.getZoom();
+    const currentZoom = this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
 
     if (this.previousApiZoomLevel === null) {
       this.previousApiZoomLevel = apiZoomLevel;
@@ -251,7 +224,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private fetchAndCacheMarkerFeatures(apiZoomLevel: number, currentZoom: number): void {
-    const serviceCall$ = this.isLocationPointsZoom(apiZoomLevel)
+    const serviceCall$: Observable<AreaMarkerFeature[]> = this.isLocationPointsZoom(apiZoomLevel)
       ? this.areasService.getLocationsAsGeoJson()
       : this.areasService.getAreasObservationsAsGeoJson(currentZoom);
 
@@ -259,7 +232,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (features: AreaMarkerFeature[]) => this.onFeaturesReceived(features, apiZoomLevel),
-        error: (err) => this.onFeaturesError(err)
+        error: (err: unknown) => this.onFeaturesError(err)
       });
   }
 
@@ -278,7 +251,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private onFeaturesError(err: unknown): void {
-    this.logger.error('Failed to load area markers:', 'MapComponent', err);
+    this.logger.error('Failed to load area markers:', 'MapComponent', err as unknown);
     this.mapReadyAction.emit(false);
   }
 
@@ -296,7 +269,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.areaMarkerFeatures.length) return;
 
     try {
-      const currentZoom = this.zoomState.getZoom();
+      const currentZoom = this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
       const apiZoomLevel = this.getApiZoomLevel();
       const layerConfig = this.getLayerConfig();
 
@@ -311,7 +284,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
       this.addLayerIfFeaturesExist(ZoomVisibilityHelper.shouldShowCounties(currentZoom), AreaTypeId.County, layerConfig.countiesLayerId);
       this.addLayerIfFeaturesExist(ZoomVisibilityHelper.shouldShowMunicipalities(currentZoom), AreaTypeId.Municipality, layerConfig.municipalitiesLayerId);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error adding marker layer:', 'MapComponent', error);
     }
   }
@@ -379,7 +352,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       } else {
         this.createPolygonAreaLayer(features, layerId, areaTypeId);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error creating marker layer:', 'MapComponent', error);
     }
   }
@@ -490,7 +463,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private cleanup(): void {
-    this.zoomState.cancelAnimation();
     this.cleanupEventListeners();
     this.destroy$.next();
     this.destroy$.complete();

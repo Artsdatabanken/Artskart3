@@ -24,8 +24,9 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private cachedPosition: GeolocationPosition | null = null;
   private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
+  @Output() zoomChange = new EventEmitter<number>();
 
-  private logger = inject(LoggingService);
+  private logger: LoggingService = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
 
 
@@ -72,7 +73,7 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     if (handler) {
       try {
         handler();
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
       }
     } else {
@@ -83,13 +84,15 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private zoomIn(): void {
     if (!this.map) return;
     const { zoom } = this.map.getCamera();
-    this.map.setZoom(zoom + 1);
+    const newZoom = zoom + 1;
+    this.zoomChange.emit(newZoom);
   }
 
   private zoomOut(): void {
     if (!this.map) return;
     const { zoom } = this.map.getCamera();
-    this.map.setZoom(zoom - 1);
+    const newZoom = zoom - 1;
+    this.zoomChange.emit(newZoom);
   }
 
   private geolocation(): void {

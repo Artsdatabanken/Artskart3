@@ -4,14 +4,18 @@ export class ZoomConfig {
   static readonly ZOOM_MUNICIPALITIES_THRESHOLD = 11;
 
   static readonly SCROLL_SENSITIVITY = 0.1;
-  static readonly SCROLL_THROTTLE_MS = 50;
-  static readonly ZOOM_ANIMATION_DURATION = 200;
 
   static readonly DEFAULT_ZOOM_LEVEL = 6.2;
   static readonly MIN_ZOOM = 0;
   static readonly MAX_ZOOM = 18;
 
-  static readonly NEGLIGIBLE_ZOOM_DIFFERENCE = 0.05;
+  static constrainZoom(zoom: number, minZoom: number = ZoomConfig.MIN_ZOOM, maxZoom: number = ZoomConfig.MAX_ZOOM): number {
+    return Math.max(minZoom, Math.min(maxZoom, zoom));
+  }
+
+  static calculateZoomDelta(deltaY: number, sensitivity: number = ZoomConfig.SCROLL_SENSITIVITY): number {
+    return deltaY > 0 ? -sensitivity : sensitivity;
+  }
 
   static getApiZoomLevel(openLayerZoom: number): number {
     if (openLayerZoom >= 0 && openLayerZoom <= 8) {
