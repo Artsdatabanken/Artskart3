@@ -1,7 +1,6 @@
 using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -56,7 +55,7 @@ public class SearchControllerTests
     [Fact]
     public async Task SearchTaxons_WithValidRequest_ReturnsOkWithTaxons()
     {
-        var taxons = new List<Taxon> { new() { Id = 1, ValidScientificName = "Parus major" } };
+        var taxons = new List<TaxonDto> { new() { Id = 1, ValidScientificName = "Parus major" } };
         _serviceMock.Setup(s => s.GetTaxonsAsync("parus", 20)).ReturnsAsync(taxons);
 
         var result = await _sut.SearchTaxons("parus", 20);

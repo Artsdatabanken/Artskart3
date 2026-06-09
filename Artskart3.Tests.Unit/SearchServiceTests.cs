@@ -1,7 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Domain.BusinessModels;
-using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
 using Moq;
@@ -26,7 +25,7 @@ public class SearchServiceTests
     [Fact]
     public async Task GetTaxonsAsync_ReturnsResultFromRepository()
     {
-        var expected = new List<Taxon>
+        var expected = new List<TaxonDto>
         {
             new() { Id = 1, ValidScientificName = "Parus major" },
             new() { Id = 2, ValidScientificName = "Passer domesticus" }
@@ -45,7 +44,7 @@ public class SearchServiceTests
     {
         _repositoryMock
             .Setup(r => r.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
-            .ReturnsAsync(Enumerable.Empty<Taxon>());
+            .ReturnsAsync(Enumerable.Empty<TaxonDto>());
 
         await _sut.GetTaxonsAsync("canis", 5);
 
@@ -57,7 +56,7 @@ public class SearchServiceTests
     {
         _repositoryMock
             .Setup(r => r.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
-            .ReturnsAsync(Enumerable.Empty<Taxon>());
+            .ReturnsAsync(Enumerable.Empty<TaxonDto>());
 
         var result = await _sut.GetTaxonsAsync("nomatch", 20);
 
