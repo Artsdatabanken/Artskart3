@@ -147,3 +147,9 @@ Innslagene du bør legge til er følgende:
 * 20.251.135.164 artskart3.test.artsdatabanken.no
 * 20.251.135.164 artskart3-staging.test.artsdatabanken.no
 * 51.120.48.232 artskart3.artsdatabanken.no
+
+## Release to production
+* Create a PR merging the develop branch into the Staging branch
+* Once the reviewer has approved the PR, then select merge. The branch will merge and close.
+* Create a PR merging the staging branch into the Main branch
+* Once the reviewer has approved the PR, then select merge. The branch will merge and close. DONE.
