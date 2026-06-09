@@ -16,7 +16,7 @@ public class UserService(IUserRepository userRepository) : IUserService
         catch (Exception e)
         {
             Console.WriteLine(e);
-            throw new Exception("Error getting user");
+            throw new Exception("Error getting user", e);
         }
     }
 
@@ -33,7 +33,7 @@ public class UserService(IUserRepository userRepository) : IUserService
         catch (Exception e)
         {
             Console.WriteLine(e);
-            throw new Exception("Error creating user");
+            throw new Exception("Error creating user", e);
         }
     }
 }
