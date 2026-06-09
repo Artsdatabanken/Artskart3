@@ -94,8 +94,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
        ...layer.source,
        options: {
          ...originalOptions,
-         projection: originalOptions.projection || this.PROJECTION,
-         matrixSet: originalOptions.matrixSet || this.MATRIX_SET,
        },
      },
    };
