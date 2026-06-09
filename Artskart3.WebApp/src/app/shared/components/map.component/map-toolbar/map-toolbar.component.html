@@ -1,49 +1,45 @@
 <div class="map-toolbar-container" role="toolbar">
   <!-- Top Controls -->
   <div class="map-toolbar-top">
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.MAP" (click)="onButtonClick(toolbarActions.MAP)" title="Kart" aria-label="Kart">
+    <app-map-type-selector (mapTypeSelected)="onMapTypeSelected($event)"></app-map-type-selector>
+    <adb-icon-button class="hidden-not-implemented" variant="secondary" disabled [attr.data-action]="toolbarActions.LAYERS" (click)="onButtonClick(toolbarActions.LAYERS)" [attr.aria-label]="'mapToolbar.layersAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M15 21L9 18.9L4.35 20.7C4.01667 20.8333 3.70833 20.7958 3.425 20.5875C3.14167 20.3792 3 20.1 3 19.75V5.75C3 5.53333 3.0625 5.34167 3.1875 5.175C3.3125 5.00833 3.48333 4.88333 3.7 4.8L9 3L15 5.1L19.65 3.3C19.9833 3.16667 20.2917 3.20417 20.575 3.4125C20.8583 3.62083 21 3.9 21 4.25V18.25C21 18.4667 20.9375 18.6583 20.8125 18.825C20.6875 18.9917 20.5167 19.1167 20.3 19.2L15 21ZM14 18.55V6.85L10 5.45V17.15L14 18.55ZM16 18.55L19 17.55V5.7L16 6.85V18.55ZM5 18.3L8 17.15V5.45L5 6.45V18.3Z" fill="#005A71"/>
+        <path d="M12 21.05L3 14.05L4.65 12.8L12 18.5L19.35 12.8L21 14.05L12 21.05ZM12 16L3 9L12 2L21 9L12 16ZM12 13.45L17.75 9L12 4.55L6.25 9L12 13.45Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.LAYERS" (click)="onButtonClick(toolbarActions.LAYERS)" title="Layers" aria-label="Layers">
+    </adb-icon-button>
+    <adb-icon-button class="hidden-not-implemented" variant="secondary" disabled [attr.data-action]="toolbarActions.FILTER" (click)="onButtonClick(toolbarActions.FILTER)" [attr.aria-label]="'mapToolbar.filterAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 21.05L3 14.05L4.65 12.8L12 18.5L19.35 12.8L21 14.05L12 21.05ZM12 16L3 9L12 2L21 9L12 16ZM12 13.45L17.75 9L12 4.55L6.25 9L12 13.45Z" fill="#005A71"/>
+        <path d="M11 21V15H13V17H21V19H13V21H11ZM3 19V17H9V19H3ZM7 15V13H3V11H7V9H9V15H7ZM11 13V11H21V13H11ZM15 9V3H17V5H21V7H17V9H15ZM3 7V5H13V7H3Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.FILTER" (click)="onButtonClick(toolbarActions.FILTER)" title="Filter" aria-label="Filter">
+    </adb-icon-button>
+    <adb-icon-button class="hidden-not-implemented" variant="secondary" disabled [attr.data-action]="toolbarActions.POLYGON" (click)="onButtonClick(toolbarActions.POLYGON)" [attr.aria-label]="'mapToolbar.polygonAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M11 21V15H13V17H21V19H13V21H11ZM3 19V17H9V19H3ZM7 15V13H3V11H7V9H9V15H7ZM11 13V11H21V13H11ZM15 9V3H17V5H21V7H17V9H15ZM3 7V5H13V7H3Z" fill="#005A71"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M15 19.5V22H21V16H18.7208L16 7.83772V2H10V6.9L7.3 10H3V16H8L15 19.5ZM13.9459 8H11.7L9 11.1V14.25L15 17.25V16H16.6126L13.9459 8ZM14 6H12V4H14V6ZM7 14H5V12H7V14ZM19 20H17V18H19V20Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.POLYGON" (click)="onButtonClick(toolbarActions.POLYGON)" title="Polygon" aria-label="Polygon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M15 19.5V22H21V16H18.7208L16 7.83772V2H10V6.9L7.3 10H3V16H8L15 19.5ZM13.9459 8H11.7L9 11.1V14.25L15 17.25V16H16.6126L13.9459 8ZM14 6H12V4H14V6ZM7 14H5V12H7V14ZM19 20H17V18H19V20Z" fill="#005A71"/>
-      </svg>
-    </button>
+    </adb-icon-button>
   </div>
 
   <!-- Right Controls -->
   <div class="map-toolbar-right">
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.GEOLOCATION" (click)="onButtonClick(toolbarActions.GEOLOCATION)" title="Min Posisjon" aria-label="Min Posisjon">
+    <adb-icon-button variant="secondary" [attr.data-action]="toolbarActions.GEOLOCATION" (click)="onButtonClick(toolbarActions.GEOLOCATION)" [attr.aria-label]="'mapToolbar.geolocationAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M10.9998 22.95V20.95C8.91647 20.7167 7.12897 19.8542 5.6373 18.3625C4.14564 16.8709 3.28314 15.0834 3.0498 13H1.0498V11H3.0498C3.28314 8.91672 4.14564 7.12922 5.6373 5.63755C7.12897 4.14588 8.91647 3.28338 10.9998 3.05005V1.05005H12.9998V3.05005C15.0831 3.28338 16.8706 4.14588 18.3623 5.63755C19.854 7.12922 20.7165 8.91672 20.9498 11H22.9498V13H20.9498C20.7165 15.0834 19.854 16.8709 18.3623 18.3625C16.8706 19.8542 15.0831 20.7167 12.9998 20.95V22.95H10.9998ZM11.9998 19C13.9331 19 15.5831 18.3167 16.9498 16.95C18.3165 15.5834 18.9998 13.9334 18.9998 12C18.9998 10.0667 18.3165 8.41672 16.9498 7.05005C15.5831 5.68338 13.9331 5.00005 11.9998 5.00005C10.0665 5.00005 8.41647 5.68338 7.0498 7.05005C5.68314 8.41672 4.9998 10.0667 4.9998 12C4.9998 13.9334 5.68314 15.5834 7.0498 16.95C8.41647 18.3167 10.0665 19 11.9998 19ZM11.9998 16C10.8998 16 9.95814 15.6084 9.1748 14.825C8.39147 14.0417 7.9998 13.1 7.9998 12C7.9998 10.9 8.39147 9.95838 9.1748 9.17505C9.95814 8.39172 10.8998 8.00005 11.9998 8.00005C13.0998 8.00005 14.0415 8.39172 14.8248 9.17505C15.6081 9.95838 15.9998 10.9 15.9998 12C15.9998 13.1 15.6081 14.0417 14.8248 14.825C14.0415 15.6084 13.0998 16 11.9998 16ZM11.9998 14C12.5498 14 13.0206 13.8042 13.4123 13.4125C13.804 13.0209 13.9998 12.55 13.9998 12C13.9998 11.45 13.804 10.9792 13.4123 10.5875C13.0206 10.1959 12.5498 10 11.9998 10C11.4498 10 10.979 10.1959 10.5873 10.5875C10.1956 10.9792 9.9998 11.45 9.9998 12C9.9998 12.55 10.1956 13.0209 10.5873 13.4125C10.979 13.8042 11.4498 14 11.9998 14Z" fill="#005A71"/>
+        <path d="M10.9998 22.95V20.95C8.91647 20.7167 7.12897 19.8542 5.6373 18.3625C4.14564 16.8709 3.28314 15.0834 3.0498 13H1.0498V11H3.0498C3.28314 8.91672 4.14564 7.12922 5.6373 5.63755C7.12897 4.14588 8.91647 3.28338 10.9998 3.05005V1.05005H12.9998V3.05005C15.0831 3.28338 16.8706 4.14588 18.3623 5.63755C19.854 7.12922 20.7165 8.91672 20.9498 11H22.9498V13H20.9498C20.7165 15.0834 19.854 16.8709 18.3623 18.3625C16.8706 19.8542 15.0831 20.7167 12.9998 20.95V22.95H10.9998ZM11.9998 19C13.9331 19 15.5831 18.3167 16.9498 16.95C18.3165 15.5834 18.9998 13.9334 18.9998 12C18.9998 10.0667 18.3165 8.41672 16.9498 7.05005C15.5831 5.68338 13.9331 5.00005 11.9998 5.00005C10.0665 5.00005 8.41647 5.68338 7.0498 7.05005C5.68314 8.41672 4.9998 10.0667 4.9998 12C4.9998 13.9334 5.68314 15.5834 7.0498 16.95C8.41647 18.3167 10.0665 19 11.9998 19ZM11.9998 16C10.8998 16 9.95814 15.6084 9.1748 14.825C8.39147 14.0417 7.9998 13.1 7.9998 12C7.9998 10.9 8.39147 9.95838 9.1748 9.17505C9.95814 8.39172 10.8998 8.00005 11.9998 8.00005C13.0998 8.00005 14.0415 8.39172 14.8248 9.17505C15.6081 9.95838 15.9998 10.9 15.9998 12C15.9998 13.1 15.6081 14.0417 14.8248 14.825C14.0415 15.6084 13.0998 16 11.9998 16ZM11.9998 14C12.5498 14 13.0206 13.8042 13.4123 13.4125C13.804 13.0209 13.9998 12.55 13.9998 12C13.9998 11.45 13.804 10.9792 13.4123 10.5875C13.0206 10.1959 12.5498 10 11.9998 10C11.4498 10 10.979 10.1959 10.5873 10.5875C10.1956 10.9792 9.9998 11.45 9.9998 12C9.9998 12.55 10.1956 13.0209 10.5873 13.4125C10.979 13.8042 11.4498 14 11.9998 14Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.FULLSCREEN" (click)="onButtonClick(toolbarActions.FULLSCREEN)" title="Expand" aria-label="Expand">
+    </adb-icon-button>
+    <adb-icon-button variant="secondary" [attr.data-action]="toolbarActions.FULLSCREEN" (click)="onButtonClick(toolbarActions.FULLSCREEN)" [attr.aria-label]="'mapToolbar.fullscreenAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M5 19V13H7V17H11V19H5ZM17 11V7H13V5H19V11H17Z" fill="#005A71"/>
+        <path d="M5 19V13H7V17H11V19H5ZM17 11V7H13V5H19V11H17Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.ZOOM_IN" (click)="onButtonClick(toolbarActions.ZOOM_IN)" title="Zoom In" aria-label="Zoom In">
+    </adb-icon-button>
+    <adb-icon-button variant="secondary" [attr.data-action]="toolbarActions.ZOOM_IN" (click)="onButtonClick(toolbarActions.ZOOM_IN)" [attr.aria-label]="'mapToolbar.zoomInAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="#005A71"/>
+        <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="currentColor"/>
       </svg>
-    </button>
-    <button class="map-control-icon" [attr.data-action]="toolbarActions.ZOOM_OUT" (click)="onButtonClick(toolbarActions.ZOOM_OUT)" title="Zoom Out" aria-label="Zoom Out">
+    </adb-icon-button>
+    <adb-icon-button variant="secondary" [attr.data-action]="toolbarActions.ZOOM_OUT" (click)="onButtonClick(toolbarActions.ZOOM_OUT)" [attr.aria-label]="'mapToolbar.zoomOutAriaLabel' | translate">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M5 11H19V13H5V11Z" fill="#005A71"/>
+        <path d="M5 11H19V13H5V11Z" fill="currentColor"/>
       </svg>
-    </button>
+    </adb-icon-button>
   </div>
 </div>

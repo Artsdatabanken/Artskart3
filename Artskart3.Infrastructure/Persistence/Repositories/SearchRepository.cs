@@ -37,13 +37,13 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// 3. Contains matches
         /// Returns up to maxCount results from active taxa (not deleted and have observation data).
         /// </summary>
-        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults)
+        public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    return Enumerable.Empty<Taxon>();
+                    return Enumerable.Empty<TaxonDto>();
                 }
 
                 if (maxCount < MinValidMaxCount || maxCount > MaxValidMaxCount)
@@ -63,8 +63,18 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
 
                 var result = await _context.Set<Taxon>()
                     .Where(t => matchingIds.Contains(t.Id))
-                    .Include(t => t.TaxonNames)
-                    .Include(t => t.TaxonPopularNames)
+                    .Select(t => new TaxonDto
+                    {
+                        Id = t.Id,
+                        ExternalTaxonId = t.ExternalTaxonId,
+                        ValidScientificName = t.ValidScientificName,
+                        ValidScientificNameAuthorship = t.ValidScientificNameAuthorship,
+                        PreferredPopularName = t.PreferredPopularName,
+                        TaxonGroupId = t.TaxonGroupId,
+                        TaxonRankId = t.TaxonRankId,
+                        CumulativeObservationCount = t.CumulativeObservationCount,
+                        ExistsInCountry = t.ExistsInCountry
+                    })
                     .ToListAsync();
 
                 return result;

@@ -50,12 +50,12 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
     this.supportedLanguages = this.languageService.getSupportedLanguages();
 
-    // Initialize dark mode from stored preference or OS setting
     const stored = localStorage.getItem('theme');
-    if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      this.isDarkMode = true;
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
+    const prefersDark =
+      stored === 'dark' ||
+      (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    this.isDarkMode = prefersDark;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
   }
 
   ngOnDestroy(): void {

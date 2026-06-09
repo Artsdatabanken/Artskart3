@@ -93,6 +93,46 @@ dotnet ef migrations remove --startup-project ..\Artskart3.Api
 
 > Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
 
+## Testdekning (code coverage)
+
+Prosjektet bruker `coverage.runsettings` for å ekskludere generert kode (EF Core-migrasjoner, OpenAPI-generatorer, kompilatorgenererte typer) fra dekningsanalysen.
+
+### Kjøre tester med dekningsrapport
+
+**Kjør alle tester og samle dekningsdata:**
+```powershell
+dotnet test --settings coverage.runsettings --collect "XPlat Code Coverage"
+```
+
+**Kjør kun enhetstester:**
+```powershell
+dotnet test Artskart3.Tests.Unit --settings coverage.runsettings --collect "XPlat Code Coverage"
+```
+
+**Kjør kun integrasjonstester:**
+```powershell
+dotnet test Artskart3.Tests.Integration --settings coverage.runsettings --collect "XPlat Code Coverage"
+```
+
+Dekningsrapporten lagres som en `coverage.cobertura.xml`-fil under `TestResults/`-mappen i hvert testprosjekt.
+
+### Generere HTML-rapport
+
+Installer rapportverktøyet én gang globalt:
+```powershell
+dotnet tool install --global dotnet-reportgenerator-globaltool
+```
+
+Generer HTML-rapport fra alle innsamlede filer:
+```powershell
+reportgenerator -reports:"**/TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:Html
+```
+
+Åpne rapporten i nettleseren:
+```powershell
+Start-Process "TestResults/CoverageReport/index.html"
+```
+
 ## Navngiving av branches
 Standariserer navngiving av branches er `feature/navn-på-branch` som for eksempel: `feature/authentication` for features og `bugfix/fix-ip-blocking` hvis det er en bugfix. 
 

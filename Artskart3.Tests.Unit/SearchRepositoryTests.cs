@@ -1,0 +1,581 @@
+using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Domain.BusinessModels;
+using Artskart3.Core.Domain.Entities;
+using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.Persistence.Repositories;
+using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+
+namespace Artskart3.Tests.Unit;
+
+public class SearchRepositoryTests
+{
+    [Fact]
+    public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
+    {
+        var contextMock = new Mock<IArtsKartDbContext>();
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+
+        var result = await sut.GetTaxonsAsync(null!);
+
+        result.Should().BeEmpty();
+        contextMock.Verify(c => c.Set<Taxon>(), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
+    {
+        var contextMock = new Mock<IArtsKartDbContext>();
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+
+        var result = await sut.GetTaxonsAsync("   ");
+
+        result.Should().BeEmpty();
+        contextMock.Verify(c => c.Set<Taxon>(), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
+    {
+        var contextMock = new Mock<IArtsKartDbContext>();
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+
+        var act = () => sut.GetTaxonsAsync("fugl", 0);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("maxCount");
+    }
+
+    [Fact]
+    public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
+    {
+        var contextMock = new Mock<IArtsKartDbContext>();
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+
+        var act = () => sut.GetTaxonsAsync("fugl", 1001);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("maxCount");
+    }
+
+    [Fact]
+    public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
+    {
+        var contextMock = new Mock<IArtsKartDbContext>();
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+
+        var act = () => sut.GetTaxonsAsync("fugl", -1);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithParameterName("maxCount");
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithNullFilter_UsesDefaultsAndReturnsLocations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1),
+            CreateObservation(2, 1),
+            CreateObservation(3, 2));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(null));
+
+        result.Should().HaveCount(2);
+        result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithTaxonGroupIdFilter_ReturnsOnlyMatchingLocations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, taxonGroupId: 1),
+            CreateObservation(2, 2, taxonGroupId: 2));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1" }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithCategoryFilter_ReturnsOnlyMatchingLocations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, categoryId: 10),
+            CreateObservation(2, 2, categoryId: 20));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = "10" }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithBasisOfRecordFilter_ReturnsOnlyMatchingLocations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, basisOfRecordId: 5),
+            CreateObservation(2, 2, basisOfRecordId: 8));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = "5" }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithCollectionIdFilter_ReturnsOnlyMatchingLocations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, institutionCode: "NHM"),
+            CreateObservation(2, 2, institutionCode: "GBIF"));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = "NHM" }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithCoordinatePrecisionFromFilter_FiltersCorrectly()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, coordinatePrecisionInMeters: 10),
+            CreateObservation(2, 2, coordinatePrecisionInMeters: 50),
+            CreateObservation(3, 3, coordinatePrecisionInMeters: 100));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionFrom = 50 }));
+
+        result.Select(x => x.Id).Should().BeEquivalentTo([2, 3]);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithCoordinatePrecisionToFilter_FiltersCorrectly()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, coordinatePrecisionInMeters: 10),
+            CreateObservation(2, 2, coordinatePrecisionInMeters: 50),
+            CreateObservation(3, 3, coordinatePrecisionInMeters: 100));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionTo = 50 }));
+
+        result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithBothPrecisionFilters_FiltersCorrectly()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, coordinatePrecisionInMeters: 10),
+            CreateObservation(2, 2, coordinatePrecisionInMeters: 50),
+            CreateObservation(3, 3, coordinatePrecisionInMeters: 100));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            CoordinatePrecisionFrom = 25,
+            CoordinatePrecisionTo = 75
+        }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithMaxResults_LimitsResults()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1),
+            CreateObservation(2, 1),
+            CreateObservation(3, 1),
+            CreateObservation(4, 2),
+            CreateObservation(5, 2),
+            CreateObservation(6, 3));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 2 }));
+
+        result.Should().HaveCount(2);
+        result.Select(x => x.Id).Should().ContainInOrder(1, 2);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WhenMaxResultsExceedsMax_FallsBackToDefault1000()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var locations = Enumerable.Range(1, 1105)
+            .Select(id => CreateLocation(id, $"Lokalitet {id}"))
+            .ToArray();
+        var observations = Enumerable.Range(1, 1105)
+            .Select(id => CreateObservation(id, id))
+            .ToArray();
+
+        SeedLocations(context, locations);
+        SeedObservations(context, observations);
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 99999 }));
+
+        result.Should().HaveCount(1000);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WhenNoObservationsMatchFilter_ReturnsEmpty()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+        SeedObservations(context, CreateObservation(1, 1, taxonGroupId: 1));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "99" }));
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithInvalidCommaListValues_IgnoresInvalidEntries()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, taxonGroupId: 1),
+            CreateObservation(2, 2, taxonGroupId: 2),
+            CreateObservation(3, 3, taxonGroupId: 3));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1,abc,2" }));
+
+        result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithEmptyStringFilter_IgnoresFilter()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        SeedObservations(context,
+            CreateObservation(1, 1, taxonGroupId: 1),
+            CreateObservation(2, 2, taxonGroupId: 2));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = string.Empty }));
+
+        result.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_GroupsByLocationId_AggregatatesObservationCount()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+        SeedObservations(context,
+            CreateObservation(1, 1),
+            CreateObservation(2, 1),
+            CreateObservation(3, 1));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+
+        result.Should().ContainSingle();
+        result[0].ObservationCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WhenLocationRowMissing_OmitsFromResults()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+        SeedObservations(context,
+            CreateObservation(1, 1),
+            CreateObservation(2, 999));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetAreasByTypeIdsAsync_WithNoIds_ReturnsEmpty()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var result = await sut.GetAreasByTypeIdsAsync();
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAreasByTypeIdsAsync_WithAreaTypeId_ReturnsMatchingAreas()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Area>().AddRange(
+            CreateArea(1, "Oslo", 1, 10),
+            CreateArea(2, "Vestland", 2, 20));
+        await context.SaveChangesAsync();
+
+        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+
+        result.Should().ContainSingle();
+        result[0].Name.Should().Be("Oslo");
+    }
+
+    [Fact]
+    public async Task GetAreasByTypeIdsAsync_GroupsByName_SumsObservationCounts()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Area>().AddRange(
+            CreateArea(1, "Oslo", 1, 10),
+            CreateArea(2, "Oslo", 1, 15));
+        await context.SaveChangesAsync();
+
+        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+
+        result.Should().ContainSingle();
+        result[0].ObservationCount.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task GetAreasByTypeIdsAsync_WithNullGeometry_HasNullCentroid()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Area>().Add(CreateArea(1, "Oslo", 1, 10, wktPolygon: null));
+        await context.SaveChangesAsync();
+
+        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
+
+        result.Should().ContainSingle();
+        result[0].Centroid.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetAreasByTypeIdsAsync_SameNameDifferentAreaType_MergesIntoOneEntry()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        context.Set<Area>().AddRange(
+            CreateArea(1, "Felles navn", 1, 10),
+            CreateArea(2, "Felles navn", 2, 20));
+        await context.SaveChangesAsync();
+
+        var result = (await sut.GetAreasByTypeIdsAsync(1, 2)).ToList();
+
+        result.Should().ContainSingle();
+        result[0].ObservationCount.Should().Be(30);
+    }
+
+    private static ArtskartDbContext CreateInMemoryContext()
+    {
+        var options = new DbContextOptionsBuilder<ArtskartDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        return new ArtskartDbContext(options);
+    }
+
+    private static SearchRepository CreateRepository(ArtskartDbContext context) =>
+        new(context, NullLogger<SearchRepository>.Instance);
+
+    private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
+        context.Set<Location>().AddRange(locations);
+
+    private static void SeedObservations(ArtskartDbContext context, params Observation[] observations) =>
+        context.Set<Observation>().AddRange(observations);
+
+    private static Location CreateLocation(int id, string locality) =>
+        new()
+        {
+            Id = id,
+            Locality = locality,
+            Latitude = 59.91 + id,
+            Longitude = 10.75 + id,
+            East = 1000 + id,
+            North = 2000 + id,
+            CoordinatePrecision = 25,
+            NodeId = 1,
+            TimeStamp = DateTime.UtcNow,
+            Geometry = null
+        };
+
+    private static Observation CreateObservation(
+        int id,
+        int locationId,
+        int taxonGroupId = 1,
+        int? categoryId = 1,
+        int basisOfRecordId = 1,
+        string? institutionCode = "NHM",
+        int? coordinatePrecisionInMeters = 25) =>
+        new()
+        {
+            Id = id,
+            DateLastModified = DateTime.UtcNow,
+            DateTimeRecordImported = DateTime.UtcNow,
+            DateTimeRecordProcessed = DateTime.UtcNow,
+            NodeId = 1,
+            BasisOfRecordId = basisOfRecordId,
+            TaxonId = 1,
+            MatchedScientificNameId = 1,
+            TaxonGroupId = taxonGroupId,
+            CategoryId = categoryId,
+            Latitude = 59.91,
+            Longitude = 10.75,
+            CoordinatePrecisionInMeters = coordinatePrecisionInMeters,
+            East = 1000,
+            North = 2000,
+            LocationId = locationId,
+            InstitutionCode = institutionCode,
+            HashCode = id,
+            ProcessEngineId = 1,
+            HasAnnotations = false,
+            HasErrors = false
+        };
+
+    private static Area CreateArea(int id, string name, int areaTypeId, int? observationCount, object? wktPolygon = null) =>
+        new()
+        {
+            Id = id,
+            DocumentId = $"doc-{id}",
+            Fid = $"fid-{id}",
+            Name = name,
+            AreaTypeId = areaTypeId,
+            ParentFid = "parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = observationCount,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+            WktPolygon = null,
+            Centroid = null
+        };
+
+    private static async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> source)
+    {
+        var list = new List<T>();
+        await foreach (var item in source)
+        {
+            list.Add(item);
+        }
+
+        return list;
+    }
+}

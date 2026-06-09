@@ -34,5 +34,16 @@
   },
   "resizablePanel": {
     "resizeAriaLabel": "Resize filter panel"
+  },
+  "mapToolbar": {
+    "layersAriaLabel": "Layers",
+    "filterAriaLabel": "Settings",
+    "polygonAriaLabel": "Polygon",
+    "geolocationAriaLabel": "My location",
+    "fullscreenAriaLabel": "Fullscreen",
+    "zoomInAriaLabel": "Zoom in",
+    "zoomOutAriaLabel": "Zoom out",
+    "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
+    "mapTypeHeading": "Map type"
   }
 }

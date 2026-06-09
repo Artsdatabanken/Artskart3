@@ -52,6 +52,9 @@ yarn-error.log*
 # Idea
 .idea/
 
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/
+
 # Visual Studio Code
 */.vscode/*
 !*/.vscode/settings.json
@@ -59,3 +62,9 @@ yarn-error.log*
 !*/.vscode/launch.json
 !*/.vscode/extensions.json
 /Artskart3.WebApp/node_modules
+
+# Benchmark results
+BenchmarkDotNet.Artifacts/
+
+# Test Results
+TestResults/
