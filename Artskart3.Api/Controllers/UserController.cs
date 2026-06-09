@@ -8,9 +8,11 @@ namespace Artskart3.Api.Controllers;
 [Route("api/[controller]")]
 public class UserController(IUserService userService) : ControllerBase
 {
+    [HttpGet]
     public async Task<User> GetCurrentUser()
     {
         var userId = User.Claims.First(x => x.Type == "sub").Value;
         return await userService.GetCurrentUser(Guid.Parse(userId));
     }
+
 }

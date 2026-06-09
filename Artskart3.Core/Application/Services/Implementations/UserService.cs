@@ -19,4 +19,21 @@ public class UserService(IUserRepository userRepository) : IUserService
             throw new Exception("Error getting user");
         }
     }
+
+    public async Task<User> GetOrCreateUser(User user)
+    {
+        try
+        {
+            ArgumentNullException.ThrowIfNull(user);
+            var existingUser = await userRepository.GetUserById(user.Id);
+            if (existingUser != null) return existingUser;
+            var newUser = await userRepository.CreateUser(user);
+            return newUser;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw new Exception("Error creating user");
+        }
+    }
 }
