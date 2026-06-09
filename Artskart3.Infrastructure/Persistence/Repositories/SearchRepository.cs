@@ -18,8 +18,8 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         private const int DefaultMaxSearchResults = 20;
         private const int MinValidMaxCount = 1;
         private const int MaxValidMaxCount = 1000;
-        private const int DefaultMaxLocations = 20000;
-        private const int MaxLocations = 200000;
+        private const int DefaultMaxLocations = 1000;
+        private const int MaxLocations = 1000;
         private const string SqlWildcard = "%";
         
         private readonly IArtsKartDbContext _context;
@@ -191,6 +191,12 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
         {
             var query = _context.Set<Observation>().AsNoTracking();
+
+            if (filter.TaxonGroupIds?.Any() == true)
+            {
+                var taxonGroupIds = filter.TaxonGroupIds.ToList();
+                query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
+            }
 
             if (filter.CollectionIds?.Any() == true)
             {

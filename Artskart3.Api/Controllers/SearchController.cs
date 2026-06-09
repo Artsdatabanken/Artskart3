@@ -31,12 +31,25 @@ namespace Artskart3.Api.Controllers
             [FromQuery] string name,
             [FromQuery] int maxCount = SearchConstants.DefaultMaxTaxonCount)
         {
-            if (!ValidateTaxonSearchInput(name, maxCount, out var validationError))
-                return validationError;
+            try
+            {
+                if (!ValidateTaxonSearchInput(name, maxCount, out var validationError))
+                    return validationError;
 
-            var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
-            _logger.LogInformation("Retrieved {Count} taxons for search term: {Name}", taxons.Count(), name);
-            return Ok(taxons);
+                var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
+                _logger.LogInformation("Retrieved {Count} taxons for search term: {Name}", taxons.Count(), name);
+                return Ok(taxons);
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogError(ex, "Application error during taxon search");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during taxon search");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            }
         }
 
         /// <summary>
@@ -48,14 +61,27 @@ namespace Artskart3.Api.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null)
         {
-            filter ??= new LocationSearchFilterDto();
+            try
+            {
+                filter ??= new LocationSearchFilterDto();
 
-            if (!ValidateLocationSearchFilter(filter, out var validationError))
-                return validationError;
+                if (!ValidateLocationSearchFilter(filter, out var validationError))
+                    return validationError;
 
-            var result = await _searchService.GetLocationsAsync(filter);
-            _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
-            return Content(result, "application/json");
+                var result = await _searchService.GetLocationsAsync(filter);
+                _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
+                return Content(result, "application/json");
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogError(ex, "Application error during location search");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during location search");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            }
         }
 
         /// <summary>
@@ -65,9 +91,22 @@ namespace Artskart3.Api.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<AreaMarkerDto[]>> GetAreasObservations([FromQuery] int zoomLevel = 1)
         {
-            var areas = await _searchService.GetObservationsByZoomLevelAsync(zoomLevel);
-            _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
-            return Ok(areas.ToArray());
+            try
+            {
+                var areas = await _searchService.GetObservationsByZoomLevelAsync(zoomLevel);
+                _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
+                return Ok(areas.ToArray());
+            }
+            catch (ApplicationException ex)
+            {
+                _logger.LogError(ex, "Application error during area observations retrieval");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during area observations retrieval");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            }
         }
 
         /// <summary>

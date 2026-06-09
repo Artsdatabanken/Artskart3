@@ -6,7 +6,7 @@ namespace Artskart3.Api.Constants
         public const int MaxTaxonCount = 1000;
         public const int MinTaxonResults = 1;
         public const int DefaultMaxLocations = 1000;
-        public const int MaxLocationResults = 1000000;
+        public const int MaxLocationResults = 1000;
         public const int MinLocationResults = 1;
         public const int DefaultEpsgCode = 25833;     
         public const string CoordinatePrecisionInvalidMessage = "CoordinatePrecisionFrom must be less than or equal to CoordinatePrecisionTo.";
