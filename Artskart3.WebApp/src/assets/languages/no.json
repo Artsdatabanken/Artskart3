@@ -89,7 +89,8 @@
       "machine_observation": "Maskinobservasjon",
       "materialsample": "Innsamlet matriale",
       "objekt": "Belagt funn",
-      "observasjon": "Observasjon"
+      "observasjon": "Observasjon",
+      "unrecognised": "Ukjent"
     },
     "areaSection": {
       "fastlandsNorge": "Fastlands-Norge",

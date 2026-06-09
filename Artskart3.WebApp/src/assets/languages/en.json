@@ -89,7 +89,8 @@
       "machine_observation": "Machine observation",
       "materialsample": "Material sample",
       "objekt": "Occurrence",
-      "observasjon": "Observation"
+      "observasjon": "Observation",
+      "unrecognised": "Unrecognised"
     },
     "areaSection": {
       "fastlandsNorge": "Mainland Norway",
