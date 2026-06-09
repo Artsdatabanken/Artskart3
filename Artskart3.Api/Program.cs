@@ -132,23 +132,22 @@ try
             options.Scope.Add("profile");
             options.Scope.Add("roles");
 
-            options.Events ??= new OpenIdConnectEvents();
-            options.Events.OnTokenValidated = async context =>
+            options.Events.OnTicketReceived = async context =>
             {
-                var userServuice = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
                 var subject = context.Principal?.FindFirst("sub")?.Value;
                 if (!Guid.TryParse(subject, out var userId))
                 {
                     throw new UnauthorizedAccessException("Authenticated user is missing");
                 }
-
+                
                 var user = new User
                 {
                     Id = userId,
                     Name = context.Principal?.FindFirst("name")?.Value ?? string.Empty,
                     Email = context.Principal?.FindFirst("email")?.Value ?? string.Empty,
                 };
-                await userServuice.GetOrCreateUser(user);
+                await userService.GetOrCreateUser(user);
             };
 
         }).ConfigureCookies(options =>
