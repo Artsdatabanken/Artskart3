@@ -88,11 +88,11 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Search/Locations
+    // GET /api/Search/Locations (GetObservationLocations action)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetLocations_WithNoFilter_Returns200WithGeoJson()
+    public async Task GetObservationLocations_WithNoFilter_Returns200WithGeoJson()
     {
         var response = await _client.GetAsync("/api/Search/Locations");
 
@@ -103,7 +103,7 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetLocations_WithMaxResultsZero_Returns400()
+    public async Task GetObservationLocations_WithMaxResultsZero_Returns400()
     {
         var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=0");
 
@@ -114,7 +114,7 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetLocations_WithMaxResultsTooHigh_Returns400()
+    public async Task GetObservationLocations_WithMaxResultsTooHigh_Returns400()
     {
         // MaxLocationResults = 1000, so 1001 exceeds the limit
         var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=1001");
@@ -126,7 +126,7 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetLocations_WithInvertedPrecisionRange_Returns400()
+    public async Task GetObservationLocations_WithInvertedPrecisionRange_Returns400()
     {
         var response = await _client.GetAsync(
             "/api/Search/Locations?filter.CoordinatePrecisionFrom=1000&filter.CoordinatePrecisionTo=100");
@@ -135,7 +135,7 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetLocations_WithMaxResults10_ReturnsAtMost10Features()
+    public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Features()
     {
         var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=10");
 
