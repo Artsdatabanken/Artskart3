@@ -325,12 +325,12 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             CreateObservation(_locationThree.Id, TestObservationTaxonGroupOneId, TestCategoryTwoId, TestBasisOfRecordOneId, CollectionOne, 500, 6));
 
         _context.Set<Area>().AddRange(
-            CreateArea("Repo kommune A", TestAreaTypeMunicipalityId, 10),
-            CreateArea("Repo gruppert kommune", TestAreaTypeMunicipalityId, 10),
-            CreateArea("Repo gruppert kommune", TestAreaTypeMunicipalityId, 15),
-            CreateArea("Repo fylke A", TestAreaTypeCountyId, 20),
-            CreateArea("Repo felles område", TestAreaTypeMunicipalityId, 30),
-            CreateArea("Repo felles område", TestAreaTypeCountyId, 40));
+            CreateArea("Repo kommune A", TestAreaTypeMunicipalityId, 10, 10),
+            CreateArea("Repo gruppert kommune", TestAreaTypeMunicipalityId, 10, 10),
+            CreateArea("Repo gruppert kommune", TestAreaTypeMunicipalityId, 15, 10),
+            CreateArea("Repo fylke A", TestAreaTypeCountyId, 20, 7),
+            CreateArea("Repo felles område", TestAreaTypeMunicipalityId, 30, 10),
+            CreateArea("Repo felles område", TestAreaTypeCountyId, 40, 7));
 
         await _context.SaveChangesAsync();
     }
@@ -378,13 +378,14 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             HasAnnotations = false
         };
 
-    private static Area CreateArea(string name, int areaTypeId, int observationCount)
+    private static Area CreateArea(string name, int areaTypeId, int observationCount, int zoomLevel)
         => new()
         {
             DocumentId = Guid.NewGuid().ToString("N"),
             Fid = Guid.NewGuid().ToString("N"),
             Name = name,
             AreaTypeId = areaTypeId,
+            ZoomLevel = zoomLevel,
             ParentFid = "repo-parent",
             SyncDateTime = DateTime.UtcNow,
             ObservationCount = observationCount,
