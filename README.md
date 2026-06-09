@@ -152,4 +152,5 @@ Innslagene du bør legge til er følgende:
 * Opprett en PR som slår sammen develop-branchen inn i staging-branchen
 * Når en reviewer har godkjent PR-en, velg merge. Staging-branchen blir oppdatert og lukkes.
 * Opprett en PR som slår sammen staging-branchen inn i main-branchen
-* Når en reviewer har godkjent PR-en, velg merge. Main-branchen blir oppdatert og lukkes. FERDIG.
+* Når en reviewer har godkjent PR-en, velg merge. Main-branchen blir oppdatert og lukkes. 
+* Flytt issues fra "Accepted" til "Done" i projsktet-boardet. FERDIG.
