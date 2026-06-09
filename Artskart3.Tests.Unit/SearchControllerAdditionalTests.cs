@@ -1,7 +1,6 @@
 using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -36,12 +35,12 @@ public class SearchControllerAdditionalTests
     public async Task SearchTaxons_Returns200Ok_WithEmptyArrayWhenServiceReturnsEmpty()
     {
         var sut = CreateSut();
-        _serviceMock.Setup(s => s.GetTaxonsAsync("tom", 20)).ReturnsAsync(Array.Empty<Taxon>());
+        _serviceMock.Setup(s => s.GetTaxonsAsync("tom", 20)).ReturnsAsync(Array.Empty<TaxonDto>());
 
         var result = await sut.SearchTaxons("tom");
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeAssignableTo<IEnumerable<Taxon>>()
+        okResult.Value.Should().BeAssignableTo<IEnumerable<TaxonDto>>()
             .Which.Should().BeEmpty();
     }
 

@@ -2,7 +2,6 @@ using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.BusinessModels;
-using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 
 namespace Artskart3.Core.Application.Services.Implementations
@@ -35,9 +34,9 @@ namespace Artskart3.Core.Application.Services.Implementations
             }
         }
 
-        public async Task<IEnumerable<Taxon>> GetTaxonsAsync(string name, int maxCount = 20)
+        public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20)
         {
-           var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount);           
+           var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount);
            return alltaxons;
         }
 

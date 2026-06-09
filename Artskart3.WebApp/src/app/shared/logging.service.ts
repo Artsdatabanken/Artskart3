@@ -1,4 +1,5 @@
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
+import { DOCUMENT } from "@angular/common";
 import { ApplicationInsights } from "@microsoft/applicationinsights-web";
 import { AngularPlugin } from "@microsoft/applicationinsights-angularplugin-js";
 import { environment } from "../../environments/environment";
@@ -19,13 +20,43 @@ const LOGGER_CONFIG = {
   LogLevelFilter: 'INFO',
 } as const;
 
+interface CookieInformationWindow {
+    CookieInformation?: {
+        getConsentGivenFor(category: string): boolean;
+    };
+}
+
 @Injectable({ providedIn: 'root' })
 export class LoggingService {
-    private appInsights: ApplicationInsights;
+    private appInsights: ApplicationInsights | null = null;
+    private window: (Window & CookieInformationWindow) | null;
     private logLevel: LogLevel = this.parseLogLevel(LOGGER_CONFIG.LogLevelFilter);
     private enableDebugLogging = LOGGER_CONFIG.EnableDebugLogging;
 
     constructor() {
+        this.window = inject(DOCUMENT).defaultView;
+
+        if (!environment.production) {
+            this.initAppInsights();
+            return;
+        }
+
+        this.window?.addEventListener('CookieInformationConsentGiven', () => {
+            if (this.hasStatisticsConsent()) {
+                this.initAppInsights();
+            }
+        });
+    }
+
+    private hasStatisticsConsent(): boolean {
+        return this.window?.CookieInformation?.getConsentGivenFor('cookie_cat_statistic') ?? false;
+    }
+
+    private initAppInsights(): void {
+        if (this.appInsights) {
+            return;
+        }
+
         const angularPlugin = new AngularPlugin();
         this.appInsights = new ApplicationInsights({
             config: {
@@ -65,7 +96,7 @@ export class LoggingService {
             } else {
                 console.info(`[${context || 'INFO'}] ${message}`);
             }
-            this.appInsights.trackTrace({ message }, { level: 'INFO', context, data: data?.toString() });
+            this.appInsights?.trackTrace({ message }, { level: 'INFO', context, data: data?.toString() });
         }
     }
 
@@ -79,7 +110,7 @@ export class LoggingService {
             } else {
                 console.warn(`[${context || 'WARN'}] ${message}`);
             }
-            this.appInsights.trackTrace({ message }, { level: 'WARN', context, data: data?.toString() });
+            this.appInsights?.trackTrace({ message }, { level: 'WARN', context, data: data?.toString() });
         }
     }
 
@@ -94,7 +125,7 @@ export class LoggingService {
                 console.error(`[${context || 'ERROR'}] ${message}`);
             }
             // Track error in Application Insights
-            this.appInsights.trackException({
+            this.appInsights?.trackException({
                 exception: new Error(message),
                 severityLevel: 3,
                 properties: { context, originalError: error?.toString() }
@@ -106,23 +137,23 @@ export class LoggingService {
      * Log page view to Application Insights
      */
     logPageView(name?: string, url?: string) {
-        this.appInsights.trackPageView({ name, uri: url });
+        this.appInsights?.trackPageView({ name, uri: url });
     }
 
     logEvent(name: string, properties?: Record<string, unknown>) {
-        this.appInsights.trackEvent({ name }, properties);
+        this.appInsights?.trackEvent({ name }, properties);
     }
 
     logMetric(name: string, average: number, properties?: Record<string, unknown>) {
-        this.appInsights.trackMetric({ name, average }, properties);
+        this.appInsights?.trackMetric({ name, average }, properties);
     }
 
     logException(exception: Error, properties?: Record<string, unknown>) {
-        this.appInsights.trackException({ exception }, properties);
+        this.appInsights?.trackException({ exception }, properties);
     }
 
     logTrace(message: string, properties?: Record<string, unknown>) {
-        this.appInsights.trackTrace({ message }, properties);
+        this.appInsights?.trackTrace({ message }, properties);
     }
 
     setLogLevel(level: LogLevel | string): void {

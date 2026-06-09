@@ -138,12 +138,3 @@ Standariserer navngiving av branches er `feature/navn-på-branch` som for eksemp
 
 ## Merging av endringer
 For å gjøre endringer i Artskart krever det at det lages en pull request som må godkjennes av en annen utvikler.
-
-## Oppsett av lokale DNS-oppslag
-Før vi setter opp DNS-oppslag og publiserer disse offentlig, så er det greit å sette opp lokale oppslag mot de URL-ene og IP-adressene vi benytter oss av.
-
-For de av oss som benytter Windows, er det følgende fil som gjelder: C:\Windows\System32\drivers\etc\hosts.
-Innslagene du bør legge til er følgende:
-* 20.251.135.164 artskart3.test.artsdatabanken.no
-* 20.251.135.164 artskart3-staging.test.artsdatabanken.no
-* 51.120.48.232 artskart3.artsdatabanken.no
