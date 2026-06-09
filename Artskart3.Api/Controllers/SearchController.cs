@@ -1,6 +1,5 @@
 ﻿using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -31,7 +30,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("SearchTaxons")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount)
+        public async Task<ActionResult<IEnumerable<TaxonDto>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount)
         {
             try
             {

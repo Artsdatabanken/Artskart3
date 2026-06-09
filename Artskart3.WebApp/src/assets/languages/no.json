@@ -34,5 +34,16 @@
   },
   "resizablePanel": {
     "resizeAriaLabel": "Endre størrelse på filter panelet"
+  },
+  "mapToolbar": {
+    "layersAriaLabel": "Lag",
+    "filterAriaLabel": "Innstillinger",
+    "polygonAriaLabel": "Polygon",
+    "geolocationAriaLabel": "Min posisjon",
+    "fullscreenAriaLabel": "Fullskjerm",
+    "zoomInAriaLabel": "Zoom inn",
+    "zoomOutAriaLabel": "Zoom ut",
+    "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
+    "mapTypeHeading": "Type kart"
   }
 }

@@ -1,0 +1,35 @@
+.map-type-container {
+  position: relative;
+}
+
+adb-icon-button {
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --adb-focus-outer: #262F31;
+}
+
+.map-types-dropdown {
+  position: absolute;
+  top: calc(-20% + var(--adb-spacing-xsm, 8px));
+  right: 45px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-md, 12px);
+  padding: var(--adb-spacing-xsm, 8px);
+  background: var(--adb-background-default, white);
+  border: 1px solid var(--adb-border-default);
+  border-radius: var(--adb-border-radius-md, 8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+}
+
+.map-types-header {
+  width: 100%;
+  padding: 0 var(--adb-spacing-xsm, 8px);
+  color: var(--adb-text-primary);
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-2, 14px);
+  font-weight: var(--adb-font-weight-bold, 700);
+  line-height: 120%;
+}

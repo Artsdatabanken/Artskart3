@@ -13,6 +13,7 @@
     right: 12px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
     z-index: 100;
     pointer-events: auto;
@@ -24,56 +25,12 @@
     bottom: 20px;
   }
 
-.map-control-icon {
-  display: flex;
-  height: 40px;
-  padding: var(--adb-spacing-xsm, 8px);
-  justify-content: center;
-  align-items: center;
-  gap: var(--adb-spacing-2xsm, 4px);
-  align-self: stretch;
-  aspect-ratio: 1 / 1;
+adb-icon-button {
   border-radius: 50%;
-  background-color: white;
-  border: 1px solid var(--adb-border-default);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --adb-focus-outer: #262F31;
+}
 
- & svg {
-    width: 20px;
-    height: 20px;
-    color: var(--adb-text-accent);
-    transition: color 0.2s ease;
-  }
-  &:hover {
-    background-color: #0066a1;
-    border-color: #0066a1;
-    box-shadow: 0 2px 6px rgba(0, 102, 161, 0.2);
-    & svg {
-      color: white;
-    }
-  }
-  &:active {
-    background-color: #0066a1;
-    border-color: #0066a1;
-    transform: scale(0.95);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset;
-    & svg {
-      color: white;
-    }
-  }
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 90, 113, 0.15);
-  }
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.65;
-    background-color: #f0f0f0;
-    &:hover {
-      background-color: #f0f0f0;
-      border-color: var(--adb-border-default);
-    }
-  }
+.hidden-not-implemented {
+  display: none;
 }

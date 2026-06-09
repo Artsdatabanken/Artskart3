@@ -1,12 +1,17 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
+import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
 
 type ActionHandler = () => void;
 
 @Component({
   selector: 'app-map-toolbar',
-  standalone: false,
+  standalone: true,
+  imports: [CommonModule, TranslateModule, MapTypeSelectorComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
@@ -53,6 +58,11 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   onButtonClick(iconName: string): void {
     this.handleIconClick(iconName);
   }
+
+  onMapTypeSelected(layerId: string): void {
+    this.iconClick.emit(`map-type:${layerId}`);
+  }
+
   private handleIconClick(actionName: string): void {
     const action = actionName as ToolbarAction;
     const handler = this.actionHandlers[action];
@@ -91,9 +101,9 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
       const coord = this.map.transformCoordsFrom([longitude, latitude], 'EPSG:4326', 'EPSG:25833');
       this.map.setCenter(coord);
       this.map.setZoom(14);
+    } else {
+      this.map.zoomToGeolocation();
     }
-
-    this.map.zoomToGeolocation();
     setTimeout(() => {
       this.resetGeolocationState();
     }, 100);

@@ -492,8 +492,9 @@ namespace Artskart3.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValueSql("(newsequentialid())");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1192,32 +1193,17 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("PK_dbo.Observation");
 
-                    b.HasIndex(new[] { "BasisOfRecordId" }, "IX_BasisOfRecordId");
+                    b.HasIndex("MatchedScientificNameId");
 
-                    b.HasIndex(new[] { "CatalogNumber" }, "IX_CatalogNumber");
-
-                    b.HasIndex(new[] { "CategoryId", "DateTimeRecordImported" }, "IX_CategoryId");
-
-                    b.HasIndex(new[] { "DateTimeCollected" }, "IX_DateTimeCollected")
-                        .IsDescending();
-
-                    b.HasIndex(new[] { "DateTimeRecordImported" }, "IX_DateTimeRecordImported");
-
-                    b.HasIndex(new[] { "DatetimeIdentified" }, "IX_DatetimeIdentified");
-
-                    b.HasIndex(new[] { "LocationId", "Id" }, "IX_LocationCatProxy");
+                    b.HasIndex("ObservationQualityTypeId");
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
 
-                    b.HasIndex(new[] { "MatchedScientificNameId" }, "IX_MatchedScientificName");
-
-                    b.HasIndex(new[] { "MonthCollected" }, "IX_MonthCollected");
-
-                    b.HasIndex(new[] { "NodeId" }, "IX_NodeId");
-
-                    b.HasIndex(new[] { "ObservationQualityTypeId" }, "IX_ObservationQualityTypeId");
+                    b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 
                     b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
+
+                    b.HasIndex(new[] { "CoordinatePrecisionInMeters" }, "IX_Observation_CoordinatePrecisionInMeters");
 
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
@@ -1233,27 +1219,15 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "TaxonGroupId" }, "IX_Observation_TaxonGroupId");
 
+                    b.HasIndex(new[] { "TaxonGroupId", "LocationId" }, "IX_Observation_TaxonGroupId_LocationId");
+
                     b.HasIndex(new[] { "YearCollected" }, "IX_Observation_YearCollected");
 
                     b.HasIndex(new[] { "YearCollected", "LocationId" }, "IX_Observation_YearCollected_LocationId");
 
-                    b.HasIndex(new[] { "OccurrenceId" }, "IX_OccurenceId");
-
-                    b.HasIndex(new[] { "ProxyId" }, "IX_ProxyId");
-
                     b.HasIndex(new[] { "TaxonId", "Id", "CoordinatePrecisionInMeters", "YearCollected" }, "IX_Rodliste");
 
                     b.HasIndex(new[] { "TaxonGroupId", "CategoryId" }, "IX_TaxonGroupId");
-
-                    b.HasIndex(new[] { "TaxonGroupId", "LocationId" }, "IX_TaxonGroupIdLocationId");
-
-                    b.HasIndex(new[] { "TaxonId", "MatchedScientificNameId" }, "IX_TaxonId");
-
-                    b.HasIndex(new[] { "YearCollected", "MonthCollected" }, "IX_YearCollected");
-
-                    b.HasIndex(new[] { "CoordinatePrecisionInMeters" }, "Ix_CoordPrec");
-
-                    b.HasIndex(new[] { "TaxonGroupId" }, "TaxonGroupId");
 
                     b.ToTable("Observation", (string)null);
                 });
@@ -1381,7 +1355,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "Id" }, "IX_Id");
 
-                    b.ToTable("ObservationDetails", (string)null);
+                    b.ToTable("ObservationDetails");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationError", b =>
@@ -1948,6 +1922,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("East")
                         .HasColumnType("int");
 
+                    b.Property<Geometry>("Geometry")
+                        .HasColumnType("geometry");
+
                     b.Property<double>("Latitude")
                         .HasColumnType("float");
 
@@ -1965,15 +1942,12 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(3500)
                         .HasColumnType("nvarchar(3500)");
 
-                    b.Property<Geometry>("Geometry")
-                        .HasColumnType("geometry");
-
                     b.HasKey("ObservationId")
                         .HasName("PK_dbo.SensitiveObservationData");
 
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
-                    b.ToTable("SensitiveObservationData", (string)null);
+                    b.ToTable("SensitiveObservationData");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.SpatialRefSy", b =>
