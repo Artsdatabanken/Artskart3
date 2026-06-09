@@ -11,7 +11,7 @@ public class UserService(IUserRepository userRepository) : IUserService
         try
         {
             var user = await userRepository.GetUserById(userId);
-            return user;
+            return user ?? throw new Exception("User not found");
         }
         catch (Exception e)
         {
