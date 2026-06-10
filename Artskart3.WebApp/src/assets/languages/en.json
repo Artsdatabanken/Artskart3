@@ -40,6 +40,9 @@
     "list": "List",
     "ariaLabel": "Select view"
   },
+  "export": {
+    "button": "Export selection"
+  },
   "listView": {
     "name": "Species name",
     "scientificName": "Scientific name",

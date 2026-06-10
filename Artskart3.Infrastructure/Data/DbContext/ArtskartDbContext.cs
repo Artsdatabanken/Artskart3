@@ -32,7 +32,7 @@ namespace Artskart3.Infrastructure.Data
 
     public virtual DbSet<DeletedItem> DeletedItems { get; set; }
 
-    public virtual DbSet<ExportStatus> ExportStatuses { get; set; }
+    public virtual DbSet<CsvExportJob> CsvExportJobs { get; set; }
 
     public virtual DbSet<Fab4exclude> Fab4excludes { get; set; }
 
@@ -246,13 +246,19 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.TimeStamp).HasColumnType("datetime");
         });
 
-        modelBuilder.Entity<ExportStatus>(entity =>
+        modelBuilder.Entity<CsvExportJob>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK_dbo.ExportStatus");
+            entity.ToTable("CsvExportJob");
 
-            entity.ToTable("ExportStatus");
+            entity.HasIndex(e => e.Status, "IX_CsvExportJob_Status");
+            entity.HasIndex(e => e.UserId, "IX_CsvExportJob_UserId");
 
-            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.UserId).HasMaxLength(256);
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.SelectedColumns).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.BlobPath).HasMaxLength(500);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<Fab4exclude>(entity =>

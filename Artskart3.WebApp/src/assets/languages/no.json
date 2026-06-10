@@ -40,6 +40,9 @@
     "list": "Liste",
     "ariaLabel": "Velg visning"
   },
+  "export": {
+    "button": "Eksporter utvalg"
+  },
   "listView": {
     "name": "Bokmålsnavn",
     "scientificName": "Vitenskapelig navn",

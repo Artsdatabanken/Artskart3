@@ -5,6 +5,7 @@ using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
+using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -140,96 +141,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             var query = _context.Set<Observation>()
                                 .AsNoTracking();
 
-            if (!string.IsNullOrEmpty(filter.PreferredPopularName))
-            {
-                var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
-                query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
-            }
-
-            if (!string.IsNullOrEmpty(filter.ScientificName))
-            {
-                var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
-                query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
-            }
-
-            if (!string.IsNullOrEmpty(filter.Author))
-            {
-                var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
-                query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
-            }
-
-            if (filter.TaxonGroupIds?.Any() == true)
-            {
-                query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
-            }
-
-            if(filter.CategoryIds?.Any() == true)
-            {
-                query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
-            }
-
-            // Område- og institusjonsfiltre via ObservationAreaIndex-tabellen.
-            // Kombineres med OR: en observasjon vises hvis den tilhører minst ett av de valgte områdene.
-            var filterQueries = new List<IQueryable<Observation>>();
-
-            if (filter.MunicipalityIds?.Any() == true)
-                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
-                    idx.ObservationId == o.Id && idx.AreaTypeId == 1 && filter.MunicipalityIds.Contains(idx.AreaFid))));
-
-            if (filter.CountyIds?.Any() == true)
-                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
-                    idx.ObservationId == o.Id && idx.AreaTypeId == 2 && filter.CountyIds.Contains(idx.AreaFid))));
-
-            if (filter.RestrictedAreaIds?.Any() == true)
-                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
-                    idx.ObservationId == o.Id && idx.AreaTypeId == 3 && filter.RestrictedAreaIds.Contains(idx.AreaFid))));
-
-            if (filter.OceanAreaIds?.Any() == true)
-                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
-                    idx.ObservationId == o.Id && idx.AreaTypeId == 4 && filter.OceanAreaIds.Contains(idx.AreaFid))));
-
-            if (filter.OrganizationIds?.Any() == true)
-            {
-                var institutionFids = filter.OrganizationIds.Select(id => id.ToString()).ToArray();
-                filterQueries.Add(query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
-                    idx.ObservationId == o.Id && idx.AreaTypeId == 5 && institutionFids.Contains(idx.AreaFid))));
-            }
-
-            if (filterQueries.Count > 0)
-                query = filterQueries.Aggregate((a, b) => a.Union(b));
-
-            if(filter.BehaviorIds?.Any() == true)
-            {
-                query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
-            }
-
-            if(filter.BasisOfRecordIds?.Any() == true)
-            {
-                query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
-            }
-
-            if(filter.CoordinatePrecision?.From.HasValue == true)
-            {
-                query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
-            }
-
-            if(filter.CoordinatePrecision?.To.HasValue == true)
-            {
-                query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
-            }
-
-            if(filter.Period?.From.HasValue == true)
-            {
-                var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
-                query = query.Where(o => o.DateTimeCollected >= fromDate);
-            }
-
-            if(filter.Period?.To.HasValue == true)
-            {
-                var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-                query = query.Where(o => o.DateTimeCollected <= toDate);
-            }
-
+            query = ObservationQueryBuilder.ApplyFilters(_context, query, filter);
             query = query.OrderBy(o => o.Id);
 
             if(filter.IsPaginated)

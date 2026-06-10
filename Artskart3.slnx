@@ -15,4 +15,5 @@
     <Project Path="Artskart3.Tests.Unit/Artskart3.Tests.Unit.csproj" />
   </Folder>
   <Project Path="Artskart3.Api/Artskart3.Api.csproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+  <Project Path="Artskart3.Workers/Artskart3.Workers.csproj" />
 </Solution>

@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260609075516_AddCsvExportJob_DropExportStatus")]
+    partial class AddCsvExportJob_DropExportStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,8 +100,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.Area");
 
                     b.HasIndex(new[] { "AreaTypeId", "Id", "Fid" }, "IX_AreaTypeID");
-
-                    b.HasIndex(new[] { "AreaTypeId", "Fid", "IsCurrent" }, "IX_Area_AreaTypeId_Fid_IsCurrent");
 
                     b.HasIndex(new[] { "Fid" }, "IX_Fid");
 
@@ -1257,23 +1258,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("Observation", (string)null);
                 });
 
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationAreaIndex", b =>
-                {
-                    b.Property<int>("ObservationId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AreaTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("AreaFid")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("ObservationId", "AreaTypeId", "AreaFid");
-
-                    b.ToTable("ObservationAreaIndex", (string)null);
-                });
-
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationDetail", b =>
                 {
                     b.Property<int>("Id")
@@ -1612,8 +1596,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
                     b.HasIndex(new[] { "OrganizationId" }, "IX_OrganizationId");
-
-                    b.HasIndex(new[] { "OrganizationId", "ObservationId" }, "IX_OrganizationRelation_OrgId_ObsId");
 
                     b.HasIndex(new[] { "RelationTypeId" }, "IX_RelationTypeId");
 
@@ -1992,49 +1974,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
                     b.ToTable("SensitiveObservationData");
-                });
-
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.SlowQueryLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Endpoint")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<DateTime>("OccurredAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<long>("QueryTimeMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("RequestBody")
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<string>("RequestPath")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
-                    b.Property<long>("ThresholdMs")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Endpoint")
-                        .HasDatabaseName("IX_SlowQueryLog_Endpoint");
-
-                    b.HasIndex("OccurredAt")
-                        .HasDatabaseName("IX_SlowQueryLog_OccurredAt");
-
-                    b.ToTable("SlowQueryLog", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.SpatialRefSy", b =>
@@ -2448,8 +2387,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.LocationAreas");
 
                     b.HasIndex(new[] { "AreaId" }, "IX_AreaId");
-
-                    b.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
 
                     b.HasIndex(new[] { "LocationId" }, "IX_LocationId");
 
