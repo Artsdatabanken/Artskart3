@@ -12,6 +12,19 @@ export interface StartExportResponse {
   jobId: number;
 }
 
+export interface CsvExportJobStatus {
+  id: number;
+  status: number;
+  totalRows: number;
+  rowsProcessed: number;
+  fileSize: number;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  expiresAt: string | null;
+  errorMessage: string | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -25,5 +38,15 @@ export class ExportService {
       selectedColumns: [],
     };
     return this.http.post<StartExportResponse>(`${this.baseUrl}/start`, request);
+  }
+
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  getHistory(): Observable<CsvExportJobStatus[]> {
+    return this.http.get<CsvExportJobStatus[]>(`${this.baseUrl}/history`);
+  }
+
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  getDownloadUrl(jobId: number): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download`);
   }
 }

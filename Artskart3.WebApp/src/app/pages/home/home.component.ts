@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
+import { switchMap } from 'rxjs';
 import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { FilterStateService } from '../../shared/services/filter-state/filter-state.service';
@@ -22,6 +23,8 @@ export class HomeComponent {
 
   activeTab = signal(0);
   exporting = signal(false);
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  downloading = signal(false);
 
   onTabChange(event: Event) {
     const customEvent = event as CustomEvent<{ index: number }>;
@@ -61,6 +64,31 @@ export class HomeComponent {
       error: () => {
         this.exporting.set(false);
         alert('Kunne ikke starte eksport. Prøv igjen senere.');
+      },
+    });
+  }
+
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  onDownloadLatest() {
+    if (this.downloading()) return;
+
+    this.downloading.set(true);
+    this.exportService.getHistory().pipe(
+      switchMap(jobs => {
+        const completedJob = jobs.find(j => j.status === 2); // 2 = Complete
+        if (!completedJob) {
+          throw new Error('Ingen ferdig eksport funnet.');
+        }
+        return this.exportService.getDownloadUrl(completedJob.id);
+      }),
+    ).subscribe({
+      next: (response) => {
+        this.downloading.set(false);
+        window.open(response.url, '_blank');
+      },
+      error: (err) => {
+        this.downloading.set(false);
+        alert(err.message || 'Kunne ikke hente eksport.');
       },
     });
   }

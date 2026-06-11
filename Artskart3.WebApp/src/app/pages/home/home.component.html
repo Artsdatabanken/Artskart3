@@ -18,17 +18,29 @@
     </adb-tab>
   </adb-tabs>
 
-  <adb-button
-    variant="secondary"
-    size="small"
-    [disabled]="exporting()"
-    (click)="onExport()"
-  >
-    <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M10 13.3333L5.83333 9.16667L6.99999 7.95833L9.16667 10.125V2.5H10.8333V10.125L13 7.95833L14.1667 9.16667L10 13.3333ZM4.16667 17.5C3.70833 17.5 3.31597 17.3368 2.98958 17.0104C2.66319 16.684 2.5 16.2917 2.5 15.8333V13.3333H4.16667V15.8333H15.8333V13.3333H17.5V15.8333C17.5 16.2917 17.3368 16.684 17.0104 17.0104C16.684 17.3368 16.2917 17.5 15.8333 17.5H4.16667Z" fill="currentColor"/>
-    </svg>
-    {{ 'export.button' | translate }}
-  </adb-button>
+  <div class="export-actions">
+    <adb-button
+      variant="secondary"
+      size="small"
+      [disabled]="exporting()"
+      (click)="onExport()"
+    >
+      <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 13.3333L5.83333 9.16667L6.99999 7.95833L9.16667 10.125V2.5H10.8333V10.125L13 7.95833L14.1667 9.16667L10 13.3333ZM4.16667 17.5C3.70833 17.5 3.31597 17.3368 2.98958 17.0104C2.66319 16.684 2.5 16.2917 2.5 15.8333V13.3333H4.16667V15.8333H15.8333V13.3333H17.5V15.8333C17.5 16.2917 17.3368 16.684 17.0104 17.0104C16.684 17.3368 16.2917 17.5 15.8333 17.5H4.16667Z" fill="currentColor"/>
+      </svg>
+      {{ 'export.button' | translate }}
+    </adb-button>
+
+    <!-- TODO: Fjern denne knappen når permanent nedlastingsløsning er på plass -->
+    <adb-button
+      variant="secondary"
+      size="small"
+      [disabled]="downloading()"
+      (click)="onDownloadLatest()"
+    >
+      {{ 'export.downloadLatest' | translate }}
+    </adb-button>
+  </div>
 </div>
 
 <div class="tab-panels">

@@ -1,22 +1,20 @@
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Workers.Configuration;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 
-namespace Artskart3.Workers.Export;
+namespace Artskart3.Infrastructure.Services;
 
 public class BlobStorageService : IBlobStorageService
 {
     private readonly BlobServiceClient _blobServiceClient;
     private readonly string _containerName;
 
-    public BlobStorageService(IOptions<CsvExportOptions> options)
+    public BlobStorageService(IConfiguration configuration)
     {
-        var blobOptions = options.Value.BlobStorage;
-        _blobServiceClient = new BlobServiceClient(blobOptions.ConnectionString);
-        _containerName = blobOptions.ContainerName;
+        var connectionString = configuration["CsvExport:BlobStorage:ConnectionString"] ?? "UseDevelopmentStorage=true";
+        _containerName = configuration["CsvExport:BlobStorage:ContainerName"] ?? "csv-exports";
+        _blobServiceClient = new BlobServiceClient(connectionString);
     }
 
     public async Task<Stream> OpenWriteStreamAsync(string blobPath, CancellationToken cancellationToken = default)
@@ -35,7 +33,6 @@ public class BlobStorageService : IBlobStorageService
 
         if (!blob.CanGenerateSasUri)
         {
-            // Fallback: opprett ny klient med connection string som støtter SAS
             throw new InvalidOperationException(
                 "Kan ikke generere SAS-URL. Sjekk at connection string inneholder kontonøkkel.");
         }

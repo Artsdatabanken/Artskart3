@@ -41,7 +41,8 @@
     "ariaLabel": "Velg visning"
   },
   "export": {
-    "button": "Eksporter utvalg"
+    "button": "Eksporter utvalg",
+    "downloadLatest": "Hent siste eksport"
   },
   "listView": {
     "name": "Bokmålsnavn",

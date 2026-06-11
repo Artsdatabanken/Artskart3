@@ -41,7 +41,8 @@
     "ariaLabel": "Select view"
   },
   "export": {
-    "button": "Export selection"
+    "button": "Export selection",
+    "downloadLatest": "Download latest export"
   },
   "listView": {
     "name": "Species name",

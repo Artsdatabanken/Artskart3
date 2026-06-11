@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Infrastructure.Persistence.Services;
+using Artskart3.Infrastructure.Services;
 
 namespace Artskart3.Infrastructure.DependencyInjection
 {
@@ -13,7 +14,6 @@ namespace Artskart3.Infrastructure.DependencyInjection
         {
             services.AddScoped<ISearchRepository, SearchRepository>();
             services.AddScoped<ILookupRepository, LookupRepository>();
-            // Add other repositories here
             return services;
         }
 
@@ -22,6 +22,7 @@ namespace Artskart3.Infrastructure.DependencyInjection
             services.AddScoped<ISearchService, SearchService>();
             services.AddScoped<ILookupService, LookupService>();
             services.AddScoped<ICsvExportService, CsvExportService>();
+            services.AddSingleton<IBlobStorageService, BlobStorageService>();
             return services;
         }
     }

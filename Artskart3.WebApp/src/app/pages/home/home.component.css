@@ -17,6 +17,11 @@
   background-color: var(--adb-surface-primary);
 }
 
+.export-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .tab-panels {
   flex: 1;
   overflow: hidden;

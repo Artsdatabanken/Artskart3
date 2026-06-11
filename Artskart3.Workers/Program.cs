@@ -63,7 +63,7 @@ builder.Services.Configure<CsvExportOptions>(
     builder.Configuration.GetSection("CsvExport"));
 
 // Tjenester
-builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddSingleton<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
 builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<CsvExportService>();
 builder.Services.AddScoped<ExportColumnRegistry>();

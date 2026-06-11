@@ -11,11 +11,13 @@ namespace Artskart3.Api.Controllers;
 public class ExportController : ControllerBase
 {
     private readonly ICsvExportService _exportService;
+    private readonly IBlobStorageService _blobStorageService;
     private readonly ILogger<ExportController> _logger;
 
-    public ExportController(ICsvExportService exportService, ILogger<ExportController> logger)
+    public ExportController(ICsvExportService exportService, IBlobStorageService blobStorageService, ILogger<ExportController> logger)
     {
         _exportService = exportService;
+        _blobStorageService = blobStorageService;
         _logger = logger;
     }
 
@@ -81,7 +83,8 @@ public class ExportController : ControllerBase
         if (blobPath == null)
             return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
 
-        return Ok(new { blobPath });
+        var sasUrl = await _blobStorageService.GenerateSasUrlAsync(blobPath, TimeSpan.FromMinutes(10));
+        return Ok(new { url = sasUrl });
     }
 
     /// <summary>
