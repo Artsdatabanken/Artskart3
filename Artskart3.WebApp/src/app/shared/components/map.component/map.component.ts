@@ -84,13 +84,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private createWmtsLayer(layer: LayerDef, id: string): LayerDef {
     if (layer.source.type !== 'wmts') return { ...layer, base: 'regional' as const, id }
+
+    const originalOptions = layer.source.options;
     const configuredLayer: LayerDef = {
      ...layer,
      base: 'regional' as const,
      id,
      source: {
        ...layer.source,
-       options: { ...layer.source.options, projection: this.PROJECTION, matrixSet: this.MATRIX_SET },
+       options: {
+         ...originalOptions,
+       },
      },
    };
    return configuredLayer;
