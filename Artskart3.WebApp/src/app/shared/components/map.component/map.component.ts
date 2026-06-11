@@ -125,9 +125,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     baseLayerIds.forEach((id: string) => {
       this.map.setLayerVisibility(id, config.visibleLayers.includes(id));
     });
-
-    this.map.setCenter(config.center);
-    this.map.setZoom(config.zoom);
   }
 
   ngOnDestroy(): void {
