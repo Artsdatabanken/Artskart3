@@ -2,11 +2,12 @@
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
 
-public class UserServiceTests
+public class UserServiceTests()
 {
     [Fact]
     public async Task GetCurrentUser_WhenUserExists_ReturnsUser()
@@ -27,7 +28,7 @@ public class UserServiceTests
             .Setup(repository => repository.GetUserById(userId))
             .ReturnsAsync(expectedUser);
 
-        var service = new UserService(userRepositoryMock.Object);
+        var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
         // Act
         var result = await service.GetCurrentUser(userId);
@@ -52,7 +53,7 @@ public class UserServiceTests
             .Setup(repository => repository.GetUserById(userId))
             .ReturnsAsync((User?)null);
 
-        var service = new UserService(userRepositoryMock.Object);
+        var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
         // Act
         var act = async () => await service.GetCurrentUser(userId);
@@ -92,7 +93,7 @@ public class UserServiceTests
             .Setup(repository => repository.GetUserById(userId))
             .ReturnsAsync(existingUser);
 
-        var service = new UserService(userRepositoryMock.Object);
+        var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
         // Act
         var result = await service.GetOrCreateUser(incomingUser);
@@ -132,7 +133,7 @@ public class UserServiceTests
             .Setup(repository => repository.CreateUser(newUser))
             .ReturnsAsync(newUser);
 
-        var service = new UserService(userRepositoryMock.Object);
+        var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
         // Act
         var result = await service.GetOrCreateUser(newUser);
@@ -154,7 +155,7 @@ public class UserServiceTests
     {
         // Arrange
         var userRepositoryMock = new Mock<IUserRepository>();
-        var service = new UserService(userRepositoryMock.Object);
+        var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
         // Act
         var act = async () => await service.GetOrCreateUser(null!);

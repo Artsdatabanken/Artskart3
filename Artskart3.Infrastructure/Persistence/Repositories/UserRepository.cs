@@ -16,7 +16,7 @@ public class UserRepository(IArtsKartDbContext context, ILogger<UserRepository> 
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.LogError(e, "Error getting user");
             throw new Exception("Error getting user", e);
         }
     }
@@ -32,7 +32,7 @@ public class UserRepository(IArtsKartDbContext context, ILogger<UserRepository> 
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.LogError(e, "Error creating user");
             throw new Exception("Error creating user", e);
         }
     }

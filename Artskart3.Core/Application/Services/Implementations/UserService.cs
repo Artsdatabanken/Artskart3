@@ -1,21 +1,28 @@
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Artskart3.Core.Application.Services.Implementations;
 
-public class UserService(IUserRepository userRepository) : IUserService
+public class UserService(IUserRepository userRepository, ILogger<UserService> logger) : IUserService
 {
-    public async Task<User> GetCurrentUser(Guid userId)
+    public async Task<UserDto?> GetCurrentUser(Guid userId)
     {
         try
         {
             var user = await userRepository.GetUserById(userId);
-            return user ?? throw new Exception("User not found");
+            var userDto = new UserDto
+            {
+                Name = user?.Name,
+                Email = user?.Email
+            };
+            return userDto;
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.LogError(e, "Error getting user");
             throw new Exception("Error getting user", e);
         }
     }
@@ -32,7 +39,7 @@ public class UserService(IUserRepository userRepository) : IUserService
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.LogError(e, "Error creating user");
             throw new Exception("Error creating user", e);
         }
     }

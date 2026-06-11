@@ -3,9 +3,8 @@ using Artskart3.Core.Domain.Entities.Base;
 
 namespace Artskart3.Core.Domain.Entities;
 
-public class User : BaseEntity
+public class User : BaseEntity<Guid>
 {
-    public new Guid Id { get; init; }
     [MaxLength(100)]
     public string? Name { get; set; }
     [MaxLength(100)]

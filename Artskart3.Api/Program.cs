@@ -138,7 +138,8 @@ try
                 var subject = context.Principal?.FindFirst("sub")?.Value;
                 if (!Guid.TryParse(subject, out var userId))
                 {
-                    throw new UnauthorizedAccessException("Authenticated user is missing");
+                    context.Fail("Authenticated user is missing");
+                    return;
                 }
                 
                 var user = new User

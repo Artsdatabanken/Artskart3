@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using FluentAssertions;
@@ -17,9 +18,8 @@ public class UserControllerTests
         // Arrange
         var userId = Guid.NewGuid();
 
-        var expectedUser = new User
+        var expectedUser = new UserDto
         {
-            Id = userId,
             Name = "Test User",
             Email = "test@example.com"
         };
