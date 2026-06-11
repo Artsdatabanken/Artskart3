@@ -45,7 +45,8 @@ public class UserControllerTests
         var result = await controller.GetCurrentUser();
 
         // Assert
-        result.Should().BeEquivalentTo(expectedUser);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(expectedUser);
 
         userServiceMock.Verify(
             service => service.GetCurrentUser(userId),

@@ -1,4 +1,5 @@
-﻿using Artskart3.Core.Application.Services.Implementations;
+﻿using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
@@ -15,18 +16,24 @@ public class UserServiceTests()
         // Arrange
         var userId = Guid.NewGuid();
 
-        var expectedUser = new User
+        var user = new User
         {
             Id = userId,
             Name = "Test User",
             Email = "test@example.com"
         };
 
+        var expectedUser = new UserDto
+        {
+            Name = "Test User",
+            Email = "test@example.com",
+        };
+
         var userRepositoryMock = new Mock<IUserRepository>();
 
         userRepositoryMock
             .Setup(repository => repository.GetUserById(userId))
-            .ReturnsAsync(expectedUser);
+            .ReturnsAsync(user);
 
         var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
 
@@ -42,7 +49,7 @@ public class UserServiceTests()
     }
 
     [Fact]
-    public async Task GetCurrentUser_WhenUserDoesNotExist_ThrowsException()
+    public async Task GetCurrentUser_WhenUserDoesNotExist_ReturnsNull()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -54,14 +61,8 @@ public class UserServiceTests()
             .ReturnsAsync((User?)null);
 
         var service = new UserService(userRepositoryMock.Object, NullLogger<UserService>.Instance);
-
-        // Act
-        var act = async () => await service.GetCurrentUser(userId);
-
-        // Assert
-        await act.Should().ThrowAsync<Exception>()
-            .WithMessage("Error getting user");
-
+        var result = await service.GetCurrentUser(userId);
+        result.Should().BeNull();
         userRepositoryMock.Verify(
             repository => repository.GetUserById(userId),
             Times.Once);

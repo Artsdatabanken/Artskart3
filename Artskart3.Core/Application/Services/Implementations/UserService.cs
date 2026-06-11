@@ -13,6 +13,7 @@ public class UserService(IUserRepository userRepository, ILogger<UserService> lo
         try
         {
             var user = await userRepository.GetUserById(userId);
+            if (user == null) return null;
             var userDto = new UserDto
             {
                 Name = user?.Name,

@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
@@ -52,12 +53,14 @@ public class UserIntegrationTests : IAsyncLifetime
         var response = await _client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var returnedUser = await response.Content.ReadFromJsonAsync<User>();
+        var returnedUser = await response.Content.ReadFromJsonAsync<UserDto>();
 
         returnedUser.Should().NotBeNull();
-        returnedUser!.Id.Should().Be(userId);
-        returnedUser.Name.Should().Be(existingUser.Name);
-        returnedUser.Email.Should().Be(existingUser.Email);
+        returnedUser.Should().BeEquivalentTo(new UserDto
+        {
+            Name = existingUser.Name,
+            Email = existingUser.Email
+        });
     }
 
     [Fact]
