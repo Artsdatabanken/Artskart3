@@ -26,6 +26,7 @@ export interface CsvExportJobStatus {
   totalRows: number;
   rowsProcessed: number;
   fileSize: number;
+  hasExcel: boolean;
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -59,7 +60,7 @@ export class ExportService {
   }
 
   // TODO: Fjern når permanent nedlastingsløsning er på plass
-  downloadExcel(jobId: number): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/${jobId}/download/excel`, { responseType: 'blob' });
+  getExcelDownloadUrl(jobId: number): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download/excel`);
   }
 }

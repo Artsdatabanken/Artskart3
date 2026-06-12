@@ -101,21 +101,16 @@ export class HomeComponent {
     this.downloadingExcel.set(true);
     this.exportService.getHistory().pipe(
       switchMap(jobs => {
-        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete);
+        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete && j.hasExcel);
         if (!completedJob) {
-          throw new Error('Ingen ferdig eksport funnet.');
+          throw new Error('Ingen ferdig eksport med Excel funnet.');
         }
-        return this.exportService.downloadExcel(completedJob.id);
+        return this.exportService.getExcelDownloadUrl(completedJob.id);
       }),
     ).subscribe({
-      next: (blob) => {
+      next: (response) => {
         this.downloadingExcel.set(false);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'eksport.xlsx';
-        a.click();
-        URL.revokeObjectURL(url);
+        window.open(response.url, '_blank');
       },
       error: (err) => {
         this.downloadingExcel.set(false);

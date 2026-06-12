@@ -64,7 +64,7 @@ public class ExportColumnRegistry
         Col("Detail.AssociatedReferences", "Tilknyttede referanser"),
     ];
 
-    public List<ExportColumnDefinition> GetAllColumns() => Columns;
+    public IReadOnlyList<ExportColumnDefinition> GetAllColumns() => Columns;
 
     public List<string> GetDefaultColumnNames() =>
         Columns.Where(c => c.IsDefaultSelected).Select(c => c.Name).ToList();

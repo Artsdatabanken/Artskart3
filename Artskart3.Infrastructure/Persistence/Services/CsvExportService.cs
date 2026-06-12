@@ -29,7 +29,7 @@ public class CsvExportService : ICsvExportService
         _columnRegistry = columnRegistry;
     }
 
-    public Task<List<ExportColumnDefinition>> GetAvailableColumnsAsync()
+    public Task<IReadOnlyList<ExportColumnDefinition>> GetAvailableColumnsAsync()
     {
         return Task.FromResult(_columnRegistry.GetAllColumns());
     }

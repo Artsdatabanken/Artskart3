@@ -76,8 +76,12 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// Hangfire Dashboard — ingen autentisering foreløpig
-app.MapHangfireDashboard("/hangfire");
+// Hangfire Dashboard — kun tilgjengelig i Development.
+// TODO: Legg til autentisering/autorisering for andre miljøer når det er avklart med prosjektgruppen.
+if (app.Environment.IsDevelopment())
+{
+    app.MapHangfireDashboard("/hangfire");
+}
 
 app.MapHealthChecks("/health");
 

@@ -4,7 +4,7 @@ namespace Artskart3.Core.Application.Services.Interfaces;
 
 public interface ICsvExportService
 {
-    Task<List<ExportColumnDefinition>> GetAvailableColumnsAsync();
+    Task<IReadOnlyList<ExportColumnDefinition>> GetAvailableColumnsAsync();
     Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns);
     Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns);
     Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, string userId);

@@ -29,20 +29,26 @@ public class ExportController : ControllerBase
     }
 
     [HttpPost("summary")]
-    public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
-        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns);
+        if (request?.Filter == null)
+            return BadRequest(new { error = "Filter er påkrevd." });
+
+        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? []);
         return Ok(summary);
     }
 
     [HttpPost("start")]
-    public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto request, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
+        if (request?.Filter == null)
+            return BadRequest(new { error = "Filter er påkrevd." });
+
         var userId = GetUserId();
 
         try
         {
-            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns);
+            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? []);
             return Ok(new { jobId });
         }
         catch (InvalidOperationException ex)
@@ -75,21 +81,15 @@ public class ExportController : ControllerBase
     }
 
     [HttpGet("{jobId:int}/download/excel")]
-    public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var excelBlobPath = await _exportService.GetExcelBlobPathAsync(jobId, userId);
         if (excelBlobPath == null)
             return NotFound(new { error = "Excel-filen er ikke tilgjengelig." });
 
-        await using var excelStream = await _blobStorageService.OpenReadStreamAsync(excelBlobPath, cancellationToken);
-        var outputStream = new MemoryStream();
-        await excelStream.CopyToAsync(outputStream, cancellationToken);
-        outputStream.Position = 0;
-
-        return File(outputStream,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"eksport-{jobId}.xlsx");
+        var sasUrl = await _blobStorageService.GenerateSasUrlAsync(excelBlobPath, TimeSpan.FromMinutes(10));
+        return Ok(new { url = sasUrl });
     }
 
     [HttpPost("{jobId:int}/cancel")]

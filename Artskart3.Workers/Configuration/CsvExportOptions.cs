@@ -16,4 +16,5 @@ public class ExportWorkerOptions
 {
     public int BatchSize { get; set; } = 5000;
     public int InterBatchDelayMs { get; set; } = 100;
+    public int StuckJobTimeoutMinutes { get; set; } = 10;
 }
