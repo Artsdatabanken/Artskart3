@@ -3,6 +3,7 @@ using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Application.Services.Implementations;
+using Artskart3.Core.Application.Services;
 using Artskart3.Infrastructure.Persistence.Services;
 using Artskart3.Infrastructure.Services;
 
@@ -22,6 +23,7 @@ namespace Artskart3.Infrastructure.DependencyInjection
             services.AddScoped<ISearchService, SearchService>();
             services.AddScoped<ILookupService, LookupService>();
             services.AddScoped<ICsvExportService, CsvExportService>();
+            services.AddSingleton<ExportColumnRegistry>();
             services.AddSingleton<IBlobStorageService, BlobStorageService>();
             return services;
         }

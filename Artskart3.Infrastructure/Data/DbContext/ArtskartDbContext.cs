@@ -258,6 +258,7 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
             entity.Property(e => e.SelectedColumns).HasColumnType("nvarchar(max)");
             entity.Property(e => e.BlobPath).HasMaxLength(500);
+            entity.Property(e => e.ExcelBlobPath).HasMaxLength(500);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
         });
 

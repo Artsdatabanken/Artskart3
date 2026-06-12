@@ -9,6 +9,7 @@ public class CsvExportJobDto
     public int TotalRows { get; set; }
     public int RowsProcessed { get; set; }
     public long FileSize { get; set; }
+    public bool HasExcel { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

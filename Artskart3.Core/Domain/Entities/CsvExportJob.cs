@@ -25,6 +25,8 @@ public class CsvExportJob : BaseEntity
 
     public string? BlobPath { get; set; }
 
+    public string? ExcelBlobPath { get; set; }
+
     public long FileSize { get; set; }
 
     public DateTime? StartedAt { get; set; }

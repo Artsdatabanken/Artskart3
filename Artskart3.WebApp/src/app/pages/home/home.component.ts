@@ -5,7 +5,7 @@ import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { FilterStateService } from '../../shared/services/filter-state/filter-state.service';
 import { AreaService } from '../../shared/services/area/area.service';
-import { ExportService } from '../../shared/services/export/export.service';
+import { ExportService, ExportJobStatus } from '../../shared/services/export/export.service';
 import { ObservationSearchFilter } from '../../shared/types/api.types';
 
 @Component({
@@ -76,7 +76,7 @@ export class HomeComponent {
     this.downloading.set(true);
     this.exportService.getHistory().pipe(
       switchMap(jobs => {
-        const completedJob = jobs.find(j => j.status === 2); // 2 = Complete
+        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete); // 2 = Complete
         if (!completedJob) {
           throw new Error('Ingen ferdig eksport funnet.');
         }
@@ -101,7 +101,7 @@ export class HomeComponent {
     this.downloadingExcel.set(true);
     this.exportService.getHistory().pipe(
       switchMap(jobs => {
-        const completedJob = jobs.find(j => j.status === 2);
+        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete);
         if (!completedJob) {
           throw new Error('Ingen ferdig eksport funnet.');
         }

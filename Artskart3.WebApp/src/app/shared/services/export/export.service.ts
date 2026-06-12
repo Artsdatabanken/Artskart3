@@ -12,6 +12,14 @@ export interface StartExportResponse {
   jobId: number;
 }
 
+export const ExportJobStatus = {
+  Pending: 0,
+  Processing: 1,
+  Complete: 2,
+  Failed: 3,
+  Cancelled: 4,
+} as const;
+
 export interface CsvExportJobStatus {
   id: number;
   status: number;

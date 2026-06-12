@@ -27,6 +27,7 @@ namespace Artskart3.Infrastructure.Migrations
                     TotalRows = table.Column<int>(type: "int", nullable: false),
                     RowsProcessed = table.Column<int>(type: "int", nullable: false),
                     BlobPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    ExcelBlobPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     FileSize = table.Column<long>(type: "bigint", nullable: false),
                     StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),

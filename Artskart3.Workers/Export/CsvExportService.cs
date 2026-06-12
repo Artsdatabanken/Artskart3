@@ -5,6 +5,7 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
+using Artskart3.Core.Application.Services;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Artskart3.Workers.Configuration;
 using ClosedXML.Excel;
@@ -15,6 +16,7 @@ namespace Artskart3.Workers.Export;
 
 /// <summary>
 /// Kjører selve CSV-eksporten: leser observasjoner i batcher og streamer til blob storage.
+/// Genererer også en Excel-fil (.xlsx) fra CSV-en.
 /// </summary>
 public class CsvExportService
 {
@@ -44,7 +46,8 @@ public class CsvExportService
     public async Task ProcessJobAsync(CsvExportJob job, CancellationToken cancellationToken)
     {
         var columns = JsonSerializer.Deserialize<List<string>>(job.SelectedColumns) ?? [];
-        var filter = JsonSerializer.Deserialize<ObservationSearchFilterDto>(job.FilterJson);
+        var filter = JsonSerializer.Deserialize<ObservationSearchFilterDto>(job.FilterJson)
+                     ?? new ObservationSearchFilterDto();
 
         var validColumns = _columnRegistry.GetValidColumnNames();
         columns = columns.Where(c => validColumns.Contains(c)).ToList();
@@ -56,10 +59,10 @@ public class CsvExportService
 
         var needsDetail = columns.Any(c => c.StartsWith("Detail."));
 
-        // Bygg query med delt filterlogikk
         var query = BuildQuery(filter, needsDetail);
 
-        var blobPath = $"{job.UserId}/{job.Id}.csv";
+        var csvBlobPath = $"{job.UserId}/{job.Id}.csv";
+        var excelBlobPath = $"{job.UserId}/{job.Id}.xlsx";
 
         // TODO: Bytt til OpenWriteStreamAsync (streaming direkte til blob) når Azurite-bug er fikset.
         // Bruker midlertidig MemoryStream + UploadAsync for å unngå ETag-feil i Azurite.
@@ -124,16 +127,23 @@ public class CsvExportService
         await writer.FlushAsync(cancellationToken);
 
         // Last opp CSV til blob storage
-        await _blobStorage.UploadAsync(blobPath, memoryStream, cancellationToken);
+        await _blobStorage.UploadAsync(csvBlobPath, memoryStream, cancellationToken);
 
         // Generer og last opp Excel-fil
-        var excelBlobPath = $"{job.UserId}/{job.Id}.xlsx";
-        await GenerateAndUploadExcelAsync(memoryStream, excelBlobPath, cancellationToken);
+        try
+        {
+            await GenerateAndUploadExcelAsync(memoryStream, excelBlobPath, cancellationToken);
+            job.ExcelBlobPath = excelBlobPath;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Kunne ikke generere Excel for jobb {JobId}, CSV er tilgjengelig", job.Id);
+        }
 
         // Oppdater jobben som ferdig
         job.RowsProcessed = totalProcessed;
         job.TotalRows = totalProcessed;
-        job.BlobPath = blobPath;
+        job.BlobPath = csvBlobPath;
         job.FileSize = memoryStream.Length;
         job.Status = CsvExportStatus.Complete;
         job.CompletedAt = DateTime.UtcNow;
@@ -168,6 +178,7 @@ public class CsvExportService
 
         using var excelStream = new MemoryStream();
         workbook.SaveAs(excelStream);
+        excelStream.Position = 0;
         await _blobStorage.UploadAsync(excelBlobPath, excelStream, cancellationToken);
 
         _logger.LogInformation("Excel-fil generert og lastet opp: {BlobPath}", excelBlobPath);

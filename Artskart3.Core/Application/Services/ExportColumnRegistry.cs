@@ -1,7 +1,7 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Domain.Entities;
 
-namespace Artskart3.Workers.Export;
+namespace Artskart3.Core.Application.Services;
 
 /// <summary>
 /// Register over alle kolonner som kan eksporteres, med visningsnavn og standardvalg.

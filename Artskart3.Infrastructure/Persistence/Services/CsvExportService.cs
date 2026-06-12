@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
@@ -19,17 +20,18 @@ public class CsvExportService : ICsvExportService
 {
     private readonly IArtsKartDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly ExportColumnRegistry _columnRegistry;
 
-    public CsvExportService(IArtsKartDbContext context, IConfiguration configuration)
+    public CsvExportService(IArtsKartDbContext context, IConfiguration configuration, ExportColumnRegistry columnRegistry)
     {
         _context = context;
         _configuration = configuration;
+        _columnRegistry = columnRegistry;
     }
 
     public Task<List<ExportColumnDefinition>> GetAvailableColumnsAsync()
     {
-        var columns = GetColumnDefinitions();
-        return Task.FromResult(columns);
+        return Task.FromResult(_columnRegistry.GetAllColumns());
     }
 
     public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns)
@@ -37,8 +39,8 @@ public class CsvExportService : ICsvExportService
         var query = BuildFilteredQuery(filter);
         var count = await query.CountAsync();
 
-        var softLimit = _configuration.GetValue("CsvExport:Limits:SoftRowLimit", 500_000);
-        var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 1_000_000);
+        var softLimit = _configuration.GetValue("CsvExport:Limits:SoftRowLimit", 50_000);
+        var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
 
         // Estimert filstørrelse: ~200 bytes per rad * antall valgte kolonner / totalt mulige kolonner
         var columnRatio = Math.Max(columns.Count, 1) / 50.0;
@@ -55,7 +57,7 @@ public class CsvExportService : ICsvExportService
 
     public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns)
     {
-        var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 1_000_000);
+        var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
         var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
 
         // Sjekk antall samtidige jobber for bruker
@@ -90,11 +92,11 @@ public class CsvExportService : ICsvExportService
         return job.Id;
     }
 
-    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId)
+    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, string userId)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.Id == jobId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
 
         return job == null ? null : MapToDto(job);
     }
@@ -117,16 +119,28 @@ public class CsvExportService : ICsvExportService
         return true;
     }
 
-    public async Task<string?> GetDownloadUrlAsync(int jobId)
+    public async Task<string?> GetCsvBlobPathAsync(int jobId, string userId)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.Id == jobId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
 
         if (job?.Status != CsvExportStatus.Complete || string.IsNullOrEmpty(job.BlobPath))
             return null;
 
         return job.BlobPath;
+    }
+
+    public async Task<string?> GetExcelBlobPathAsync(int jobId, string userId)
+    {
+        var job = await _context.Set<CsvExportJob>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
+
+        if (job?.Status != CsvExportStatus.Complete || string.IsNullOrEmpty(job.ExcelBlobPath))
+            return null;
+
+        return job.ExcelBlobPath;
     }
 
     public async Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(string userId)
@@ -154,6 +168,7 @@ public class CsvExportService : ICsvExportService
         TotalRows = job.TotalRows,
         RowsProcessed = job.RowsProcessed,
         FileSize = job.FileSize,
+        HasExcel = !string.IsNullOrEmpty(job.ExcelBlobPath),
         CreatedAt = job.CreatedAt,
         StartedAt = job.StartedAt,
         CompletedAt = job.CompletedAt,
@@ -161,56 +176,4 @@ public class CsvExportService : ICsvExportService
         ErrorMessage = job.ErrorMessage
     };
 
-    private static List<ExportColumnDefinition> GetColumnDefinitions() =>
-    [
-        new() { Name = "Id", DisplayName = "Id", IsDefaultSelected = true },
-        new() { Name = "OccurrenceId", DisplayName = "OccurrenceId", IsDefaultSelected = true },
-        new() { Name = "InstitutionCode", DisplayName = "Institusjonskode", IsDefaultSelected = true },
-        new() { Name = "CollectionCode", DisplayName = "Samlingskode", IsDefaultSelected = true },
-        new() { Name = "CatalogNumber", DisplayName = "Katalognummer", IsDefaultSelected = true },
-        new() { Name = "DateTimeCollected", DisplayName = "Innsamlingsdato", IsDefaultSelected = true },
-        new() { Name = "TaxonId", DisplayName = "Takson-ID", IsDefaultSelected = true },
-        new() { Name = "Latitude", DisplayName = "Breddegrad", IsDefaultSelected = true },
-        new() { Name = "Longitude", DisplayName = "Lengdegrad", IsDefaultSelected = true },
-        new() { Name = "CoordinatePrecisionInMeters", DisplayName = "Koordinatpresisjon (meter)", IsDefaultSelected = true },
-        new() { Name = "Detail.DatasetName", DisplayName = "Datasett", IsDefaultSelected = true },
-        new() { Name = "Detail.Collector", DisplayName = "Innsamler", IsDefaultSelected = true },
-        new() { Name = "Detail.Locality", DisplayName = "Lokalitet", IsDefaultSelected = true },
-        new() { Name = "ProxyId", DisplayName = "ProxyId" },
-        new() { Name = "NodeId", DisplayName = "NodeId" },
-        new() { Name = "BasisOfRecordId", DisplayName = "Funntype-ID" },
-        new() { Name = "DatetimeIdentified", DisplayName = "Bestemmelsesdato" },
-        new() { Name = "DateLastModified", DisplayName = "Sist endret" },
-        new() { Name = "DateTimeRecordImported", DisplayName = "Importert" },
-        new() { Name = "MatchedScientificNameId", DisplayName = "Matchet vitenskapelig navn-ID" },
-        new() { Name = "TaxonGroupId", DisplayName = "Taksongruppe-ID" },
-        new() { Name = "CategoryId", DisplayName = "Kategori-ID" },
-        new() { Name = "East", DisplayName = "Øst (UTM33)" },
-        new() { Name = "North", DisplayName = "Nord (UTM33)" },
-        new() { Name = "YearCollected", DisplayName = "Innsamlingsår" },
-        new() { Name = "MonthCollected", DisplayName = "Innsamlingsmåned" },
-        new() { Name = "HasErrors", DisplayName = "Har feil" },
-        new() { Name = "HasAnnotations", DisplayName = "Har annoteringer" },
-        new() { Name = "ObservationQualityTypeId", DisplayName = "Kvalitetstype-ID" },
-        new() { Name = "Detail.DatasetId", DisplayName = "Datasett-ID" },
-        new() { Name = "Detail.IndividualCount", DisplayName = "Antall individer" },
-        new() { Name = "Detail.Notes", DisplayName = "Merknader" },
-        new() { Name = "Detail.IdentifiedBy", DisplayName = "Bestemt av" },
-        new() { Name = "Detail.Habitat", DisplayName = "Habitat" },
-        new() { Name = "Detail.Sex", DisplayName = "Kjønn" },
-        new() { Name = "Detail.CollectingMethod", DisplayName = "Innsamlingsmetode" },
-        new() { Name = "Detail.RecordNumber", DisplayName = "Postnummer" },
-        new() { Name = "Detail.FieldNumber", DisplayName = "Feltnummer" },
-        new() { Name = "Detail.MeasurementMethod", DisplayName = "Målemetode" },
-        new() { Name = "Detail.GeoreferenceRemarks", DisplayName = "Georeferanse-merknader" },
-        new() { Name = "Detail.Preparations", DisplayName = "Preparering" },
-        new() { Name = "Detail.OtherCatalogNumbers", DisplayName = "Andre katalognumre" },
-        new() { Name = "Detail.TypeStatus", DisplayName = "Typestatus" },
-        new() { Name = "Detail.EventTime", DisplayName = "Hendelsestid" },
-        new() { Name = "Detail.MaximumElevationInMeters", DisplayName = "Maks høyde (meter)" },
-        new() { Name = "Detail.MinimumElevationInMeters", DisplayName = "Min høyde (meter)" },
-        new() { Name = "Detail.VerbatimDepth", DisplayName = "Dybde (tekst)" },
-        new() { Name = "Detail.DynamicProperties", DisplayName = "Dynamiske egenskaper" },
-        new() { Name = "Detail.AssociatedReferences", DisplayName = "Tilknyttede referanser" },
-    ];
 }

@@ -21,9 +21,6 @@ public class ExportController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Returnerer tilgjengelige kolonner for CSV-eksport med visningsnavn og standardvalg.
-    /// </summary>
     [HttpGet("columns")]
     public async Task<ActionResult<List<ExportColumnDefinition>>> GetColumns(CancellationToken cancellationToken)
     {
@@ -31,9 +28,6 @@ public class ExportController : ControllerBase
         return Ok(columns);
     }
 
-    /// <summary>
-    /// Returnerer estimert antall rader og filstørrelse for gitt filter og kolonner.
-    /// </summary>
     [HttpPost("summary")]
     public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto request, CancellationToken cancellationToken)
     {
@@ -41,9 +35,6 @@ public class ExportController : ControllerBase
         return Ok(summary);
     }
 
-    /// <summary>
-    /// Starter en ny CSV-eksportjobb. Returnerer jobb-ID for statusforespørsler.
-    /// </summary>
     [HttpPost("start")]
     public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto request, CancellationToken cancellationToken)
     {
@@ -60,26 +51,22 @@ public class ExportController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Returnerer status og fremdrift for en eksportjobb.
-    /// </summary>
     [HttpGet("{jobId:int}/status")]
     public async Task<ActionResult<CsvExportJobDto>> GetStatus(int jobId, CancellationToken cancellationToken)
     {
-        var status = await _exportService.GetJobStatusAsync(jobId);
+        var userId = GetUserId();
+        var status = await _exportService.GetJobStatusAsync(jobId, userId);
         if (status == null)
             return NotFound();
 
         return Ok(status);
     }
 
-    /// <summary>
-    /// Returnerer nedlastings-URL (SAS) for en ferdig eksportjobb.
-    /// </summary>
     [HttpGet("{jobId:int}/download")]
     public async Task<ActionResult<object>> Download(int jobId, CancellationToken cancellationToken)
     {
-        var blobPath = await _exportService.GetDownloadUrlAsync(jobId);
+        var userId = GetUserId();
+        var blobPath = await _exportService.GetCsvBlobPathAsync(jobId, userId);
         if (blobPath == null)
             return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
 
@@ -87,18 +74,13 @@ public class ExportController : ControllerBase
         return Ok(new { url = sasUrl });
     }
 
-    /// <summary>
-    /// Returnerer ferdiggenerert Excel-fil fra blob storage.
-    /// </summary>
     [HttpGet("{jobId:int}/download/excel")]
     public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
-        var blobPath = await _exportService.GetDownloadUrlAsync(jobId);
-        if (blobPath == null)
-            return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
-
-        // Excel-filen ligger ved siden av CSV-filen med .xlsx-endelse
-        var excelBlobPath = blobPath.Replace(".csv", ".xlsx");
+        var userId = GetUserId();
+        var excelBlobPath = await _exportService.GetExcelBlobPathAsync(jobId, userId);
+        if (excelBlobPath == null)
+            return NotFound(new { error = "Excel-filen er ikke tilgjengelig." });
 
         await using var excelStream = await _blobStorageService.OpenReadStreamAsync(excelBlobPath, cancellationToken);
         var outputStream = new MemoryStream();
@@ -110,9 +92,6 @@ public class ExportController : ControllerBase
             $"eksport-{jobId}.xlsx");
     }
 
-    /// <summary>
-    /// Kansellerer en ventende eller pågående eksportjobb.
-    /// </summary>
     [HttpPost("{jobId:int}/cancel")]
     public async Task<ActionResult> Cancel(int jobId, CancellationToken cancellationToken)
     {
@@ -125,9 +104,6 @@ public class ExportController : ControllerBase
         return Ok();
     }
 
-    /// <summary>
-    /// Returnerer eksporthistorikk for innlogget bruker.
-    /// </summary>
     [HttpGet("history")]
     public async Task<ActionResult<List<CsvExportJobDto>>> GetHistory(CancellationToken cancellationToken)
     {

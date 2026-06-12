@@ -69,7 +69,7 @@ builder.Services.Configure<CsvExportOptions>(
 builder.Services.AddSingleton<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
 builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<CsvExportService>();
-builder.Services.AddScoped<ExportColumnRegistry>();
+builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
 
 // Helsesjekk
 builder.Services.AddHealthChecks();
