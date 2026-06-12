@@ -19,7 +19,7 @@ export class ApiClientService {
 
   private readonly http: HttpClient = inject(HttpClient);
   private readonly logger: LoggingService = inject(LoggingService);
-  private readonly apiUrl: string = environment.apiUrl;
+
 
   fetchJson<T>(endpoint: string, options?: { responseType?: 'json' | 'text' }): Observable<T> {
     const url = this.buildUrl(endpoint);
@@ -52,19 +52,6 @@ export class ApiClientService {
       this.logger.error(ApiMessages.Errors.GeoJsonParseError, ApiClientService.SERVICE_NAME, error);
       throw parseError;
     }
-  }
-
-  private buildUrl(endpoint: string): string {
-    if (endpoint.startsWith('http')) {
-      return endpoint;
-    }
-
-    if (!this.apiUrl?.trim()) {
-      return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    }
-
-    const separator = endpoint.startsWith('/') ? '' : '/';
-    return `${this.apiUrl}${separator}${endpoint}`;
   }
 
   private handleError(error: HttpErrorResponse | Error, context: string): Observable<never> {
