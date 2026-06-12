@@ -59,7 +59,7 @@ export class HomeComponent {
     this.exportService.startExport(filter).subscribe({
       next: (response) => {
         this.exporting.set(false);
-        alert(`Eksport startet (jobb-ID: ${response.jobId}). Følg status i Hangfire-dashboardet.`);
+        alert(`Eksport startet (jobb-ID: ${response.jobId}). Bruk "Hent siste eksport" for å laste ned når den er ferdig.`);
       },
       error: () => {
         this.exporting.set(false);
