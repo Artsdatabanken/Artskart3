@@ -1,3 +1,4 @@
+using System.Text;
 using Azure.Identity;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -7,6 +8,8 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Workers.Export;
 using Artskart3.Workers.Configuration;
+
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 

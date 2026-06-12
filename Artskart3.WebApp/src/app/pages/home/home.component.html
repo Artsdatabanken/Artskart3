@@ -31,7 +31,7 @@
       {{ 'export.button' | translate }}
     </adb-button>
 
-    <!-- TODO: Fjern denne knappen når permanent nedlastingsløsning er på plass -->
+    <!-- TODO: Fjern disse knappene når permanent nedlastingsløsning er på plass -->
     <adb-button
       variant="secondary"
       size="small"
@@ -39,6 +39,15 @@
       (click)="onDownloadLatest()"
     >
       {{ 'export.downloadLatest' | translate }}
+    </adb-button>
+
+    <adb-button
+      variant="secondary"
+      size="small"
+      [disabled]="downloadingExcel()"
+      (click)="onDownloadLatestExcel()"
+    >
+      {{ 'export.downloadLatestExcel' | translate }}
     </adb-button>
   </div>
 </div>

@@ -42,7 +42,8 @@
   },
   "export": {
     "button": "Eksporter utvalg",
-    "downloadLatest": "Hent siste eksport"
+    "downloadLatest": "Hent siste eksport",
+    "downloadLatestExcel": "Hent siste eksport som Excel"
   },
   "listView": {
     "name": "Bokmålsnavn",

@@ -42,7 +42,8 @@
   },
   "export": {
     "button": "Export selection",
-    "downloadLatest": "Download latest export"
+    "downloadLatest": "Download latest export",
+    "downloadLatestExcel": "Download latest export as Excel"
   },
   "listView": {
     "name": "Species name",

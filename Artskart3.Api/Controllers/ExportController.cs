@@ -88,6 +88,29 @@ public class ExportController : ControllerBase
     }
 
     /// <summary>
+    /// Returnerer ferdiggenerert Excel-fil fra blob storage.
+    /// </summary>
+    [HttpGet("{jobId:int}/download/excel")]
+    public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
+    {
+        var blobPath = await _exportService.GetDownloadUrlAsync(jobId);
+        if (blobPath == null)
+            return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
+
+        // Excel-filen ligger ved siden av CSV-filen med .xlsx-endelse
+        var excelBlobPath = blobPath.Replace(".csv", ".xlsx");
+
+        await using var excelStream = await _blobStorageService.OpenReadStreamAsync(excelBlobPath, cancellationToken);
+        var outputStream = new MemoryStream();
+        await excelStream.CopyToAsync(outputStream, cancellationToken);
+        outputStream.Position = 0;
+
+        return File(outputStream,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"eksport-{jobId}.xlsx");
+    }
+
+    /// <summary>
     /// Kansellerer en ventende eller pågående eksportjobb.
     /// </summary>
     [HttpPost("{jobId:int}/cancel")]

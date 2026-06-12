@@ -1,4 +1,6 @@
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using Azure.Storage.Sas;
 using Artskart3.Core.Application.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -17,13 +19,22 @@ public class BlobStorageService : IBlobStorageService
         _blobServiceClient = new BlobServiceClient(connectionString);
     }
 
-    public async Task<Stream> OpenWriteStreamAsync(string blobPath, CancellationToken cancellationToken = default)
+    // TODO: Bytt tilbake til OpenWriteStreamAsync (streaming) når Azurite-bug er fikset
+    public async Task UploadAsync(string blobPath, Stream content, CancellationToken cancellationToken = default)
     {
         var container = _blobServiceClient.GetBlobContainerClient(_containerName);
         await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         var blob = container.GetBlobClient(blobPath);
-        return await blob.OpenWriteAsync(overwrite: true, cancellationToken: cancellationToken);
+        content.Position = 0;
+        await blob.UploadAsync(content, overwrite: true, cancellationToken: cancellationToken);
+    }
+
+    public async Task<Stream> OpenReadStreamAsync(string blobPath, CancellationToken cancellationToken = default)
+    {
+        var container = _blobServiceClient.GetBlobContainerClient(_containerName);
+        var blob = container.GetBlobClient(blobPath);
+        return await blob.OpenReadAsync(cancellationToken: cancellationToken);
     }
 
     public async Task<string> GenerateSasUrlAsync(string blobPath, TimeSpan validFor)

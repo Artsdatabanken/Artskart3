@@ -49,4 +49,9 @@ export class ExportService {
   getDownloadUrl(jobId: number): Observable<{ url: string }> {
     return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download`);
   }
+
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  downloadExcel(jobId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${jobId}/download/excel`, { responseType: 'blob' });
+  }
 }

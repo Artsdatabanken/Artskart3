@@ -25,6 +25,7 @@ export class HomeComponent {
   exporting = signal(false);
   // TODO: Fjern når permanent nedlastingsløsning er på plass
   downloading = signal(false);
+  downloadingExcel = signal(false);
 
   onTabChange(event: Event) {
     const customEvent = event as CustomEvent<{ index: number }>;
@@ -88,6 +89,36 @@ export class HomeComponent {
       },
       error: (err) => {
         this.downloading.set(false);
+        alert(err.message || 'Kunne ikke hente eksport.');
+      },
+    });
+  }
+
+  // TODO: Fjern når permanent nedlastingsløsning er på plass
+  onDownloadLatestExcel() {
+    if (this.downloadingExcel()) return;
+
+    this.downloadingExcel.set(true);
+    this.exportService.getHistory().pipe(
+      switchMap(jobs => {
+        const completedJob = jobs.find(j => j.status === 2);
+        if (!completedJob) {
+          throw new Error('Ingen ferdig eksport funnet.');
+        }
+        return this.exportService.downloadExcel(completedJob.id);
+      }),
+    ).subscribe({
+      next: (blob) => {
+        this.downloadingExcel.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'eksport.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.downloadingExcel.set(false);
         alert(err.message || 'Kunne ikke hente eksport.');
       },
     });
