@@ -6,7 +6,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { environment } from '@env/environment';
 import { catchError, retry } from 'rxjs/operators';
 import { ApiMessages, RetryConfig } from '@core/constants/api-messages';
 import { LoggingService } from '@shared/logging.service';
