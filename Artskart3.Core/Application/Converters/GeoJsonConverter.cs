@@ -1,73 +1,110 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
+using System.Text.Json;
 using Artskart3.Core.Domain.BusinessModels;
-using GeoJSON.Net.Feature;
-using GeoJSON.Net.CoordinateReferenceSystem;
-using GeoJSON.Net.Geometry;
 
-namespace Artskart3.Core.Application.Converters
+namespace Artskart3.Core.Application.Converters;
+
+public static class GeoJsonConverter
 {
-    public static class GeoJsonConverter
+    /// <summary>
+    /// Default EPSG code for UTM Zone 33N
+    /// </summary>
+    private const int DefaultEpsg = 25833;
+
+    public static async Task<string> LocationsToGeoJson(
+        IAsyncEnumerable<LocationModel> locations,
+        StyleType styleType = StyleType.Unknown,
+        int? targetEpsg = null)
     {
-        /// <summary>
-        /// Default EPSG code for UTM Zone 33N
-        /// </summary>
-        private const int DefaultEpsg = 25833;
+        int featureCollectionEpsg = targetEpsg ?? DefaultEpsg;
+        using var stream = new MemoryStream();
+        await using var writer = new Utf8JsonWriter(stream);
 
-        public static async Task<string> LocationsToGeoJson(IAsyncEnumerable<LocationModel> locations, StyleType styleType = StyleType.Unknown, int? targetEpsg = null)
+        writer.WriteStartObject();
+        writer.WritePropertyName("features");
+        writer.WriteStartArray();
+
+        await foreach (var location in locations)
         {
-            int featureCollectionEpsg = (int)(targetEpsg ?? DefaultEpsg);
-            var features = new List<Feature>();
-
-            await foreach (var location in locations)
+            if (location == null)
             {
-                if (location == null) continue;
-
-                var properties = new Dictionary<string, object>
-                {
-                    { "ObservationCount", location.ObservationCount },
-                    { "Locality", location.Locality ?? string.Empty }
-                };
-
-                switch (styleType)
-                {
-                    case StyleType.Category:
-                        properties.Add("MaxCategory", location.MaxCategory);
-                        break;
-                    case StyleType.Precision:
-                        if (location.CoordinatePrecision.HasValue)
-                            properties.Add("Precision", location.CoordinatePrecision.Value);
-                        break;
-                    case StyleType.Species:
-                        properties.Add("TaxonId", location.DominantTaxonId);
-                        break;
-                }
-
-                features.Add(
-                    CreateFeature(location, properties, location.Id.ToString(), featureCollectionEpsg)
-                );
+                continue;
             }
 
-            var featureCollection = new FeatureCollection(features)
-            {
-                CRS = new NamedCRS("EPSG:" + featureCollectionEpsg)
-            };
-
-            return GeoJsonWriter.ToGeoJson(featureCollection);
+            WriteLocationFeature(writer, location, styleType, featureCollectionEpsg);
         }
+        
+        writer.WriteEndArray();
+        WriteCrs(writer, featureCollectionEpsg);
+        writer.WriteString("type", "FeatureCollection");
+        writer.WriteEndObject();
+        await writer.FlushAsync();
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+    
+    private static void WriteLocationFeature(
+        Utf8JsonWriter writer,
+        LocationModel location,
+        StyleType styleType,
+        int epsg)
+    {
+        writer.WriteStartObject();
+        writer.WritePropertyName("geometry");
+        WritePointGeometry(writer, location);
+        writer.WriteString("id", location.Id.ToString());
+        writer.WritePropertyName("properties");
+        writer.WriteStartObject();
+        writer.WriteNumber("ObservationCount", location.ObservationCount);
+        writer.WriteString("Locality", location.Locality ?? string.Empty);
 
-        private static Feature CreateFeature(LocationModel location, Dictionary<string, object> properties, string id, int epsg)
+        switch (styleType)
         {
-            IGeometryObject geometry;
-            geometry = new Point(new Position(location.Latitude, location.Longitude));
+            case StyleType.Category:
+                writer.WriteNumber("MaxCategory", (int)location.MaxCategory);
+                break;
+            case StyleType.Precision:
+                if (location.CoordinatePrecision.HasValue)
+                {
+                    writer.WriteNumber("Precision", location.CoordinatePrecision.Value);
+                }
+                break;
 
-            var feature = new Feature(geometry, properties, id)
-            {
-                CRS = new NamedCRS("EPSG:" + epsg)
-            };
-
-            return feature;
+            case StyleType.Species:
+                writer.WriteNumber("TaxonId", location.DominantTaxonId);
+                break;
         }
+        writer.WriteEndObject();
+        WriteCrs(writer, epsg);
+        writer.WriteString("type", "Feature");
+        writer.WriteEndObject();
+    }
+    
+    private static void WritePointGeometry(Utf8JsonWriter writer, LocationModel location)
+    {
+        writer.WriteStartObject();
+        writer.WritePropertyName("coordinates");
+        writer.WriteStartArray();
+        
+        writer.WriteNumberValue(location.Longitude);
+        writer.WriteNumberValue(location.Latitude);
+        
+        writer.WriteEndArray();
+        writer.WriteString("type", "Point");
+        writer.WriteEndObject();
+    }
+    
+    private static void WriteCrs(Utf8JsonWriter writer, int epsg)
+    {
+        writer.WritePropertyName("crs");
+        writer.WriteStartObject();
+
+        writer.WritePropertyName("properties");
+        writer.WriteStartObject();
+        writer.WriteString("name", $"EPSG:{epsg}");
+        writer.WriteEndObject();
+
+        writer.WriteString("type", "Name");
+
+        writer.WriteEndObject();
     }
 }

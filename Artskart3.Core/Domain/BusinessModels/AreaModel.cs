@@ -5,9 +5,9 @@ using System.Linq;
 using System.Reflection;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
-using Newtonsoft.Json;
 using Artskart3.Core.Domain.Enums;
 using System.Data.SqlTypes;
+using System.Text.Json.Serialization;
 
 namespace Artskart3.Core.Domain.BusinessModels;
 
