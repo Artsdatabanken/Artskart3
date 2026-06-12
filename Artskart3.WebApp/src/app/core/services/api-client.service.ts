@@ -9,6 +9,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, retry } from 'rxjs/operators';
 import { ApiMessages, RetryConfig } from '@core/constants/api-messages';
 import { LoggingService } from '@shared/logging.service';
+import { environment } from '@env/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +22,7 @@ export class ApiClientService {
 
 
   fetchJson<T>(endpoint: string, options?: { responseType?: 'json' | 'text' }): Observable<T> {
-    const url = this.buildUrl(endpoint);
+    const url = environment.apiUrl + endpoint;
     const responseType = options?.responseType ?? 'json';
 
     const request$ = responseType === 'text'
