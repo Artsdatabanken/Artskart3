@@ -14,7 +14,7 @@ public class SearchEndpointTests : IAsyncLifetime
 
     public SearchEndpointTests(DatabaseFixture db)
     {
-        _factory = new CustomWebApplicationFactory(db.ConnectionString);
+        _factory = new CustomWebApplicationFactory(db.ConnectionString, useTestAuthentication: true);
         _client = _factory.CreateClient();
         _client.DefaultRequestHeaders.Add("X-CSRF", "1");
     }

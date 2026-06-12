@@ -501,23 +501,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private createWmtsLayer(layer: LayerDef, id: string): LayerDef {
-    if (layer.source.type !== 'wmts') {
-      return { ...layer, base: 'regional' as const, id };
-    }
+    if (layer.source.type !== 'wmts') return { ...layer, base: 'regional' as const, id }
 
-    return {
-      ...layer,
-      base: 'regional' as const,
-      id,
-      source: {
-        ...layer.source,
-        options: {
-          ...layer.source.options,
-          projection: MAP_CONFIG.projection,
-          matrixSet: MAP_CONFIG.projectionMatrix
-        }
-      }
-    };
+    const originalOptions = layer.source.options;
+    const configuredLayer: LayerDef = {
+     ...layer,
+     base: 'regional' as const,
+     id,
+     source: {
+       ...layer.source,
+       options: {
+         ...originalOptions,
+       },
+     },
+   };
+   return configuredLayer;
   }
 
   onIconClick(iconName: string): void {
