@@ -42,20 +42,20 @@ public class LocationSearchFilterDtoTests
     {
         var sut = new LocationSearchFilterDto
         {
-            TaxonGroupIds = "1,2",
-            Categories = "3,4",
-            BasisOfRecords = "5,6",
-            CollectionIds = "NHM,GBIF",
+            TaxonGroupIds = new[] { 1, 2 },
+            Categories = new[] { 3, 4 },
+            BasisOfRecords = new[] { 5, 6 },
+            CollectionIds = new[] { "NHM", "GBIF" },
             CoordinatePrecisionFrom = 10,
             CoordinatePrecisionTo = 100,
             Epsg = 25833,
             MaxResults = 250
         };
 
-        sut.TaxonGroupIds.Should().Be("1,2");
-        sut.Categories.Should().Be("3,4");
-        sut.BasisOfRecords.Should().Be("5,6");
-        sut.CollectionIds.Should().Be("NHM,GBIF");
+        sut.TaxonGroupIds.Should().BeEquivalentTo(new[] { 1, 2 });
+        sut.Categories.Should().BeEquivalentTo(new[] { 3, 4 });
+        sut.BasisOfRecords.Should().BeEquivalentTo(new[] { 5, 6 });
+        sut.CollectionIds.Should().BeEquivalentTo(new[] { "NHM", "GBIF" });
         sut.CoordinatePrecisionFrom.Should().Be(10);
         sut.CoordinatePrecisionTo.Should().Be(100);
         sut.Epsg.Should().Be(25833);

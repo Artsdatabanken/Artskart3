@@ -112,7 +112,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -134,7 +134,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = "10" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = new[] { 10 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -156,7 +156,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = "5" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = new[] { 5 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -178,7 +178,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = "NHM" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = new[] { "NHM" } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -319,7 +319,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "99" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 99 } }));
 
         result.Should().BeEmpty();
     }
@@ -342,7 +342,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1,abc,2" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1, 2 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -363,7 +363,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = string.Empty }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = null }));
 
         result.Should().HaveCount(2);
     }
@@ -405,83 +405,6 @@ public class SearchRepositoryTests
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithNoIds_ReturnsEmpty()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        var result = await sut.GetAreasByTypeIdsAsync();
-
-        result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithAreaTypeId_ReturnsMatchingAreas()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Oslo", 1, 10),
-            CreateArea(2, "Vestland", 2, 20));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].Name.Should().Be("Oslo");
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_GroupsByName_SumsObservationCounts()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Oslo", 1, 10),
-            CreateArea(2, "Oslo", 1, 15));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].ObservationCount.Should().Be(25);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithNullGeometry_HasNullCentroid()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().Add(CreateArea(1, "Oslo", 1, 10, wktPolygon: null));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].Centroid.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_SameNameDifferentAreaType_MergesIntoOneEntry()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Felles navn", 1, 10),
-            CreateArea(2, "Felles navn", 2, 20));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1, 2)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].ObservationCount.Should().Be(30);
     }
 
     private static ArtskartDbContext CreateInMemoryContext()

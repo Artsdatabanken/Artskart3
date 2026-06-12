@@ -9,14 +9,3 @@ export enum ToolbarAction {
   FILTER = 'filter',
   POLYGON = 'polygon',
 }
-
-export const TOOLBAR_ACTIONS = {
-  ZOOM_IN: ToolbarAction.ZOOM_IN,
-  ZOOM_OUT: ToolbarAction.ZOOM_OUT,
-  GEOLOCATION: ToolbarAction.GEOLOCATION,
-  FULLSCREEN: ToolbarAction.FULLSCREEN,
-  MAP: ToolbarAction.MAP,
-  LAYERS: ToolbarAction.LAYERS,
-  FILTER: ToolbarAction.FILTER,
-  POLYGON: ToolbarAction.POLYGON,
-} as const;

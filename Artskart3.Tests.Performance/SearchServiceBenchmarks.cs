@@ -100,7 +100,7 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = "1",
+            TaxonGroupIds = new[] { 1 },
             MaxResults = 500
         });
     }
@@ -116,22 +116,12 @@ public class SearchServiceBenchmarks
         });
     }
 
-    // -----------------------------------------------------------------------
-    // GetAreas — tester henting av områder og beregning av tyngdepunkt
-    // -----------------------------------------------------------------------
-
-    [Benchmark]
-    public async Task GetAreas_AllCountiesAndMunicipalities()
-    {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1, 2);
-    }
-
     [Benchmark]
     public async Task GetLocations_WithTaxonGroupAndPrecisionFilter()
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = "1",
+            TaxonGroupIds = new[] { 1 },
             CoordinatePrecisionFrom = 1,
             CoordinatePrecisionTo = 1000,
             MaxResults = 500
@@ -139,15 +129,21 @@ public class SearchServiceBenchmarks
     }
 
     [Benchmark]
-    public async Task GetAreas_MunicipalitiesOnly()
+    public async Task GetObservationsByZoomLevel_Level10()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1);
+        _ = await _searchService.GetObservationsByZoomLevelAsync(10);
     }
 
     [Benchmark]
-    public async Task GetAreas_CountiesOnly()
+    public async Task GetObservationsByZoomLevel_Level15()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(2);
+        _ = await _searchService.GetObservationsByZoomLevelAsync(15);
+    }
+
+    [Benchmark]
+    public async Task GetObservationsByZoomLevel_Level20()
+    {
+        _ = await _searchService.GetObservationsByZoomLevelAsync(20);
     }
 
     [Benchmark]

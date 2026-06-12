@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
+import { LoggingService } from '@shared/logging.service';
 
 export type SupportedLanguage = 'en' | 'no';
 
@@ -16,6 +17,7 @@ export class LanguageService {
   private currentLanguage$ = new BehaviorSubject<SupportedLanguage>(this.DEFAULT_LANGUAGE);
 
   private readonly translate = inject(TranslateService);
+  private readonly logger: LoggingService = inject(LoggingService);
 
   constructor() {
     this.translate.setDefaultLang('no');
@@ -68,16 +70,16 @@ export class LanguageService {
   private saveLanguage(lang: SupportedLanguage): void {
     try {
       localStorage.setItem(this.STORAGE_KEY, lang);
-    } catch (e) {
-      console.warn('Failed to save language preference to localStorage:', e);
+    } catch (e: unknown) {
+      this.logger.warn('Failed to save language preference to localStorage:', 'LanguageService', e);
     }
   }
 
   private getSavedLanguage(): SupportedLanguage | null {
     try {
       return localStorage.getItem(this.STORAGE_KEY) as SupportedLanguage | null;
-    } catch (e) {
-      console.warn('Failed to retrieve language preference from localStorage:', e);
+    } catch (e: unknown) {
+      this.logger.warn('Failed to retrieve language preference from localStorage:', 'LanguageService', e);
       return null;
     }
   }

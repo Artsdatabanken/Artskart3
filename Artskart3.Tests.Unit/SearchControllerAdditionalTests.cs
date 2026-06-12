@@ -45,14 +45,14 @@ public class SearchControllerAdditionalTests
     }
 
     [Fact]
-    public async Task GetLocations_Returns200_WhenOnlyCoordinatePrecisionFromIsSet()
+    public async Task GetObservationLocations_Returns200_WhenOnlyCoordinatePrecisionFromIsSet()
     {
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
 
-        var result = await sut.GetLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 10, CoordinatePrecisionTo = 0 });
+        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 10, CoordinatePrecisionTo = 0 });
 
         result.Result.Should().BeOfType<ContentResult>();
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
@@ -61,45 +61,19 @@ public class SearchControllerAdditionalTests
     }
 
     [Fact]
-    public async Task GetLocations_Returns200_WhenOnlyCoordinatePrecisionToIsSet()
+    public async Task GetObservationLocations_Returns200_WhenOnlyCoordinatePrecisionToIsSet()
     {
         var sut = CreateSut();
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
 
-        var result = await sut.GetLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 0, CoordinatePrecisionTo = 100 });
+        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 0, CoordinatePrecisionTo = 100 });
 
         result.Result.Should().BeOfType<ContentResult>();
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
             f.CoordinatePrecisionFrom == 0 &&
             f.CoordinatePrecisionTo == 100)), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAreas_AlwaysCallsServiceWithExactly1And2()
-    {
-        var sut = CreateSut();
-        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(It.IsAny<int[]>())).ReturnsAsync(Array.Empty<AreaMarkerDto>());
-
-        await sut.GetAreas();
-
-        _serviceMock.Verify(s => s.GetAreasByTypeIdsAsync(It.Is<int[]>(ids => ids.SequenceEqual(new[] { 1, 2 }))), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAreas_ReturnsArrayType_InOkObjectResult()
-    {
-        var sut = CreateSut();
-        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(1, 2)).ReturnsAsync(new List<AreaMarkerDto>
-        {
-            new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 5 }
-        });
-
-        var result = await sut.GetAreas();
-
-        result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeOfType<AreaMarkerDto[]>();
     }
 
     private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);

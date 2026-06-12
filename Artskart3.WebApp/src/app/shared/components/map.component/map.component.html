@@ -1,4 +1,4 @@
 <div class="map-container">
   <div #mapEl class="map"></div>
-  <app-map-toolbar [map]="map!" [mapEl]="mapEl" (iconClick)="onIconClick($event)"></app-map-toolbar>
+  <app-map-toolbar [map]="map!" [mapEl]="mapEl" (iconClick)="onIconClick($event)" (zoomChange)="onToolbarZoomChange($event)"></app-map-toolbar>
 </div>

@@ -3,7 +3,6 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
-using System.Collections.Generic;
 
 namespace Artskart3.Core.Application.Services.Implementations
 {
@@ -41,9 +40,9 @@ namespace Artskart3.Core.Application.Services.Implementations
            return alltaxons;
         }
 
-        public async Task<IEnumerable<AreaMarkerDto>> GetAreasByTypeIdsAsync(params int[] areaTypeIds)
+        public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel)
         {
-            var areas = await _searchRepository.GetAreasByTypeIdsAsync(areaTypeIds);
+            var areas = await _searchRepository.GetObservationsByZoomLevelAsync(zoomLevel);
             return areas;
         }
     }

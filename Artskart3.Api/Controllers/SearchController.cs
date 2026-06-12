@@ -1,5 +1,7 @@
 ﻿using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -10,11 +12,6 @@ namespace Artskart3.Api.Controllers
     [Route("api/[controller]")]
     public class SearchController : ControllerBase
     {
-        private const int DefaultMaxTaxonCount = 20;
-        private const int MaxTaxonCount = 1000;
-        private const int MinResults = 1;
-        private const int MaxResults = 10000;
-
         private readonly ISearchService _searchService;
         private readonly ILogger<SearchController> _logger;
 
@@ -30,92 +27,148 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("SearchTaxons")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<TaxonDto>>> SearchTaxons([FromQuery] string name, [FromQuery] int maxCount = DefaultMaxTaxonCount)
+        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons(
+            [FromQuery] string name,
+            [FromQuery] int maxCount = SearchConstants.DefaultMaxTaxonCount)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(name))
-                    return BadRequest("Name parameter is required.");
-
-                if (maxCount < MinResults || maxCount > MaxTaxonCount)
-                    return BadRequest($"Max count must be between {MinResults} and {MaxTaxonCount}.");
+                if (!ValidateTaxonSearchInput(name, maxCount, out var validationError))
+                    return validationError;
 
                 var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
+                _logger.LogInformation("Retrieved {Count} taxons for search term: {Name}", taxons.Count(), name);
                 return Ok(taxons);
             }
             catch (ApplicationException ex)
             {
-                _logger.LogWarning(ex, "Application error searching taxons with name: {TaxonName}", name);
-                return StatusCode(503, new { error = "An error occurred while searching taxa. Please try again later." });
+                _logger.LogError(ex, "Application error during taxon search");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error searching taxons with name: {TaxonName}", name);
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Unexpected error during taxon search");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
             }
         }
 
         /// <summary>
         /// Searches for observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
         /// Returns aggregated observation counts grouped by location with UTM Zone 33N coordinates.
-        /// Defaults to MaxResults = 1000
+        /// Defaults to MaxResults = 1000.
         /// </summary>
         [HttpGet("Locations")]
         [Produces("application/json")]
-        public async Task<ActionResult<string>> GetLocations([FromQuery] LocationSearchFilterDto? filter = null)
+        public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null)
         {
             try
             {
-                filter = filter ?? new LocationSearchFilterDto();
+                filter ??= new LocationSearchFilterDto();
 
-                if (filter.MaxResults < MinResults || filter.MaxResults > MaxResults)
-                {
-                    return BadRequest(new { error = $"MaxResults must be between {MinResults} and {MaxResults}." });
-                }
-                
-                if (filter.CoordinatePrecisionFrom > 0 && filter.CoordinatePrecisionTo > 0 && filter.CoordinatePrecisionFrom > filter.CoordinatePrecisionTo)
-                {
-                    return BadRequest(new { error = "CoordinatePrecisionFrom must be less than or equal to CoordinatePrecisionTo." });
-                }               
+                if (!ValidateLocationSearchFilter(filter, out var validationError))
+                    return validationError;
 
-                _logger.LogInformation("Retrieving locations with filter. MaxResults: {MaxResults}", filter.MaxResults);
                 var result = await _searchService.GetLocationsAsync(filter);
+                _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
                 return Content(result, "application/json");
             }
             catch (ApplicationException ex)
             {
-                _logger.LogWarning(ex, "Application error retrieving locations");
-                return StatusCode(503, new { error = "An error occurred while retrieving locations. Please try again later." });
+                _logger.LogError(ex, "Application error during location search");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error retrieving locations");
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Unexpected error during location search");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
             }
         }
 
         /// <summary>
-        /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and centroids.
+        /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
         /// </summary>
-        [HttpGet("Areas")]
+        [HttpGet("AreasObservations")]
         [Produces("application/json")]
-        public async Task<ActionResult<AreaMarkerDto[]>> GetAreas()
+        public async Task<ActionResult<AreaMarkerDto[]>> GetAreasObservations([FromQuery] int zoomLevel = 1)
         {
             try
             {
-                var areas = await _searchService.GetAreasByTypeIdsAsync(1, 2); // This Hard coded need to be changed when we have more area types and want to filter by them. For now we just want all areas of type 1 and 2.
+                var areas = await _searchService.GetObservationsByZoomLevelAsync(zoomLevel);
+                _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
                 return Ok(areas.ToArray());
             }
             catch (ApplicationException ex)
             {
-                _logger.LogWarning(ex, "Application error retrieving areas");
-                return StatusCode(503, new { error = "An error occurred while retrieving areas. Please try again later." });
+                _logger.LogError(ex, "Application error during area observations retrieval");
+                return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error retrieving areas: {ExceptionMessage}", ex.Message);
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your request. Please try again later." });
+                _logger.LogError(ex, "Unexpected error during area observations retrieval");
+                return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
             }
         }
+
+        /// <summary>
+        /// Validates taxon search input parameters.
+        /// </summary>
+        private bool ValidateTaxonSearchInput(string name, int maxCount, out BadRequestObjectResult? validationError)
+        {
+            validationError = null;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                validationError = BadRequest(new { error = "Name parameter is required." });
+                return false;
+            }
+
+            if (!IsValidMaxResultCount(maxCount, SearchConstants.MinTaxonResults, SearchConstants.MaxTaxonCount))
+            {
+                validationError = BadRequest(CreateRangeErrorMessage(SearchConstants.MinTaxonResults, SearchConstants.MaxTaxonCount));
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Validates location search filter parameters.
+        /// </summary>
+        private bool ValidateLocationSearchFilter(LocationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+        {
+            validationError = null;
+
+            if (!IsValidMaxResultCount(filter.MaxResults, SearchConstants.MinLocationResults, SearchConstants.MaxLocationResults))
+            {
+                validationError = BadRequest(CreateRangeErrorMessage(SearchConstants.MinLocationResults, SearchConstants.MaxLocationResults));
+                return false;
+            }
+
+            if (!IsValidCoordinatePrecisionRange(filter.CoordinatePrecisionFrom, filter.CoordinatePrecisionTo))
+            {
+                validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Checks if a result count falls within acceptable range.
+        /// </summary>
+        private bool IsValidMaxResultCount(int maxCount, int minValue, int maxValue)
+            => maxCount >= minValue && maxCount <= maxValue;
+
+        /// <summary>
+        /// Checks if coordinate precision range is valid (From ≤ To).
+        /// </summary>
+        private bool IsValidCoordinatePrecisionRange(int from, int to)
+            => !(from > 0 && to > 0 && from > to);
+
+        /// <summary>
+        /// Creates a standardized range validation error message.
+        /// </summary>
+        private object CreateRangeErrorMessage(int min, int max)
+            => new { error = $"Value must be between {min} and {max}." };
     }
 }
