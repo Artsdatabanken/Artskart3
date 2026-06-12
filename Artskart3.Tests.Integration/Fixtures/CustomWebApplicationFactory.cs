@@ -1,4 +1,5 @@
 using Artskart3.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace Artskart3.Tests.Integration.Fixtures;
 public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _connectionString;
+    private readonly bool _useTestAuthentication;
 
-    public CustomWebApplicationFactory(string connectionString)
+    public CustomWebApplicationFactory(string connectionString, bool useTestAuthentication)
     {
         _connectionString = connectionString;
+        _useTestAuthentication = useTestAuthentication;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -42,6 +45,19 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.ConfigureWarnings(w =>
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
             });
+
+            if (_useTestAuthentication)
+            {
+                services.AddAuthentication(TestAuthHandler.SchemeName)
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                        TestAuthHandler.SchemeName,
+                        _ => { });
+                services.PostConfigure<AuthenticationOptions>(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                });
+            }
         });
     }
 }

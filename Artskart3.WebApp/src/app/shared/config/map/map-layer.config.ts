@@ -42,7 +42,7 @@ export const MAP_TYPE_OPTIONS: MapTypeOption[] = [
   { label: 'Standard', layerId: 'osm' },
   { label: 'Landkart', layerId: 'topografiskBaseLayer' },
   { label: 'Gråtonekart', layerId: 'topo4graatoneBaseLayer' },
-  { label: 'Norge i bildet', layerId: 'nib' },
+  { label: 'Norge i bilder', layerId: 'nib' },
   { label: 'Svalbard', layerId: 'svalbardBaseLayer' },
   { label: 'Jan Mayen', layerId: 'janmayenBaseLayer' },
 ];

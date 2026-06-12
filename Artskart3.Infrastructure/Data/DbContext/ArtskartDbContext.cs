@@ -107,6 +107,8 @@ namespace Artskart3.Infrastructure.Data
     public virtual DbSet<TaxonRank> TaxonRanks { get; set; }
 
     public virtual DbSet<TaxonomyState> TaxonomyStates { get; set; }
+    
+    public virtual DbSet<User> Users { get; set; }
 
     // Removed OnConfiguring to use DI-based configuration from Program.cs
 
