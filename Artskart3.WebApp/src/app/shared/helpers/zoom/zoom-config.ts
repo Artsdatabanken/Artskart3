@@ -18,13 +18,10 @@ export class ZoomConfig {
   }
 
   static getApiZoomLevel(openLayerZoom: number): number {
-    if (openLayerZoom >= 0 && openLayerZoom <= 8) {
-      return 1;
-    } else if (openLayerZoom >= 9 && openLayerZoom <= 11) {
-      return 2;
-    } else if (openLayerZoom > 11) {
-
+    if (openLayerZoom >= 11) {
       return 3;
+    } else if (openLayerZoom >= 9) {
+      return 2;
     }
     return 1;
   }

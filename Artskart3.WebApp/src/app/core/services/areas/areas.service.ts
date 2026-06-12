@@ -10,7 +10,7 @@
 
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import {
   AreaMarkerDto,
   AreaMarkerFeature,
@@ -105,16 +105,17 @@ export class AreasService {
    * Gets area observations as GeoJSON features for map rendering
    * @param openLayerZoom - Current OpenLayers zoom level (0-18)
    * Note: For zoom > 12 (API level 3), use getLocationsAsGeoJson() instead
+   * Note: Does not use shareReplay to ensure fresh data on zoom level changes
    */
   getAreasObservationsAsGeoJson(openLayerZoom: number): Observable<AreaMarkerFeature[]> {
     return this.fetchAreaObservations(openLayerZoom).pipe(
-      map(areas => this.convertToGeoJsonFeatures(areas)),
-      shareReplay(1)
+      map(areas => this.convertToGeoJsonFeatures(areas))
     );
   }
 
   /**
    * Fetches locations as GeoJSON point features (for high zoom levels)
+   * Note: Does not use shareReplay to ensure fresh data on zoom level changes
    */
   getLocationsAsGeoJson(): Observable<AreaMarkerFeature[]> {
     return this.apiClientService.fetchJson<string>(this.locationsEndpoint, { responseType: 'text' }).pipe(
@@ -123,8 +124,7 @@ export class AreasService {
         const features: AreaMarkerFeature[] = this.mapLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
         return features;
-      }),
-      shareReplay(1)
+      })
     );
   }
 

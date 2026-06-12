@@ -6,8 +6,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, retryWhen, delay, take } from 'rxjs/operators';
 import { environment } from '@env/environment';
+import { catchError, retry } from 'rxjs/operators';
 import { ApiMessages, RetryConfig } from '@core/constants/api-messages';
 import { LoggingService } from '@shared/logging.service';
 
@@ -30,12 +30,10 @@ export class ApiClientService {
       : this.http.get<T>(url);
 
     return request$.pipe(
-      retryWhen(errors =>
-        errors.pipe(
-          delay(RetryConfig.InitialDelayMs),
-          take(RetryConfig.MaxAttempts - 1)
-        )
-      ),
+      retry({
+        delay: RetryConfig.InitialDelayMs,
+        count: RetryConfig.MaxAttempts - 1
+      }),
       catchError(error => this.handleError(error, `Failed to fetch ${endpoint}`))
     );
   }

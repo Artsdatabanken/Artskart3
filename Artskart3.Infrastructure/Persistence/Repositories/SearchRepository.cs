@@ -1,25 +1,16 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using NetTopologySuite.IO;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories
 {
     public class SearchRepository : ISearchRepository
     {
-        private const int DefaultMaxSearchResults = 20;
-        private const int MinValidMaxCount = 1;
-        private const int MaxValidMaxCount = 1000;
-        private const int DefaultMaxLocations = 1000;
-        private const int MaxLocations = 1000;
         private const string SqlWildcard = "%";
         
         private readonly IArtsKartDbContext _context;
@@ -37,7 +28,7 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
         /// 3. Contains matches
         /// Returns up to maxCount results from active taxa (not deleted and have observation data).
         /// </summary>
-        public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = DefaultMaxSearchResults)
+        public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = SearchConstants.DefaultMaxTaxonCount)
         {
             try
             {
@@ -46,10 +37,10 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
                     return Enumerable.Empty<TaxonDto>();
                 }
 
-                if (maxCount < MinValidMaxCount || maxCount > MaxValidMaxCount)
+                if (maxCount < SearchConstants.MinTaxonResults || maxCount > SearchConstants.MaxTaxonCount)
                 {
                     throw new ArgumentException(
-                        $"Max count must be between {MinValidMaxCount} and {MaxValidMaxCount}.",
+                        $"Max count must be between {SearchConstants.MinTaxonResults} and {SearchConstants.MaxTaxonCount}.",
                         nameof(maxCount));
                 }
 
@@ -233,9 +224,9 @@ namespace Artskart3.Infrastructure.Persistence.Repositories
             IQueryable<Observation> query,
             int requestedMaxResults)
         {
-            var maxResults = requestedMaxResults > 0 && requestedMaxResults <= MaxLocations
+            var maxResults = requestedMaxResults > 0 && requestedMaxResults <= SearchConstants.MaxLocationResults
                 ? requestedMaxResults
-                : DefaultMaxLocations;
+                : SearchConstants.DefaultMaxLocations;
 
             return await query
                 .Where(o => o.LocationId != null)

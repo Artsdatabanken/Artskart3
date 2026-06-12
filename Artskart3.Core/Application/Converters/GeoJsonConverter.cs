@@ -62,11 +62,7 @@ namespace Artskart3.Core.Application.Converters
                 case StyleType.Precision:
                     if (location.CoordinatePrecision.HasValue)
                         properties.Add("Precision", location.CoordinatePrecision.Value);
-                    break;
-                
-                case StyleType.Species:
-                    properties.Add("TaxonId", location.DominantTaxonId);
-                    break;
+                    break;                
             }
         }
 
@@ -78,7 +74,7 @@ namespace Artskart3.Core.Application.Converters
             Dictionary<string, object> properties, 
             int epsgCode)
         {
-            var pointGeometry = new Point(new Position(location.Longitude, location.Latitude));
+            var pointGeometry = new Point(new Position(location.Latitude, location.Longitude));
             var epsgCrs = new NamedCRS(FormatEpsgCode(epsgCode));
 
             return new Feature(pointGeometry, properties, location.Id.ToString())

@@ -392,7 +392,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     features.forEach(feature => {
       const coordinates = feature.geometry.coordinates as number[];
-      const transformedCoords = transform([coordinates[1], coordinates[0]], 'EPSG:4326', 'EPSG:25833');
+      const transformedCoords = transform([coordinates[0], coordinates[1]], 'EPSG:4326', 'EPSG:25833');
 
       const markerFeature = new Feature({
         geometry: new Point(transformedCoords),
