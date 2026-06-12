@@ -2,10 +2,13 @@ using RobotsTxt;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.DependencyInjection;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -128,6 +131,26 @@ try
             options.Scope.Add("email");
             options.Scope.Add("profile");
             options.Scope.Add("roles");
+
+            options.Events.OnTicketReceived = async context =>
+            {
+                var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                var subject = context.Principal?.FindFirst("sub")?.Value;
+                if (!Guid.TryParse(subject, out var userId))
+                {
+                    context.Fail("Authenticated user is missing");
+                    return;
+                }
+                
+                var user = new User
+                {
+                    Id = userId,
+                    Name = context.Principal?.FindFirst("name")?.Value ?? string.Empty,
+                    Email = context.Principal?.FindFirst("email")?.Value ?? string.Empty,
+                };
+                await userService.GetOrCreateUser(user);
+            };
+
         }).ConfigureCookies(options =>
         {
             options.Cookie.SameSite = SameSiteMode.Lax;
