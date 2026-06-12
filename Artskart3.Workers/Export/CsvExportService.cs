@@ -58,18 +58,6 @@ public class CsvExportService
         // Bygg query med delt filterlogikk
         var query = BuildQuery(filter, needsDetail);
 
-        // Tell rader og avbryt om det overstiger grensen
-        var rowCount = await query.CountAsync(cancellationToken);
-        var hardLimit = _options.Limits.HardRowLimit;
-
-        if (rowCount > hardLimit)
-        {
-            throw new InvalidOperationException(
-                $"Antall observasjoner ({rowCount}) overstiger maks tillatt ({hardLimit}). Jobb {job.Id} avbrutt.");
-        }
-
-        job.TotalRows = rowCount;
-
         var blobPath = $"{job.UserId}/{job.Id}.csv";
 
         await using var blobStream = await _blobStorage.OpenWriteStreamAsync(blobPath, cancellationToken);
