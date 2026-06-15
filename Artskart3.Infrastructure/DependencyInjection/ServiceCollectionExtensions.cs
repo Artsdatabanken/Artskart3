@@ -11,6 +11,7 @@ namespace Artskart3.Infrastructure.DependencyInjection
         public static IServiceCollection AddRepositories(this IServiceCollection services)
         {
             services.AddScoped<ISearchRepository, SearchRepository>();
+            services.AddScoped<IWarningsRepository, WarningsRepository>();
             // Add other repositories here
             return services;
         }
@@ -18,6 +19,7 @@ namespace Artskart3.Infrastructure.DependencyInjection
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             services.AddScoped<ISearchService, SearchService>();
+            services.AddScoped<IWarningsService, WarningsService>();
             // Add other application services here
             return services;
         }
