@@ -1,7 +1,9 @@
 using Newtonsoft.Json;
+using System.Data.SqlTypes;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Domain.BusinessModels;
