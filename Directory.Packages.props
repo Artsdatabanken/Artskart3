@@ -4,13 +4,16 @@
     <!-- Required to allow floating versions (e.g. Microsoft.AspNetCore.SpaProxy 10.*-*) -->
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
   </PropertyGroup>
+
   <ItemGroup>
     <!-- Azure -->
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
+
     <!-- Duende -->
     <PackageVersion Include="Duende.BFF" Version="4.1.2" />
     <PackageVersion Include="Duende.BFF.EntityFramework" Version="4.1.2" />
+
     <!-- Entity Framework Core -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7" />
@@ -32,6 +35,7 @@
     <!-- Geospatial -->
     <PackageVersion Include="GeoJSON.Net" Version="1.4.1" />
     <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+
     <!-- Swagger -->
     <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.5" />
@@ -50,4 +54,5 @@
     <PackageVersion Include="RobotsTxtCore" Version="3.0.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
   </ItemGroup>
+
 </Project>
