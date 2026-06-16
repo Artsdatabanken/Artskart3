@@ -157,6 +157,8 @@ public class SearchServiceTests
     {
         await Task.Yield();
         throw ex;
+#pragma warning disable CS0162 // Unreachable code detected
         yield break; // unreachable, but required by compiler
+#pragma warning restore CS0162 // Unreachable code detected
     }
 }

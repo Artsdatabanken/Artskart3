@@ -1,8 +1,7 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

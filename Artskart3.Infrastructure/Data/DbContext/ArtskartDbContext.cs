@@ -1,12 +1,12 @@
-using Microsoft.EntityFrameworkCore;
-using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data.EntityConfigurations;
+using Microsoft.EntityFrameworkCore;
 
-namespace Artskart3.Infrastructure.Data
+namespace Artskart3.Infrastructure.Data;
+
+public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 {
-    public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
-    {
     public ArtskartDbContext()
     {
     }
@@ -107,7 +107,7 @@ namespace Artskart3.Infrastructure.Data
     public virtual DbSet<TaxonRank> TaxonRanks { get; set; }
 
     public virtual DbSet<TaxonomyState> TaxonomyStates { get; set; }
-    
+
     public virtual DbSet<User> Users { get; set; }
 
     // Removed OnConfiguring to use DI-based configuration from Program.cs
@@ -1001,6 +1001,5 @@ namespace Artskart3.Infrastructure.Data
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new ObservationSearchIndexConfiguration());
-    }
     }
 }

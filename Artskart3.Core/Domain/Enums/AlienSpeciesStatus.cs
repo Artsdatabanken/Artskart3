@@ -1,14 +1,13 @@
-﻿
-namespace Artskart3.Core.Domain.Enums
+
+namespace Artskart3.Core.Domain.Enums;
+
+public enum AlienSpeciesStatus
 {
-    public enum AlienSpeciesStatus
-    {
-        Unknown = 0,
-        NR = 1,
-        NK = 2,
-        LO = 3,
-        PH = 4,
-        HI = 5,
-        SE = 6
-    }
+    Unknown = 0,
+    NR = 1,
+    NK = 2,
+    LO = 3,
+    PH = 4,
+    HI = 5,
+    SE = 6
 }

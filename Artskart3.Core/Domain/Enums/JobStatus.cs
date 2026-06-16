@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+namespace Artskart3.Core.Domain.Enums;
 
-namespace Artskart3.Core.Domain.Enums
+public enum JobStatus
 {
-    public enum JobStatus
-    {
-        NotStarted,
-        InProgress,
-        Done
-    }
+    NotStarted,
+    InProgress,
+    Done
 }

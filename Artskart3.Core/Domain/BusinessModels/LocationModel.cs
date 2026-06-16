@@ -1,11 +1,10 @@
-using System.Data.SqlTypes;
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using Artskart3.Core.Domain.Enums;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.BusinessModels;
+
 public class LocationModel
 {
     public int Id { get; set; }
@@ -54,11 +53,11 @@ public class LocationModel
                 _maxCategory = Category.Unknown;
                 foreach (var observation in Observations)
                 {
-                    if (observation.GetType() == typeof (ObservationModel) || observation.GetType() == typeof(ObservationWithLocationModel))
+                    if (observation.GetType() == typeof(ObservationModel) || observation.GetType() == typeof(ObservationWithLocationModel))
                     {
-                        if (((ObservationModel) observation).Category > _maxCategory)
+                        if (((ObservationModel)observation).Category > _maxCategory)
                         {
-                            _maxCategory = ((ObservationModel) observation).Category;
+                            _maxCategory = ((ObservationModel)observation).Category;
                         }
                     }
                     else
