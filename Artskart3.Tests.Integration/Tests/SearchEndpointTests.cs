@@ -122,7 +122,7 @@ public class SearchEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("between").And.Contain("1").And.Contain("100000");
+        json.Should().Contain("between").And.Contain("1").And.Contain("100001");
     }
 
     [Fact]
