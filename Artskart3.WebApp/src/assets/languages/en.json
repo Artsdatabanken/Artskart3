@@ -42,8 +42,28 @@
   },
   "export": {
     "button": "Export selection",
-    "downloadLatest": "Download latest export",
-    "downloadLatestExcel": "Download latest export as Excel"
+    "started": "Export started (job ID: {{jobId}}). You will be notified when it's ready.",
+    "startFailed": "Could not start export. Please try again later.",
+    "complete": "Export complete!",
+    "failed": "Export failed. Please try again later.",
+    "statusCheckFailed": "Could not check export status. Please try again later."
+  },
+  "mittArtskart": {
+    "title": "My Artskart",
+    "exportJobs": "Export jobs",
+    "loadError": "Could not load export history.",
+    "date": "Date",
+    "exportName": "Export name",
+    "fileSize": "File size",
+    "downloadCsv": "Download CSV",
+    "downloadExcel": "Download Excel",
+    "downloadCsvLink": "Download .csv",
+    "downloadExcelLink": "Download .xlsx",
+    "noJobs": "No export jobs found.",
+    "exportBaseName": "Export #{{id}}",
+    "exportProcessing": "Exporting ({{percent}}%) - {{name}}",
+    "exportPending": "Pending - {{name}}",
+    "downloadFailed": "Could not download the file. Please try again later."
   },
   "listView": {
     "name": "Species name",

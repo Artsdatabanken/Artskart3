@@ -1,16 +1,23 @@
 :host {
   display: flex;
-  flex-direction: column;
   height: 100%;
   overflow: hidden;
 }
 
-.toolbar {
+.sidebar {
+  flex-shrink: 0;
+  background-color: var(--adb-background-default);
+  overflow: hidden;
+  border-right: 1px solid var(--adb-border-default);
+  height: 100%;
+  z-index: 100;
+}
+
+.home-content {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: var(--adb-surface-primary);
-  padding-inline-end: 0.5rem;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
 .tabs {
@@ -35,4 +42,10 @@
 
 .tab-panel-hidden {
   display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
 }

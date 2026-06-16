@@ -42,8 +42,28 @@
   },
   "export": {
     "button": "Eksporter utvalg",
-    "downloadLatest": "Hent siste eksport",
-    "downloadLatestExcel": "Hent siste eksport som Excel"
+    "started": "Eksport startet (jobb-ID: {{jobId}}). Du får beskjed når den er klar.",
+    "startFailed": "Kunne ikke starte eksport. Prøv igjen senere.",
+    "complete": "Eksporten er ferdig!",
+    "failed": "Eksporten feilet. Prøv igjen senere.",
+    "statusCheckFailed": "Kunne ikke sjekke eksportstatus. Prøv igjen senere."
+  },
+  "mittArtskart": {
+    "title": "Mitt Artskart",
+    "exportJobs": "Eksportjobber",
+    "loadError": "Kunne ikke laste eksporthistorikk.",
+    "date": "Dato",
+    "exportName": "Navn på eksport",
+    "fileSize": "Filstørrelse",
+    "downloadCsv": "Last ned CSV",
+    "downloadExcel": "Last ned Excel",
+    "downloadCsvLink": "Last ned .csv",
+    "downloadExcelLink": "Last ned .xlsx",
+    "noJobs": "Ingen eksportjobber funnet.",
+    "exportBaseName": "Eksport #{{id}}",
+    "exportProcessing": "Eksporterer ({{percent}}%) - {{name}}",
+    "exportPending": "Venter - {{name}}",
+    "downloadFailed": "Kunne ikke laste ned filen. Prøv igjen senere."
   },
   "listView": {
     "name": "Bokmålsnavn",

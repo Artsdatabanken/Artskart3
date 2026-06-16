@@ -1,31 +1,39 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject } from '@angular/core';
-import { TranslateModule } from '@ngx-translate/core';
-import { switchMap } from 'rxjs';
+import { DOCUMENT } from '@angular/common';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
+import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { FilterStateService } from '../../shared/services/filter-state/filter-state.service';
 import { AreaService } from '../../shared/services/area/area.service';
-import { ExportService, ExportJobStatus } from '../../shared/services/export/export.service';
+import { ExportService } from '../../shared/services/export/export.service';
+import { AlertService } from '../../shared/services/alert/alert.service';
+import { AuthService } from '../../shared/services/auth/auth.service';
 import { ObservationSearchFilter } from '../../shared/types/api.types';
 
 @Component({
   selector: 'app-home',
-  imports: [SharedModule, TranslateModule, ListViewComponent],
+  imports: [SharedModule, TranslateModule, ListViewComponent, SidebarComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
 export class HomeComponent {
+  private readonly document = inject(DOCUMENT);
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
   private readonly exportService = inject(ExportService);
+  private readonly translate = inject(TranslateService);
+  readonly alertService = inject(AlertService);
+  readonly authService = inject(AuthService);
+
+  readonly minWidth = this.getCSSVar('--panel-min-width', 300);
+  readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
+  readonly filterPanelWidth = signal(this.minWidth);
 
   activeTab = signal(0);
   exporting = signal(false);
-  // TODO: Fjern når permanent nedlastingsløsning er på plass
-  downloading = signal(false);
-  downloadingExcel = signal(false);
 
   onTabChange(event: Event) {
     const customEvent = event as CustomEvent<{ index: number }>;
@@ -44,15 +52,29 @@ export class HomeComponent {
     const hasPeriod = periodFrom != null || periodTo != null;
 
     const filter: ObservationSearchFilter = {
-      categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
-      organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
-      behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
-      basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
-      taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+      categoryIds: this.filterState.selectedCategoryIds().length
+        ? this.filterState.selectedCategoryIds()
+        : undefined,
+      organizationIds: this.filterState.selectedInstitutionIds().length
+        ? this.filterState.selectedInstitutionIds()
+        : undefined,
+      behaviorIds: this.filterState.selectedBehaviorIds().length
+        ? this.filterState.selectedBehaviorIds()
+        : undefined,
+      basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length
+        ? this.filterState.selectedBasisOfRecordIds()
+        : undefined,
+      taxonGroupIds: this.filterState.selectedTaxonGroupIds().length
+        ? this.filterState.selectedTaxonGroupIds()
+        : undefined,
       countyIds: countyIds.length ? countyIds : undefined,
       municipalityIds: municipalityIds.length ? municipalityIds : undefined,
-      oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
-      coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
+      oceanAreaIds: this.filterState.selectedOceanAreaIds().length
+        ? this.filterState.selectedOceanAreaIds()
+        : undefined,
+      coordinatePrecision: hasCoordinatePrecision
+        ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
+        : undefined,
       period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
     };
 
@@ -60,62 +82,27 @@ export class HomeComponent {
     this.exportService.startExport(filter).subscribe({
       next: (response) => {
         this.exporting.set(false);
-        alert(`Eksport startet (jobb-ID: ${response.jobId}). Bruk "Hent siste eksport" for å laste ned når den er ferdig.`);
+        this.alertService.showInfo(
+          this.translate.instant('export.started', { jobId: response.jobId }),
+        );
+        this.exportService.trackExport(response.jobId);
       },
       error: () => {
         this.exporting.set(false);
-        alert('Kunne ikke starte eksport. Prøv igjen senere.');
+        this.alertService.showError(this.translate.instant('export.startFailed'));
       },
     });
   }
 
-  // TODO: Fjern når permanent nedlastingsløsning er på plass
-  onDownloadLatest() {
-    if (this.downloading()) return;
-
-    this.downloading.set(true);
-    this.exportService.getHistory().pipe(
-      switchMap(jobs => {
-        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete); // 2 = Complete
-        if (!completedJob) {
-          throw new Error('Ingen ferdig eksport funnet.');
-        }
-        return this.exportService.getDownloadUrl(completedJob.id);
-      }),
-    ).subscribe({
-      next: (response) => {
-        this.downloading.set(false);
-        window.open(response.url, '_blank');
-      },
-      error: (err) => {
-        this.downloading.set(false);
-        alert(err.message || 'Kunne ikke hente eksport.');
-      },
-    });
+  onFilterPanelResize(newWidth: number) {
+    const validatedWidth = Math.max(this.minWidth, Math.min(newWidth, this.maxWidth));
+    this.filterPanelWidth.set(validatedWidth);
   }
 
-  // TODO: Fjern når permanent nedlastingsløsning er på plass
-  onDownloadLatestExcel() {
-    if (this.downloadingExcel()) return;
-
-    this.downloadingExcel.set(true);
-    this.exportService.getHistory().pipe(
-      switchMap(jobs => {
-        const completedJob = jobs.find(j => j.status === ExportJobStatus.Complete && j.hasExcel);
-        if (!completedJob) {
-          throw new Error('Ingen ferdig eksport med Excel funnet.');
-        }
-        return this.exportService.getExcelDownloadUrl(completedJob.id);
-      }),
-    ).subscribe({
-      next: (response) => {
-        this.downloadingExcel.set(false);
-        window.open(response.url, '_blank');
-      },
-      error: (err) => {
-        this.downloadingExcel.set(false);
-        alert(err.message || 'Kunne ikke hente eksport.');
-      },
-    });
+  private getCSSVar(name: string, fallback: number): number {
+    const value = this.document.documentElement
+      ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
+      : '';
+    return parseInt(value) || fallback;
   }
 }
