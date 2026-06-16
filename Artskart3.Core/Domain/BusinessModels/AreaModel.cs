@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Reflection;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using Artskart3.Core.Domain.Enums;

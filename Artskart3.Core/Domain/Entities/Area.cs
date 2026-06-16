@@ -16,6 +16,8 @@ public partial class Area : BaseEntity
 
     public int AreaTypeId { get; set; }
 
+    public int ZoomLevel { get; set; }
+
     public string ParentFid { get; set; } = null!;
 
     public DateTime SyncDateTime { get; set; }

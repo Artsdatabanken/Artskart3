@@ -10,7 +10,8 @@ const PROXY_CONFIG = [
       "/signin-oidc",
       "/signout-callback-oidc",
       "/hc",
-      "/robots.txt"
+      "/robots.txt",
+      "/api/**"
     ],
     target,
     secure: false

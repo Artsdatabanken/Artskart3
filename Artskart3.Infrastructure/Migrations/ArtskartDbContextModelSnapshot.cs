@@ -93,6 +93,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<Geometry>("WktPolygon")
                         .HasColumnType("geometry");
 
+                    b.Property<int>("ZoomLevel")
+                        .HasColumnType("int");
+
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
 

@@ -1,14 +1,12 @@
-﻿using System.Text;
+﻿using Artskart3.Core.Domain.BusinessModels;
+using System.Text;
 using System.Text.Json;
-using Artskart3.Core.Domain.BusinessModels;
+using System.Text.Json.Serialization;
 
 namespace Artskart3.Core.Application.Converters;
 
 public static class GeoJsonConverter
 {
-    /// <summary>
-    /// Default EPSG code for UTM Zone 33N
-    /// </summary>
     private const int DefaultEpsg = 25833;
 
     public static async Task<string> LocationsToGeoJson(
@@ -16,42 +14,40 @@ public static class GeoJsonConverter
         StyleType styleType = StyleType.Unknown,
         int? targetEpsg = null)
     {
-        int featureCollectionEpsg = targetEpsg ?? DefaultEpsg;
-        using var stream = new MemoryStream();
-        await using var writer = new Utf8JsonWriter(stream);
-
-        writer.WriteStartObject();
-        writer.WritePropertyName("features");
-        writer.WriteStartArray();
+        int epsgCode = targetEpsg ?? DefaultEpsg;
+        var features = new List<JsonElement>();
 
         await foreach (var location in locations)
         {
-            if (location == null)
-            {
-                continue;
-            }
-
-            WriteLocationFeature(writer, location, styleType, featureCollectionEpsg);
+            var feature = CreateFeatureJson(location, styleType, epsgCode);
+            features.Add(feature);
         }
-        
-        writer.WriteEndArray();
-        WriteCrs(writer, featureCollectionEpsg);
-        writer.WriteString("type", "FeatureCollection");
-        writer.WriteEndObject();
-        await writer.FlushAsync();
-        return Encoding.UTF8.GetString(stream.ToArray());
+
+        var featureCollection = CreateFeatureCollection(features, epsgCode);
+        return featureCollection;
     }
-    
-    private static void WriteLocationFeature(
-        Utf8JsonWriter writer,
-        LocationModel location,
-        StyleType styleType,
-        int epsg)
+
+    private static JsonElement CreateFeatureJson(LocationModel location, StyleType styleType, int epsgCode)
     {
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+
         writer.WriteStartObject();
-        writer.WritePropertyName("geometry");
-        WritePointGeometry(writer, location);
+        writer.WriteString("type", "Feature");
         writer.WriteString("id", location.Id.ToString());
+
+        // Write geometry
+        writer.WritePropertyName("geometry");
+        writer.WriteStartObject();
+        writer.WriteString("type", "Point");
+        writer.WritePropertyName("coordinates");
+        writer.WriteStartArray();
+        writer.WriteNumberValue(location.Longitude);
+        writer.WriteNumberValue(location.Latitude);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        // Write properties
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
         writer.WriteNumber("ObservationCount", location.ObservationCount);
@@ -68,31 +64,51 @@ public static class GeoJsonConverter
                     writer.WriteNumber("Precision", location.CoordinatePrecision.Value);
                 }
                 break;
-
             case StyleType.Species:
-                writer.WriteNumber("TaxonId", location.DominantTaxonId);
+                if (location.DominantTaxonId > 0)
+                {
+                    writer.WriteNumber("TaxonId", location.DominantTaxonId);
+                }
                 break;
         }
         writer.WriteEndObject();
-        WriteCrs(writer, epsg);
-        writer.WriteString("type", "Feature");
+
+        // Write CRS
+        WriteCrs(writer, epsgCode);
+
         writer.WriteEndObject();
+        writer.Flush();
+
+        var json = Encoding.UTF8.GetString(stream.ToArray());
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
     }
-    
-    private static void WritePointGeometry(Utf8JsonWriter writer, LocationModel location)
+
+    private static string CreateFeatureCollection(List<JsonElement> features, int epsgCode)
     {
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+
         writer.WriteStartObject();
-        writer.WritePropertyName("coordinates");
+        writer.WriteString("type", "FeatureCollection");
+        
+        writer.WritePropertyName("features");
         writer.WriteStartArray();
-        
-        writer.WriteNumberValue(location.Longitude);
-        writer.WriteNumberValue(location.Latitude);
-        
+        foreach (var feature in features)
+        {
+            feature.WriteTo(writer);
+        }
         writer.WriteEndArray();
-        writer.WriteString("type", "Point");
+
+        // Write CRS
+        WriteCrs(writer, epsgCode);
+
         writer.WriteEndObject();
+        writer.Flush();
+
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
-    
+
     private static void WriteCrs(Utf8JsonWriter writer, int epsg)
     {
         writer.WritePropertyName("crs");

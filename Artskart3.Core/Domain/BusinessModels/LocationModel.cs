@@ -17,6 +17,7 @@ public class LocationModel
     public double Longitude { get; set; }
     public int East { get; set; }
     public int North { get; set; }
+    public int? TaxonId { get; set; }
     public Collection<ObservationBaseModel> Observations { get; set; } = new Collection<ObservationBaseModel>();
     public Collection<AreaModel> Areas { get; set; } = new Collection<AreaModel>();
     public LocationModel()
@@ -73,9 +74,4 @@ public class LocationModel
     }
 
     public int DominantTaxonId { get; set; }
-
-    [JsonIgnore]
-    public int X { get; set; }
-    [JsonIgnore]
-    public int Y { get; set; }
 }

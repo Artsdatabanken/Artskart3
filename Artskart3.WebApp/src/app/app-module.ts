@@ -14,6 +14,7 @@ import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
+import { AreasService } from './core/services/areas/areas.service';
 
 class CustomTranslateLoader implements TranslateLoader {
   private http: HttpClient;
@@ -59,6 +60,7 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(withInterceptors([languageInterceptor, csrfInterceptor])),
+    AreasService,
     {
       provide: APP_INITIALIZER,
       useFactory: initializeLanguageFactory,

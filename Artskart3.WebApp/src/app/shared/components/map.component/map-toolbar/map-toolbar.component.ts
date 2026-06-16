@@ -1,9 +1,10 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
+import { LoggingService } from '@shared/logging.service';
 
 type ActionHandler = () => void;
 
@@ -23,7 +24,9 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private cachedPosition: GeolocationPosition | null = null;
   private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
+  @Output() zoomChange = new EventEmitter<number>();
 
+  private logger: LoggingService = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
 
 
@@ -70,8 +73,8 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     if (handler) {
       try {
         handler();
-      } catch (error) {
-        console.error(`Error executing action '${actionName}':`, error);
+      } catch (error: unknown) {
+        this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
       }
     } else {
       this.iconClick.emit(actionName);
@@ -81,13 +84,15 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   private zoomIn(): void {
     if (!this.map) return;
     const { zoom } = this.map.getCamera();
-    this.map.setZoom(zoom + 1);
+    const newZoom = zoom + 1;
+    this.zoomChange.emit(newZoom);
   }
 
   private zoomOut(): void {
     if (!this.map) return;
     const { zoom } = this.map.getCamera();
-    this.map.setZoom(zoom - 1);
+    const newZoom = zoom - 1;
+    this.zoomChange.emit(newZoom);
   }
 
   private geolocation(): void {
