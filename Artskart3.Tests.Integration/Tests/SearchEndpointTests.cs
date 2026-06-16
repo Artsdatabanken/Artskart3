@@ -110,19 +110,19 @@ public class SearchEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("1").And.Contain("100000"); // Min and Max values
+        json.Should().Contain("1").And.Contain("100000"); // Min and Max values 
     }
 
     [Fact]
     public async Task GetObservationLocations_WithMaxResultsTooHigh_Returns400()
     {
-        // MaxLocationResults = 1000, so 1001 exceeds the limit
-        var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=1001");
-
+        // MaxLocationResults = 100000, so 100001 exceeds the limit
+        var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=100001");
+    
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("between").And.Contain("1").And.Contain("100001");
+        json.Should().Contain("between").And.Contain("1").And.Contain("100000");
     }
 
     [Fact]
