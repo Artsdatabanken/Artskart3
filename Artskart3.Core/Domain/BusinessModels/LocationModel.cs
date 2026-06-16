@@ -1,4 +1,3 @@
-using Newtonsoft.Json;
 using System.Data.SqlTypes;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;

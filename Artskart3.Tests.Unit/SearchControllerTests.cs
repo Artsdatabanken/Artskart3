@@ -96,7 +96,7 @@ public class SearchControllerTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(10001)]
+    [InlineData(100001)]
     [InlineData(-1)]
     public async Task GetObservationLocations_WithInvalidMaxResults_ReturnsBadRequest(int maxResults)
     {

@@ -27,7 +27,7 @@ namespace Artskart3.Api.Controllers
         /// </summary>
         [HttpGet("SearchTaxons")]
         [Produces("application/json")]
-        public async Task<ActionResult<IEnumerable<Taxon>>> SearchTaxons(
+        public async Task<ActionResult<IEnumerable<TaxonDto>>> SearchTaxons(
             [FromQuery] string name,
             [FromQuery] int maxCount = SearchConstants.DefaultMaxTaxonCount)
         {

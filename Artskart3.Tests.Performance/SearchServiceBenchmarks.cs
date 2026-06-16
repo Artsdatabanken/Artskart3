@@ -146,9 +146,10 @@ public class SearchServiceBenchmarks
         _ = await _searchService.GetObservationsByZoomLevelAsync(20);
     }
 
+
     [Benchmark]
-    public async Task GetLocations_MaxResults_5000()
+    public async Task GetLocations_MaxResults_100000()
     {
-        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 5000 });
+        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100000 });
     }
 }

@@ -108,6 +108,38 @@ public class SearchServiceTests
         await act.Should().ThrowAsync<ApplicationException>();
     }
 
+    [Fact]
+    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidGeoJson()
+    {
+        // Arrange: Create 100,000 location items
+        var largeDataSet = Enumerable.Range(1, 100000)
+            .Select(i => new LocationModel
+            {
+                Id = i,
+                East = 262000 + i,
+                North = 6650000 + i,
+                Latitude = 59.9 + (i * 0.0001),
+                Longitude = 10.7 + (i * 0.0001),
+                ObservationCount = i % 10 + 1,
+                Locality = $"Location-{i}"
+            })
+            .ToList();
+
+        _repositoryMock
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Returns(AsyncEnumerable(largeDataSet));
+
+        // Act
+        var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
+
+        // Assert
+        result.Should().NotBeNullOrWhiteSpace();
+        result.Should().Contain("FeatureCollection");
+        result.Should().Contain("Feature");
+        result.Should().Contain("\"type\":\"Point\"");
+        result.Length.Should().BeGreaterThan(100000);
+    }
+
     // -----------------------------------------------------------------------
     // Hjelpemetoder
     // -----------------------------------------------------------------------

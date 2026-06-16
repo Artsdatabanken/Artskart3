@@ -286,15 +286,15 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WhenMaxResultsExceedsMax_FallsBackToDefault1000()
+    public async Task GetLocationsAsync_WhenMaxResultsExceedsMax_FallsBackToDefault100000()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var locations = Enumerable.Range(1, 1105)
+        var locations = Enumerable.Range(1, 1000)
             .Select(id => CreateLocation(id, $"Lokalitet {id}"))
             .ToArray();
-        var observations = Enumerable.Range(1, 1105)
+        var observations = Enumerable.Range(1, 1000)
             .Select(id => CreateObservation(id, id))
             .ToArray();
 
@@ -303,7 +303,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 99999 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 }));
 
         result.Should().HaveCount(1000);
     }

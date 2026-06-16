@@ -8,8 +8,8 @@ namespace Artskart3.Core.Constants
         public const int MinTaxonResults = 1;
 
         // Location search constants
-        public const int DefaultMaxLocations = 1000;
-        public const int MaxLocationResults = 1000;
+        public const int DefaultMaxLocations = 100000;
+        public const int MaxLocationResults = 100000;
         public const int MinLocationResults = 1;
 
         // Coordinate constants

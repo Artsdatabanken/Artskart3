@@ -123,10 +123,20 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private setupScrollZoom(): void {
     if (!this.mapEl) return;
     this.mapEl.nativeElement.addEventListener('wheel', this.handleScrollWheel, { passive: false });
+
+    if (this.map) {
+      this.map.on(MapEvents.CameraChanged, () => this.handleMapCameraChange());
+    }
   }
 
   private syncZoomFromMap(): void {
     if (!this.map) return;
+  }
+
+  private handleMapCameraChange(): void {
+    if (!this.map) return;
+    const currentZoom = this.map.getCamera().zoom;
+    this.applyZoom(currentZoom);
   }
 
   private handleScrollZoom(event: WheelEvent): void {
@@ -156,7 +166,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || isNaN(zoom)) return;
     try {
       const previousZoom = this.map.getCamera().zoom;
-      this.map.setZoom(zoom);
+
+      if (previousZoom !== zoom) {
+        this.map.setZoom(zoom);
+      }
 
       if (ZoomVisibilityHelper.hasCrossedThreshold(previousZoom, zoom)) {
         this.setupAreaMarkers();

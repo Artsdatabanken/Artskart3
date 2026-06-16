@@ -33,6 +33,6 @@ namespace Artskart3.Core.Application.DTOs
         /// <summary>
         /// Maximum number of locations to return (default: 1000, max: 1000)
         /// </summary>
-        public int MaxResults { get; set; } = 1000;
+        public int MaxResults { get; set; } = 100000;
     }
 }
