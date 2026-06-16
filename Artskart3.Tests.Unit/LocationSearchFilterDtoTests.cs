@@ -10,7 +10,7 @@ public class LocationSearchFilterDtoTests
     {
         var sut = new LocationSearchFilterDto();
 
-        sut.MaxResults.Should().Be(1000);
+        sut.MaxResults.Should().Be(100000);
     }
 
     [Fact]

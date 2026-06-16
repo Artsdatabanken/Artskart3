@@ -31,7 +31,7 @@ namespace Artskart3.Core.Application.DTOs
         public int? Epsg { get; set; }
 
         /// <summary>
-        /// Maximum number of locations to return (default: 1000, max: 1000)
+        /// Maximum number of locations to return (default: 100000, max: 100000)
         /// </summary>
         public int MaxResults { get; set; } = 100000;
     }
