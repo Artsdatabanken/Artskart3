@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Artskart3.Tests.Performance;
 
 /// <summary>
-/// Ytelsestester for observasjonssøk med område- og institusjonsfiltre via ObservationAreaIndex.
+/// Ytelsestester for observasjonssøk med område- og institusjonsfiltre via ObservationEntityIndex.
 /// Tester ulike kombinasjoner av kommune, fylke, havområde, verneområde og institusjon.
 /// </summary>
 [MemoryDiagnoser]
@@ -39,7 +39,7 @@ public class ObservationSearchBenchmarks
     private static readonly string[] RestrictedAreas1 = ["Naturbase VV00001897"];
     private static readonly string[] RestrictedAreas3 = ["Naturbase VV00001897", "Naturbase VV00001878", "Naturbase VV00003273"];
 
-    // Institusjoner (AreaTypeId = 5)
+    // Institusjoner (via ObservationEntityIndex med EntityTypeId = Organization)
     private static readonly int[] Institutions1 = [1];
     private static readonly int[] Institutions3 = [1, 3127, 3100];
 
@@ -241,7 +241,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             PreferredPopularName = "blåmeis"
         });
     }
@@ -251,7 +252,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             ScientificName = "Parus major"
         });
     }
@@ -261,7 +263,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             Author = "Linnaeus"
         });
     }
@@ -271,7 +274,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             PreferredPopularName = "blåmeis",
             MunicipalityIds = Municipalities1
         });
@@ -286,7 +290,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 50,
+            PageNumber = 1,
+            ResultsPerPage = 50,
             MunicipalityIds = Municipalities1
         });
     }
@@ -296,7 +301,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 10, ResultsPerPage = 50,
+            PageNumber = 10,
+            ResultsPerPage = 50,
             MunicipalityIds = Municipalities1
         });
     }
@@ -306,7 +312,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 100, ResultsPerPage = 10,
+            PageNumber = 100,
+            ResultsPerPage = 10,
             MunicipalityIds = Municipalities1
         });
     }
@@ -327,7 +334,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             CategoryIds = Categories1,
             MunicipalityIds = Municipalities1
         });
@@ -338,7 +346,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             CategoryIds = Categories3,
             MunicipalityIds = Municipalities3
         });
@@ -349,7 +358,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             BehaviorIds = Behaviors1,
             MunicipalityIds = Municipalities1
         });
@@ -360,7 +370,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             BasisOfRecordIds = BasisOfRecords1,
             MunicipalityIds = Municipalities1
         });
@@ -371,7 +382,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             CoordinatePrecision = new CoordinatePrecisionDto { From = 1, To = 100 },
             MunicipalityIds = Municipalities1
         });
@@ -382,7 +394,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 10,
+            PageNumber = 1,
+            ResultsPerPage = 10,
             Period = new PeriodDto { From = 2020, To = 2024 },
             MunicipalityIds = Municipalities1
         });
@@ -393,7 +406,8 @@ public class ObservationSearchBenchmarks
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
-            PageNumber = 1, ResultsPerPage = 50,
+            PageNumber = 1,
+            ResultsPerPage = 50,
             PreferredPopularName = "meis",
             CategoryIds = Categories1,
             MunicipalityIds = Municipalities3,

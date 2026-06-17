@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260608073333_AddObservationAreaIndex")]
-    partial class AddObservationAreaIndex
+    [Migration("20260608073333_AddObservationEntityIndex")]
+    partial class AddObservationEntityIndex
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1237,20 +1237,26 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("Observation", (string)null);
                 });
 
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationAreaIndex", b =>
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationEntityIndex", b =>
                 {
-                    b.Property<string>("AreaFid")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("AreaTypeId")
-                        .HasColumnType("int");
-
                     b.Property<int>("ObservationId")
                         .HasColumnType("int");
 
-                    b.ToTable("ObservationAreaIndex", (string)null);
+                    b.Property<int>("EntityTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ObservationId", "EntityTypeId", "EntityId");
+
+                    b.HasIndex(new[] { "EntityTypeId", "EntityId" })
+                        .HasDatabaseName("IX_ObservationEntityIndex_Lookup");
+
+                    b.HasIndex(new[] { "ObservationId" })
+                        .HasDatabaseName("IX_ObservationEntityIndex_ObservationId");
+
+                    b.ToTable("ObservationEntityIndex", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationDetail", b =>

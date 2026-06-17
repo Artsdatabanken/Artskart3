@@ -1,12 +1,13 @@
 namespace Artskart3.Core.Domain.Entities;
 
 /// <summary>
-/// Flat projeksjon av observasjon-til-område-relasjonen.
-/// AreaTypeId: 1=Kommune, 2=Fylke, 3=Verneområde, 4=Havområde, 5=Institusjon.
+/// Denormalisert indekstabell for raske observasjon-til-entitet-oppslag.
+/// EntityTypeId angir hvilken type entitet raden refererer til (se ObservationIndexEntityType).
+/// EntityId er den numeriske IDen til entiteten (Area.Fid konvertert til int, eller Organization.Id).
 /// </summary>
-public class ObservationAreaIndex
+public class ObservationEntityIndex
 {
     public int ObservationId { get; set; }
-    public int AreaTypeId { get; set; }
-    public string AreaFid { get; set; } = null!;
+    public int EntityTypeId { get; set; }
+    public int EntityId { get; set; }
 }

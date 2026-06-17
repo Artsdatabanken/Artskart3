@@ -14,10 +14,10 @@ public class UserRepository(IArtsKartDbContext context, ILogger<UserRepository> 
             var user = await context.Set<User>().FindAsync([id], cancellationToken);
             return user;
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
-            logger.LogError(e, "Error getting user");
-            throw new Exception("Error getting user", e);
+            logger.LogError(e, "Feil ved henting av bruker");
+            throw new ApplicationException("Feil ved henting av bruker", e);
         }
     }
 
@@ -30,10 +30,10 @@ public class UserRepository(IArtsKartDbContext context, ILogger<UserRepository> 
             await context.SaveChangesAsync(cancellationToken);
             return user;
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException and not ArgumentNullException)
         {
-            logger.LogError(e, "Error creating user");
-            throw new Exception("Error creating user", e);
+            logger.LogError(e, "Feil ved opprettelse av bruker");
+            throw new ApplicationException("Feil ved opprettelse av bruker", e);
         }
     }
 }

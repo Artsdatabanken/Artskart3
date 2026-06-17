@@ -2598,21 +2598,26 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Navigation("Taxon");
                 });
 
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationAreaIndex", b =>
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationEntityIndex", b =>
             {
                 b.Property<int>("ObservationId")
                     .HasColumnType("int");
 
-                b.Property<int>("AreaTypeId")
+                b.Property<int>("EntityTypeId")
                     .HasColumnType("int");
 
-                b.Property<string>("AreaFid")
-                    .HasMaxLength(50)
-                    .HasColumnType("nvarchar(50)");
+                b.Property<int>("EntityId")
+                    .HasColumnType("int");
 
-                b.HasKey("ObservationId", "AreaTypeId", "AreaFid");
+                b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
-                b.ToTable("ObservationAreaIndex", (string)null);
+                b.HasIndex(new[] { "EntityTypeId", "EntityId" })
+                    .HasDatabaseName("IX_ObservationEntityIndex_Lookup");
+
+                b.HasIndex(new[] { "ObservationId" })
+                    .HasDatabaseName("IX_ObservationEntityIndex_ObservationId");
+
+                b.ToTable("ObservationEntityIndex", (string)null);
             });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationDetail", b =>

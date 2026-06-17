@@ -78,7 +78,7 @@ public class UserRepositoryTests
     }
 
     [Fact]
-    public async Task CreateUser_WhenUserIsNull_ThrowsException()
+    public async Task CreateUser_WhenUserIsNull_ThrowsArgumentNullException()
     {
         // Arrange
         await using var context = CreateDbContext();
@@ -88,8 +88,7 @@ public class UserRepositoryTests
         var act = async () => await repository.CreateUser(null!);
 
         // Assert
-        await act.Should().ThrowAsync<Exception>()
-            .WithMessage("Error creating user");
+        await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
     private static UserRepository CreateRepository(ArtskartDbContext context)

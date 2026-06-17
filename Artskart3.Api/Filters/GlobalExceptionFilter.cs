@@ -25,7 +25,7 @@ public class GlobalExceptionFilter : IExceptionFilter
                 _logger.LogWarning(ex, "Application error at {Endpoint}", endpoint);
                 context.Result = new ObjectResult(new { error = "An error occurred while processing your request. Please try again later." })
                 {
-                    StatusCode = 503
+                    StatusCode = 500
                 };
                 break;
 

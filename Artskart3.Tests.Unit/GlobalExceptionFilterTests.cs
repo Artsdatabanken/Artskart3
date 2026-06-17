@@ -21,14 +21,14 @@ public class GlobalExceptionFilterTests
     }
 
     [Fact]
-    public void OnException_WhenApplicationException_Returns503()
+    public void OnException_WhenApplicationException_Returns500()
     {
-        var context = CreateExceptionContext(new ApplicationException("Service unavailable"));
+        var context = CreateExceptionContext(new ApplicationException("Application error"));
 
         _sut.OnException(context);
 
         context.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
+            .Which.StatusCode.Should().Be(500);
     }
 
     [Fact]

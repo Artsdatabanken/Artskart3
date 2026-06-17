@@ -136,10 +136,11 @@ public class SearchControllerObservationTests
     public async Task GetObservations_WithPagination_Page1ReturnsFirstItems()
     {
         var sut = CreateSut();
-        var allItems = CreateObservations(25);
+        // Simulerer at repositoriet returnerer et lookahead-vindu fra rad 1 (side 1, allerede offset i SQL)
+        var lookaheadWindow = CreateObservationsFromOffset(1, 40);
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(allItems);
+            .ReturnsAsync(lookaheadWindow);
 
         var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10 };
         var result = await sut.GetObservations(filter);
@@ -155,10 +156,11 @@ public class SearchControllerObservationTests
     public async Task GetObservations_WithPagination_Page2ReturnsNextItems()
     {
         var sut = CreateSut();
-        var allItems = CreateObservations(25);
+        // Simulerer at repositoriet allerede har gjort Skip(10) i SQL og returnerer fra rad 11
+        var lookaheadWindow = CreateObservationsFromOffset(11, 40);
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(allItems);
+            .ReturnsAsync(lookaheadWindow);
 
         var filter = new ObservationSearchFilterDto { PageNumber = 2, ResultsPerPage = 10 };
         var result = await sut.GetObservations(filter);
@@ -174,10 +176,11 @@ public class SearchControllerObservationTests
     public async Task GetObservations_WithPagination_LastPageReturnsRemainingItems()
     {
         var sut = CreateSut();
-        var allItems = CreateObservations(25);
+        // Simulerer at repositoriet returnerer de siste 5 radene (rad 21-25) for side 3
+        var lookaheadWindow = CreateObservationsFromOffset(21, 5);
         _serviceMock
             .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
-            .ReturnsAsync(allItems);
+            .ReturnsAsync(lookaheadWindow);
 
         var filter = new ObservationSearchFilterDto { PageNumber = 3, ResultsPerPage = 10 };
         var result = await sut.GetObservations(filter);
@@ -217,7 +220,10 @@ public class SearchControllerObservationTests
     private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);
 
     private static List<ObservationDto> CreateObservations(int count) =>
-        Enumerable.Range(1, count)
+        CreateObservationsFromOffset(1, count);
+
+    private static List<ObservationDto> CreateObservationsFromOffset(int startId, int count) =>
+        Enumerable.Range(startId, count)
             .Select(i => new ObservationDto { Id = i, ScientificName = $"Species {i}" })
             .ToList();
 }

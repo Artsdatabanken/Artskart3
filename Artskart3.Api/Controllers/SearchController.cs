@@ -83,7 +83,8 @@ public class SearchController : ControllerBase
     /// <summary>
     /// Searches for observations using optional filters.
     /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
-    /// When pagination parameters are omitted, returns a flat list capped at DefaultMaxObservationCount.
+    /// When pagination parameters are omitted, returns a flat list capped at <see cref="SearchConstants.DefaultMaxObservations"/> (20) results.
+    /// PageNumber and ResultsPerPage must both be provided, or both be omitted.
     /// </summary>
     [HttpPost("Observation")]
     [Produces("application/json")]
@@ -102,15 +103,16 @@ public class SearchController : ControllerBase
         {
             if (filter.IsPaginated)
             {
+                // Repositoriet har allerede gjort Skip i SQL — her henter vi bare første side fra lookahead-vinduet
                 var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
                 var pageNumber = filter.PageNumber!.Value;
                 var pagedResult = new PagedObservationResponseDto
                 {
-                    Items = allItems.Skip((pageNumber - 1) * resultsPerPage).Take(resultsPerPage),
+                    Items = allItems.Take(resultsPerPage),
                     PageNumber = pageNumber,
                     ResultsPerPage = resultsPerPage,
-                    LookaheadCount = (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1
+                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1)
                 };
 
                 return Ok(pagedResult);
@@ -121,7 +123,7 @@ public class SearchController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Feil ved henting av observasjoner med filter: {@Filter}", filter);
+            _logger.LogError(ex, "Feil ved henting av observasjoner med filter: {Filter}", filter);
             throw; // håndteres av global filter
         }
     }
@@ -176,6 +178,12 @@ public class SearchController : ControllerBase
     {
         validationError = null;
 
+        if (filter.PageNumber.HasValue != filter.ResultsPerPage.HasValue)
+        {
+            validationError = BadRequest(new { error = "PageNumber and ResultsPerPage must both be provided, or both be omitted." });
+            return false;
+        }
+
         if (filter.PageNumber != null && filter.PageNumber.Value < 1)
         {
             validationError = BadRequest(new { error = "PageNumber must be greater than or equal to 1." });
@@ -192,6 +200,44 @@ public class SearchController : ControllerBase
         {
             validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
             return false;
+        }
+
+        if (!ValidateFilterArraySizes(filter, out validationError))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validerer at ingen filter-arrayer overskrider maksimal størrelse.
+    /// </summary>
+    private bool ValidateFilterArraySizes(ObservationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    {
+        validationError = null;
+        var max = SearchConstants.MaxFilterArraySize;
+
+        ReadOnlySpan<(string name, int? length)> arrays =
+        [
+            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
+            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
+            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
+            (nameof(filter.CountyIds), filter.CountyIds?.Length),
+            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
+            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
+            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
+            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
+        ];
+
+        foreach (var (name, length) in arrays)
+        {
+            if (length > max)
+            {
+                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
+                return false;
+            }
         }
 
         return true;
