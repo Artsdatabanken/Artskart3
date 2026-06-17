@@ -76,7 +76,7 @@ export class AreasService {
   private readonly loggerService: LoggingService = inject(LoggingService);
   private readonly validationService: ValidationService = inject(ValidationService);
 
-  private readonly areasBaseEndpoint = '/api/Search/AreasObservations';
+  private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
   private readonly locationsEndpoint = '/api/Search/Locations';
 
   /**
@@ -107,7 +107,7 @@ export class AreasService {
    * Note: For zoom > 12 (API level 3), use getLocationsAsGeoJson() instead
    * Note: Does not use shareReplay to ensure fresh data on zoom level changes
    */
-  getAreasObservationsAsGeoJson(openLayerZoom: number): Observable<AreaMarkerFeature[]> {
+  getAreaMarkersAsGeoJson(openLayerZoom: number): Observable<AreaMarkerFeature[]> {
     return this.fetchAreaObservations(openLayerZoom).pipe(
       map(areas => this.convertToGeoJsonFeatures(areas))
     );

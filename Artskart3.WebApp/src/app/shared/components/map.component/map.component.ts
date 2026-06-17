@@ -239,7 +239,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private fetchAndCacheMarkerFeatures(apiZoomLevel: number, currentZoom: number): void {
     const serviceCall$: Observable<AreaMarkerFeature[]> = this.isLocationPointsZoom(apiZoomLevel)
       ? this.areasService.getLocationsAsGeoJson()
-      : this.areasService.getAreasObservationsAsGeoJson(currentZoom);
+      : this.areasService.getAreaMarkersAsGeoJson(currentZoom);
 
     serviceCall$
       .pipe(takeUntil(this.destroy$))

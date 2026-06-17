@@ -132,13 +132,13 @@ public class SearchController : ControllerBase
     /// <summary>
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
     /// </summary>
-    [HttpGet("AreasObservations")]
+    [HttpGet("AreaMarkers")]
     [Produces("application/json")]
-    public async Task<ActionResult<AreaMarkerDto[]>> GetAreasObservations([FromQuery] int zoomLevel = 1, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, CancellationToken cancellationToken = default)
     {
         try
         {
-            var areas = await _searchService.GetObservationsByZoomLevelAsync(zoomLevel, cancellationToken);
+            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, cancellationToken);
             _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
             return Ok(areas.ToArray());
         }
