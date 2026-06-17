@@ -11,16 +11,16 @@ public class SlowQueryLoggingFilter : IAsyncActionFilter
 {
     private readonly ILogger<SlowQueryLoggingFilter> _logger;
     private readonly IOptions<SlowQueryLoggingOptions> _options;
-    private readonly ArtskartDbContext _dbContext;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public SlowQueryLoggingFilter(
         ILogger<SlowQueryLoggingFilter> logger,
         IOptions<SlowQueryLoggingOptions> options,
-        ArtskartDbContext dbContext)
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _options = options;
-        _dbContext = dbContext;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -71,10 +71,15 @@ public class SlowQueryLoggingFilter : IAsyncActionFilter
                 OccurredAt = DateTime.UtcNow
             };
 
+            // Bruker egen scope for å unngå å dele DbContext med request-ens repositories.
+            // Dette sikrer at SaveChangesAsync kun persisterer logg-raden, ikke eventuelle
+            // trackede entiteter fra action-pipelinen.
             try
             {
-                _dbContext.SlowQueryLogs.Add(logEntry);
-                await _dbContext.SaveChangesAsync(context.HttpContext.RequestAborted);
+                using var scope = _scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+                dbContext.SlowQueryLogs.Add(logEntry);
+                await dbContext.SaveChangesAsync(context.HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {

@@ -5,6 +5,7 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,7 @@ public class SearchRepository : ISearchRepository
                     nameof(maxCount));
             }
 
-            var searchTerm = name.Trim().ToLower();
+            var searchTerm = name.Trim().ToLower().EscapeSqlLikePattern();
 
             var matchingIds = GetExactMatches(searchTerm)
                 .Union(GetStartsWithMatches(searchTerm))
@@ -169,8 +170,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
         }
 
-        // Område- og institusjonsfiltre via ObservationAreaIndex-tabellen.
-        // Kombineres med OR i én EXISTS-spørring: en observasjon vises hvis den tilhører minst ett av de valgte områdene.
+        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen.
+        // Alle entiteter bruker int EntityId — string-Fid-er konverteres til int før spørring.
         var hasMunicipality = filter.MunicipalityIds?.Any() == true;
         var hasCounty = filter.CountyIds?.Any() == true;
         var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
@@ -179,19 +180,19 @@ public class SearchRepository : ISearchRepository
 
         if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
         {
-            var municipalityIds = filter.MunicipalityIds ?? [];
-            var countyIds = filter.CountyIds ?? [];
-            var restrictedIds = filter.RestrictedAreaIds ?? [];
-            var oceanIds = filter.OceanAreaIds ?? [];
-            var orgFids = hasOrg ? filter.OrganizationIds!.Select(id => id.ToString()).ToArray() : Array.Empty<string>();
+            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
+            var countyIds = ConvertFidsToInt(filter.CountyIds);
+            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
+            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+            var orgIds = filter.OrganizationIds ?? [];
 
-            query = query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
                 idx.ObservationId == o.Id && (
-                    (idx.AreaTypeId == 1 && municipalityIds.Contains(idx.AreaFid)) ||
-                    (idx.AreaTypeId == 2 && countyIds.Contains(idx.AreaFid)) ||
-                    (idx.AreaTypeId == 3 && restrictedIds.Contains(idx.AreaFid)) ||
-                    (idx.AreaTypeId == 4 && oceanIds.Contains(idx.AreaFid)) ||
-                    (idx.AreaTypeId == 5 && orgFids.Contains(idx.AreaFid))
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
                 )));
         }
 
@@ -243,22 +244,29 @@ public class SearchRepository : ISearchRepository
             query = query.Take(SearchConstants.DefaultMaxObservations);
         }
 
+        // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
+        // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
+        // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
+        // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
+        // ObservationEntityIndex har PK på (ObservationId, EntityTypeId, EntityId), så hver
+        // subselect er et indeksoppslag på maks 1 rad. Resultatet er allerede begrenset via Take(),
+        // så dette er effektivt nok. Batch-lasting med ekstra round-trip ville vært tregere.
         return await query.Select(o => new ObservationDto
         {
             Id = o.Id,
             PreferredPopularName = o.Taxon.PreferredPopularName,
             ScientificName = o.Taxon.ValidScientificName,
             Author = o.Taxon.ValidScientificNameAuthorship,
-            Institution = _context.Set<ObservationAreaIndex>()
-                .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 5)
+            Institution = _context.Set<ObservationEntityIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.EntityTypeId == (int)ObservationIndexEntityType.Institution)
                 .Join(_context.Set<Organization>(),
-                    idx => idx.AreaFid, org => org.Id.ToString(),
+                    idx => idx.EntityId, org => org.Id,
                     (idx, org) => org.Name)
                 .FirstOrDefault(),
             Locality = o.Location != null ? o.Location.Locality : null,
-            MunicipalityId = _context.Set<ObservationAreaIndex>()
-                .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 1)
-                .Select(idx => idx.AreaFid)
+            MunicipalityId = _context.Set<ObservationEntityIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality)
+                .Select(idx => idx.EntityId.ToString())
                 .FirstOrDefault(),
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
@@ -309,10 +317,6 @@ public class SearchRepository : ISearchRepository
         catch (DbUpdateException ex)
         {
             throw new ApplicationException("A database error occurred while retrieving locations. Please try again later.", ex);
-        }
-        catch (OperationCanceledException ex)
-        {
-            throw new ApplicationException("The location search operation was cancelled. Please try again.", ex);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -469,5 +473,29 @@ public class SearchRepository : ISearchRepository
         }
     }
 
+    /// <summary>
+    /// Konverterer string-Fid-er til int ved å fjerne "_" (for historiske fylkes-Fid-er som "15_2017").
+    /// </summary>
+    private static int[] ConvertFidsToInt(string[]? fids)
+    {
+        if (fids == null || fids.Length == 0) return [];
+        return fids
+            .Select(fid => int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToArray();
+    }
 
+    /// <summary>
+    /// Konverterer verneområde-Fid-er til int ved å fjerne "Naturbase VV"-prefiks.
+    /// </summary>
+    private static int[] ConvertRestrictedAreaFidsToInt(string[]? fids)
+    {
+        if (fids == null || fids.Length == 0) return [];
+        return fids
+            .Select(fid => int.TryParse(fid.Replace("Naturbase VV", ""), out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToArray();
+    }
 }

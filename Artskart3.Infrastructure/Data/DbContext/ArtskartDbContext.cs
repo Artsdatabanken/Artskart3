@@ -1014,11 +1014,13 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.OccurredAt).HasDatabaseName("IX_SlowQueryLog_OccurredAt");
         });
 
-        modelBuilder.Entity<ObservationAreaIndex>(entity =>
+        modelBuilder.Entity<ObservationEntityIndex>(entity =>
         {
-            entity.HasKey(e => new { e.ObservationId, e.AreaTypeId, e.AreaFid });
-            entity.ToTable("ObservationAreaIndex");
-            entity.Property(e => e.AreaFid).HasMaxLength(50);
+            entity.HasKey(e => new { e.ObservationId, e.EntityTypeId, e.EntityId });
+            entity.ToTable("ObservationEntityIndex");
+
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId }).HasDatabaseName("IX_ObservationEntityIndex_Lookup");
+            entity.HasIndex(e => e.ObservationId).HasDatabaseName("IX_ObservationEntityIndex_ObservationId");
         });
 
         OnModelCreatingPartial(modelBuilder);

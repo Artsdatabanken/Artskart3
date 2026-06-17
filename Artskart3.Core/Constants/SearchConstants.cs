@@ -16,6 +16,9 @@ public static class SearchConstants
     public const int DefaultMaxObservations = 20;
     public const int MaxObservationResults = 10000;
     public const int MinObservationResults = 1;
+    // Norge har ~356 kommuner og ~2800 verneområder — 500 dekker alle realistiske filtre med margin,
+    // og begrenser størrelsen på SQL IN-klausuler for å hindre misbruk mot dette anonyme endepunktet.
+    public const int MaxFilterArraySize = 500;
 
     // Coordinate constants
     public const int DefaultEpsgCode = 25833;
