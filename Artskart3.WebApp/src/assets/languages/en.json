@@ -35,6 +35,77 @@
   "resizablePanel": {
     "resizeAriaLabel": "Resize filter panel"
   },
+  "tabs": {
+    "map": "Map",
+    "list": "List",
+    "ariaLabel": "Select view"
+  },
+  "listView": {
+    "name": "Species name",
+    "scientificName": "Scientific name",
+    "author": "Autor",
+    "locality": "Locality",
+    "institution": "Institution",
+    "date": "Date",
+    "municipality": "Municipality",
+    "precision": "Precision",
+    "noResults": "No observations found"
+  },
+  "sidebar": {
+    "categories": "Red List & Alien Species Categories",
+    "areas": "Areas",
+    "heading": "Filter",
+    "clearFilter": "Clear filter",
+    "categoryType": {
+      "Fremmedart": "Alien Species Categories",
+      "Rødliste": "Red List Categories"
+    },
+    "coordinatePrecision": "Coordinate Precision",
+    "coordinatePrecisionFrom": "From",
+    "coordinatePrecisionTo": "To",
+    "coordinatePrecisionSearch": "Search",
+    "period": "Period",
+    "periodFrom": "From year",
+    "periodTo": "To year",
+    "periodSearch": "Search",
+    "institutions": "Data Supplier",
+    "behaviors": "Habitat & Species Properties",
+    "behaviorName": {
+      "dead": "Dead",
+      "feeding": "Foraging",
+      "moving": "In transit",
+      "possiblereproductive": "Possible Reproductive",
+      "reproductive": "Reproductive",
+      "stationary": "Stationary"
+    },
+    "basisOfRecords": "Basis of Record",
+    "basisOfRecordName": {
+      "assessment": "Assessment",
+      "carcassobservation": "Carcass observation",
+      "fossil_specimen": "Fossil specimen",
+      "humanobservation": "Human observation",
+      "litteratur": "Literature",
+      "living_specimen": "Living specimen",
+      "machine_observation": "Machine observation",
+      "materialsample": "Material sample",
+      "objekt": "Occurrence",
+      "observasjon": "Observation",
+      "unrecognised": "Unrecognised"
+    },
+    "areaSection": {
+      "fastlandsNorge": "Mainland Norway",
+      "janMayen": "Jan Mayen",
+      "svalbard": "Svalbard",
+      "oceanAreas": "Ocean Areas"
+    },
+    "taxonGroups": "Taxon groups"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "itemsPerPage": "Items per page",
+    "ariaLabel": "Pagination"
   "mapToolbar": {
     "layersAriaLabel": "Layers",
     "filterAriaLabel": "Settings",

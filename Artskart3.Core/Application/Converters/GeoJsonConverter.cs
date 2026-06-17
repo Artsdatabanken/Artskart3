@@ -11,12 +11,13 @@ public static class GeoJsonConverter
     public static async Task<string> LocationsToGeoJson(
         IAsyncEnumerable<LocationModel> locations,
         StyleType styleType = StyleType.Unknown,
-        int? targetEpsg = null)
+        int? targetEpsg = null,
+        CancellationToken cancellationToken = default)
     {
         int epsgCode = targetEpsg ?? DefaultEpsg;
         var features = new List<JsonElement>();
 
-        await foreach (var location in locations)
+        await foreach (var location in locations.WithCancellation(cancellationToken))
         {
             var feature = CreateFeatureJson(location, styleType, epsgCode);
             features.Add(feature);

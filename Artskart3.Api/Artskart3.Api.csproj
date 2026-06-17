@@ -33,4 +33,9 @@
     <ProjectReference Include="..\Artskart3.Infrastructure\Artskart3.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Configuration\" />
+    <Folder Include="Filters\" />
+  </ItemGroup>
+
 </Project>

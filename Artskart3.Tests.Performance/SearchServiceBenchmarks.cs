@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Infrastructure.Data;
@@ -6,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Tests.Performance;
 
@@ -46,7 +48,7 @@ public class SearchServiceBenchmarks
 
         _dbContext = new ArtskartDbContext(options);
 
-        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance);
+        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
         _searchService = new SearchService(repository);
     }
 

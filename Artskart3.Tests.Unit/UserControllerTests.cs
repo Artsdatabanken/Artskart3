@@ -53,7 +53,7 @@ public class UserControllerTests
     }
 
     [Fact]
-    public async Task GetCurrentUser_WhenSubClaimIsMissing_ThrowsInvalidOperationException()
+    public async Task GetCurrentUser_WhenSubClaimIsMissing_ReturnsBadRequest()
     {
         // Arrange
         var userServiceMock = new Mock<IUserService>();
@@ -70,13 +70,13 @@ public class UserControllerTests
         };
 
         // Act
-        var act = async () => await controller.GetCurrentUser();
+        var result = await controller.GetCurrentUser();
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
 
         userServiceMock.Verify(
-            service => service.GetCurrentUser(It.IsAny<Guid>()),
+            service => service.GetCurrentUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

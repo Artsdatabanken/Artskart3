@@ -1,0 +1,94 @@
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--adb-spacing-sm);
+  padding-top: var(--adb-spacing-md);
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-sm);
+}
+
+.page-size-select {
+  appearance: none;
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
+  padding-right: var(--adb-spacing-lg);
+  border: none;
+  border-radius: 999px;
+  background: var(--adb-surface-subtle) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5L6 2L9 5' stroke='%23345' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M3 7L6 10L9 7' stroke='%23345' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right var(--adb-spacing-sm) center;
+  font-size: var(--adb-font-size-3);
+  font-weight: var(--adb-font-weight-medium);
+  color: var(--adb-text-accent);
+  cursor: pointer;
+}
+
+.range-label {
+  font-size: var(--adb-font-size-3);
+  color: var(--adb-text-primary);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--adb-spacing-xsm);
+
+  @media (max-width: 480px) {
+    gap: 2px;
+  }
+}
+
+.page-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: var(--adb-spacing-xsm);
+  border: none;
+  border-radius: 50%;
+  background: var(--adb-surface-subtle);
+  color: var(--adb-text-accent);
+  font-size: var(--adb-font-size-3);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--adb-background-hover, #d0d0d0);
+  }
+
+  &.active {
+    background: var(--adb-surface-accent);
+    color: var(--adb-text-invert);
+    font-weight: 600;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 480px) {
+    min-width: 28px;
+    height: 28px;
+    font-size: var(--adb-font-size-2, 0.75rem);
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  font-size: var(--adb-font-size-4);
+  color: var(--adb-text-subtle);
+}

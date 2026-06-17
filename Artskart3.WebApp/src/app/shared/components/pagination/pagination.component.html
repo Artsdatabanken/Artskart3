@@ -1,0 +1,59 @@
+<div class="pagination-container">
+  @if (showPageSizeSelector()) {
+    <div class="page-size-selector">
+      <select
+        class="page-size-select"
+        (change)="onPageSizeChange($event)"
+        [attr.aria-label]="'pagination.itemsPerPage' | translate"
+      >
+        @for (option of pageSizeOptions(); track option) {
+          <option [value]="option" [selected]="option === pageSize()">{{ option }}</option>
+        }
+      </select>
+      <span class="range-label">{{ rangeLabel() }}</span>
+    </div>
+  }
+
+  <nav class="pagination" [attr.aria-label]="'pagination.ariaLabel' | translate">
+    <button
+      class="page-button"
+      [attr.aria-label]="'pagination.previous' | translate"
+      [disabled]="!hasPreviousPage()"
+      (click)="previousPage()"
+    >
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    @if (showLeadingEllipsis()) {
+      <span class="ellipsis" aria-hidden="true">…</span>
+    }
+
+    @for (page of visiblePages(); track page) {
+      <button
+        class="page-button"
+        [class.active]="page === currentPage()"
+        [attr.aria-current]="page === currentPage() ? 'page' : null"
+        (click)="goToPage(page)"
+      >
+        {{ page }}
+      </button>
+    }
+
+    @if (hasMorePages()) {
+      <span class="ellipsis" aria-hidden="true">…</span>
+    }
+
+    <button
+      class="page-button"
+      [attr.aria-label]="'pagination.next' | translate"
+      [disabled]="!hasNextPage()"
+      (click)="nextPage()"
+    >
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </nav>
+</div>

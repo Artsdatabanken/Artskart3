@@ -7,6 +7,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
+    "generate-api-types": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/generate-api-types.mjs",
     "prestart": "node aspnetcore-https",
     "start:windows": "ng serve --ssl --ssl-cert \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.pem\" --ssl-key \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.key\" --host=127.0.0.1",
     "start:default": "ng serve --ssl --ssl-cert \"$HOME/.aspnet/https/${npm_package_name}.pem\" --ssl-key \"$HOME/.aspnet/https/${npm_package_name}.key\" --host=127.0.0.1"
@@ -52,6 +53,7 @@
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^27.1.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "8.56.1",
     "vitest": "^4.0.8"

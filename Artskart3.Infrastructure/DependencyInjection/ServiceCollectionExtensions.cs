@@ -12,6 +12,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ISearchRepository, SearchRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ILookupRepository, LookupRepository>();
         // Add other repositories here
         return services;
     }
@@ -20,6 +21,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ISearchService, SearchService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ILookupService, LookupService>();
         // Add other application services here
         return services;
     }
