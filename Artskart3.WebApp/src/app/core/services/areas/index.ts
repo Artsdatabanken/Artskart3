@@ -1,5 +1,4 @@
 export * from './areas.service';
-export * from './area-map-layer.service';
 
 export type {
   AreaMarkerDto,
