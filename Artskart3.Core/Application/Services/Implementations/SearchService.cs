@@ -28,7 +28,7 @@ public class SearchService : ISearchService
         {
             throw;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new ApplicationException("Feil ved henting av lokasjoner", ex);
         }

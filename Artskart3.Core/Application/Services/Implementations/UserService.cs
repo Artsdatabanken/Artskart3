@@ -21,7 +21,7 @@ public class UserService(IUserRepository userRepository, ILogger<UserService> lo
             };
             return userDto;
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             logger.LogError(e, "Error getting user");
             throw new ApplicationException("Error getting user", e);
@@ -38,7 +38,7 @@ public class UserService(IUserRepository userRepository, ILogger<UserService> lo
             var newUser = await userRepository.CreateUser(user, cancellationToken);
             return newUser;
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException and not ArgumentNullException)
         {
             logger.LogError(e, "Error creating user");
             throw new ApplicationException("Error creating user", e);

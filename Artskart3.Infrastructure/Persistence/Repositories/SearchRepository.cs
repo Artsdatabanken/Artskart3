@@ -465,7 +465,7 @@ public class SearchRepository : ISearchRepository
                 })
                 .ToList();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error retrieving areas for zoom level: {ZoomLevel}", zoomLevel);
             throw new ApplicationException(
