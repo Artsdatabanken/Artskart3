@@ -1,11 +1,15 @@
+using System.Runtime.CompilerServices;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -15,11 +19,13 @@ public class SearchRepository : ISearchRepository
 
     private readonly IArtsKartDbContext _context;
     private readonly ILogger<SearchRepository> _logger;
+    private readonly PaginationOptions _paginationOptions;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _paginationOptions = paginationOptions.Value;
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -28,7 +34,7 @@ public class SearchRepository : ISearchRepository
     /// 3. Contains matches
     /// Returns up to maxCount results from active taxa (not deleted and have observation data).
     /// </summary>
-    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = SearchConstants.DefaultMaxTaxonCount)
+    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = SearchConstants.DefaultMaxTaxonCount, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -66,7 +72,7 @@ public class SearchRepository : ISearchRepository
                     CumulativeObservationCount = t.CumulativeObservationCount,
                     ExistsInCountry = t.ExistsInCountry
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return result;
         }
@@ -80,7 +86,7 @@ public class SearchRepository : ISearchRepository
             _logger.LogError(ex, "Database error occurred during taxon search for name: {Name}", name);
             throw new ApplicationException("A database error occurred while searching taxa. Please try again later.", ex);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Unexpected error during taxon search for name: {Name}", name);
             throw new ApplicationException("An unexpected error occurred while searching taxa. Please contact support if the problem persists.", ex);
@@ -95,8 +101,8 @@ public class SearchRepository : ISearchRepository
     {
         return GetActiveTaxa()
             .Where(t =>
-                t.TaxonNames.Any(tn => !tn.IsDeleted && tn.ScientificName.ToLower() == searchTerm) ||
-                t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted && tpn.Name.ToLower() == searchTerm)
+                t.TaxonNames.Any(tn => !tn.IsDeleted && EF.Functions.Like(tn.ScientificName, searchTerm)) ||
+                t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted && EF.Functions.Like(tpn.Name, searchTerm))
             )
             .Select(t => t.Id);
     }
@@ -107,10 +113,10 @@ public class SearchRepository : ISearchRepository
         return GetActiveTaxa()
             .Where(t =>
                 t.TaxonNames.Any(tn => !tn.IsDeleted &&
-                    EF.Functions.Like(tn.ScientificName.ToLower(), startsWithPattern))
+                    EF.Functions.Like(tn.ScientificName, startsWithPattern))
                 ||
                 t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted &&
-                    EF.Functions.Like(tpn.Name.ToLower(), startsWithPattern))
+                    EF.Functions.Like(tpn.Name, startsWithPattern))
             )
             .Select(t => t.Id);
     }
@@ -121,21 +127,156 @@ public class SearchRepository : ISearchRepository
         return GetActiveTaxa()
             .Where(t =>
                 t.TaxonNames.Any(tn => !tn.IsDeleted &&
-                    EF.Functions.Like(tn.ScientificName.ToLower(), containsPattern))
+                    EF.Functions.Like(tn.ScientificName, containsPattern))
                 ||
                 t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted &&
-                    EF.Functions.Like(tpn.Name.ToLower(), containsPattern))
+                    EF.Functions.Like(tpn.Name, containsPattern))
             )
             .Select(t => t.Id);
     }
+
+
+    public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Set<Observation>()
+                            .AsNoTracking();
+
+        if (!string.IsNullOrEmpty(filter.PreferredPopularName))
+        {
+            var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
+        }
+
+        if (!string.IsNullOrEmpty(filter.ScientificName))
+        {
+            var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
+        }
+
+        if (!string.IsNullOrEmpty(filter.Author))
+        {
+            var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
+        }
+
+        if (filter.TaxonGroupIds?.Any() == true)
+        {
+            query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
+        }
+
+        if (filter.CategoryIds?.Any() == true)
+        {
+            query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
+        }
+
+        // Område- og institusjonsfiltre via ObservationAreaIndex-tabellen.
+        // Kombineres med OR i én EXISTS-spørring: en observasjon vises hvis den tilhører minst ett av de valgte områdene.
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+        var hasOrg = filter.OrganizationIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
+        {
+            var municipalityIds = filter.MunicipalityIds ?? [];
+            var countyIds = filter.CountyIds ?? [];
+            var restrictedIds = filter.RestrictedAreaIds ?? [];
+            var oceanIds = filter.OceanAreaIds ?? [];
+            var orgFids = hasOrg ? filter.OrganizationIds!.Select(id => id.ToString()).ToArray() : Array.Empty<string>();
+
+            query = query.Where(o => _context.Set<ObservationAreaIndex>().Any(idx =>
+                idx.ObservationId == o.Id && (
+                    (idx.AreaTypeId == 1 && municipalityIds.Contains(idx.AreaFid)) ||
+                    (idx.AreaTypeId == 2 && countyIds.Contains(idx.AreaFid)) ||
+                    (idx.AreaTypeId == 3 && restrictedIds.Contains(idx.AreaFid)) ||
+                    (idx.AreaTypeId == 4 && oceanIds.Contains(idx.AreaFid)) ||
+                    (idx.AreaTypeId == 5 && orgFids.Contains(idx.AreaFid))
+                )));
+        }
+
+        if (filter.BehaviorIds?.Any() == true)
+        {
+            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+        }
+
+        if (filter.BasisOfRecordIds?.Any() == true)
+        {
+            query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
+        }
+
+        if (filter.CoordinatePrecision?.From.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
+        }
+
+        if (filter.CoordinatePrecision?.To.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
+        }
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(o => o.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(o => o.DateTimeCollected <= toDate);
+        }
+
+        query = query.OrderBy(o => o.Id);
+
+        if (filter.IsPaginated)
+        {
+            var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
+            if (skip > 0)
+            {
+                query = query.Skip(skip);
+            }
+            query = query.Take(filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier);
+        }
+        else
+        {
+            query = query.Take(SearchConstants.DefaultMaxObservations);
+        }
+
+        return await query.Select(o => new ObservationDto
+        {
+            Id = o.Id,
+            PreferredPopularName = o.Taxon.PreferredPopularName,
+            ScientificName = o.Taxon.ValidScientificName,
+            Author = o.Taxon.ValidScientificNameAuthorship,
+            Institution = _context.Set<ObservationAreaIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 5)
+                .Join(_context.Set<Organization>(),
+                    idx => idx.AreaFid, org => org.Id.ToString(),
+                    (idx, org) => org.Name)
+                .FirstOrDefault(),
+            Locality = o.Location != null ? o.Location.Locality : null,
+            MunicipalityId = _context.Set<ObservationAreaIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.AreaTypeId == 1)
+                .Select(idx => idx.AreaFid)
+                .FirstOrDefault(),
+            TaxonGroupId = o.TaxonGroupId,
+            CategoryId = o.CategoryId,
+            DateTimeCollected = o.DateTimeCollected,
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
+        }).ToListAsync(cancellationToken);
+    }
+
+
+
     /// <summary>
     /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
     /// Aggregates observation counts by location, sorted by count descending.
     /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
     /// </summary>
-    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null)
+    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var locationModels = await FetchLocationModelsAsync(filter);
+        var locationModels = await FetchLocationModelsAsync(filter, cancellationToken);
 
         foreach (var model in locationModels)
         {
@@ -143,19 +284,19 @@ public class SearchRepository : ISearchRepository
         }
     }
 
-    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter)
+    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter, CancellationToken cancellationToken = default)
     {
         try
         {
             filter ??= new LocationSearchFilterDto();
 
             var query = BuildLocationsQuery(filter);
-            var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults);
+            var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults, cancellationToken);
 
             if (aggregatedData.Count == 0)
                 return [];
 
-            var locationModels = await BuildLocationModels(aggregatedData);
+            var locationModels = await BuildLocationModels(aggregatedData, cancellationToken);
 
             _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
 
@@ -173,7 +314,7 @@ public class SearchRepository : ISearchRepository
         {
             throw new ApplicationException("The location search operation was cancelled. Please try again.", ex);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
         }
@@ -222,7 +363,8 @@ public class SearchRepository : ISearchRepository
 
     private async Task<List<AggregatedLocationData>> AggregateLocationObservations(
         IQueryable<Observation> query,
-        int requestedMaxResults)
+        int requestedMaxResults,
+        CancellationToken cancellationToken = default)
     {
         var maxResults = requestedMaxResults > 0 && requestedMaxResults <= SearchConstants.MaxLocationResults
             ? requestedMaxResults
@@ -239,17 +381,17 @@ public class SearchRepository : ISearchRepository
             })
             .OrderByDescending(x => x.ObservationCount)
             .Take(maxResults)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
-    private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData)
+    private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData, CancellationToken cancellationToken = default)
     {
         var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
 
         var locationLookup = await _context.Set<Location>()
             .Where(l => locationIds.Contains(l.Id))
             .AsNoTracking()
-            .ToDictionaryAsync(l => l.Id);
+            .ToDictionaryAsync(l => l.Id, cancellationToken);
 
         var locationModels = new List<LocationModel>(aggregatedData.Count);
 
@@ -292,13 +434,13 @@ public class SearchRepository : ISearchRepository
     /// Area types: 1 = municipalities, 2 = counties.
     /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
     /// </summary>
-    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel)
+    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
         try
         {
             var areas = await _context.Set<Area>()
                 .Where(a => a.ZoomLevel == zoomLevel)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return areas
                 .GroupBy(a => a.Name)

@@ -1,3 +1,6 @@
+using Artskart3.Api.Configuration;
+using Artskart3.Api.Filters;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
@@ -91,7 +94,10 @@ try
         }
     });
 
-    builder.Services.AddControllers().AddJsonOptions(options =>
+    builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<GlobalExceptionFilter>();
+    }).AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
@@ -175,6 +181,10 @@ try
     builder.Services.AddRepositories();
     builder.Services.AddApplicationServices();
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
+
+    builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
+    builder.Services.Configure<PaginationOptions>(builder.Configuration.GetSection(PaginationOptions.SectionName));
+    builder.Services.AddScoped<SlowQueryLoggingFilter>();
 
     logger.LogInformation("Configuring health checks...");
     builder.Services.AddCustomHealthChecks(builder.Configuration, logger);

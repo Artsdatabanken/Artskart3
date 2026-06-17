@@ -12,6 +12,11 @@ public static class SearchConstants
     public const int MaxLocationResults = 100000;
     public const int MinLocationResults = 1;
 
+    // Observation search constants
+    public const int DefaultMaxObservations = 20;
+    public const int MaxObservationResults = 10000;
+    public const int MinObservationResults = 1;
+
     // Coordinate constants
     public const int DefaultEpsgCode = 25833;
 

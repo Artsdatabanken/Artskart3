@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.Entities;
@@ -6,6 +7,7 @@ using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -16,7 +18,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         var result = await sut.GetTaxonsAsync(null!);
 
@@ -28,7 +30,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         var result = await sut.GetTaxonsAsync("   ");
 
@@ -40,7 +42,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         var act = () => sut.GetTaxonsAsync("fugl", 0);
 
@@ -52,7 +54,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         var act = () => sut.GetTaxonsAsync("fugl", 1001);
 
@@ -64,7 +66,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
         var act = () => sut.GetTaxonsAsync("fugl", -1);
 
@@ -416,7 +418,7 @@ public class SearchRepositoryTests
     }
 
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<SearchRepository>.Instance);
+        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
 
     private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
         context.Set<Location>().AddRange(locations);
