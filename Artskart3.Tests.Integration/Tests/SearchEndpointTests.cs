@@ -146,22 +146,22 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Search/AreasObservations
+    // GET /api/Search/AreaMarkers
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetAreasObservations_WithDefaultZoomLevel_Returns200()
+    public async Task GetAreaMerkers_WithDefaultZoomLevel_Returns200()
     {
-        var response = await _client.GetAsync("/api/Search/AreasObservations");
+        var response = await _client.GetAsync("/api/Search/AreaMarkers");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
     }
 
     [Fact]
-    public async Task GetAreasObservations_WithZoomLevel1_Returns200WithJsonArray()
+    public async Task GetAreaMarkers_WithZoomLevel1_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Search/AreasObservations?zoomLevel=1");
+        var response = await _client.GetAsync("/api/Search/AreaMarkers?zoomLevel=1");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
@@ -170,9 +170,9 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAreasObservations_WithZoomLevel2_Returns200WithJsonArray()
+    public async Task GetAreaMarkers_WithZoomLevel2_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Search/AreasObservations?zoomLevel=2");
+        var response = await _client.GetAsync("/api/Search/AreaMarkers?zoomLevel=2");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();

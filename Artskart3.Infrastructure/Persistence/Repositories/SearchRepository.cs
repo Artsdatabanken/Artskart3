@@ -438,7 +438,7 @@ public class SearchRepository : ISearchRepository
     /// Area types: 1 = municipalities, 2 = counties.
     /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
     /// </summary>
-    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
         try
         {

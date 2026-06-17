@@ -133,19 +133,19 @@ public class SearchServiceBenchmarks
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level10()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(10);
+        _ = await _searchService.GetAreaMarkersAsync(10);
     }
 
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level15()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(15);
+        _ = await _searchService.GetAreaMarkersAsync(15);
     }
 
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level20()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(20);
+        _ = await _searchService.GetAreaMarkersAsync(20);
     }
 
 

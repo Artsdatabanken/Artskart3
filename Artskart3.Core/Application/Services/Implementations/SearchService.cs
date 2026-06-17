@@ -45,10 +45,10 @@ public class SearchService : ISearchService
         return alltaxons;
     }
 
-    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
         //TODO, sjekk om vi kan fjerne denne og legge den til i GetObservationsAsync
-        var areas = await _searchRepository.GetObservationsByZoomLevelAsync(zoomLevel, cancellationToken);
+        var areas = await _searchRepository.GetAreaMarkersAsync(zoomLevel, cancellationToken);
         return areas;
     }
 }
