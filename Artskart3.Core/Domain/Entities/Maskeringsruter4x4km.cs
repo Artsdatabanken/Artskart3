@@ -1,4 +1,4 @@
-﻿using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries;
 
 
 namespace Artskart3.Core.Domain.Entities;

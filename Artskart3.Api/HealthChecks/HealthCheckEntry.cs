@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 namespace Artskart3.Api.HealthChecks;
+
 public class HealthCheckEntry
 {
     [JsonPropertyName("data")]

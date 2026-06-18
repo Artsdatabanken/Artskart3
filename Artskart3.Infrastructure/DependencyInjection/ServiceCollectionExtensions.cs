@@ -1,13 +1,16 @@
-using Microsoft.Extensions.DependencyInjection;
+using Artskart3.Core.Application.Services.Implementations;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Repositories;
-using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Application.Services.Implementations;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace Artskart3.Infrastructure.DependencyInjection
+namespace Artskart3.Infrastructure.DependencyInjection;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
+<<<<<<< HEAD
         public static IServiceCollection AddRepositories(this IServiceCollection services)
         {
             services.AddScoped<ISearchRepository, SearchRepository>();
@@ -23,5 +26,19 @@ namespace Artskart3.Infrastructure.DependencyInjection
             // Add other application services here
             return services;
         }
+=======
+        services.AddScoped<ISearchRepository, SearchRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        // Add other repositories here
+        return services;
+    }
+
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    {
+        services.AddScoped<ISearchService, SearchService>();
+        services.AddScoped<IUserService, UserService>();
+        // Add other application services here
+        return services;
+>>>>>>> origin/develop
     }
 }

@@ -1,11 +1,10 @@
-using System.Data.SqlTypes;
-using Newtonsoft.Json;
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 using Artskart3.Core.Domain.Enums;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.BusinessModels;
+
 public class LocationModel
 {
     public int Id { get; set; }
@@ -17,6 +16,7 @@ public class LocationModel
     public double Longitude { get; set; }
     public int East { get; set; }
     public int North { get; set; }
+    public int? TaxonId { get; set; }
     public Collection<ObservationBaseModel> Observations { get; set; } = new Collection<ObservationBaseModel>();
     public Collection<AreaModel> Areas { get; set; } = new Collection<AreaModel>();
     public LocationModel()
@@ -53,11 +53,11 @@ public class LocationModel
                 _maxCategory = Category.Unknown;
                 foreach (var observation in Observations)
                 {
-                    if (observation.GetType() == typeof (ObservationModel) || observation.GetType() == typeof(ObservationWithLocationModel))
+                    if (observation.GetType() == typeof(ObservationModel) || observation.GetType() == typeof(ObservationWithLocationModel))
                     {
-                        if (((ObservationModel) observation).Category > _maxCategory)
+                        if (((ObservationModel)observation).Category > _maxCategory)
                         {
-                            _maxCategory = ((ObservationModel) observation).Category;
+                            _maxCategory = ((ObservationModel)observation).Category;
                         }
                     }
                     else
@@ -73,9 +73,4 @@ public class LocationModel
     }
 
     public int DominantTaxonId { get; set; }
-
-    [JsonIgnore]
-    public int X { get; set; }
-    [JsonIgnore]
-    public int Y { get; set; }
 }

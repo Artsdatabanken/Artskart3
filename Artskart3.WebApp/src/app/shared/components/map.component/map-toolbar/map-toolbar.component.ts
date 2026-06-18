@@ -1,9 +1,10 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, Output, EventEmitter, Input, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
+import { LoggingService } from '@shared/logging.service';
 
 type ActionHandler = () => void;
 
@@ -15,17 +16,12 @@ type ActionHandler = () => void;
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
-export class MapToolbarComponent implements OnInit, OnDestroy {
+export class MapToolbarComponent {
   @Input() public map!: NbicMapComponent;
-  isGeolocating = false;
-  @Input() mapEl!: HTMLDivElement;
-
-  private cachedPosition: GeolocationPosition | null = null;
-  private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
 
+  private readonly logger = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
-
 
   private readonly actionHandlers: Record<ToolbarAction, ActionHandler> = {
     [ToolbarAction.ZOOM_IN]: () => this.zoomIn(),
@@ -37,23 +33,6 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     [ToolbarAction.FILTER]: () => this.emitAction(ToolbarAction.FILTER),
     [ToolbarAction.POLYGON]: () => this.emitAction(ToolbarAction.POLYGON),
   };
-
-  ngOnInit(): void {
-    if (navigator.geolocation) {
-      this.watchId = navigator.geolocation.watchPosition(
-        (pos) => { this.cachedPosition = pos; },
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        () => {},
-        { enableHighAccuracy: false, maximumAge: 300000 }
-      );
-    }
-  }
-
-  ngOnDestroy(): void {
-    if (this.watchId !== null) {
-      navigator.geolocation.clearWatch(this.watchId);
-    }
-  }
 
   onButtonClick(iconName: string): void {
     this.handleIconClick(iconName);
@@ -70,8 +49,8 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     if (handler) {
       try {
         handler();
-      } catch (error) {
-        console.error(`Error executing action '${actionName}':`, error);
+      } catch (error: unknown) {
+        this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
       }
     } else {
       this.iconClick.emit(actionName);
@@ -91,26 +70,8 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   }
 
   private geolocation(): void {
-    if (this.isGeolocating || !this.map) return;
-
-    this.isGeolocating = true;
-
-
-    if (this.cachedPosition) {
-      const { longitude, latitude } = this.cachedPosition.coords;
-      const coord = this.map.transformCoordsFrom([longitude, latitude], 'EPSG:4326', 'EPSG:25833');
-      this.map.setCenter(coord);
-      this.map.setZoom(14);
-    } else {
-      this.map.zoomToGeolocation();
-    }
-    setTimeout(() => {
-      this.resetGeolocationState();
-    }, 100);
-  }
-
-  private resetGeolocationState(): void {
-    this.isGeolocating = false;
+    if (!this.map) return;
+    this.map.zoomToGeolocation(14);
   }
 
   private emitAction(action: ToolbarAction): void {
@@ -118,15 +79,11 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   }
 
   private toggleFullscreen(): void {
-    const mapContainer = this.mapEl;
+    if (!this.map) return;
     if (!document.fullscreenElement) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
-      mapContainer.requestFullscreen().catch((err: any) => {
-      });
+      this.map.enterFullScreen();
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
-      document.exitFullscreen().catch((err: any) => {
-      });
+      this.map.leaveFullScreen();
     }
   }
 }

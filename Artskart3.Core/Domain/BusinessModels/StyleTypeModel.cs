@@ -17,9 +17,9 @@ public enum StyleType
 public class StyleTypeModel
 {
     public StyleType Style { get; set; }
-    public string DisplayName { get; set; }
-    public string Description { get; set; }
-    public string ColorCode { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string ColorCode { get; set; } = string.Empty;
 
     public StyleTypeModel()
     {

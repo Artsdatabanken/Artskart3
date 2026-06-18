@@ -16,7 +16,7 @@ export class MapTypeSelectorComponent {
 
   readonly mapTypeOptions = MAP_TYPE_OPTIONS;
   isMapTypesOpen = false;
-  selectedLayerId = 'topografiskBaseLayer';
+  selectedLayerId = 'topografisk';
 
   private readonly translate = inject(TranslateService);
 

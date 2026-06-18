@@ -1,0 +1,30 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Common properties shared across all projects -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Treat all warnings as errors -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      NU1900-NU1904: Sårbarheter i NuGet-pakker (fra lav til kritisk alvorlighetsgrad).
+      Beholder disse som warnings, vi ønsker ikke å stoppe alle fra å bygge fordi en pakke har sårbarheter.
+      Noen ganger er det ikke noen fiks klar og det er unødvendig at alle må fikse samme feilen.
+    -->
+    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+
+    <!-- Håndhev .editorconfig regler ved bygg -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!--
+      Kreves for at IDE0005 (fjern ubrukte usings) skal fungere ved bygg.
+      CS1591 undertrykkes fordi vi ikke ønsker å kreve XML-dokumentasjon på alle public members.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

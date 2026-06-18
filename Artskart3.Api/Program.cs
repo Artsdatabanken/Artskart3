@@ -1,12 +1,14 @@
-using RobotsTxt;
-using Microsoft.EntityFrameworkCore;
-using Artskart3.Infrastructure.DependencyInjection;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.DependencyInjection;
 using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using RobotsTxt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,7 +42,7 @@ try
     logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
-    
+
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
@@ -94,7 +96,7 @@ try
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
     builder.Services.AddSwaggerGen();
-    
+
     var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
     if (!string.IsNullOrEmpty(appInsightsConnectionString))
     {
@@ -128,6 +130,26 @@ try
             options.Scope.Add("email");
             options.Scope.Add("profile");
             options.Scope.Add("roles");
+
+            options.Events.OnTicketReceived = async context =>
+            {
+                var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                var subject = context.Principal?.FindFirst("sub")?.Value;
+                if (!Guid.TryParse(subject, out var userId))
+                {
+                    context.Fail("Authenticated user is missing");
+                    return;
+                }
+
+                var user = new User
+                {
+                    Id = userId,
+                    Name = context.Principal?.FindFirst("name")?.Value ?? string.Empty,
+                    Email = context.Principal?.FindFirst("email")?.Value ?? string.Empty,
+                };
+                await userService.GetOrCreateUser(user);
+            };
+
         }).ConfigureCookies(options =>
         {
             options.Cookie.SameSite = SameSiteMode.Lax;
@@ -159,7 +181,7 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
-    
+
     app.UseForwardedHeaders();
 
     // Auto-apply pending migrations only if enabled in configuration
@@ -168,7 +190,7 @@ try
     {
         logger.LogWarning("AutoMigrate is enabled in non-development environment - this is not recommended for production");
     }
-    
+
     if (autoMigrateDb)
     {
         try
@@ -231,10 +253,10 @@ try
         ResponseWriter = HealthCheckExtensions.WriteJsonResponse,
         AllowCachingResponses = !app.Environment.IsDevelopment()
     };
-    
+
     app.MapHealthChecks("/hc", healthCheckOptions);
     logger.LogInformation("Health check endpoint mapped to '/hc'");
-    
+
     app.UseBff();
     app.UseAuthorization();
     app.MapBffManagementEndpoints();
@@ -245,7 +267,7 @@ try
     app.MapFallbackToFile("/index.html");
 
     logger.LogInformation("Application Started Successfully");
-   
+
     app.Run();
 }
 catch (Exception ex)

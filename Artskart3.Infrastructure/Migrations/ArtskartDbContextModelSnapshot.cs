@@ -93,6 +93,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<Geometry>("WktPolygon")
                         .HasColumnType("geometry");
 
+                    b.Property<int>("ZoomLevel")
+                        .HasColumnType("int");
+
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
 
@@ -2347,6 +2350,37 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.TaxonomyState");
 
                     b.ToTable("TaxonomyState", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("LocationArea", b =>
