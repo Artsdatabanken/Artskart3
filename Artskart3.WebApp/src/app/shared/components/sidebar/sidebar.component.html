@@ -1,27 +1,20 @@
 <div class="sidebar-content">
   <div class="filter-section search-field">
-    <input
-      id="search"
-      type="text"
-      [attr.placeholder]="'baseLayout.searchPlaceholder' | translate"
-      class="filter-input"
-    />
+    <input id="search" type="text" [attr.placeholder]="'baseLayout.searchPlaceholder' | translate" class="filter-input" />
   </div>
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
   </div>
-  @if (taxonGroups(); as taxonGroupList) {
-    @if (taxonGroupList.length > 0) {
-      <adb-accordion>
-        <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+      @if (taxonGroups(); as taxonGroupList) {
+        @if (taxonGroupList.length > 0) {
           <div class="checkbox-accordion-children">
             @for (taxonGroup of taxonGroupList; track taxonGroup.id ?? $index) {
               @if (taxonGroup.id !== undefined && taxonGroup.id !== null) {
-                <adb-checkbox
-                  [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null"
-                  (change)="onTaxonGroupToggle(taxonGroup.id)"
-                >
+                <adb-checkbox [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null" (change)="onTaxonGroupToggle(taxonGroup.id)">
                   {{ taxonGroup.name }}
                   @if (taxonGroup.observationCount !== null && taxonGroup.observationCount !== undefined) {
                     <span slot="counter">{{ taxonGroup.observationCount }}</span>
@@ -30,14 +23,15 @@
               }
             }
           </div>
-        </adb-accordion-item>
-      </adb-accordion>
-    }
-  }
-  @if (categoryTypes(); as types) {
-    <adb-accordion>
-      <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
-        <adb-accordion >
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
+      @if (categoryTypes(); as types) {
+        <adb-accordion>
           @for (type of types; track type.id ?? $index) {
             <adb-accordion-item>
               <adb-checkbox
@@ -52,10 +46,7 @@
               <div class="category-children">
                 @for (category of type.categories ?? []; track category.id ?? $index) {
                   @if (category.id !== undefined) {
-                    <adb-checkbox
-                      [attr.checked]="isCategorySelected(category.id) ? '' : null"
-                      (change)="onCategoryToggle(category.id)"
-                    >
+                    <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                       {{ category.name }} {{ category.code }}
                       @if (category.observationCount !== null && category.observationCount !== undefined) {
                         <span slot="counter">{{ category.observationCount }}</span>
@@ -67,14 +58,17 @@
             </adb-accordion-item>
           }
         </adb-accordion>
-      </adb-accordion-item>
-    </adb-accordion>
-  }
-  @if (countyGroups(); as groups) {
-    @if (groups.length > 0) {
-      <adb-accordion>
-        <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
-          <h6 class="area-section-heading">{{ 'sidebar.areaSection.fastlandsNorge' | translate }}</h6>
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+      @if (countyGroups(); as groups) {
+        @if (groups.length > 0) {
+          <h6 class="area-section-heading">
+            {{ 'sidebar.areaSection.fastlandsNorge' | translate }}
+          </h6>
           <adb-accordion>
             @for (group of groups; track group.county.fid) {
               <adb-accordion-item>
@@ -161,10 +155,7 @@
             <div class="category-flat">
               @for (area of oceanAreas.municipalities; track area.fid) {
                 @if (area.fid) {
-                  <adb-checkbox
-                    [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null"
-                    (change)="onOceanAreaToggle(area.fid)"
-                  >
+                  <adb-checkbox [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null" (change)="onOceanAreaToggle(area.fid)">
                     {{ area.name }}
                     @if (area.observationCount !== null && area.observationCount !== undefined) {
                       <span slot="counter">{{ area.observationCount }}</span>
@@ -174,10 +165,11 @@
               }
             </div>
           }
-        </adb-accordion-item>
-      </adb-accordion>
-    }
-  }
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.coordinatePrecision' | translate">
       <div class="coordinate-precision-filter">
@@ -246,17 +238,15 @@
       </div>
     </adb-accordion-item>
   </adb-accordion>
-  @if (behaviors(); as behaviorList) {
-    @if (behaviorList.length > 0) {
-      <adb-accordion>
-        <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+      @if (behaviors(); as behaviorList) {
+        @if (behaviorList.length > 0) {
           <div class="checkbox-accordion-children">
             @for (behavior of behaviorList; track behavior.id ?? $index) {
               @if (behavior.id !== undefined && behavior.id !== null) {
-                <adb-checkbox
-                  [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null"
-                  (change)="onBehaviorToggle(behavior.id)"
-                >
+                <adb-checkbox [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null" (change)="onBehaviorToggle(behavior.id)">
                   {{ getBehaviorDisplayName(behavior) }}
                   @if (behavior.observationCount !== null && behavior.observationCount !== undefined) {
                     <span slot="counter">{{ behavior.observationCount }}</span>
@@ -265,14 +255,15 @@
               }
             }
           </div>
-        </adb-accordion-item>
-      </adb-accordion>
-    }
-  }
-  @if (basisOfRecords(); as basisOfRecordList) {
-    @if (basisOfRecordList.length > 0) {
-      <adb-accordion>
-        <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+      @if (basisOfRecords(); as basisOfRecordList) {
+        @if (basisOfRecordList.length > 0) {
           <div class="checkbox-accordion-children">
             @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
               @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
@@ -288,14 +279,15 @@
               }
             }
           </div>
-        </adb-accordion-item>
-      </adb-accordion>
-    }
-  }
-  @if (institutions(); as institutionList) {
-    @if (institutionList.length > 0) {
-      <adb-accordion>
-        <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+      @if (institutions(); as institutionList) {
+        @if (institutionList.length > 0) {
           <div class="checkbox-accordion-children">
             @for (institution of institutionList; track institution.id ?? $index) {
               @if (institution.id !== undefined && institution.id !== null) {
@@ -311,8 +303,8 @@
               }
             }
           </div>
-        </adb-accordion-item>
-      </adb-accordion>
-    }
-  }
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
 </div>
