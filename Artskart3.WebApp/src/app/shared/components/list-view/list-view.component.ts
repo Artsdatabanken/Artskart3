@@ -5,13 +5,12 @@ import { ObservationService } from '../../services/observation/observation.servi
 import { AreaService } from '../../services/area/area.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
-import { PaginationComponent } from '../pagination/pagination.component';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, PaginationComponent, LocaleDatePipe, MeterUnitPipe],
+  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',

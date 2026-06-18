@@ -24,31 +24,32 @@
         </thead>
         <tbody>
           @for (obs of observationsResource.value().items; track obs.id ?? $index) {
-           <tr>
-             <td>{{ obs.preferredPopularName }}</td>
-             <td [innerHTML]="obs.scientificName"></td>
-             <td>{{ obs.author }}</td>
-             <td>{{ obs.institution }}</td>
-             <td>{{ obs.dateTimeCollected | localeDate }}</td>
-             <td>{{ obs.locality }}</td>
-             <td>{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
-             <td>{{ getAreaName(obs.municipalityId) }}</td>
-           </tr>
+            <tr>
+              <td>{{ obs.preferredPopularName }}</td>
+              <td [innerHTML]="obs.scientificName"></td>
+              <td>{{ obs.author }}</td>
+              <td>{{ obs.institution }}</td>
+              <td>{{ obs.dateTimeCollected | localeDate }}</td>
+              <td>{{ obs.locality }}</td>
+              <td>{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
+              <td>{{ getAreaName(obs.municipalityId) }}</td>
+            </tr>
           } @empty {
-           <tr>
-             <td colspan="8" class="empty-message">{{ 'listView.noResults' | translate }}</td>
-           </tr>
+            <tr>
+              <td colspan="8" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+            </tr>
           }
         </tbody>
       </table>
-      <app-pagination
-        [currentPage]="pageNumber()"
-        [totalVisiblePages]="totalVisiblePages()"
-        [hasMorePages]="hasMorePages()"
-        [pageSizeOptions]="pageSizeOptions"
-        [pageSize]="resultsPerPage()"
-        (pageChange)="onPageChange($event)"
-        (pageSizeChange)="onPageSizeChange($event)"
+      <adb-pagination
+        class="pagination"
+        [attr.current-page]="pageNumber()"
+        [attr.visible-pages]="4"
+        [attr.has-more-pages]="hasMorePages() || null"
+        [attr.page-size-options]="pageSizeOptions.join(',')"
+        [attr.page-size]="resultsPerPage()"
+        (page-change)="onPageChange($any($event).detail.page)"
+        (page-size-change)="onPageSizeChange($any($event).detail.pageSize)"
       />
     </div>
   }

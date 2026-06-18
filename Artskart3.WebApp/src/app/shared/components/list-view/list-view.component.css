@@ -34,7 +34,8 @@
   border: 2px solid var(--adb-border-default);
   border-top: none;
 
-  th, td {
+  th,
+  td {
     padding: var(--adb-spacing-sm) var(--adb-spacing-md);
     text-align: left;
   }
@@ -74,4 +75,8 @@
   text-align: center;
   color: var(--adb-text-secondary);
   padding: var(--adb-spacing-lg);
+}
+
+.pagination {
+  padding-top: var(--adb-spacing-md);
 }
