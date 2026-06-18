@@ -14,7 +14,6 @@ import { map } from 'rxjs/operators';
 import {
   AreaMarkerDto,
   AreaMarkerFeature,
-  getAreaTypeName,
 } from '@shared/models/area/area-marker.model';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -24,14 +23,14 @@ import { ValidationService } from '../validation.service';
 import { ApiMessages } from '@core/constants/api-messages';
 
 /**
- * NBIC styling configuration for location markers
+ * NBIC styling configuration for location markers (solid circle)
  */
 const NBIC_LOCATION_STYLE = {
   'nbic:style': {
-    strokeColor: '#005A71',
-    fillColor: 'rgba(0, 90, 113, 0.15)',
+    pointRadius: 8,
+    fillColor: '#005A71',
+    strokeColor: '#D2DDE0',
     strokeWidth: 2,
-    circle: { radius: 6, fillColor: '#005A71', strokeColor: '#D2DDE0', strokeWidth: 2 }
   }
 };
 
@@ -102,28 +101,27 @@ export class AreasService {
   }
 
   /**
-   * Gets area observations as GeoJSON features for map rendering
-   * @param openLayerZoom - Current OpenLayers zoom level (0-18)
-   * Note: For zoom > 12 (API level 3), use getLocationsAsGeoJson() instead
-   * Note: Does not use shareReplay to ensure fresh data on zoom level changes
+   * Gets area observations as a serialized GeoJSON FeatureCollection string
+   * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
+   * Includes both polygon boundaries and centroid marker points.
    */
-  getAreasObservationsAsGeoJson(openLayerZoom: number): Observable<AreaMarkerFeature[]> {
+  getAreasObservationsAsGeoJsonString(openLayerZoom: number): Observable<string> {
     return this.fetchAreaObservations(openLayerZoom).pipe(
-      map(areas => this.convertToGeoJsonFeatures(areas))
+      map(areas => this.buildAreaFeatureCollection(areas))
     );
   }
 
   /**
-   * Fetches locations as GeoJSON point features (for high zoom levels)
-   * Note: Does not use shareReplay to ensure fresh data on zoom level changes
+   * Fetches locations as a serialized GeoJSON FeatureCollection string
+   * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
    */
-  getLocationsAsGeoJson(): Observable<AreaMarkerFeature[]> {
+  getLocationsAsGeoJsonString(): Observable<string> {
     return this.apiClientService.fetchJson<string>(this.locationsEndpoint, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
-        const features: AreaMarkerFeature[] = this.mapLocationsToGeoJson(parsed);
+        const features = this.mapLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
-        return features;
+        return JSON.stringify({ type: 'FeatureCollection', features });
       })
     );
   }
@@ -205,32 +203,76 @@ export class AreasService {
     return [null, null];
   }
 
-  private convertToGeoJsonFeatures(areas: AreaMarkerDto[]): AreaMarkerFeature[] {
-    const features: AreaMarkerFeature[] = [];
+  /**
+   * Builds a GeoJSON FeatureCollection string from area DTOs.
+   * Each area produces two features:
+   * - A polygon with stroke-only style (boundary)
+   * - A point at the centroid with an icon + count label
+   */
+  private buildAreaFeatureCollection(areas: AreaMarkerDto[]): string {
+    const features: unknown[] = [];
 
     for (const area of areas) {
       const polygonCoords = parsePolygonWkt(area.wktsPolygon);
       if (!polygonCoords) continue;
 
+      const count = area.observationCount ?? 0;
+      const formattedCount = count > 0 ? AbbreviateNumberHelper.format(count) : '';
+      const centroid = this.calculateCentroid(polygonCoords[0]);
+
+      // Polygon boundary feature
       features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Polygon' as const, coordinates: polygonCoords as number[][][] },
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: polygonCoords },
         properties: {
           id: area.id,
           name: area.name,
           areaTypeId: area.areaTypeId,
-          areaTypeName: getAreaTypeName(area.areaTypeId),
-          observationCount: area.observationCount ?? null,
-          observationCountDisplay: area.observationCount && area.observationCount > 0
-            ? AbbreviateNumberHelper.format(area.observationCount)
-            : '',
           fid: area.fid,
-          isPolygon: true
+          'nbic:style': {
+            strokeColor: 'rgba(10, 109, 188, 0.6)',
+            strokeWidth: 1.5,
+            fillColor: 'rgba(0, 0, 0, 0)',
+          }
+        }
+      });
+
+      // Centroid marker feature with circle + count label
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: centroid },
+        properties: {
+          id: area.id,
+          name: area.name,
+          areaTypeId: area.areaTypeId,
+          observationCount: count,
+          fid: area.fid,
+          'nbic:style': {
+            pointRadius: 20,
+            fillColor: '#005A71',
+            strokeColor: '#D2DDE0',
+            strokeWidth: 1.5,
+            text: {
+              label: formattedCount,
+              font: 'bold 10px Arial',
+              fillColor: '#FFFFFF',
+            }
+          }
         }
       });
     }
 
-    return features;
+    this.loggerService.info(`Built ${features.length} GeoJSON features from ${areas.length} areas`, AreasService.SERVICE_NAME);
+    return JSON.stringify({ type: 'FeatureCollection', features });
+  }
+
+  private calculateCentroid(ring: number[][]): [number, number] {
+    if (!ring || ring.length === 0) return [0, 0];
+    let x = 0, y = 0;
+    for (const coord of ring) {
+      x += coord[0];
+      y += coord[1];
+    }
+    return [x / ring.length, y / ring.length];
   }
 }
-
