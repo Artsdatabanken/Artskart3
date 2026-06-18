@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, Input, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import { Component, Output, EventEmitter, Input, CUSTOM_ELEMENTS_SCHEMA, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
@@ -16,12 +16,15 @@ type ActionHandler = () => void;
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
-export class MapToolbarComponent {
+export class MapToolbarComponent implements OnInit, OnDestroy {
   @Input() public map!: NbicMapComponent;
   @Output() iconClick = new EventEmitter<string>();
 
   private readonly logger = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
+  protected readonly geolocationDenied = signal(false);
+
+  private permissionStatus: PermissionStatus | null = null;
 
   private readonly actionHandlers: Record<ToolbarAction, ActionHandler> = {
     [ToolbarAction.ZOOM_IN]: () => this.zoomIn(),
@@ -40,6 +43,37 @@ export class MapToolbarComponent {
 
   onMapTypeSelected(layerId: string): void {
     this.iconClick.emit(`map-type:${layerId}`);
+  }
+
+  ngOnInit(): void {
+    this.queryGeolocationPermission();
+  }
+
+  ngOnDestroy(): void {
+    if (this.permissionStatus) {
+      this.permissionStatus.onchange = null;
+    }
+  }
+
+  private queryGeolocationPermission(): void {
+    if (!navigator.permissions) return;
+
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        this.permissionStatus = status;
+
+        if (status.state === 'denied') {
+          this.geolocationDenied.set(true);
+        }
+
+        status.onchange = () => {
+          this.geolocationDenied.set(status.state === 'denied');
+        };
+      })
+      .catch(() => {
+        // Permissions API not supported for geolocation in this browser
+      });
   }
 
   private handleIconClick(actionName: string): void {
@@ -69,9 +103,35 @@ export class MapToolbarComponent {
     this.map.setZoom(zoom - 1);
   }
 
-  private geolocation(): void {
+  private async geolocation(): Promise<void> {
     if (!this.map) return;
-    this.map.zoomToGeolocation(14);
+
+    const permissionGranted = await new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(true),
+        (error) => {
+          if (error.code === 1) {
+            // PERMISSION_DENIED
+            resolve(false);
+          } else {
+            // Other errors (timeout, position unavailable) — still allowed
+            resolve(true);
+          }
+        },
+        { timeout: 5000, maximumAge: Infinity },
+      );
+    });
+
+    if (!permissionGranted) {
+      this.geolocationDenied.set(true);
+      return;
+    }
+
+    try {
+      await this.map.zoomToGeolocation(14);
+    } catch {
+      // Map zoom failed but permission was granted — don't disable button
+    }
   }
 
   private emitAction(action: ToolbarAction): void {

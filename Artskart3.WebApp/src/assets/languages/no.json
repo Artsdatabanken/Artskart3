@@ -44,6 +44,7 @@
     "zoomInAriaLabel": "Zoom inn",
     "zoomOutAriaLabel": "Zoom ut",
     "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
-    "mapTypeHeading": "Type kart"
+    "mapTypeHeading": "Type kart",
+    "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   }
 }
