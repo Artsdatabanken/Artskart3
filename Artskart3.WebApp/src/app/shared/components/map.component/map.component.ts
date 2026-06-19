@@ -34,6 +34,8 @@ import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
+import {ObservationService} from '@shared/services/observation/observation.service';
+import {HttpClient} from '@angular/common/http';
 
 @Component({
   selector: 'app-map',
@@ -64,6 +66,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
+  private readonly observationService = inject(ObservationService);
   private readonly logger = inject(LoggingService);
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
@@ -145,6 +148,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.adoptMapControls();
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
+      this.map.on('pointer:click', (payload) => {
+        if(payload.features) {
+          for (const { feature, layer } of  payload.features) {
+            var id = feature.getId();
+            if (typeof id === 'number') {
+              this.observationService.getObservationByLocation(id).subscribe();
+            }
+            else {
+              this.logger.error("Feature ID is not a number:", id);
+            }
+          }
+        }
+      })
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }

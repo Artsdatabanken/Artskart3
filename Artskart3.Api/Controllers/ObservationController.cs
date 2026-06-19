@@ -33,6 +33,7 @@ public class ObservationController(IObservationService observationService, ILogg
     {
         try
         {
+            Console.WriteLine("Hello", locationId);
             IEnumerable<Observation> observations = await observationService.GetObservationsByLocation(locationId);
             return observations;
         }
