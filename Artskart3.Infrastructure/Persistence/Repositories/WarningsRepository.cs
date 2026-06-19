@@ -6,55 +6,54 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Artskart3.Infrastructure.Persistence.Repositories
+namespace Artskart3.Infrastructure.Persistence.Repositories;
+
+public class WarningsRepository : IWarningsRepository
 {
-    public class WarningsRepository : IWarningsRepository
+    private readonly string _filePath;
+    private readonly ILogger<WarningsRepository> _logger;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        private readonly string _filePath;
-        private readonly ILogger<WarningsRepository> _logger;
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
-        private static readonly JsonSerializerOptions JsonOptions = new()
+    public WarningsRepository(IHostEnvironment hostEnvironment, IConfiguration configuration, ILogger<WarningsRepository> logger)
+    {
+        ArgumentNullException.ThrowIfNull(hostEnvironment);
+        ArgumentNullException.ThrowIfNull(configuration);
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        var relativePath = configuration["JsonDb:WarningsPath"]
+            ?? throw new InvalidOperationException("JsonDb:WarningsPath is not configured.");
+
+        _filePath = Path.GetFullPath(Path.Combine(hostEnvironment.ContentRootPath, relativePath));
+    }
+
+    public async Task<IEnumerable<WarningModel>> GetAllWarningsAsync()
+    {
+        try
         {
-            PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter() }
-        };
-
-        public WarningsRepository(IHostEnvironment hostEnvironment, IConfiguration configuration, ILogger<WarningsRepository> logger)
-        {
-            ArgumentNullException.ThrowIfNull(hostEnvironment);
-            ArgumentNullException.ThrowIfNull(configuration);
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-            var relativePath = configuration["JsonDb:WarningsPath"]
-                ?? throw new InvalidOperationException("JsonDb:WarningsPath is not configured.");
-
-            _filePath = Path.GetFullPath(Path.Combine(hostEnvironment.ContentRootPath, relativePath));
-        }
-
-        public async Task<IEnumerable<WarningModel>> GetAllWarningsAsync()
-        {
-            try
+            if (!File.Exists(_filePath))
             {
-                if (!File.Exists(_filePath))
-                {
-                    _logger.LogWarning("Warnings file not found at: {FilePath}", _filePath);
-                    return Enumerable.Empty<WarningModel>();
-                }
+                _logger.LogWarning("Warnings file not found at: {FilePath}", _filePath);
+                return Enumerable.Empty<WarningModel>();
+            }
 
-                var json = await File.ReadAllTextAsync(_filePath);
-                var result = JsonSerializer.Deserialize<WarningsFile>(json, JsonOptions);
-                return result?.Warnings ?? Enumerable.Empty<WarningModel>();
-            }
-            catch (Exception ex) when (ex is not ApplicationException)
-            {
-                _logger.LogError(ex, "Error reading warnings file at: {FilePath}", _filePath);
-                throw new ApplicationException("An error occurred while reading the warnings file.", ex);
-            }
+            var json = await File.ReadAllTextAsync(_filePath);
+            var result = JsonSerializer.Deserialize<WarningsFile>(json, JsonOptions);
+            return result?.Warnings ?? Enumerable.Empty<WarningModel>();
         }
-
-        private sealed class WarningsFile
+        catch (Exception ex) when (ex is not ApplicationException)
         {
-            public List<WarningModel> Warnings { get; set; } = [];
+            _logger.LogError(ex, "Error reading warnings file at: {FilePath}", _filePath);
+            throw new ApplicationException("An error occurred while reading the warnings file.", ex);
         }
+    }
+
+    private sealed class WarningsFile
+    {
+        public List<WarningModel> Warnings { get; set; } = [];
     }
 }

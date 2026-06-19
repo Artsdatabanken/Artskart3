@@ -10,24 +10,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
-<<<<<<< HEAD
-        public static IServiceCollection AddRepositories(this IServiceCollection services)
-        {
-            services.AddScoped<ISearchRepository, SearchRepository>();
-            services.AddScoped<IWarningsRepository, WarningsRepository>();
-            // Add other repositories here
-            return services;
-        }
-
-        public static IServiceCollection AddApplicationServices(this IServiceCollection services)
-        {
-            services.AddScoped<ISearchService, SearchService>();
-            services.AddScoped<IWarningsService, WarningsService>();
-            // Add other application services here
-            return services;
-        }
-=======
         services.AddScoped<ISearchRepository, SearchRepository>();
+        services.AddScoped<IWarningsRepository, WarningsRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         // Add other repositories here
         return services;
@@ -36,9 +20,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<ISearchService, SearchService>();
+        services.AddScoped<IWarningsService, WarningsService>();
         services.AddScoped<IUserService, UserService>();
         // Add other application services here
         return services;
->>>>>>> origin/develop
     }
 }

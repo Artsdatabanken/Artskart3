@@ -1,9 +1,8 @@
 using Artskart3.Core.Domain.BusinessModels;
 
-namespace Artskart3.Core.Domain.RepositoryInterfaces
+namespace Artskart3.Core.Domain.RepositoryInterfaces;
+
+public interface IWarningsRepository
 {
-    public interface IWarningsRepository
-    {
-        Task<IEnumerable<WarningModel>> GetAllWarningsAsync();
-    }
+    Task<IEnumerable<WarningModel>> GetAllWarningsAsync();
 }
