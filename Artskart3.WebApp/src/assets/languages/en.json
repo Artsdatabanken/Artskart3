@@ -44,6 +44,7 @@
     "zoomInAriaLabel": "Zoom in",
     "zoomOutAriaLabel": "Zoom out",
     "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
-    "mapTypeHeading": "Map type"
+    "mapTypeHeading": "Map type",
+    "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   }
 }
