@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Subject, Observable } from 'rxjs';
-import { switchMap, takeUntil, tap } from 'rxjs/operators';
+import { debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
@@ -47,7 +47,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private geojsonCacheByApiZoom = new Map<number, string>();
 
   private destroy$ = new Subject<void>();
-  private fetchZoomLevel$ = new Subject<number>();
+  private fetchAreaData$ = new Subject<{ apiZoomLevel: number; extent?: [number, number, number, number] }>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
@@ -118,7 +118,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupAreaMarkerLayers();
     this.setupAreaDataPipeline();
     this.map.on(MapEvents.CameraChanged, (camera) => this.onCameraChanged(camera.zoom));
-    this.fetchZoomLevel$.next(this.getApiZoomLevel());
+    this.emitFetchEvent();
   }
 
   private setupAreaMarkerLayers(): void {
@@ -153,9 +153,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private onCameraChanged(zoom: number): void {
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(zoom);
-    if (apiZoomLevel !== this.previousApiZoomLevel) {
-      this.fetchZoomLevel$.next(apiZoomLevel);
+
+    if (apiZoomLevel === ApiZoomLevel.LocationPoints) {
+      // For lokasjonspunkter: hent på nytt ved panorering og zoom
+      this.emitFetchEvent();
+    } else if (apiZoomLevel !== this.previousApiZoomLevel) {
+      this.emitFetchEvent();
     }
+  }
+
+  private emitFetchEvent(): void {
+    const apiZoomLevel = this.getApiZoomLevel();
+    const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
+    const extent = isLocationPoints
+      ? this.map.getExtent() as [number, number, number, number]
+      : undefined;
+    this.fetchAreaData$.next({ apiZoomLevel, extent });
   }
 
   private getApiZoomLevel(): number {
@@ -164,25 +177,31 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private setupAreaDataPipeline(): void {
-    this.fetchZoomLevel$.pipe(
-      tap(apiZoomLevel => this.previousApiZoomLevel = apiZoomLevel),
-      switchMap(apiZoomLevel => {
-        const cached = this.geojsonCacheByApiZoom.get(apiZoomLevel);
-        if (cached) {
-          this.applyGeoJsonToLayer(apiZoomLevel, cached);
-          return [];
+    this.fetchAreaData$.pipe(
+      debounceTime(300),
+      tap(({ apiZoomLevel }) => this.previousApiZoomLevel = apiZoomLevel),
+      switchMap(({ apiZoomLevel, extent }) => {
+        const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
+
+        // Bruk cache for fylker og kommuner, men ikke for lokasjonspunkter (avhenger av kartutsnitt)
+        if (!isLocationPoints) {
+          const cached = this.geojsonCacheByApiZoom.get(apiZoomLevel);
+          if (cached) {
+            this.applyGeoJsonToLayer(apiZoomLevel, cached);
+            return [];
+          }
         }
 
         const currentZoom = this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
-        const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
-
         const serviceCall$: Observable<string> = isLocationPoints
-          ? this.areasService.getLocationsAsGeoJsonString()
+          ? this.areasService.getLocationsAsGeoJsonString(extent)
           : this.areasService.getAreaMarkersAsGeoJson(currentZoom);
 
         return serviceCall$.pipe(
           tap(geojson => {
-            this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson);
+            if (!isLocationPoints) {
+              this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson);
+            }
             this.applyGeoJsonToLayer(apiZoomLevel, geojson);
           })
         );
