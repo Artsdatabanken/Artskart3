@@ -90,6 +90,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<SensitiveObservationDatum> SensitiveObservationData { get; set; }
 
+    public virtual DbSet<SlowQueryLog> SlowQueryLogs { get; set; }
+
     public virtual DbSet<SpatialRefSy> SpatialRefSys { get; set; }
 
     public virtual DbSet<Tag> Tags { get; set; }
@@ -123,6 +125,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => new { e.AreaTypeId, e.Id, e.Fid }, "IX_AreaTypeID");
 
             entity.HasIndex(e => e.Fid, "IX_Fid");
+
+            entity.HasIndex(e => new { e.AreaTypeId, e.Fid, e.IsCurrent }, "IX_Area_AreaTypeId_Fid_IsCurrent");
 
             entity.HasIndex(e => e.ParentFid, "IX_ParentFid");
 
@@ -376,6 +380,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                         j.HasIndex(new[] { "AreaId" }, "IX_AreaId");
                         j.HasIndex(new[] { "LocationId" }, "IX_LocationId");
                         j.HasIndex(new[] { "LocationId", "AreaId" }, "IX_LocationIdArea");
+                        j.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
                     });
         });
 
@@ -702,6 +707,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => e.RelationTypeId, "IX_RelationTypeId");
 
+            entity.HasIndex(e => new { e.OrganizationId, e.ObservationId }, "IX_OrganizationRelation_OrgId_ObsId");
+
             entity.HasOne(d => d.Observation).WithMany(p => p.OrganizationRelations)
                 .HasForeignKey(d => d.ObservationId)
                 .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Observation_ObservationId");
@@ -991,6 +998,29 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.ToTable("TaxonomyState");
 
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<SlowQueryLog>(entity =>
+        {
+            entity.ToTable("SlowQueryLog");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Endpoint).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.RequestPath).HasMaxLength(2048);
+            entity.Property(e => e.RequestBody).HasMaxLength(4000);
+            entity.Property(e => e.OccurredAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.Endpoint).HasDatabaseName("IX_SlowQueryLog_Endpoint");
+            entity.HasIndex(e => e.OccurredAt).HasDatabaseName("IX_SlowQueryLog_OccurredAt");
+        });
+
+        modelBuilder.Entity<ObservationEntityIndex>(entity =>
+        {
+            entity.HasKey(e => new { e.ObservationId, e.EntityTypeId, e.EntityId });
+            entity.ToTable("ObservationEntityIndex");
+
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId }).HasDatabaseName("IX_ObservationEntityIndex_Lookup");
+            entity.HasIndex(e => e.ObservationId).HasDatabaseName("IX_ObservationEntityIndex_ObservationId");
         });
 
         OnModelCreatingPartial(modelBuilder);

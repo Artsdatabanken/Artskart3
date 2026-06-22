@@ -6,21 +6,12 @@
     <aside class="sidebar">
       <app-resizable-panel
         [initialWidth]="filterPanelWidth()"
-        [minWidth]="280"
+        [minWidth]="300"
         [maxWidth]="500"
         [isDraggable]="true"
         (widthChanged)="onFilterPanelResize($event)"
       >
-        <div class="sidebar-content">
-          <div class="filter-section">
-            <input
-              id="search"
-              type="text"
-              [attr.placeholder]="'baseLayout.searchPlaceholder' | translate"
-              class="filter-input"
-            />
-          </div>
-        </div>
+        <app-sidebar></app-sidebar>
       </app-resizable-panel>
     </aside>
 

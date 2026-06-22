@@ -178,7 +178,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
         const serviceCall$: Observable<string> = isLocationPoints
           ? this.areasService.getLocationsAsGeoJsonString()
-          : this.areasService.getAreasObservationsAsGeoJsonString(currentZoom);
+          : this.areasService.getAreaMarkersAsGeoJson(currentZoom);
 
         return serviceCall$.pipe(
           tap(geojson => {

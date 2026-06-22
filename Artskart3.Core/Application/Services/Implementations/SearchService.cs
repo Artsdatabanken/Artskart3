@@ -15,34 +15,39 @@ public class SearchService : ISearchService
         _searchRepository = searchRepository;
     }
 
-    public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null)
+    public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
+        filter = filter ?? new LocationSearchFilterDto();
+
         try
         {
-            filter = filter ?? new LocationSearchFilterDto();
-
-            var locations = _searchRepository.GetLocationsAsync(filter);
-            return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg);
+            var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
+            return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg, cancellationToken);
         }
-        catch (ApplicationException ex)
+        catch (ApplicationException)
         {
-            throw new ApplicationException("An error occurred while processing your location search request.", ex);
+            throw;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new ApplicationException("An error occurred while processing your location search request.", ex);
+            throw new ApplicationException("Feil ved henting av lokasjoner", ex);
         }
     }
 
-    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20)
+    public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
-        var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount);
+        return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
+    }
+
+    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default)
+    {
+        var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount, cancellationToken);
         return alltaxons;
     }
 
-    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
-        var areas = await _searchRepository.GetObservationsByZoomLevelAsync(zoomLevel);
+        var areas = await _searchRepository.GetAreaMarkersAsync(zoomLevel, cancellationToken);
         return areas;
     }
 }
