@@ -24,16 +24,17 @@ public class LookupService : ILookupService
         var areaTypes = await _lookupRepository.GetAreasAsync(cancellationToken);
 
         // TODO HACK for å skille fastlandsnorge og svalbard, jan mayen, vi bør fikse dette ordentlig når vi setter opp ny import
-        // Fid "22" (Jan Mayen) og "99" (Svalbard) er fiktive fylkesnummer
+        // Fid "22" (Jan Mayen) og "21" (Svalbard) er fiktive fylkesnummer
+        // Svalbard har også et fiktivt fylkenummer 99 som ikke er med i denne omgang, har laget en egen task på dette for å undersøke hvordan det skal fungere
         var countyAreaType = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.County);
 
         return new AreaResponseDto
         {
             Counties = new CountyDto
             {
-                FastlandsNorge = countyAreaType?.Areas.Where(a => a.Fid != "99" && a.Fid != "22").ToArray(),
+                FastlandsNorge = countyAreaType?.Areas.Where(a => a.Fid != "21" && a.Fid != "22").ToArray(),
                 JanMayen = countyAreaType?.Areas.FirstOrDefault(a => a.Fid == "22"),
-                Svalbard = countyAreaType?.Areas.FirstOrDefault(a => a.Fid == "99")
+                Svalbard = countyAreaType?.Areas.FirstOrDefault(a => a.Fid == "21")
             },
             Municipalities = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.Municipality),
             RestrictedAreas = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.RestrictedArea),

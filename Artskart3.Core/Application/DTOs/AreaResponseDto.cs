@@ -1,6 +1,5 @@
 namespace Artskart3.Core.Application.DTOs;
 
-//TODO  HACK for å få svalbard og jan mayen riktig i frontend
 public class AreaResponseDto
 {
     public CountyDto? Counties { get; set; }
