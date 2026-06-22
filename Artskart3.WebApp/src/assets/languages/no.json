@@ -100,12 +100,6 @@
     },
     "taxonGroups": "Artsgrupper"
   },
-  "pagination": {
-    "previous": "Forrige",
-    "next": "Neste",
-    "page": "Side",
-    "itemsPerPage": "Antall per side",
-    "ariaLabel": "Paginering"
   "mapToolbar": {
     "layersAriaLabel": "Lag",
     "filterAriaLabel": "Innstillinger",

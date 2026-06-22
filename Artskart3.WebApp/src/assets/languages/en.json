@@ -100,12 +100,6 @@
     },
     "taxonGroups": "Taxon groups"
   },
-  "pagination": {
-    "previous": "Previous",
-    "next": "Next",
-    "page": "Page",
-    "itemsPerPage": "Items per page",
-    "ariaLabel": "Pagination"
   "mapToolbar": {
     "layersAriaLabel": "Layers",
     "filterAriaLabel": "Settings",
