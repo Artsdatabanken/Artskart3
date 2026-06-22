@@ -47,7 +47,6 @@ public class SearchService : ISearchService
 
     public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
-        //TODO, sjekk om vi kan fjerne denne og legge den til i GetObservationsAsync
         var areas = await _searchRepository.GetAreaMarkersAsync(zoomLevel, cancellationToken);
         return areas;
     }

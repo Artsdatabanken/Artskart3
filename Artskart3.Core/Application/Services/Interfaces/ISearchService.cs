@@ -8,6 +8,5 @@ public interface ISearchService
     Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default);
 
-    //Todo Denne returnerer en liste med AreaMarkerDto, bør bytte navn
     Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default);
 }
