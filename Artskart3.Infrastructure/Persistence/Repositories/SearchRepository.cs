@@ -217,6 +217,17 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
         }
 
+        if (filter.Envelope != null)
+        {
+            var minX = (int)filter.Envelope.MinX;
+            var maxX = (int)filter.Envelope.MaxX;
+            var minY = (int)filter.Envelope.MinY;
+            var maxY = (int)filter.Envelope.MaxY;
+            query = query.Where(o =>
+                o.East >= minX && o.East <= maxX &&
+                o.North >= minY && o.North <= maxY);
+        }
+
         return query;
     }
 

@@ -154,6 +154,12 @@ public class SearchController : ControllerBase
             return false;
         }
 
+        if (filter.Envelope != null && !filter.Envelope.IsValid)
+        {
+            validationError = BadRequest(new { error = "Envelope bounds are invalid: MinX must be less than MaxX and MinY must be less than MaxY." });
+            return false;
+        }
+
         return true;
     }
 
