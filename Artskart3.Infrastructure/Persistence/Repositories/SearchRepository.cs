@@ -246,8 +246,6 @@ public class SearchRepository : ISearchRepository
 
         // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
         // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
-        // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
-        // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
         // ObservationEntityIndex har PK på (ObservationId, EntityTypeId, EntityId), så hver
         // subselect er et indeksoppslag på maks 1 rad. Resultatet er allerede begrenset via Take(),
         // så dette er effektivt nok. Batch-lasting med ekstra round-trip ville vært tregere.
