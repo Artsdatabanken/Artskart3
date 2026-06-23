@@ -94,6 +94,7 @@ try
         }
     });
 
+    builder.Services.AddMemoryCache();
     builder.Services.AddControllers(options =>
     {
         options.Filters.Add<GlobalExceptionFilter>();
