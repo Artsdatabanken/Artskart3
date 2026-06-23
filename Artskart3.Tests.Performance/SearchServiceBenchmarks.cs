@@ -5,6 +5,7 @@ using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using BenchmarkDotNet.Attributes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -49,7 +50,7 @@ public class SearchServiceBenchmarks
         _dbContext = new ArtskartDbContext(options);
 
         var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
-        _searchService = new SearchService(repository);
+        _searchService = new SearchService(repository, new MemoryCache(new MemoryCacheOptions()));
     }
 
     [GlobalCleanup]
