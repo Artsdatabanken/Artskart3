@@ -1,0 +1,10 @@
+@for (alert of alertService.visibleAlerts(); track alert.id) {
+  <adb-alert
+    [attr.variant]="alert.variant"
+    [attr.heading]="alert.heading ?? null"
+    [attr.closable]="alert.closable ? '' : null"
+    (adb-close)="alertService.dismiss(alert.id)"
+  >
+    {{ alert.message }}
+  </adb-alert>
+}
