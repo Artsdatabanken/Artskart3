@@ -52,12 +52,12 @@
     "noResults": "Ingen observasjoner funnet"
   },
   "sidebar": {
-    "categories": "Rødliste- og fremmedartkategorier",
+    "categories": "Rødliste- og fremmedartskategorier",
     "areas": "Område",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "categoryType": {
-      "Fremmedart": "Fremmedartkategorier",
+      "Fremmedart": "Fremmedartskategorier",
       "Rødliste": "Rødlistekategorier"
     },
     "coordinatePrecision": "Koordinatpresisjon",
@@ -69,7 +69,7 @@
     "periodTo": "Til år",
     "periodSearch": "Søk",
     "institutions": "Dataleverandører",
-    "behaviors": "Habitat- og Artsegenskaper",
+    "behaviors": "Habitat- og artsegenskaper",
     "behaviorName": {
       "dead": "Død",
       "feeding": "Fødesøkende",
