@@ -1,10 +1,10 @@
 ﻿
-using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Application.DTOs;
 
 namespace Artskart3.Core.Application.Services.Interfaces;
 
 public interface IObservationService
 {
-    Task<Observation> GetObservationDetails(int locationId, int observationId);
-    Task<IEnumerable<Observation>> GetObservationsByLocation(int locationId);
+    Task<ObservationDto> GetObservationDetails(int locationId, int observationId);
+    Task<IEnumerable<ObservationDto>> GetObservationsByLocation(int locationId);
 }
