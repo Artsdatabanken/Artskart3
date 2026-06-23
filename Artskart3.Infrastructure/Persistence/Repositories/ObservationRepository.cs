@@ -14,13 +14,15 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         try
         {
             Observation observationDetails = await context.Set<Observation>()
+                .Include(o => o.Taxon)
                 .Where(o => (o.LocationId == locationId) && (o.Id == observationId))
                 .FirstAsync();
             var observationDto = new ObservationDto
             {
                 Id = observationDetails.Id,
-                PreferredPopularName = observationDetails.MatchedScientificName.ScientificName,
-                Author = observationDetails.MatchedScientificName.ScientificNameAuthorship,
+                PreferredPopularName = observationDetails.Taxon.PreferredPopularName,
+                ScientificName = observationDetails.Taxon.ValidScientificName,
+                Author = observationDetails.Taxon.ValidScientificNameAuthorship,
             };
             return observationDto;
         }
