@@ -1,5 +1,5 @@
-﻿using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
+﻿using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +14,11 @@ public class ObservationController(IObservationService observationService, ILogg
     [HttpGet("{locationId}/{observationId}")]
     [Produces("application/json")]
     //TODO Make ObservationDto
-    public async Task<Observation> GetObservationDetails(int locationId, int observationId)
+    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId)
     {
         try
         {
-            Observation observation = await observationService.GetObservationDetails(locationId, observationId);
+            ObservationDto observation = await observationService.GetObservationDetails(locationId, observationId);
             return observation;
         }
         catch (Exception e)
@@ -29,12 +29,12 @@ public class ObservationController(IObservationService observationService, ILogg
     }
 
     [HttpGet("{locationId}")]
-    public async Task<IEnumerable<Observation>> GetObservationsByLocation(int locationId)
+    public async Task<IEnumerable<ObservationDto>> GetObservationsByLocation(int locationId)
     {
         try
         {
             Console.WriteLine("Hello", locationId);
-            IEnumerable<Observation> observations = await observationService.GetObservationsByLocation(locationId);
+            IEnumerable<ObservationDto> observations = await observationService.GetObservationsByLocation(locationId);
             return observations;
         }
         catch (Exception e)
