@@ -24,7 +24,8 @@ const INCLUDED_PATHS = [
   '/api/lookup/institutions',
   '/api/lookup/behaviors',
   '/api/lookup/basisofrecords',
-  '/api/lookup/taxongroups'
+  '/api/lookup/taxongroups',
+  '/api/export'
 ];
 
 async function fetchSpec() {

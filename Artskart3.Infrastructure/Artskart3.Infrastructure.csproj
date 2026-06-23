@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Duende.BFF" />
     <PackageReference Include="Duende.BFF.EntityFramework" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
