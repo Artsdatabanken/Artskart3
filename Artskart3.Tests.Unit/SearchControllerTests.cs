@@ -11,14 +11,16 @@ namespace Artskart3.Tests.Unit;
 public class SearchControllerTests
 {
     private readonly Mock<ISearchService> _serviceMock;
+    private readonly Mock<ISpeciesService> _speciesServiceMock;
     private readonly Mock<ILogger<SearchController>> _loggerMock;
     private readonly SearchController _sut;
 
     public SearchControllerTests()
     {
         _serviceMock = new Mock<ISearchService>();
+        _speciesServiceMock = new Mock<ISpeciesService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
-        _sut = new SearchController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
     }
 
     // -----------------------------------------------------------------------

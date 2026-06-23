@@ -13,11 +13,13 @@ namespace Artskart3.Api.Controllers;
 public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
+    private readonly ISpeciesService _speciesService;
     private readonly ILogger<SearchController> _logger;
 
-    public SearchController(ISearchService searchService, ILogger<SearchController> logger)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
+        _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -156,6 +158,49 @@ public class SearchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Feil ved henting av områder");
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
+    /// Søker etter arter via NorTaxa-API.
+    /// Hvis input er et heltall, slås det opp direkte på taxonId.
+    /// Ellers utføres et navnesøk med maks 20 resultater.
+    /// </summary>
+    [HttpGet("Species")]
+    [Produces("application/json")]
+    [ProducesResponseType(typeof(List<SpeciesDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+    public async Task<ActionResult<List<SpeciesDto>>> SearchSpecies(
+        [FromQuery] string search,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return BadRequest(new { error = "Search parameter is required." });
+        }
+
+        try
+        {
+            var results = await _speciesService.SearchSpeciesAsync(search, cancellationToken);
+            _logger.LogInformation("Species-søk for '{Search}' returnerte {Count} resultater", search, results.Count);
+            return Ok(results);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogWarning("NorTaxa API timeout ved søk: {Search}", search);
+            return StatusCode(504, new { error = "NorTaxa API did not respond within the timeout period." });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "NorTaxa API utilgjengelig ved søk: {Search}", search);
+            return StatusCode(502, new { error = "Unable to contact NorTaxa API." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved artssøk med søkestreng: {Search}", search);
             throw; // håndteres av global filter
         }
     }

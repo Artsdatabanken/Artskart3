@@ -11,6 +11,7 @@ namespace Artskart3.Tests.Unit;
 public class SearchControllerObservationTests
 {
     private readonly Mock<ISearchService> _serviceMock = new();
+    private readonly Mock<ISpeciesService> _speciesServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
     // -----------------------------------------------------------------------
@@ -217,7 +218,7 @@ public class SearchControllerObservationTests
     // Helpers
     // -----------------------------------------------------------------------
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
 
     private static List<ObservationDto> CreateObservations(int count) =>
         CreateObservationsFromOffset(1, count);

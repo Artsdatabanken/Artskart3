@@ -11,21 +11,31 @@ namespace Artskart3.Tests.Unit;
 public class SearchControllerAdditionalTests
 {
     private readonly Mock<ISearchService> _serviceMock = new();
+    private readonly Mock<ISpeciesService> _speciesServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSearchServiceIsNull()
     {
-        var act = () => new SearchController(null!, _loggerMock.Object);
+        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("searchService");
     }
 
     [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenSpeciesServiceIsNull()
+    {
+        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object);
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("speciesService");
+    }
+
+    [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, null!);
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("logger");
@@ -78,5 +88,5 @@ public class SearchControllerAdditionalTests
             f.CoordinatePrecision.To == 100)), Times.Once);
     }
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
 }
