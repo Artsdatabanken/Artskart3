@@ -385,11 +385,10 @@ public class SearchRepository : ISearchRepository
 
         return await query
             .Where(o => o.LocationId != null)
-            .GroupBy(o => new { o.LocationId!.Value, o.TaxonId })
+            .GroupBy(o => o.LocationId!.Value)
             .Select(g => new AggregatedLocationData
             {
-                LocationId = g.Key.Value,
-                TaxonId = g.Key.TaxonId,
+                LocationId = g.Key,
                 ObservationCount = g.Count()
             })
             .OrderByDescending(x => x.ObservationCount)
