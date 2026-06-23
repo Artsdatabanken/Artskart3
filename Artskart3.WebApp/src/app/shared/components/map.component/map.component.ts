@@ -15,8 +15,8 @@ import {
   inject,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
-import { Subject, Observable } from 'rxjs';
-import { debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { Subject, Observable, EMPTY } from 'rxjs';
+import { catchError, debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
@@ -198,16 +198,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
               this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson);
             }
             this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+          }),
+          catchError((err: unknown) => {
+            this.logger.error(`Failed to load area markers for API zoom level ${apiZoomLevel}:`, 'MapComponent', err);
+            return EMPTY;
           })
         );
       }),
       takeUntil(this.destroy$),
-    ).subscribe({
-      error: (err: unknown) => {
-        this.logger.error('Failed to load area markers:', 'MapComponent', err);
-        this.mapReadyAction.emit(false);
-      },
-    });
+    ).subscribe();
   }
 
   private applyGeoJsonToLayer(apiZoomLevel: number, geojson: string): void {
