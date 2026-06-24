@@ -1,3 +1,4 @@
+using Artskart3.Api.Filters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
@@ -28,7 +29,8 @@ public class SearchController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<IEnumerable<TaxonDto>>> SearchTaxons(
         [FromQuery] string name,
-        [FromQuery] int maxCount = SearchConstants.DefaultMaxTaxonCount)
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxTaxonCount,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -38,19 +40,14 @@ public class SearchController : ControllerBase
                 return validationError!;
             }
 
-            var taxons = await _searchService.GetTaxonsAsync(name, maxCount);
+            var taxons = await _searchService.GetTaxonsAsync(name, maxCount, cancellationToken);
             _logger.LogInformation("Retrieved {Count} taxons for search term: {Name}", taxons.Count(), name);
             return Ok(taxons);
         }
-        catch (ApplicationException ex)
-        {
-            _logger.LogError(ex, "Application error during taxon search");
-            return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during taxon search");
-            return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            _logger.LogError(ex, "Feil ved søk etter takson med navn: {TaxonName}", name);
+            throw; // håndteres av global filter
         }
     }
 
@@ -61,7 +58,7 @@ public class SearchController : ControllerBase
     /// </summary>
     [HttpGet("Locations")]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null)
+    public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -72,44 +69,83 @@ public class SearchController : ControllerBase
                 // validationError skal aldri være null når en validering feiler
                 return validationError!;
             }
-            var result = await _searchService.GetLocationsAsync(filter);
+            var result = await _searchService.GetLocationsAsync(filter, cancellationToken);
             _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
             return Content(result, "application/json");
         }
-        catch (ApplicationException ex)
-        {
-            _logger.LogError(ex, "Application error during location search");
-            return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during location search");
-            return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            _logger.LogError(ex, "Feil ved henting av lokasjoner med MaxResults: {MaxResults}", filter?.MaxResults);
+            throw; // håndteres av global filter
         }
     }
 
     /// <summary>
-    /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
+    /// Searches for observations using optional filters.
+    /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
+    /// When pagination parameters are omitted, returns a flat list capped at <see cref="SearchConstants.DefaultMaxObservations"/> (20) results.
+    /// PageNumber and ResultsPerPage must both be provided, or both be omitted.
     /// </summary>
-    [HttpGet("AreasObservations")]
+    [HttpPost("Observation")]
     [Produces("application/json")]
-    public async Task<ActionResult<AreaMarkerDto[]>> GetAreasObservations([FromQuery] int zoomLevel = 1)
+    [ServiceFilter(typeof(SlowQueryLoggingFilter))]
+    public async Task<ActionResult<PagedObservationResponseDto>> GetObservations([FromBody] ObservationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
+        filter ??= new ObservationSearchFilterDto();
+
+        if (!ValidateObservationSearchFilter(filter, out var validationError))
+        {
+            // validationError skal aldri være null når en validering feiler
+            return validationError!;
+        }
+
         try
         {
-            var areas = await _searchService.GetObservationsByZoomLevelAsync(zoomLevel);
-            _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
-            return Ok(areas.ToArray());
-        }
-        catch (ApplicationException ex)
-        {
-            _logger.LogError(ex, "Application error during area observations retrieval");
-            return StatusCode(503, new { error = SearchConstants.ServiceUnavailableMessage });
+            if (filter.IsPaginated)
+            {
+                // Repositoriet har allerede gjort Skip i SQL — her henter vi bare første side fra lookahead-vinduet
+                var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
+                var resultsPerPage = filter.ResultsPerPage!.Value;
+                var pageNumber = filter.PageNumber!.Value;
+                var pagedResult = new PagedObservationResponseDto
+                {
+                    Items = allItems.Take(resultsPerPage),
+                    PageNumber = pageNumber,
+                    ResultsPerPage = resultsPerPage,
+                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1)
+                };
+
+                return Ok(pagedResult);
+            }
+
+            var results = await _searchService.GetObservationsAsync(filter, cancellationToken);
+            return Ok(results);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during area observations retrieval");
-            return StatusCode(500, new { error = SearchConstants.UnexpectedErrorMessage });
+            _logger.LogError(ex, "Feil ved henting av observasjoner med filter: {Filter}", filter);
+            throw; // håndteres av global filter
+        }
+    }
+
+
+    /// <summary>
+    /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
+    /// </summary>
+    [HttpGet("AreaMarkers")]
+    [Produces("application/json")]
+    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, cancellationToken);
+            _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
+            return Ok(areas.ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av områder");
+            throw; // håndteres av global filter
         }
     }
 
@@ -136,6 +172,78 @@ public class SearchController : ControllerBase
     }
 
     /// <summary>
+    /// Validates observation search filter parameters.
+    /// </summary>
+    private bool ValidateObservationSearchFilter(ObservationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    {
+        validationError = null;
+
+        if (filter.PageNumber.HasValue != filter.ResultsPerPage.HasValue)
+        {
+            validationError = BadRequest(new { error = "PageNumber and ResultsPerPage must both be provided, or both be omitted." });
+            return false;
+        }
+
+        if (filter.PageNumber != null && filter.PageNumber.Value < 1)
+        {
+            validationError = BadRequest(new { error = "PageNumber must be greater than or equal to 1." });
+            return false;
+        }
+
+        if (filter.ResultsPerPage != null && !IsValidMaxResultCount(filter.ResultsPerPage.Value, SearchConstants.MinObservationResults, SearchConstants.MaxObservationResults))
+        {
+            validationError = BadRequest(CreateRangeErrorMessage(SearchConstants.MinObservationResults, SearchConstants.MaxObservationResults));
+            return false;
+        }
+
+        if (filter.CoordinatePrecision?.From != null && filter.CoordinatePrecision?.To != null && !IsValidCoordinatePrecisionRange(filter.CoordinatePrecision.From.Value, filter.CoordinatePrecision.To.Value))
+        {
+            validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
+            return false;
+        }
+
+        if (!ValidateFilterArraySizes(filter, out validationError))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validerer at ingen filter-arrayer overskrider maksimal størrelse.
+    /// </summary>
+    private bool ValidateFilterArraySizes(ObservationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    {
+        validationError = null;
+        var max = SearchConstants.MaxFilterArraySize;
+
+        ReadOnlySpan<(string name, int? length)> arrays =
+        [
+            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
+            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
+            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
+            (nameof(filter.CountyIds), filter.CountyIds?.Length),
+            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
+            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
+            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
+            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
+        ];
+
+        foreach (var (name, length) in arrays)
+        {
+            if (length > max)
+            {
+                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Validates location search filter parameters.
     /// </summary>
     private bool ValidateLocationSearchFilter(LocationSearchFilterDto filter, out BadRequestObjectResult? validationError)
@@ -151,6 +259,12 @@ public class SearchController : ControllerBase
         if (!IsValidCoordinatePrecisionRange(filter.CoordinatePrecisionFrom, filter.CoordinatePrecisionTo))
         {
             validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
+            return false;
+        }
+
+        if (filter.Envelope != null && !filter.Envelope.IsValid)
+        {
+            validationError = BadRequest(new { error = "Envelope bounds are invalid: MinX must be less than MaxX and MinY must be less than MaxY." });
             return false;
         }
 

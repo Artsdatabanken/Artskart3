@@ -75,13 +75,13 @@ export class AreasService {
   private readonly loggerService: LoggingService = inject(LoggingService);
   private readonly validationService: ValidationService = inject(ValidationService);
 
-  private readonly areasBaseEndpoint = '/api/Search/AreasObservations';
+  private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
   private readonly locationsEndpoint = '/api/Search/Locations';
 
   /**
    * Fetches areas from API and converts to GeoJSON format
    */
-  private fetchAreaObservations(openLayerZoom: number): Observable<AreaMarkerDto[]> {
+  private fetchAreaMarkers(openLayerZoom: number): Observable<AreaMarkerDto[]> {
     const validation = this.validationService.validateZoomLevel(openLayerZoom);
     if (!validation.valid) {
       throw new Error(validation.error || ApiMessages.Errors.InvalidParameters);
@@ -105,8 +105,8 @@ export class AreasService {
    * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
    * Includes both polygon boundaries and centroid marker points.
    */
-  getAreasObservationsAsGeoJsonString(openLayerZoom: number): Observable<string> {
-    return this.fetchAreaObservations(openLayerZoom).pipe(
+  getAreaMarkersAsGeoJson(openLayerZoom: number): Observable<string> {
+    return this.fetchAreaMarkers(openLayerZoom).pipe(
       map(areas => this.buildAreaFeatureCollection(areas))
     );
   }
@@ -114,9 +114,15 @@ export class AreasService {
   /**
    * Fetches locations as a serialized GeoJSON FeatureCollection string
    * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
+   * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    */
-  getLocationsAsGeoJsonString(): Observable<string> {
-    return this.apiClientService.fetchJson<string>(this.locationsEndpoint, { responseType: 'text' }).pipe(
+  getLocationsAsGeoJsonString(extent?: [number, number, number, number]): Observable<string> {
+    let url = this.locationsEndpoint;
+    if (extent) {
+      const [minX, minY, maxX, maxY] = extent;
+      url += `?Envelope.MinX=${minX}&Envelope.MinY=${minY}&Envelope.MaxX=${maxX}&Envelope.MaxY=${maxY}`;
+    }
+    return this.apiClientService.fetchJson<string>(url, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
         const features = this.mapLocationsToGeoJson(parsed);

@@ -4,6 +4,6 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces;
 
 public interface IUserRepository
 {
-    Task<User?> GetUserById(Guid id);
-    Task<User> CreateUser(User user);
+    Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default);
+    Task<User> CreateUser(User user, CancellationToken cancellationToken = default);
 }

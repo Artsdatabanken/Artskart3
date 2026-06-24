@@ -162,8 +162,7 @@ public class UserServiceTests()
         var act = async () => await service.GetOrCreateUser(null!);
 
         // Assert
-        await act.Should().ThrowAsync<Exception>()
-            .WithMessage("Error creating user");
+        await act.Should().ThrowAsync<ArgumentNullException>();
 
         userRepositoryMock.Verify(
             repository => repository.GetUserById(It.IsAny<Guid>()),

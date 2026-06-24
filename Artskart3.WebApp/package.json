@@ -7,12 +7,15 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
+    "generate-api-types": "run-script-os",
+    "generate-api-types:windows": "set NODE_TLS_REJECT_UNAUTHORIZED=0&& openapi-typescript https://localhost:5088/swagger/v1/swagger.json --output ./src/app/shared/types/api.generated.ts",
+    "generate-api-types:default": "NODE_TLS_REJECT_UNAUTHORIZED=0 openapi-typescript https://localhost:5088/swagger/v1/swagger.json --output ./src/app/shared/types/api.generated.ts",
     "prestart": "node aspnetcore-https",
     "start:windows": "ng serve --ssl --ssl-cert \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.pem\" --ssl-key \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.key\" --host=127.0.0.1",
     "start:default": "ng serve --ssl --ssl-cert \"$HOME/.aspnet/https/${npm_package_name}.pem\" --ssl-key \"$HOME/.aspnet/https/${npm_package_name}.key\" --host=127.0.0.1"
   },
   "prettier": {
-    "printWidth": 100,
+    "printWidth": 140,
     "singleQuote": true,
     "overrides": [
       {
@@ -32,7 +35,7 @@
     "@angular/forms": "^21.1.0",
     "@angular/platform-browser": "^21.1.0",
     "@angular/router": "^21.1.0",
-    "@artsdatabanken/components": "^1.1.2",
+    "@artsdatabanken/components": "^1.1.4",
     "@artsdatabanken/nbic-map-component": "0.3.0",
     "@microsoft/applicationinsights-angularplugin-js": "^15.3.8",
     "@microsoft/applicationinsights-web": "^3.3.11",
@@ -52,6 +55,7 @@
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^27.1.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "8.56.1",
     "vitest": "^4.0.8"

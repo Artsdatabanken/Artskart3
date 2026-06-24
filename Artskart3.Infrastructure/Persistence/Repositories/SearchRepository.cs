@@ -1,11 +1,16 @@
+using System.Runtime.CompilerServices;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -15,11 +20,13 @@ public class SearchRepository : ISearchRepository
 
     private readonly IArtsKartDbContext _context;
     private readonly ILogger<SearchRepository> _logger;
+    private readonly PaginationOptions _paginationOptions;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _paginationOptions = paginationOptions.Value;
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -28,7 +35,7 @@ public class SearchRepository : ISearchRepository
     /// 3. Contains matches
     /// Returns up to maxCount results from active taxa (not deleted and have observation data).
     /// </summary>
-    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = SearchConstants.DefaultMaxTaxonCount)
+    public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = SearchConstants.DefaultMaxTaxonCount, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -44,7 +51,7 @@ public class SearchRepository : ISearchRepository
                     nameof(maxCount));
             }
 
-            var searchTerm = name.Trim().ToLower();
+            var searchTerm = name.Trim().ToLower().EscapeSqlLikePattern();
 
             var matchingIds = GetExactMatches(searchTerm)
                 .Union(GetStartsWithMatches(searchTerm))
@@ -66,7 +73,7 @@ public class SearchRepository : ISearchRepository
                     CumulativeObservationCount = t.CumulativeObservationCount,
                     ExistsInCountry = t.ExistsInCountry
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return result;
         }
@@ -80,7 +87,7 @@ public class SearchRepository : ISearchRepository
             _logger.LogError(ex, "Database error occurred during taxon search for name: {Name}", name);
             throw new ApplicationException("A database error occurred while searching taxa. Please try again later.", ex);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Unexpected error during taxon search for name: {Name}", name);
             throw new ApplicationException("An unexpected error occurred while searching taxa. Please contact support if the problem persists.", ex);
@@ -95,8 +102,8 @@ public class SearchRepository : ISearchRepository
     {
         return GetActiveTaxa()
             .Where(t =>
-                t.TaxonNames.Any(tn => !tn.IsDeleted && tn.ScientificName.ToLower() == searchTerm) ||
-                t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted && tpn.Name.ToLower() == searchTerm)
+                t.TaxonNames.Any(tn => !tn.IsDeleted && EF.Functions.Like(tn.ScientificName, searchTerm)) ||
+                t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted && EF.Functions.Like(tpn.Name, searchTerm))
             )
             .Select(t => t.Id);
     }
@@ -107,10 +114,10 @@ public class SearchRepository : ISearchRepository
         return GetActiveTaxa()
             .Where(t =>
                 t.TaxonNames.Any(tn => !tn.IsDeleted &&
-                    EF.Functions.Like(tn.ScientificName.ToLower(), startsWithPattern))
+                    EF.Functions.Like(tn.ScientificName, startsWithPattern))
                 ||
                 t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted &&
-                    EF.Functions.Like(tpn.Name.ToLower(), startsWithPattern))
+                    EF.Functions.Like(tpn.Name, startsWithPattern))
             )
             .Select(t => t.Id);
     }
@@ -121,21 +128,161 @@ public class SearchRepository : ISearchRepository
         return GetActiveTaxa()
             .Where(t =>
                 t.TaxonNames.Any(tn => !tn.IsDeleted &&
-                    EF.Functions.Like(tn.ScientificName.ToLower(), containsPattern))
+                    EF.Functions.Like(tn.ScientificName, containsPattern))
                 ||
                 t.TaxonPopularNames.Any(tpn => !tpn.IsDeleted &&
-                    EF.Functions.Like(tpn.Name.ToLower(), containsPattern))
+                    EF.Functions.Like(tpn.Name, containsPattern))
             )
             .Select(t => t.Id);
     }
+
+
+    public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Set<Observation>()
+                            .AsNoTracking();
+
+        if (!string.IsNullOrEmpty(filter.PreferredPopularName))
+        {
+            var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
+        }
+
+        if (!string.IsNullOrEmpty(filter.ScientificName))
+        {
+            var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
+        }
+
+        if (!string.IsNullOrEmpty(filter.Author))
+        {
+            var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
+        }
+
+        if (filter.TaxonGroupIds?.Any() == true)
+        {
+            query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
+        }
+
+        if (filter.CategoryIds?.Any() == true)
+        {
+            query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
+        }
+
+        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen.
+        // Alle entiteter bruker int EntityId — string-Fid-er konverteres til int før spørring.
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+        var hasOrg = filter.OrganizationIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
+        {
+            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
+            var countyIds = ConvertFidsToInt(filter.CountyIds);
+            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
+            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+            var orgIds = filter.OrganizationIds ?? [];
+
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
+                idx.ObservationId == o.Id && (
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
+                )));
+        }
+
+        if (filter.BehaviorIds?.Any() == true)
+        {
+            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+        }
+
+        if (filter.BasisOfRecordIds?.Any() == true)
+        {
+            query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
+        }
+
+        if (filter.CoordinatePrecision?.From.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
+        }
+
+        if (filter.CoordinatePrecision?.To.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
+        }
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(o => o.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(o => o.DateTimeCollected <= toDate);
+        }
+
+        query = query.OrderBy(o => o.Id);
+
+        if (filter.IsPaginated)
+        {
+            var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
+            if (skip > 0)
+            {
+                query = query.Skip(skip);
+            }
+            query = query.Take(filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier);
+        }
+        else
+        {
+            query = query.Take(SearchConstants.DefaultMaxObservations);
+        }
+
+        // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
+        // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
+        // ObservationEntityIndex har PK på (ObservationId, EntityTypeId, EntityId), så hver
+        // subselect er et indeksoppslag på maks 1 rad. Resultatet er allerede begrenset via Take(),
+        // så dette er effektivt nok. Batch-lasting med ekstra round-trip ville vært tregere.
+        return await query.Select(o => new ObservationDto
+        {
+            Id = o.Id,
+            PreferredPopularName = o.Taxon.PreferredPopularName,
+            ScientificName = o.Taxon.ValidScientificName,
+            Author = o.Taxon.ValidScientificNameAuthorship,
+            Institution = _context.Set<ObservationEntityIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.EntityTypeId == (int)ObservationIndexEntityType.Institution)
+                .Join(_context.Set<Organization>(),
+                    idx => idx.EntityId, org => org.Id,
+                    (idx, org) => org.Name)
+                .FirstOrDefault(),
+            Locality = o.Location != null ? o.Location.Locality : null,
+            MunicipalityId = _context.Set<ObservationEntityIndex>()
+                .Where(idx => idx.ObservationId == o.Id && idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality)
+                .Select(idx => idx.EntityId.ToString())
+                .FirstOrDefault(),
+            TaxonGroupId = o.TaxonGroupId,
+            CategoryId = o.CategoryId,
+            DateTimeCollected = o.DateTimeCollected,
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
+        }).ToListAsync(cancellationToken);
+    }
+
+
+
     /// <summary>
     /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
     /// Aggregates observation counts by location, sorted by count descending.
     /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
     /// </summary>
-    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null)
+    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var locationModels = await FetchLocationModelsAsync(filter);
+        var locationModels = await FetchLocationModelsAsync(filter, cancellationToken);
 
         foreach (var model in locationModels)
         {
@@ -143,19 +290,19 @@ public class SearchRepository : ISearchRepository
         }
     }
 
-    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter)
+    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter, CancellationToken cancellationToken = default)
     {
         try
         {
             filter ??= new LocationSearchFilterDto();
 
             var query = BuildLocationsQuery(filter);
-            var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults);
+            var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults, cancellationToken);
 
             if (aggregatedData.Count == 0)
                 return [];
 
-            var locationModels = await BuildLocationModels(aggregatedData);
+            var locationModels = await BuildLocationModels(aggregatedData, cancellationToken);
 
             _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
 
@@ -169,11 +316,7 @@ public class SearchRepository : ISearchRepository
         {
             throw new ApplicationException("A database error occurred while retrieving locations. Please try again later.", ex);
         }
-        catch (OperationCanceledException ex)
-        {
-            throw new ApplicationException("The location search operation was cancelled. Please try again.", ex);
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
         }
@@ -217,12 +360,24 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
         }
 
+        if (filter.Envelope != null)
+        {
+            var minX = (int)filter.Envelope.MinX;
+            var maxX = (int)filter.Envelope.MaxX;
+            var minY = (int)filter.Envelope.MinY;
+            var maxY = (int)filter.Envelope.MaxY;
+            query = query.Where(o =>
+                o.East >= minX && o.East <= maxX &&
+                o.North >= minY && o.North <= maxY);
+        }
+
         return query;
     }
 
     private async Task<List<AggregatedLocationData>> AggregateLocationObservations(
         IQueryable<Observation> query,
-        int requestedMaxResults)
+        int requestedMaxResults,
+        CancellationToken cancellationToken = default)
     {
         var maxResults = requestedMaxResults > 0 && requestedMaxResults <= SearchConstants.MaxLocationResults
             ? requestedMaxResults
@@ -230,26 +385,25 @@ public class SearchRepository : ISearchRepository
 
         return await query
             .Where(o => o.LocationId != null)
-            .GroupBy(o => new { o.LocationId!.Value, o.TaxonId })
+            .GroupBy(o => o.LocationId!.Value)
             .Select(g => new AggregatedLocationData
             {
-                LocationId = g.Key.Value,
-                TaxonId = g.Key.TaxonId,
+                LocationId = g.Key,
                 ObservationCount = g.Count()
             })
             .OrderByDescending(x => x.ObservationCount)
             .Take(maxResults)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
-    private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData)
+    private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData, CancellationToken cancellationToken = default)
     {
         var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
 
         var locationLookup = await _context.Set<Location>()
             .Where(l => locationIds.Contains(l.Id))
             .AsNoTracking()
-            .ToDictionaryAsync(l => l.Id);
+            .ToDictionaryAsync(l => l.Id, cancellationToken);
 
         var locationModels = new List<LocationModel>(aggregatedData.Count);
 
@@ -292,13 +446,13 @@ public class SearchRepository : ISearchRepository
     /// Area types: 1 = municipalities, 2 = counties.
     /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
     /// </summary>
-    public async Task<IEnumerable<AreaMarkerDto>> GetObservationsByZoomLevelAsync(int zoomLevel)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
     {
         try
         {
             var areas = await _context.Set<Area>()
                 .Where(a => a.ZoomLevel == zoomLevel)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return areas
                 .GroupBy(a => a.Name)
@@ -319,7 +473,7 @@ public class SearchRepository : ISearchRepository
                 })
                 .ToList();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error retrieving areas for zoom level: {ZoomLevel}", zoomLevel);
             throw new ApplicationException(
@@ -327,5 +481,29 @@ public class SearchRepository : ISearchRepository
         }
     }
 
+    /// <summary>
+    /// Konverterer string-Fid-er til int ved å fjerne "_" (for historiske fylkes-Fid-er som "15_2017").
+    /// </summary>
+    private static int[] ConvertFidsToInt(string[]? fids)
+    {
+        if (fids == null || fids.Length == 0) return [];
+        return fids
+            .Select(fid => int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToArray();
+    }
 
+    /// <summary>
+    /// Konverterer verneområde-Fid-er til int ved å fjerne "Naturbase VV"-prefiks.
+    /// </summary>
+    private static int[] ConvertRestrictedAreaFidsToInt(string[]? fids)
+    {
+        if (fids == null || fids.Length == 0) return [];
+        return fids
+            .Select(fid => int.TryParse(fid.Replace("Naturbase VV", ""), out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToArray();
+    }
 }

@@ -6,12 +6,12 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
 const PROXY_CONFIG = [
   {
     context: [
+      "/api",
       "/bff",
       "/signin-oidc",
       "/signout-callback-oidc",
       "/hc",
-      "/robots.txt",
-      "/api/**"
+      "/robots.txt"
     ],
     target,
     secure: false

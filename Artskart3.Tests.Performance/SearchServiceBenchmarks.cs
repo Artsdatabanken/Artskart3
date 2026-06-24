@@ -1,11 +1,14 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using BenchmarkDotNet.Attributes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Tests.Performance;
 
@@ -46,8 +49,8 @@ public class SearchServiceBenchmarks
 
         _dbContext = new ArtskartDbContext(options);
 
-        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance);
-        _searchService = new SearchService(repository);
+        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        _searchService = new SearchService(repository, new MemoryCache(new MemoryCacheOptions()));
     }
 
     [GlobalCleanup]
@@ -131,19 +134,19 @@ public class SearchServiceBenchmarks
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level10()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(10);
+        _ = await _searchService.GetAreaMarkersAsync(10);
     }
 
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level15()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(15);
+        _ = await _searchService.GetAreaMarkersAsync(15);
     }
 
     [Benchmark]
     public async Task GetObservationsByZoomLevel_Level20()
     {
-        _ = await _searchService.GetObservationsByZoomLevelAsync(20);
+        _ = await _searchService.GetAreaMarkersAsync(20);
     }
 
 
