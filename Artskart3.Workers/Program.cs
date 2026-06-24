@@ -76,6 +76,10 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+// Verifiser tilkobling til blob storage ved oppstart (f.eks. at Azurite kjører lokalt).
+// CSV-eksport krever blob storage, så vi feiler raskt med en tydelig melding hvis den ikke er tilgjengelig.
+await CheckBlobStorageConnectionAsync(app.Services, logger);
+
 // Hangfire Dashboard — kun tilgjengelig i Development.
 // TODO: Legg til autentisering/autorisering for andre miljøer når det er avklart med prosjektgruppen.
 if (app.Environment.IsDevelopment())
@@ -91,6 +95,23 @@ RegisterRecurringJobs(app.Services.GetRequiredService<IConfiguration>());
 logger.LogInformation("Artskart3.Workers - Started successfully");
 
 app.Run();
+
+async Task CheckBlobStorageConnectionAsync(IServiceProvider services, ILogger startupLogger)
+{
+    var blobStorage = services.GetRequiredService<IBlobStorageService>();
+    try
+    {
+        await blobStorage.CheckConnectionAsync();
+        startupLogger.LogInformation("Blob storage-tilkobling verifisert.");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogCritical(ex,
+            "Kan ikke koble til blob storage ved oppstart. Workeren kan ikke generere CSV-eksport. " +
+            "Sjekk at Azurite kjører lokalt (eller at connection string er riktig), og start workeren på nytt.");
+        throw;
+    }
+}
 
 void RegisterRecurringJobs(IConfiguration configuration)
 {
