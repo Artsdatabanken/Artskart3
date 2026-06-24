@@ -82,13 +82,13 @@ describe('MapComponent', () => {
   describe('setupAreaDataPipeline error resilience', () => {
     let areasService: AreasService;
     let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;
-    let fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent?: [number, number, number, number] }>;
+    let fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>;
 
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
-        fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent?: [number, number, number, number] }>;
+        fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>;
         setupAreaDataPipeline: () => void;
-        geojsonCacheByApiZoom: Map<number, string>;
+        areaDataCacheByApiZoom: Map<number, unknown[]>;
       };
 
     beforeEach(() => {
@@ -98,7 +98,7 @@ describe('MapComponent', () => {
 
       const priv = accessPrivate(component);
       fetchAreaData$ = priv.fetchAreaData$;
-      priv.geojsonCacheByApiZoom.clear();
+      priv.areaDataCacheByApiZoom.clear();
       priv.setupAreaDataPipeline();
     });
 
@@ -106,12 +106,14 @@ describe('MapComponent', () => {
       vi.useFakeTimers();
       const geojson = '{"type":"FeatureCollection","features":[]}';
 
+      const testExtent: [number, number, number, number] = [0, 0, 1000000, 1000000];
+
       // First call fails
-      vi.spyOn(areasService, 'getAreaMarkersAsGeoJson').mockReturnValueOnce(
+      vi.spyOn(areasService, 'getAreaMarkers').mockReturnValueOnce(
         throwError(() => new Error('503 Service Unavailable'))
       );
 
-      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.Municipalities, olZoom: 10 });
+      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.Municipalities, olZoom: 10, extent: testExtent });
       vi.advanceTimersByTime(300);
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
@@ -119,7 +121,7 @@ describe('MapComponent', () => {
       // Second call succeeds — pipeline should still be alive
       vi.spyOn(areasService, 'getLocationsAsGeoJsonString').mockReturnValueOnce(of(geojson));
 
-      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.LocationPoints, olZoom: 13 });
+      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.LocationPoints, olZoom: 13, extent: testExtent });
       vi.advanceTimersByTime(300);
 
       expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(

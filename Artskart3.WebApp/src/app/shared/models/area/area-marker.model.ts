@@ -11,14 +11,15 @@ export interface AreaMarkerDto {
   timeStamp: string;
   isCurrent: boolean;
   wktsPolygon?: string;
+  centroid?: { x: number; y: number };
 }
 
 export interface AreaMarkerFeature {
   type: 'Feature';
   id?: number | string;
   geometry: {
-    type: 'Polygon' | 'Point';
-    coordinates: number[][][] | number[];
+    type: 'Polygon' | 'MultiPolygon' | 'Point';
+    coordinates: number[][][] | number[][][][] | number[];
   };
   properties: {
     id: number;

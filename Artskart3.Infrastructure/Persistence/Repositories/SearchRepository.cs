@@ -451,8 +451,8 @@ public class SearchRepository : ISearchRepository
         try
         {
             var areas = await _context.Set<Area>()
-                .Where(a => a.ZoomLevel == zoomLevel)
-                .ToListAsync(cancellationToken);
+                    .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
+                    .ToListAsync(cancellationToken);
 
             return areas
                 .GroupBy(a => a.Name)
@@ -468,7 +468,10 @@ public class SearchRepository : ISearchRepository
                         AreaTypeId = firstArea.AreaTypeId,
                         ParentFid = firstArea.ParentFid,
                         ObservationCount = g.Sum(a => a.ObservationCount),
-                        WktsPolygon = firstArea.WktPolygon?.AsText()
+                        WktsPolygon = firstArea.WktPolygon?.AsText(),
+                        Centroid = firstArea.Centroid?.Coordinate != null
+                            ? new CentroidDto { X = firstArea.Centroid.Coordinate.X, Y = firstArea.Centroid.Coordinate.Y }
+                            : null
                     };
                 })
                 .ToList();
