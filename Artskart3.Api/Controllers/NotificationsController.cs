@@ -25,7 +25,7 @@ public class NotificationsController : ControllerBase
     /// </summary>
     [HttpGet]
     [Produces("application/json")]
-    public async Task<ActionResult<IEnumerable<NotificationModel>>> GetNotifications()
+    public async Task<ActionResult<IEnumerable<NotificationModel>>> GetNotifications(CancellationToken cancellationToken = default)
     {
         try
         {
