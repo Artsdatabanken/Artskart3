@@ -11,6 +11,7 @@ export interface AreaMarkerDto {
   timeStamp: string;
   isCurrent: boolean;
   wktsPolygon?: string;
+  centroid?: { x: number; y: number };
 }
 
 export interface AreaMarkerFeature {
