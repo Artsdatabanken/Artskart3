@@ -7,9 +7,9 @@ Integrasjonstestene er delt i to kategorier:
 | Kategori | Factory | Trenger Docker? | Eksempel |
 |---|---|---|---|
 | Databaseavhengige | `CustomWebApplicationFactory` + `DatabaseFixture` | **Ja** | `SearchEndpointTests` |
-| Filbaserte / ingen DB | `WarningsWebApplicationFactory` | **Nei** | `WarningsEndpointTests` |
+| Filbaserte / ingen DB | `NotificationsWebApplicationFactory` | **Nei** | `NotificationsEndpointTests` |
 
-Dersom en kontroller-handling ikke bruker databasen, bruk `WarningsWebApplicationFactory` for å holde testen enkel.
+Dersom en kontroller-handling ikke bruker databasen, bruk `NotificationsWebApplicationFactory` for å holde testen enkel.
 
 ---
 
@@ -30,7 +30,7 @@ Dersom en kontroller-handling ikke bruker databasen, bruk `WarningsWebApplicatio
 > ```
 > System.ArgumentException : Docker is either not running or misconfigured.
 > ```
-> Denne feilen betyr at Docker Desktop ikke kjører. Kun tester som bruker `CustomWebApplicationFactory` er berørt. Enhetstester (`Artskart3.Tests.Unit`) og filbaserte integrasjonstester (`WarningsEndpointTests`) kan kjøres uten Docker.
+> Denne feilen betyr at Docker Desktop ikke kjører. Kun tester som bruker `CustomWebApplicationFactory` er berørt. Enhetstester (`Artskart3.Tests.Unit`) og filbaserte integrasjonstester (`NotificationsEndpointTests`) kan kjøres uten Docker.
 
 ---
 
@@ -83,7 +83,7 @@ Se [`SeedData/README.md`](SeedData/README.md) for instruksjoner om hvordan du ge
 
 | Kontroller-handling | Gyldig testmetodenavn (eksempel) |
 |---|---|
-| `GetWarnings` | `GetWarnings_Returns200WithJsonArray` |
+| `GetNotifications` | `GetNotifications_Returns200WithJsonArray` |
 | `SearchTaxons` | `SearchTaxons_WithValidName_Returns200WithJsonArray` |
 | `GetLocations` | `GetLocations_WithNoFilter_Returns200WithGeoJson` |
 

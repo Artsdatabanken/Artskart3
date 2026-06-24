@@ -2,7 +2,7 @@ using Artskart3.Core.Domain.BusinessModels;
 
 namespace Artskart3.Core.Application.Services.Interfaces;
 
-public interface IWarningsService
+public interface INotificationsService
 {
-    Task<IEnumerable<WarningModel>> GetAllWarningsAsync();
+    Task<IEnumerable<NotificationModel>> GetAllNotificationsAsync();
 }

@@ -1,5 +1,5 @@
 {
-  "warnings": [
+  "notifications": [
     {
       "type": "Danger",
       "heading": "Tjenesten er midlertidig utilgjengelig",

@@ -5,14 +5,14 @@ using FluentAssertions;
 
 namespace Artskart3.Tests.Integration.Tests;
 
-public class WarningsEndpointTests : IAsyncLifetime
+public class NotificationsEndpointTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
-    private readonly WarningsWebApplicationFactory _factory;
+    private readonly NotificationsWebApplicationFactory _factory;
 
-    public WarningsEndpointTests()
+    public NotificationsEndpointTests()
     {
-        _factory = new WarningsWebApplicationFactory();
+        _factory = new NotificationsWebApplicationFactory();
         _client = _factory.CreateClient();
         _client.DefaultRequestHeaders.Add("X-CSRF", "1");
     }
@@ -26,13 +26,13 @@ public class WarningsEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Warnings
+    // GET /api/Notifications
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetWarnings_Returns200WithJsonArray()
+    public async Task GetNotifications_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Warnings");
+        var response = await _client.GetAsync("/api/Notifications");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");

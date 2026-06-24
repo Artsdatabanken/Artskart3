@@ -2,7 +2,7 @@ using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Domain.BusinessModels;
 
-public class WarningModel
+public class NotificationModel
 {
     public AlertType Type { get; set; }
     public string Heading { get; set; } = string.Empty;
