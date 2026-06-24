@@ -17,6 +17,24 @@ public class BlobStorageService : IBlobStorageService
         _blobServiceClient = new BlobServiceClient(connectionString);
     }
 
+    public async Task CheckConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Et lettvekts-kall som tvinger en faktisk forespørsel mot blob storage.
+            // Hvis tjenesten ikke svarer (f.eks. Azurite er ikke startet) kastes en exception.
+            var container = _blobServiceClient.GetBlobContainerClient(_containerName);
+            await container.ExistsAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Kan ikke koble til blob storage (konto: '{_blobServiceClient.AccountName}', container: '{_containerName}'). " +
+                "Sjekk at Azurite kjører lokalt, eller at connection string ('CsvExport:BlobStorage:ConnectionString') er riktig.",
+                ex);
+        }
+    }
+
     // TODO: Bytt tilbake til OpenWriteStreamAsync (streaming) når Azurite-bug er fikset
     public async Task UploadAsync(string blobPath, Stream content, CancellationToken cancellationToken = default)
     {
