@@ -32,4 +32,9 @@ public class LocationSearchFilterDto
     /// Maximum number of locations to return (default: 100000, max: 100000)
     /// </summary>
     public int MaxResults { get; set; } = 100000;
+
+    /// <summary>
+    /// Kartutsnitt (bounding box) for spatial filtrering i EPSG:25833 (UTM Zone 33N).
+    /// </summary>
+    public EnvelopeDto? Envelope { get; set; }
 }

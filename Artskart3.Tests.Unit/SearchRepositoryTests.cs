@@ -390,6 +390,27 @@ public class SearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetLocationsAsync_MultipleTaxaAtSameLocation_ReturnsSingleLocationWithTotalCount()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+        SeedObservations(context,
+            CreateObservation(1, 1, taxonId: 10),
+            CreateObservation(2, 1, taxonId: 10),
+            CreateObservation(3, 1, taxonId: 20),
+            CreateObservation(4, 1, taxonId: 30));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+
+        result.Should().ContainSingle();
+        result[0].ObservationCount.Should().Be(4);
+    }
+
+    [Fact]
     public async Task GetLocationsAsync_WhenLocationRowMissing_OmitsFromResults()
     {
         await using var context = CreateInMemoryContext();
@@ -448,7 +469,8 @@ public class SearchRepositoryTests
         int? categoryId = 1,
         int basisOfRecordId = 1,
         string? institutionCode = "NHM",
-        int? coordinatePrecisionInMeters = 25) =>
+        int? coordinatePrecisionInMeters = 25,
+        int taxonId = 1) =>
         new()
         {
             Id = id,
@@ -457,7 +479,7 @@ public class SearchRepositoryTests
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
             BasisOfRecordId = basisOfRecordId,
-            TaxonId = 1,
+            TaxonId = taxonId,
             MatchedScientificNameId = 1,
             TaxonGroupId = taxonGroupId,
             CategoryId = categoryId,

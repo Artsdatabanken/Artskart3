@@ -7,7 +7,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
-    "generate-api-types": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/generate-api-types.mjs",
+    "generate-api-types": "run-script-os",
+    "generate-api-types:windows": "set NODE_TLS_REJECT_UNAUTHORIZED=0&& openapi-typescript https://localhost:5088/swagger/v1/swagger.json --output ./src/app/shared/types/api.generated.ts",
+    "generate-api-types:default": "NODE_TLS_REJECT_UNAUTHORIZED=0 openapi-typescript https://localhost:5088/swagger/v1/swagger.json --output ./src/app/shared/types/api.generated.ts",
     "prestart": "node aspnetcore-https",
     "start:windows": "ng serve --ssl --ssl-cert \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.pem\" --ssl-key \"%APPDATA%\\ASP.NET\\https\\%npm_package_name%.key\" --host=127.0.0.1",
     "start:default": "ng serve --ssl --ssl-cert \"$HOME/.aspnet/https/${npm_package_name}.pem\" --ssl-key \"$HOME/.aspnet/https/${npm_package_name}.key\" --host=127.0.0.1"

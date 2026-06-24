@@ -3,6 +3,7 @@ using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -15,7 +16,7 @@ public class SearchServiceTests
     public SearchServiceTests()
     {
         _repositoryMock = new Mock<ISearchRepository>();
-        _sut = new SearchService(_repositoryMock.Object);
+        _sut = new SearchService(_repositoryMock.Object, new MemoryCache(new MemoryCacheOptions()));
     }
 
     // -----------------------------------------------------------------------

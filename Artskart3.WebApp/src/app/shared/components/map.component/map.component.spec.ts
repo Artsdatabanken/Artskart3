@@ -1,11 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideTranslateService } from '@ngx-translate/core';
+import { Subject, throwError, of } from 'rxjs';
 
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
+import { AreasService } from '@core/services/areas/areas.service';
 
 describe('MapComponent', () => {
   let component: MapComponent;
@@ -74,6 +76,59 @@ describe('MapComponent', () => {
       applyGeoJsonToLayer(component, ApiZoomLevel.Counties, '{}');
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setupAreaDataPipeline error resilience', () => {
+    let areasService: AreasService;
+    let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;
+    let fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent?: [number, number, number, number] }>;
+
+    const accessPrivate = (c: MapComponent) =>
+      c as unknown as {
+        fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent?: [number, number, number, number] }>;
+        setupAreaDataPipeline: () => void;
+        geojsonCacheByApiZoom: Map<number, string>;
+      };
+
+    beforeEach(() => {
+      areasService = TestBed.inject(AreasService);
+      updateGeoJSONLayerSpy = vi.fn();
+      component.map = { updateGeoJSONLayer: updateGeoJSONLayerSpy } as unknown as NbicMapComponent;
+
+      const priv = accessPrivate(component);
+      fetchAreaData$ = priv.fetchAreaData$;
+      priv.geojsonCacheByApiZoom.clear();
+      priv.setupAreaDataPipeline();
+    });
+
+    it('should continue processing zoom changes after a service error', () => {
+      vi.useFakeTimers();
+      const geojson = '{"type":"FeatureCollection","features":[]}';
+
+      // First call fails
+      vi.spyOn(areasService, 'getAreaMarkersAsGeoJson').mockReturnValueOnce(
+        throwError(() => new Error('503 Service Unavailable'))
+      );
+
+      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.Municipalities, olZoom: 10 });
+      vi.advanceTimersByTime(300);
+
+      expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
+
+      // Second call succeeds — pipeline should still be alive
+      vi.spyOn(areasService, 'getLocationsAsGeoJsonString').mockReturnValueOnce(of(geojson));
+
+      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.LocationPoints, olZoom: 13 });
+      vi.advanceTimersByTime(300);
+
+      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
+        'area-markers-locations',
+        geojson,
+        { mode: 'replace', dataProjection: 'EPSG:4326' },
+      );
+
+      vi.useRealTimers();
     });
   });
 });
