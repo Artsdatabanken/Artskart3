@@ -116,7 +116,7 @@ function parseWkt(wkt: string | undefined): ParsedGeometry | null {
 function clipRingToExtent(ring: number[][], extent: [number, number, number, number]): number[][] {
   let output = ring;
 
-  const edges: Array<{ inside: (p: number[]) => boolean; intersect: (a: number[], b: number[]) => number[] }> = [
+  const edges: { inside: (p: number[]) => boolean; intersect: (a: number[], b: number[]) => number[] }[] = [
     { // Venstre (x >= minX)
       inside: (p) => p[0] >= extent[0],
       intersect: (a, b) => { const t = (extent[0] - a[0]) / (b[0] - a[0]); return [extent[0], a[1] + t * (b[1] - a[1])]; }
