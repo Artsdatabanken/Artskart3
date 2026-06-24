@@ -15,10 +15,11 @@ import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-re
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto } from '../../types/api.types';
+import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [TranslateModule],
+  imports: [TranslateModule, FormatNumberPipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',
