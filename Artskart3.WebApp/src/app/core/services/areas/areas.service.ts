@@ -34,32 +34,76 @@ const NBIC_LOCATION_STYLE = {
   }
 };
 
+interface ParsedGeometry {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][] | number[][][][];
+}
+
 /**
- * Parses WKT POLYGON format to GeoJSON coordinates
- * @example "POLYGON ((1 2, 3 4, 5 6, 1 2))" => [[[1, 2], [3, 4], [5, 6], [1, 2]]]
+ * Parser én koordinatring fra WKT-format til tallpar.
+ * @example "1 2, 3 4, 5 6, 1 2" => [[1, 2], [3, 4], [5, 6], [1, 2]]
  */
-function parsePolygonWkt(wkt: string | undefined): number[][][] | null {
+function parseRing(ringStr: string): number[][] | null {
+  const points = ringStr.split(',').map(p => p.trim());
+  const coordinates = points
+    .map(point => {
+      const nums = point.split(/\s+/).map(n => parseFloat(n));
+      if (nums.length !== 2 || isNaN(nums[0]) || isNaN(nums[1])) {
+        return null;
+      }
+      return [nums[0], nums[1]] as [number, number];
+    })
+    .filter((p): p is [number, number] => p !== null);
+
+  if (coordinates.length < 3) return null;
+  return coordinates;
+}
+
+/**
+ * Parser WKT POLYGON og MULTIPOLYGON til GeoJSON-geometri.
+ * @example "POLYGON ((1 2, 3 4, 5 6, 1 2))" => { type: 'Polygon', coordinates: [[[1,2],[3,4],[5,6],[1,2]]] }
+ * @example "MULTIPOLYGON (((1 2, 3 4, 5 6, 1 2)),((7 8, 9 10, 11 12, 7 8)))" =>
+ *   { type: 'MultiPolygon', coordinates: [[[[1,2],[3,4],[5,6],[1,2]]],[[[7,8],[9,10],[11,12],[7,8]]]] }
+ */
+function parseWkt(wkt: string | undefined): ParsedGeometry | null {
   if (!wkt) return null;
 
-  const match = wkt.match(/POLYGON\s*\(\((.*)\)\)/i);
-  if (!match) return null;
-
   try {
-    const coordinatesStr = match[1];
-    const points = coordinatesStr.split(',').map(p => p.trim());
+    // Sjekk MULTIPOLYGON først (inneholder "POLYGON" som delstreng)
+    if (/MULTIPOLYGON/i.test(wkt)) {
+      const multiMatch = wkt.match(/MULTIPOLYGON\s*\(\(\(([\s\S]*)\)\)\)/i);
+      if (!multiMatch) return null;
 
-    const coordinates = points
-      .map(point => {
-        const nums = point.split(/\s+/).map(n => parseFloat(n));
-        if (nums.length !== 2 || isNaN(nums[0]) || isNaN(nums[1])) {
-          return null;
+      const polygonStrings = multiMatch[1].split(/\)\)\s*,\s*\(\(/);
+      const polygons: number[][][][] = [];
+
+      for (const polyStr of polygonStrings) {
+        const ringStrings = polyStr.split(/\)\s*,\s*\(/);
+        const rings: number[][][] = [];
+        for (const ringStr of ringStrings) {
+          const ring = parseRing(ringStr);
+          if (ring) rings.push(ring);
         }
-        return [nums[0], nums[1]] as [number, number];
-      })
-      .filter((p): p is [number, number] => p !== null);
+        if (rings.length > 0) polygons.push(rings);
+      }
 
-    if (coordinates.length < 3) return null;
-    return [coordinates];
+      if (polygons.length === 0) return null;
+      return { type: 'MultiPolygon', coordinates: polygons };
+    }
+
+    // Standard POLYGON
+    const polyMatch = wkt.match(/POLYGON\s*\(\(([\s\S]*)\)\)/i);
+    if (!polyMatch) return null;
+
+    const ringStrings = polyMatch[1].split(/\)\s*,\s*\(/);
+    const rings: number[][][] = [];
+    for (const ringStr of ringStrings) {
+      const ring = parseRing(ringStr);
+      if (ring) rings.push(ring);
+    }
+
+    if (rings.length === 0) return null;
+    return { type: 'Polygon', coordinates: rings };
   } catch {
     return null;
   }
@@ -219,17 +263,20 @@ export class AreasService {
     const features: unknown[] = [];
 
     for (const area of areas) {
-      const polygonCoords = parsePolygonWkt(area.wktsPolygon);
-      if (!polygonCoords) continue;
+      const parsed = parseWkt(area.wktsPolygon);
+      if (!parsed) continue;
 
       const count = area.observationCount ?? 0;
       const formattedCount = count > 0 ? AbbreviateNumberHelper.format(count) : '';
-      const centroid = this.calculateCentroid(polygonCoords[0]);
+      const firstRing = parsed.type === 'MultiPolygon'
+        ? (parsed.coordinates as number[][][][])[0][0]
+        : (parsed.coordinates as number[][][])[0];
+      const centroid = this.calculateCentroid(firstRing);
 
-      // Polygon boundary feature
+      // Polygon/MultiPolygon boundary feature
       features.push({
         type: 'Feature',
-        geometry: { type: 'Polygon', coordinates: polygonCoords },
+        geometry: { type: parsed.type, coordinates: parsed.coordinates },
         properties: {
           id: area.id,
           name: area.name,
