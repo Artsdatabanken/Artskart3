@@ -563,7 +563,21 @@ export interface paths {
         put?: never;
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    TaxonGroupIds?: number[];
+                    Categories?: number[];
+                    BasisOfRecords?: number[];
+                    CollectionIds?: string[];
+                    CoordinatePrecisionFrom?: number;
+                    CoordinatePrecisionTo?: number;
+                    Epsg?: number;
+                    MaxResults?: number;
+                    "Envelope.MinX"?: number;
+                    "Envelope.MinY"?: number;
+                    "Envelope.MaxX"?: number;
+                    "Envelope.MaxY"?: number;
+                    "Envelope.IsValid"?: boolean;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -852,6 +866,45 @@ export interface components {
             janMayen?: components["schemas"]["AreaDto"];
             svalbard?: components["schemas"]["AreaDto"];
         };
+        CsvExportJobDto: {
+            /** Format: int32 */
+            id?: number;
+            status?: components["schemas"]["CsvExportStatus"];
+            /** Format: int32 */
+            totalRows?: number;
+            /** Format: int32 */
+            rowsProcessed?: number;
+            /** Format: int64 */
+            fileSize?: number;
+            hasExcel?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            completedAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            errorMessage?: string | null;
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        CsvExportStatus: 0 | 1 | 2 | 3 | 4;
+        ExportColumnDefinition: {
+            name?: string | null;
+            displayName?: string | null;
+            isDefaultSelected?: boolean;
+        };
+        ExportSummaryDto: {
+            /** Format: int32 */
+            totalRows?: number;
+            /** Format: int64 */
+            estimatedFileSizeBytes?: number;
+            exceedsSoftLimit?: boolean;
+            exceedsHardLimit?: boolean;
+        };
         InstitutionDto: {
             /** Format: int32 */
             id?: number;
@@ -908,41 +961,15 @@ export interface components {
             /** Format: int32 */
             lookaheadCount?: number;
         };
-        /**
-         * Format: int32
-         * @enum {integer}
-         */
-        CsvExportStatus: 0 | 1 | 2 | 3 | 4;
-        CategoryDto: {
-            /** Format: int32 */
-            id?: number;
-            code?: string | null;
-            name?: string | null;
-            /** Format: int32 */
-            observationCount?: number | null;
-        };
-        CountyDto: {
-            fastlandsNorge?: components["schemas"]["AreaDto"][] | null;
-            janMayen?: components["schemas"]["AreaDto"];
-            svalbard?: components["schemas"]["AreaDto"];
-        };
-        AreaTypeDto: {
-            /** Format: int32 */
-            id?: number;
-            name?: string | null;
-            areas?: components["schemas"]["AreaDto"][] | null;
-        };
-        CoordinatePrecisionDto: {
-            /** Format: int32 */
-            from?: number | null;
-            /** Format: int32 */
-            to?: number | null;
-        };
         PeriodDto: {
             /** Format: int32 */
             from?: number | null;
             /** Format: int32 */
             to?: number | null;
+        };
+        StartExportRequestDto: {
+            filter?: components["schemas"]["ObservationSearchFilterDto"];
+            selectedColumns?: string[] | null;
         };
         TaxonDto: {
             /** Format: int32 */
