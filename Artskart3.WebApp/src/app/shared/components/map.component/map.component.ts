@@ -148,6 +148,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 100,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
+      cluster: {
+        enabled: true,
+        distance: 50,
+        keepSingleAsCluster: true,
+        countField: 'observationCount',
+        style: {
+          type: 'simple',
+          options: {
+            circle: { radius: 17, fillColor: '#005B72', strokeColor: 'white', strokeWidth: 1 },
+            text: { fillColor: 'white', font: 'bold 12px sans-serif' },
+          },
+        },
+      },
     });
   }
 
