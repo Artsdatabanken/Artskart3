@@ -85,6 +85,7 @@ await CheckBlobStorageConnectionAsync(app.Services, logger);
 if (app.Environment.IsDevelopment())
 {
     app.MapHangfireDashboard("/hangfire");
+    logger.LogInformation("Hangfire Dashboard: {Url}", $"{app.Urls.FirstOrDefault() ?? "http://localhost:5035"}/hangfire");
 }
 
 app.MapHealthChecks("/health");
