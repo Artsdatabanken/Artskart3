@@ -3,14 +3,17 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
+import { CategoryService } from '../../services/category/category.service';
+import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
+import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
+import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe],
+  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
@@ -19,7 +22,39 @@ import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 export class ListViewComponent {
   private readonly observationService = inject(ObservationService);
   private readonly areaService = inject(AreaService);
+  private readonly categoryService = inject(CategoryService);
+  private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
+
+  private readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
+    stream: () => this.categoryService.getCategories(),
+  });
+
+  private readonly taxonGroupsResource = rxResource<TaxonGroupDto[], void>({
+    stream: () => this.taxonGroupService.getTaxonGroups(),
+  });
+
+  readonly categoryNameMap = computed(() => {
+    const map = new Map<number, string>();
+    for (const type of this.categoriesResource.value() ?? []) {
+      for (const cat of type.categories ?? []) {
+        if (cat.id != null && cat.name) {
+          map.set(cat.id, cat.name);
+        }
+      }
+    }
+    return map;
+  });
+
+  readonly taxonGroupNameMap = computed(() => {
+    const map = new Map<number, string>();
+    for (const group of this.taxonGroupsResource.value() ?? []) {
+      if (group.id != null && group.name) {
+        map.set(group.id, group.name);
+      }
+    }
+    return map;
+  });
 
   readonly areaNameMap = computed(() => {
     const map = new Map<string, string>();

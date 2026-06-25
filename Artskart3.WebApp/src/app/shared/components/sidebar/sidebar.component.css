@@ -11,7 +11,6 @@
   flex-direction: column;
   height: 100%;
   margin-top: 1rem;
-  row-gap: 0.75rem;
 
   .sidebar-heading {
     margin-bottom: 0;
@@ -34,7 +33,7 @@ adb-accordion-item adb-accordion adb-accordion-item {
 
 /* Restore border-accent for checkboxes inside nested accordion items */
 adb-accordion-item adb-accordion adb-accordion-item adb-checkbox {
-  --adb-border-accent: #005A71;
+  --adb-border-accent: #005a71;
 }
 
 /* Reduce summary spacing on nested accordion items */
@@ -45,6 +44,8 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
 /* Indent child checkboxes to align with parent checkbox label */
 .category-children {
   padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));
+  margin-inline-end: -6px;
+  margin-top: var(--adb-spacing-xsm);
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-xsm, 8px);
@@ -55,6 +56,7 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-xsm, 8px);
+  margin-right: 10px;
 }
 
 /* Coordinate precision filter */
@@ -62,8 +64,9 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   align-items: flex-end;
   gap: var(--adb-spacing-xsm, 8px);
-  padding: var(--adb-spacing-sm, 12px);
+  padding: var(--adb-spacing-3xsm);
   flex-wrap: nowrap;
+  margin-top: var(--adb-spacing-2xsm);
 }
 
 .coordinate-precision-inputs {
@@ -96,19 +99,19 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   outline: none;
 }
 
-:host-context([data-theme="dark"]) .coordinate-precision-input {
+:host-context([data-theme='dark']) .coordinate-precision-input {
   border-color: var(--adb-neutrals-ocean-80);
 }
 
 .coordinate-precision-input:focus {
-  border-color: var(--adb-border-accent, #005A71);
-  box-shadow: 0 0 0 1px var(--adb-border-accent, #005A71);
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
   outline: none;
 }
 
-:host-context([data-theme="dark"]) .coordinate-precision-input:focus {
-  border-color: var(--adb-border-accent, #005A71);
-  box-shadow: 0 0 0 1px var(--adb-border-accent, #005A71);
+:host-context([data-theme='dark']) .coordinate-precision-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
   outline: none;
 }
 
@@ -116,6 +119,20 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-2xsm);
+  margin-top: var(--adb-spacing-md);
+  margin-right: 10px;
+}
+
+/* Restore counter padding stripped by global * { padding: 0 } reset,
+   and right-align the counter badge */
+adb-checkbox [slot='counter'] {
+  padding: 0 var(--adb-spacing-2xsm, 4px);
+  margin-inline-start: auto;
+}
+
+/* Only expand heading checkboxes to full width when they have a counter */
+adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
+  width: fit-content;
 }
 
 .area-section-heading {
