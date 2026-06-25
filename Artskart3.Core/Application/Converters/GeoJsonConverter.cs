@@ -52,6 +52,22 @@ public static class GeoJsonConverter
         writer.WriteStartObject();
         writer.WriteNumber("ObservationCount", location.ObservationCount);
         writer.WriteString("Locality", location.Locality ?? string.Empty);
+        writer.WriteBoolean("isPolygon", location.WktPolygons?.Any() == true);
+
+       if (location.WktPolygons?.Any() == true)
+        {
+            writer.WriteStartArray("WktPolygons");
+
+            foreach (var polygon in location.WktPolygons)
+            {
+                if (!string.IsNullOrEmpty(polygon))
+                {
+                    writer.WriteStringValue(polygon);
+                }
+            }
+
+            writer.WriteEndArray();
+        }
 
         switch (styleType)
         {

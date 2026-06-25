@@ -35,4 +35,5 @@ public partial class Area : BaseEntity
     public virtual AreaType AreaType { get; set; } = null!;
 
     public virtual ICollection<Location> Locations { get; set; } = new List<Location>();
+    public virtual ICollection<LocationArea> LocationAreas { get; set; } = new List<LocationArea>();
 }

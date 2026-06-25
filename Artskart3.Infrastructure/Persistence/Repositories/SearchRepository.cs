@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
 public class SearchRepository : ISearchRepository
@@ -390,10 +391,12 @@ public class SearchRepository : ISearchRepository
     {
         var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
 
-        var locationLookup = await _context.Set<Location>()
-            .Where(l => locationIds.Contains(l.Id))
-            .AsNoTracking()
-            .ToDictionaryAsync(l => l.Id, cancellationToken);
+         var locationLookup = await _context.Set<Location>()
+                    .Where(l => locationIds.Contains(l.Id))
+                    .Include(l => l.LocationAreas)
+                        .ThenInclude(la => la.Area)
+                    .AsNoTracking()
+                    .ToDictionaryAsync(l => l.Id, cancellationToken);
 
         var locationModels = new List<LocationModel>(aggregatedData.Count);
 
@@ -409,18 +412,27 @@ public class SearchRepository : ISearchRepository
     }
     private static LocationModel MapLocationToModel(Location location, AggregatedLocationData aggregatedData)
     {
+       var areaPolygon = location.LocationAreas
+                .FirstOrDefault(la => la.Area?.IsCurrent == true)
+                ?.Area?.WktPolygon;
+
         return new LocationModel
-        {
-            Id = location.Id,
-            Locality = location.Locality ?? string.Empty,
-            Latitude = location.Latitude ?? 0,
-            Longitude = location.Longitude ?? 0,
-            East = location.East,
-            North = location.North,
-            CoordinatePrecision = location.CoordinatePrecision,
-            TaxonId = aggregatedData.TaxonId,
-            ObservationCount = aggregatedData.ObservationCount
-        };
+    {
+        Id = location.Id,
+        Locality = location.Locality ?? string.Empty,
+        Latitude = location.Latitude ?? 0,
+        Longitude = location.Longitude ?? 0,
+        East = location.East,
+        North = location.North,
+        CoordinatePrecision = location.CoordinatePrecision,
+        TaxonId = aggregatedData.TaxonId,
+        ObservationCount = aggregatedData.ObservationCount,
+        WktPolygons = location.LocationAreas
+            .Where(la => la.Area is { IsCurrent: true, WktPolygon: not null })
+            .Select(la => la.Area!.WktPolygon!.AsText())
+            .Distinct()
+            .ToList()
+    };
     }
 
     private class AggregatedLocationData

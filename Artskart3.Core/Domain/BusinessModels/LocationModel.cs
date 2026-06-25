@@ -17,6 +17,11 @@ public class LocationModel
     public int East { get; set; }
     public int North { get; set; }
     public int? TaxonId { get; set; }
+    /// <summary>
+    /// WKT polygon string for localities that are surfaces/areas rather than single points.
+    /// Null for single-point localities.
+    /// </summary>
+    public List<string> WktPolygons { get; set; } = [];
     public Collection<ObservationBaseModel> Observations { get; set; } = new Collection<ObservationBaseModel>();
     public Collection<AreaModel> Areas { get; set; } = new Collection<AreaModel>();
     public LocationModel()

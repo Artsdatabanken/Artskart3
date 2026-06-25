@@ -29,5 +29,16 @@ public partial class Location : BaseEntity
 
     public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();
 
+    public virtual ICollection<LocationArea> LocationAreas { get; set; } = new List<LocationArea>();
+
     public virtual ICollection<Area> Areas { get; set; } = new List<Area>();
+}
+
+public class LocationArea
+{
+    public int LocationId { get; set; }
+    public int AreaId { get; set; }
+
+    public virtual Location Location { get; set; } = null!;
+    public virtual Area Area { get; set; } = null!;
 }

@@ -175,6 +175,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Variants).HasMaxLength(300);
         });
 
+
         modelBuilder.Entity<Behavior>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK_dbo.Behavior");
@@ -382,6 +383,19 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                         j.HasIndex(new[] { "LocationId", "AreaId" }, "IX_LocationIdArea");
                         j.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
                     });
+        });
+
+        modelBuilder.Entity<LocationArea>(entity =>
+        {
+            entity.HasKey(e => new { e.LocationId, e.AreaId });
+
+            entity.HasOne(e => e.Location)
+                .WithMany(e => e.LocationAreas)
+                .HasForeignKey(e => e.LocationId);
+
+            entity.HasOne(e => e.Area)
+                .WithMany(e => e.LocationAreas)
+                .HasForeignKey(e => e.AreaId);
         });
 
         modelBuilder.Entity<Maskeringsruter16x16km>(entity =>

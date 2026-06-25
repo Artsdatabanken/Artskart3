@@ -15,7 +15,7 @@ import {
   inject,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
-import { Subject, Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -41,10 +41,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
   private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
+  private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
 
   public map!: NbicMapComponent;
   private previousApiZoomLevel: number | null = null;
   private geojsonCacheByApiZoom = new Map<number, string>();
+  private locationPolygonsCache: string | null = null;
 
   private destroy$ = new Subject<void>();
   private fetchZoomLevel$ = new Subject<number>();
@@ -149,6 +151,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndex: 100,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
     });
+
+    this.map.addLayer({
+      id: this.LOCATION_POLYGONS_LAYER_ID,
+      kind: 'vector',
+      source: { type: 'memory' },
+      pickable: true,
+      zIndex: 90,
+      minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
+    });
   }
 
   private onCameraChanged(zoom: number): void {
@@ -170,20 +181,30 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         const cached = this.geojsonCacheByApiZoom.get(apiZoomLevel);
         if (cached) {
           this.applyGeoJsonToLayer(apiZoomLevel, cached);
+          if (apiZoomLevel === ApiZoomLevel.LocationPoints && this.locationPolygonsCache) {
+            this.applyLocationPolygonLayer(this.locationPolygonsCache);
+          }
           return [];
         }
 
         const currentZoom = this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
         const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
 
-        const serviceCall$: Observable<string> = isLocationPoints
-          ? this.areasService.getLocationsAsGeoJsonString()
+        const serviceCall$: Observable<string | { points: string; polygons: string }> = isLocationPoints
+          ? this.areasService.getLocationsGeoJson()
           : this.areasService.getAreaMarkersAsGeoJson(currentZoom);
 
         return serviceCall$.pipe(
           tap(geojson => {
-            this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson);
-            this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+            if (isLocationPoints && typeof geojson !== 'string') {
+              this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson.points);
+              this.locationPolygonsCache = geojson.polygons;
+              this.applyGeoJsonToLayer(apiZoomLevel, geojson.points);
+              this.applyLocationPolygonLayer(geojson.polygons);
+            } else {
+              this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson as string);
+              this.applyGeoJsonToLayer(apiZoomLevel, geojson as string);
+            }
           })
         );
       }),
@@ -212,10 +233,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private applyLocationPolygonLayer(geojson: string): void {
+    if (!this.map) return;
+    this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+  }
+
   private cleanup(): void {
     this.destroy$.next();
     this.destroy$.complete();
     this.geojsonCacheByApiZoom.clear();
+    this.locationPolygonsCache = null;
     this.map?.destroy?.();
   }
 
