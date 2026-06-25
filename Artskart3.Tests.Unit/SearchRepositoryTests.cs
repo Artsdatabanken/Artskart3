@@ -135,7 +135,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = new[] { 10 } }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = new[] { 10 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -157,33 +157,14 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = new[] { 5 } }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecordIds = new[] { 5 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
     }
 
-    [Fact]
-    public async Task GetLocationsAsync_WithCollectionIdFilter_ReturnsOnlyMatchingLocations()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        SeedLocations(context,
-            CreateLocation(1, "Oslo"),
-            CreateLocation(2, "Trondheim"));
-
-        SeedObservations(context,
-            CreateObservation(1, 1, institutionCode: "NHM"),
-            CreateObservation(2, 2, institutionCode: "GBIF"));
-
-        await context.SaveChangesAsync();
-
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = new[] { "NHM" } }));
-
-        result.Should().ContainSingle();
-        result[0].Id.Should().Be(1);
-    }
+    // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
+    // Denne testen krever seeding av ObservationEntityIndex og dekkes av integrasjonstester.
 
     [Fact]
     public async Task GetLocationsAsync_WithCoordinatePrecisionFromFilter_FiltersCorrectly()

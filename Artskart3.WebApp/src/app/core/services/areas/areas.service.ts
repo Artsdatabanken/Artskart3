@@ -269,6 +269,21 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   return ensureInsideRing([largest.cx, largest.cy], largest.ring);
 }
 
+export interface LocationSearchFilter {
+  categoryIds?: number[];
+  organizationIds?: number[];
+  behaviorIds?: number[];
+  basisOfRecordIds?: number[];
+  taxonGroupIds?: number[];
+  countyIds?: string[];
+  municipalityIds?: string[];
+  oceanAreaIds?: string[];
+  coordinatePrecisionFrom?: number | null;
+  coordinatePrecisionTo?: number | null;
+  periodFrom?: number | null;
+  periodTo?: number | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -308,13 +323,37 @@ export class AreasService {
    * Fetches locations as a serialized GeoJSON FeatureCollection string
    * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
+   * @param filter Valgfritt søkefilter for lokasjoner
    */
-  getLocationsAsGeoJsonString(extent?: [number, number, number, number]): Observable<string> {
-    let url = this.locationsEndpoint;
+  getLocationsAsGeoJsonString(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+    const params = new URLSearchParams();
+
     if (extent) {
       const [minX, minY, maxX, maxY] = extent;
-      url += `?Envelope.MinX=${minX}&Envelope.MinY=${minY}&Envelope.MaxX=${maxX}&Envelope.MaxY=${maxY}`;
+      params.set('Envelope.MinX', String(minX));
+      params.set('Envelope.MinY', String(minY));
+      params.set('Envelope.MaxX', String(maxX));
+      params.set('Envelope.MaxY', String(maxY));
     }
+
+    if (filter) {
+      this.appendArrayParam(params, 'CategoryIds', filter.categoryIds);
+      this.appendArrayParam(params, 'OrganizationIds', filter.organizationIds);
+      this.appendArrayParam(params, 'BehaviorIds', filter.behaviorIds);
+      this.appendArrayParam(params, 'BasisOfRecordIds', filter.basisOfRecordIds);
+      this.appendArrayParam(params, 'TaxonGroupIds', filter.taxonGroupIds);
+      this.appendArrayParam(params, 'CountyIds', filter.countyIds);
+      this.appendArrayParam(params, 'MunicipalityIds', filter.municipalityIds);
+      this.appendArrayParam(params, 'OceanAreaIds', filter.oceanAreaIds);
+      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecisionFrom', String(filter.coordinatePrecisionFrom));
+      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecisionTo', String(filter.coordinatePrecisionTo));
+      if (filter.periodFrom != null) params.set('Period.From', String(filter.periodFrom));
+      if (filter.periodTo != null) params.set('Period.To', String(filter.periodTo));
+    }
+
+    const queryString = params.toString();
+    const url = queryString ? `${this.locationsEndpoint}?${queryString}` : this.locationsEndpoint;
+
     return this.apiClientService.fetchJson<string>(url, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
@@ -323,6 +362,13 @@ export class AreasService {
         return JSON.stringify({ type: 'FeatureCollection', features });
       })
     );
+  }
+
+  private appendArrayParam(params: URLSearchParams, name: string, values?: (string | number)[]): void {
+    if (!values?.length) return;
+    for (const v of values) {
+      params.append(name, String(v));
+    }
   }
 
   /**

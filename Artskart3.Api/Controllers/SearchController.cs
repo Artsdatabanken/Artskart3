@@ -268,6 +268,44 @@ public class SearchController : ControllerBase
             return false;
         }
 
+        if (!ValidateLocationFilterArraySizes(filter, out validationError))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validerer at ingen filter-arrayer i lokasjonsfilter overskrider maksimal størrelse.
+    /// </summary>
+    private bool ValidateLocationFilterArraySizes(LocationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    {
+        validationError = null;
+        var max = SearchConstants.MaxFilterArraySize;
+
+        ReadOnlySpan<(string name, int? length)> arrays =
+        [
+            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
+            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
+            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
+            (nameof(filter.CountyIds), filter.CountyIds?.Length),
+            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
+            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
+            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
+            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
+        ];
+
+        foreach (var (name, length) in arrays)
+        {
+            if (length > max)
+            {
+                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
+                return false;
+            }
+        }
+
         return true;
     }
 

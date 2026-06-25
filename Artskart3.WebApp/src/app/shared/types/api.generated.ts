@@ -263,11 +263,17 @@ export interface paths {
             parameters: {
                 query?: {
                     TaxonGroupIds?: number[];
-                    Categories?: number[];
-                    BasisOfRecords?: number[];
-                    CollectionIds?: string[];
+                    CategoryIds?: number[];
+                    BasisOfRecordIds?: number[];
+                    OrganizationIds?: number[];
+                    MunicipalityIds?: string[];
+                    CountyIds?: string[];
+                    OceanAreaIds?: string[];
+                    BehaviorIds?: number[];
                     CoordinatePrecisionFrom?: number;
                     CoordinatePrecisionTo?: number;
+                    "Period.From"?: number;
+                    "Period.To"?: number;
                     Epsg?: number;
                     MaxResults?: number;
                 };

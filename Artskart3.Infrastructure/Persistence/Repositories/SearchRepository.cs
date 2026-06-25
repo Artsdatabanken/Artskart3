@@ -332,22 +332,46 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
         }
 
-        if (filter.CollectionIds?.Any() == true)
+        if (filter.CategoryIds?.Any() == true)
         {
-            var collectionIds = filter.CollectionIds.ToList();
-            query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
+            var categoryIds = filter.CategoryIds.ToList();
+            query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
         }
 
-        if (filter.Categories?.Any() == true)
+        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen (same mønster som observasjoner)
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+        var hasOrg = filter.OrganizationIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
         {
-            var categories = filter.Categories.ToList();
-            query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
+            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
+            var countyIds = ConvertFidsToInt(filter.CountyIds);
+            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
+            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+            var orgIds = filter.OrganizationIds ?? [];
+
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
+                idx.ObservationId == o.Id && (
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
+                )));
         }
 
-        if (filter.BasisOfRecords?.Any() == true)
+        if (filter.BehaviorIds?.Any() == true)
         {
-            var basisOfRecords = filter.BasisOfRecords.ToList();
-            query = query.Where(o => basisOfRecords.Contains(o.BasisOfRecordId));
+            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+        }
+
+        if (filter.BasisOfRecordIds?.Any() == true)
+        {
+            var basisOfRecordIds = filter.BasisOfRecordIds.ToList();
+            query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
 
         if (filter.CoordinatePrecisionFrom > 0)
@@ -358,6 +382,18 @@ public class SearchRepository : ISearchRepository
         if (filter.CoordinatePrecisionTo > 0)
         {
             query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
+        }
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(o => o.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(o => o.DateTimeCollected <= toDate);
         }
 
         if (filter.Envelope != null)

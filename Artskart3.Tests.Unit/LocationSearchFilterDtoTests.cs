@@ -43,21 +43,32 @@ public class LocationSearchFilterDtoTests
         var sut = new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { 1, 2 },
-            Categories = new[] { 3, 4 },
-            BasisOfRecords = new[] { 5, 6 },
-            CollectionIds = new[] { "NHM", "GBIF" },
+            CategoryIds = new[] { 3, 4 },
+            BasisOfRecordIds = new[] { 5, 6 },
+            OrganizationIds = new[] { 7, 8 },
+            MunicipalityIds = new[] { "0301", "1103" },
+            CountyIds = new[] { "03", "11" },
+            OceanAreaIds = new[] { "500" },
+            BehaviorIds = new[] { 9, 10 },
             CoordinatePrecisionFrom = 10,
             CoordinatePrecisionTo = 100,
+            Period = new PeriodDto { From = 2000, To = 2024 },
             Epsg = 25833,
             MaxResults = 250
         };
 
         sut.TaxonGroupIds.Should().BeEquivalentTo(new[] { 1, 2 });
-        sut.Categories.Should().BeEquivalentTo(new[] { 3, 4 });
-        sut.BasisOfRecords.Should().BeEquivalentTo(new[] { 5, 6 });
-        sut.CollectionIds.Should().BeEquivalentTo(new[] { "NHM", "GBIF" });
+        sut.CategoryIds.Should().BeEquivalentTo(new[] { 3, 4 });
+        sut.BasisOfRecordIds.Should().BeEquivalentTo(new[] { 5, 6 });
+        sut.OrganizationIds.Should().BeEquivalentTo(new[] { 7, 8 });
+        sut.MunicipalityIds.Should().BeEquivalentTo(new[] { "0301", "1103" });
+        sut.CountyIds.Should().BeEquivalentTo(new[] { "03", "11" });
+        sut.OceanAreaIds.Should().BeEquivalentTo(new[] { "500" });
+        sut.BehaviorIds.Should().BeEquivalentTo(new[] { 9, 10 });
         sut.CoordinatePrecisionFrom.Should().Be(10);
         sut.CoordinatePrecisionTo.Should().Be(100);
+        sut.Period!.From.Should().Be(2000);
+        sut.Period!.To.Should().Be(2024);
         sut.Epsg.Should().Be(25833);
         sut.MaxResults.Should().Be(250);
     }

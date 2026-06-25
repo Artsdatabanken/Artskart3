@@ -13,11 +13,13 @@ import {
   ViewChild,
   OnDestroy,
   inject,
+  computed,
+  effect,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Subject, EMPTY } from 'rxjs';
 import { catchError, debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
-import { AreasService } from '@core/services/areas/areas.service';
+import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
@@ -26,6 +28,8 @@ import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ImageTile } from 'ol';
 import { ApiZoomLevel } from './map.types';
+import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { AreaService } from '../../services/area/area.service';
 
 @Component({
   selector: 'app-map',
@@ -45,6 +49,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   public map!: NbicMapComponent;
   private areaDataCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
+  private mapReady = false;
 
   private destroy$ = new Subject<void>();
   private fetchAreaData$ = new Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>();
@@ -52,6 +57,41 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
   private readonly logger = inject(LoggingService);
+  private readonly filterState = inject(FilterStateService);
+  private readonly areaService = inject(AreaService);
+
+  private readonly locationFilter = computed<LocationSearchFilter>(
+    () => {
+      const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
+      const coordinatePrecisionFrom = this.filterState.coordinatePrecisionFrom();
+      const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
+      const periodFrom = this.filterState.periodFrom();
+      const periodTo = this.filterState.periodTo();
+
+      return {
+        categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
+        organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
+        behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
+        basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+        countyIds: countyIds.length ? countyIds : undefined,
+        municipalityIds: municipalityIds.length ? municipalityIds : undefined,
+        oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
+        coordinatePrecisionFrom: coordinatePrecisionFrom,
+        coordinatePrecisionTo: coordinatePrecisionTo,
+        periodFrom: periodFrom,
+        periodTo: periodTo,
+      };
+    },
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+  );
+
+  private readonly _refetchOnFilterChange = effect(() => {
+    this.locationFilter();
+    if (this.mapReady) {
+      this.emitFetchEvent();
+    }
+  });
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
@@ -112,6 +152,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private onMapReady(): void {
+    this.mapReady = true;
     this.mapReadyAction.emit(true);
     if (!this.map) return;
     this.map.activateHoverInfo();
@@ -203,7 +244,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           );
         }
 
-        return this.areasService.getLocationsAsGeoJsonString(extent).pipe(
+        const filter = this.locationFilter();
+        return this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
           tap(geojson => {
             this.applyGeoJsonToLayer(apiZoomLevel, geojson);
           }),
