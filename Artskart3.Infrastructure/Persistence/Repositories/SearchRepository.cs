@@ -293,6 +293,12 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
         }
 
+        if (filter.TaxonIds?.Any() == true)
+        {
+            var taxonIds = filter.TaxonIds.ToList();
+            query = query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+
         if (filter.CategoryIds?.Any() == true)
         {
             var categoryIds = filter.CategoryIds.ToList();
