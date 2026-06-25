@@ -35,7 +35,7 @@ public class ExportController : ControllerBase
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
 
-        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? []);
+        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], cancellationToken);
         return Ok(summary);
     }
 
@@ -45,11 +45,12 @@ public class ExportController : ControllerBase
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
 
-        var userId = GetUserId();
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
 
         try
         {
-            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? [], request.Name);
+            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
             return Ok(new { jobId });
         }
         catch (InvalidOperationException ex)
@@ -61,8 +62,10 @@ public class ExportController : ControllerBase
     [HttpGet("{jobId:int}/status")]
     public async Task<ActionResult<CsvExportJobDto>> GetStatus(int jobId, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
-        var status = await _exportService.GetJobStatusAsync(jobId, userId);
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
+
+        var status = await _exportService.GetJobStatusAsync(jobId, userId, cancellationToken);
         if (status == null)
             return NotFound();
 
@@ -72,8 +75,10 @@ public class ExportController : ControllerBase
     [HttpGet("{jobId:int}/download")]
     public async Task<ActionResult<object>> Download(int jobId, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
-        var blobPath = await _exportService.GetCsvBlobPathAsync(jobId, userId);
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
+
+        var blobPath = await _exportService.GetCsvBlobPathAsync(jobId, userId, cancellationToken);
         if (blobPath == null)
             return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
 
@@ -84,8 +89,10 @@ public class ExportController : ControllerBase
     [HttpGet("{jobId:int}/download/excel")]
     public async Task<ActionResult<object>> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
-        var excelBlobPath = await _exportService.GetExcelBlobPathAsync(jobId, userId);
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
+
+        var excelBlobPath = await _exportService.GetExcelBlobPathAsync(jobId, userId, cancellationToken);
         if (excelBlobPath == null)
             return NotFound(new { error = "Excel-filen er ikke tilgjengelig." });
 
@@ -96,9 +103,10 @@ public class ExportController : ControllerBase
     [HttpPost("{jobId:int}/cancel")]
     public async Task<ActionResult> Cancel(int jobId, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
 
-        var success = await _exportService.CancelExportAsync(jobId, userId);
+        var success = await _exportService.CancelExportAsync(jobId, userId, cancellationToken);
         if (!success)
             return Conflict(new { error = "Jobben kan ikke kanselleres." });
 
@@ -108,16 +116,18 @@ public class ExportController : ControllerBase
     [HttpGet("history")]
     public async Task<ActionResult<List<CsvExportJobDto>>> GetHistory(CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
+        var error = TryGetUserId(out var userId);
+        if (error != null) return error;
 
-        var history = await _exportService.GetUserExportHistoryAsync(userId);
+        var history = await _exportService.GetUserExportHistoryAsync(userId, cancellationToken);
         return Ok(history);
     }
 
-    private string GetUserId()
+    private ActionResult? TryGetUserId(out string userId)
     {
-        return User.FindFirst("sub")?.Value
-               ?? User.FindFirst("name")?.Value
-               ?? throw new InvalidOperationException("Bruker mangler 'sub'- eller 'name'-claim.");
+        userId = User.FindFirst("sub")?.Value ?? User.FindFirst("name")?.Value ?? "";
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Bruker mangler 'sub'- eller 'name'-claim." });
+        return null;
     }
 }
