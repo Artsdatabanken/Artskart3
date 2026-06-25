@@ -22,6 +22,8 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
+import { SpeciesSearchComponent } from '../species-search/species-search.component';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 2;
@@ -34,7 +36,7 @@ interface RegistreringOption {
 
 @Component({
   selector: 'app-sidebar',
-  imports: [TranslateModule, FormatNumberPipe],
+  imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',

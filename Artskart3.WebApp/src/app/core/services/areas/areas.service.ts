@@ -32,7 +32,7 @@ const NBIC_LOCATION_STYLE = {
     fillColor: '#005A71',
     strokeColor: '#D2DDE0',
     strokeWidth: 2,
-  }
+  },
 };
 
 interface ParsedGeometry {
@@ -45,10 +45,10 @@ interface ParsedGeometry {
  * @example "1 2, 3 4, 5 6, 1 2" => [[1, 2], [3, 4], [5, 6], [1, 2]]
  */
 function parseRing(ringStr: string): number[][] | null {
-  const points = ringStr.split(',').map(p => p.trim());
+  const points = ringStr.split(',').map((p) => p.trim());
   const coordinates = points
-    .map(point => {
-      const nums = point.split(/\s+/).map(n => parseFloat(n));
+    .map((point) => {
+      const nums = point.split(/\s+/).map((n) => parseFloat(n));
       if (nums.length !== 2 || isNaN(nums[0]) || isNaN(nums[1])) {
         return null;
       }
@@ -118,21 +118,37 @@ function clipRingToExtent(ring: number[][], extent: [number, number, number, num
   let output = ring;
 
   const edges: { inside: (p: number[]) => boolean; intersect: (a: number[], b: number[]) => number[] }[] = [
-    { // Venstre (x >= minX)
+    {
+      // Venstre (x >= minX)
       inside: (p) => p[0] >= extent[0],
-      intersect: (a, b) => { const t = (extent[0] - a[0]) / (b[0] - a[0]); return [extent[0], a[1] + t * (b[1] - a[1])]; }
+      intersect: (a, b) => {
+        const t = (extent[0] - a[0]) / (b[0] - a[0]);
+        return [extent[0], a[1] + t * (b[1] - a[1])];
+      },
     },
-    { // Høyre (x <= maxX)
+    {
+      // Høyre (x <= maxX)
       inside: (p) => p[0] <= extent[2],
-      intersect: (a, b) => { const t = (extent[2] - a[0]) / (b[0] - a[0]); return [extent[2], a[1] + t * (b[1] - a[1])]; }
+      intersect: (a, b) => {
+        const t = (extent[2] - a[0]) / (b[0] - a[0]);
+        return [extent[2], a[1] + t * (b[1] - a[1])];
+      },
     },
-    { // Bunn (y >= minY)
+    {
+      // Bunn (y >= minY)
       inside: (p) => p[1] >= extent[1],
-      intersect: (a, b) => { const t = (extent[1] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), extent[1]]; }
+      intersect: (a, b) => {
+        const t = (extent[1] - a[1]) / (b[1] - a[1]);
+        return [a[0] + t * (b[0] - a[0]), extent[1]];
+      },
     },
-    { // Topp (y <= maxY)
+    {
+      // Topp (y <= maxY)
       inside: (p) => p[1] <= extent[3],
-      intersect: (a, b) => { const t = (extent[3] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), extent[3]]; }
+      intersect: (a, b) => {
+        const t = (extent[3] - a[1]) / (b[1] - a[1]);
+        return [a[0] + t * (b[0] - a[0]), extent[3]];
+      },
     },
   ];
 
@@ -163,7 +179,9 @@ function clipRingToExtent(ring: number[][], extent: [number, number, number, num
  */
 function ringAreaAndCentroid(ring: number[][]): { area: number; cx: number; cy: number } | null {
   if (ring.length < 3) return null;
-  let area = 0, cx = 0, cy = 0;
+  let area = 0,
+    cx = 0,
+    cy = 0;
   for (let i = 0; i < ring.length; i++) {
     const j = (i + 1) % ring.length;
     const cross = ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1];
@@ -184,8 +202,7 @@ function pointInRing(point: [number, number], ring: number[][]): boolean {
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];
     const [xj, yj] = ring[j];
-    if ((yi > point[1]) !== (yj > point[1]) &&
-        point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi) {
+    if (yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi) {
       inside = !inside;
     }
   }
@@ -236,9 +253,7 @@ function ensureInsideRing(point: [number, number], ring: number[][]): [number, n
  * en av de klipte polygondelene.
  */
 function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, number, number, number]): [number, number] | null {
-  const polygons = parsed.type === 'MultiPolygon'
-    ? (parsed.coordinates as number[][][][])
-    : [parsed.coordinates as number[][][]];
+  const polygons = parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][]) : [parsed.coordinates as number[][][]];
 
   const clippedParts: { ring: number[][]; area: number; cx: number; cy: number }[] = [];
 
@@ -252,7 +267,9 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   if (clippedParts.length === 0) return null;
 
   // Arealvektet centroid
-  let totalArea = 0, weightedX = 0, weightedY = 0;
+  let totalArea = 0,
+    weightedX = 0,
+    weightedY = 0;
   for (const part of clippedParts) {
     totalArea += part.area;
     weightedX += part.cx * part.area;
@@ -266,7 +283,7 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   }
 
   // Ellers: bruk centroid av den største synlige delen, sikret innenfor
-  const largest = clippedParts.reduce((a, b) => a.area > b.area ? a : b);
+  const largest = clippedParts.reduce((a, b) => (a.area > b.area ? a : b));
   return ensureInsideRing([largest.cx, largest.cy], largest.ring);
 }
 
@@ -282,6 +299,7 @@ export interface LocationSearchFilter {
   basisOfRecordIds?: number[];
   registrationStatusId?: number | null;
   taxonGroupIds?: number[];
+  taxonIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
   restrictedAreaIds?: string[];
@@ -299,7 +317,7 @@ export interface LocationSearchFilter {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AreasService {
   private static readonly SERVICE_NAME = 'AreasService';
@@ -329,11 +347,14 @@ export class AreasService {
     return this.apiClientService
       .postJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body, { responseType: 'text' })
       .pipe(
-        map(responseText => {
+        map((responseText) => {
           const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
-          this.loggerService.info(`Retrieved ${Array.isArray(areas) ? areas.length : 0} areas for zoom level ${apiZoomLevel}`, AreasService.SERVICE_NAME);
+          this.loggerService.info(
+            `Retrieved ${Array.isArray(areas) ? areas.length : 0} areas for zoom level ${apiZoomLevel}`,
+            AreasService.SERVICE_NAME,
+          );
           return Array.isArray(areas) ? areas : [];
-        })
+        }),
       );
   }
 
@@ -352,7 +373,7 @@ export class AreasService {
         const features = this.mapCompactLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
         return JSON.stringify({ type: 'FeatureCollection', features });
-      })
+      }),
     );
   }
 
@@ -466,6 +487,7 @@ export class AreasService {
       if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
       if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
+      if (filter.taxonIds?.length) body['taxonIds'] = filter.taxonIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
@@ -519,8 +541,8 @@ export class AreasService {
           observationCount: count,
           observationCountDisplay: count ? AbbreviateNumberHelper.format(count) : '',
           isPolygon: false,
-          ...NBIC_LOCATION_STYLE
-        }
+          ...NBIC_LOCATION_STYLE,
+        },
       });
     }
     return features;
@@ -545,26 +567,22 @@ export class AreasService {
       const formattedCount = AbbreviateNumberHelper.format(count);
 
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
-      const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1]
-        && bbox[2] <= extent[2] && bbox[3] <= extent[3];
+      const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1] && bbox[2] <= extent[2] && bbox[3] <= extent[3];
 
       let centroid: [number, number];
       if (fullyVisible) {
         centroid = area.centroid
           ? [area.centroid.x, area.centroid.y]
           : this.calculateCentroid(
-              parsed.type === 'MultiPolygon'
-                ? (parsed.coordinates as number[][][][])[0][0]
-                : (parsed.coordinates as number[][][])[0]
+              parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
             );
       } else {
-        centroid = calculateClippedCentroid(parsed, extent)
-          ?? (area.centroid
+        centroid =
+          calculateClippedCentroid(parsed, extent) ??
+          (area.centroid
             ? [area.centroid.x, area.centroid.y]
             : this.calculateCentroid(
-                parsed.type === 'MultiPolygon'
-                  ? (parsed.coordinates as number[][][][])[0][0]
-                  : (parsed.coordinates as number[][][])[0]
+                parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
               ));
       }
 
@@ -581,8 +599,8 @@ export class AreasService {
             strokeColor: 'rgba(10, 109, 188, 0.6)',
             strokeWidth: 1.5,
             fillColor: 'rgba(0, 0, 0, 0)',
-          }
-        }
+          },
+        },
       });
 
       // Centroid marker feature with circle + count label
@@ -604,9 +622,9 @@ export class AreasService {
               label: formattedCount,
               font: 'bold 10px Arial',
               fillColor: '#FFFFFF',
-            }
-          }
-        }
+            },
+          },
+        },
       });
     }
 
@@ -616,7 +634,8 @@ export class AreasService {
 
   private calculateCentroid(ring: number[][]): [number, number] {
     if (!ring || ring.length === 0) return [0, 0];
-    let x = 0, y = 0;
+    let x = 0,
+      y = 0;
     for (const coord of ring) {
       x += coord[0];
       y += coord[1];
@@ -625,10 +644,12 @@ export class AreasService {
   }
 
   private computeBbox(parsed: ParsedGeometry): [number, number, number, number] {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const rings = parsed.type === 'MultiPolygon'
-      ? (parsed.coordinates as number[][][][]).flatMap(p => p)
-      : (parsed.coordinates as number[][][]);
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    const rings =
+      parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][]).flatMap((p) => p) : (parsed.coordinates as number[][][]);
     for (const ring of rings) {
       for (const [x, y] of ring) {
         if (x < minX) minX = x;

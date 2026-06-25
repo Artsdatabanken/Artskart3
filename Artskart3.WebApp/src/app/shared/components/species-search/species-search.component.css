@@ -1,0 +1,63 @@
+.search-field {
+  padding: 0 var(--adb-spacing-sm, 12px);
+}
+
+/* Autocomplete dropdown */
+.autocomplete-list {
+  position: fixed;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: max-content;
+  max-width: min(600px, 90vw);
+  background: var(--adb-surface-primary, #fff);
+  border: 1px solid var(--adb-border-default, #ccc);
+  border-radius: var(--adb-border-radius-md, 8px);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.autocomplete-item {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--adb-spacing-3xsm, 4px);
+  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-sm, 12px);
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background: var(--adb-surface-secondary, #f5f5f5);
+}
+
+.autocomplete-vernacular {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+}
+
+.autocomplete-scientific {
+  font-style: italic;
+  font-size: var(--adb-font-size-xs, 0.75rem);
+  color: var(--adb-text-subtle, #666);
+}
+
+.autocomplete-author {
+  font-size: var(--adb-font-size-xs, 0.75rem);
+  color: var(--adb-text-subtle, #666);
+}
+
+.autocomplete-rank {
+  font-size: var(--adb-font-size-xs, 0.75rem);
+  color: var(--adb-text-subtle, #666);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.autocomplete-no-results {
+  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-sm, 12px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  color: var(--adb-text-subtle, #666);
+  font-style: italic;
+}

@@ -1,9 +1,4 @@
-import {
-  createMap,
-  MapEvents,
-  NbicMapComponent,
-  nbicMapPresets,
-} from '@artsdatabanken/nbic-map-component';
+import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import {
   AfterViewInit,
   Component,
@@ -64,10 +59,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private geometryCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
   // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}_${attrHash}` slik at hver
   // kombinasjon av områdevalg og attributtfiltre beholder sin ETag
-  private countsCache = new Map<string, {
-    counts: Map<string, number>;
-    etag: string | null;
-  }>();
+  private countsCache = new Map<
+    string,
+    {
+      counts: Map<string, number>;
+      etag: string | null;
+    }
+  >();
   private mapReady = false;
 
   private readonly pendingAreaDataRequests = signal(0);
@@ -75,7 +73,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
-  private fetchCounts$ = new Subject<{ requests: { dataZoomLevel: number; apiZoomLevel: number; visible: boolean }[]; extent: [number, number, number, number] }>();
+  private fetchCounts$ = new Subject<{
+    requests: { dataZoomLevel: number; apiZoomLevel: number; visible: boolean }[];
+    extent: [number, number, number, number];
+  }>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
@@ -107,6 +108,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+        taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
         coordinatePrecisionFrom,
         coordinatePrecisionTo,
         periodFrom,
@@ -140,9 +142,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   );
 
   private hasActiveAttributeFilters(): boolean {
-    return Object.values(this.attributeFilter()).some(v =>
-      v != null && (!Array.isArray(v) || v.length > 0),
-    );
+    return Object.values(this.attributeFilter()).some((v) => v != null && (!Array.isArray(v) || v.length > 0));
   }
 
   /**
@@ -262,21 +262,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private listenForLanguageChanges(): void {
-    this.translate.onLangChange
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.zoomControl?.updateLabels({
-          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-        });
-        this.fullscreenControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-        });
-        this.geolocationControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-        });
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.zoomControl?.updateLabels({
+        zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+        zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
       });
+      this.fullscreenControl?.updateLabels({
+        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+      });
+      this.geolocationControl?.updateLabels({
+        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+      });
+    });
   }
 
   private onMapReady(): void {
@@ -358,10 +356,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupCameraChangePipeline(): void {
     this.map.on(MapEvents.CameraChanged, () => this.cameraChanged$.next());
-    this.cameraChanged$.pipe(
-      debounceTime(150),
-      takeUntil(this.destroy$),
-    ).subscribe(() => this.rebuildAllLayers());
+    this.cameraChanged$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(() => this.rebuildAllLayers());
   }
 
   // ─── Unified rebuild ───────────────────────────────────────────────
@@ -394,22 +389,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     if (pendingFetches.length > 0) {
       // Prioriter synlig lag først, hent det andre i bakgrunnen etterpå
-      const currentLayer = apiZoomLevel === ApiZoomLevel.Municipalities
-        ? ApiZoomLevel.Municipalities : ApiZoomLevel.Counties;
+      const currentLayer = apiZoomLevel === ApiZoomLevel.Municipalities ? ApiZoomLevel.Municipalities : ApiZoomLevel.Counties;
       const sorted = [
-        ...pendingFetches.filter(f => f.apiZoomLevel === currentLayer),
-        ...pendingFetches.filter(f => f.apiZoomLevel !== currentLayer),
-      ].map(f => ({ ...f, visible: f.apiZoomLevel === currentLayer }));
+        ...pendingFetches.filter((f) => f.apiZoomLevel === currentLayer),
+        ...pendingFetches.filter((f) => f.apiZoomLevel !== currentLayer),
+      ].map((f) => ({ ...f, visible: f.apiZoomLevel === currentLayer }));
       this.fetchCounts$.next({ requests: sorted, extent });
     }
   }
 
   private loadFetchStart(): void {
-    this.pendingAreaDataRequests.update(count => count + 1);
+    this.pendingAreaDataRequests.update((count) => count + 1);
   }
 
   private loadFetchEnd(): void {
-    this.pendingAreaDataRequests.update(count => Math.max(0, count - 1));
+    this.pendingAreaDataRequests.update((count) => Math.max(0, count - 1));
   }
 
   /**
@@ -421,11 +415,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     extent: [number, number, number, number],
     pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[],
   ): void {
-    const dataZoomLevel = apiZoomLevel === ApiZoomLevel.Counties && filter.municipalityIds?.length
-      ? ApiZoomLevel.Municipalities
-      : apiZoomLevel;
+    const dataZoomLevel =
+      apiZoomLevel === ApiZoomLevel.Counties && filter.municipalityIds?.length ? ApiZoomLevel.Municipalities : apiZoomLevel;
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
-
     if (!cachedGeometries) {
       this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
       return;
@@ -458,20 +450,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
    * Brukes kun når cache ikke dekker behovet.
    */
   private setupCountsFetchPipeline(): void {
-    this.fetchCounts$.pipe(
-      debounceTime(300),
-      switchMap(({ requests, extent }) => {
-        const filter = this.locationFilter();
+    this.fetchCounts$
+      .pipe(
+        switchMap(({ requests, extent }) => {
+          const filter = this.locationFilter();
 
-        // Hent antall for alle forespurte zoomnivåer sekvensielt
-        const fetches = requests.map(({ dataZoomLevel, apiZoomLevel, visible }) =>
-          this.fetchCountsForZoomLevel(dataZoomLevel, apiZoomLevel, extent, filter, visible),
-        );
+          // Hent antall for alle forespurte zoomnivåer sekvensielt
+          const fetches = requests.map(({ dataZoomLevel, apiZoomLevel, visible }) =>
+            this.fetchCountsForZoomLevel(dataZoomLevel, apiZoomLevel, extent, filter, visible),
+          );
 
-        return rxConcat(...fetches);
-      }),
-      takeUntil(this.destroy$),
-    ).subscribe();
+          return rxConcat(...fetches);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   private fetchCountsForZoomLevel(
@@ -492,9 +485,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return defer(() => {
         if (visible) this.loadFetchStart();
         return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
-          tap(response => {
+          tap((response) => {
             if (!response.notModified && response.counts) {
-              const countsMap = new Map(response.counts.map(c => [c.fid, c.observationCount]));
+              const countsMap = new Map(response.counts.map((c) => [c.fid, c.observationCount]));
               this.countsCache.set(cacheKey, {
                 counts: countsMap,
                 etag: response.etag,
@@ -512,20 +505,20 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             this.logger.error(`Failed to load area counts for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
             return EMPTY;
           }),
-          finalize(() => { if (visible) this.loadFetchEnd(); }),
+          finalize(() => {
+            if (visible) this.loadFetchEnd();
+          }),
         );
       });
     }
 
     // Fallback: geometrier ikke i cache — hent alt
-    const olZoom = dataZoomLevel === ApiZoomLevel.Municipalities
-      ? ZoomConfig.ZOOM_COUNTIES_THRESHOLD
-      : ZoomConfig.DEFAULT_ZOOM_LEVEL;
+    const olZoom = dataZoomLevel === ApiZoomLevel.Municipalities ? ZoomConfig.ZOOM_COUNTIES_THRESHOLD : ZoomConfig.DEFAULT_ZOOM_LEVEL;
 
     return defer(() => {
       if (visible) this.loadFetchStart();
       return this.areasService.getAreaMarkers(olZoom, filter).pipe(
-        tap(areas => {
+        tap((areas) => {
           // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
           if (selectionKey === this.EMPTY_SELECTION_KEY && !this.hasActiveAttributeFilters()) {
             this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
@@ -544,39 +537,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.logger.error(`Failed to load area markers for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
           return EMPTY;
         }),
-        finalize(() => { if (visible) this.loadFetchEnd(); }),
+        finalize(() => {
+          if (visible) this.loadFetchEnd();
+        }),
       );
     });
   }
 
   private setupLocationsFetchPipeline(): void {
-    this.locationsFetch$.pipe(
-      debounceTime(300),
-      switchMap(({ extent, filter }) => {
-        this.loadFetchStart();
-        const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-          tap(geojson => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
-          catchError((err: unknown) => {
-            this.logger.error('Failed to load location points:', 'MapComponent', err);
-            return EMPTY;
-          }),
-          finalize(() => this.loadFetchEnd()),
-        );
+    this.locationsFetch$
+      .pipe(
+        debounceTime(300),
+        switchMap(({ extent, filter }) => {
+          this.loadFetchStart();
+          const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
+            tap((geojson) => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
+            catchError((err: unknown) => {
+              this.logger.error('Failed to load location points:', 'MapComponent', err);
+              return EMPTY;
+            }),
+            finalize(() => this.loadFetchEnd()),
+          );
 
-        this.loadFetchStart();
-        const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
-          tap(geojson => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
-          catchError((err: unknown) => {
-            this.logger.error('Failed to load location polygons:', 'MapComponent', err);
-            return EMPTY;
-          }),
-          finalize(() => this.loadFetchEnd()),
-        );
+          this.loadFetchStart();
+          const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
+            tap((geojson) => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
+            catchError((err: unknown) => {
+              this.logger.error('Failed to load location polygons:', 'MapComponent', err);
+              return EMPTY;
+            }),
+            finalize(() => this.loadFetchEnd()),
+          );
 
-        return merge(locations$, polygons$);
-      }),
-      takeUntil(this.destroy$),
-    ).subscribe();
+          return merge(locations$, polygons$);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   private locationsFetch$ = new Subject<{ extent: [number, number, number, number]; filter: LocationSearchFilter }>();
@@ -588,25 +585,28 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   // ─── Prefetch ──────────────────────────────────────────────────────
 
   private prefetchAreaGeometries(): void {
-    this.areasService.getAreaMarkers(ZoomConfig.DEFAULT_ZOOM_LEVEL).pipe(
-      tap(areas => {
-        this.seedCountsFromGeometries(ApiZoomLevel.Counties, areas);
-        this.rebuildAllLayers();
-      }),
-      switchMap(() =>
-        this.areasService.getAreaMarkers(ZoomConfig.ZOOM_COUNTIES_THRESHOLD).pipe(
-          tap(areas => {
-            this.seedCountsFromGeometries(ApiZoomLevel.Municipalities, areas);
-            this.rebuildAllLayers();
-          }),
+    this.areasService
+      .getAreaMarkers(ZoomConfig.DEFAULT_ZOOM_LEVEL)
+      .pipe(
+        tap((areas) => {
+          this.seedCountsFromGeometries(ApiZoomLevel.Counties, areas);
+          this.rebuildAllLayers();
+        }),
+        switchMap(() =>
+          this.areasService.getAreaMarkers(ZoomConfig.ZOOM_COUNTIES_THRESHOLD).pipe(
+            tap((areas) => {
+              this.seedCountsFromGeometries(ApiZoomLevel.Municipalities, areas);
+              this.rebuildAllLayers();
+            }),
+          ),
         ),
-      ),
-      catchError((err: unknown) => {
-        this.logger.error('Failed to prefetch area geometries:', 'MapComponent', err);
-        return EMPTY;
-      }),
-      takeUntil(this.destroy$),
-    ).subscribe();
+        catchError((err: unknown) => {
+          this.logger.error('Failed to prefetch area geometries:', 'MapComponent', err);
+          return EMPTY;
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   /**
@@ -654,11 +654,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return areas;
     }
 
-    return areas.filter(a =>
-      countyFids.has(a.fid) ||
-      municipalityFids.has(a.fid) ||
-      oceanAreaFids.has(a.fid) ||
-      (a.parentFid && countyFids.has(a.parentFid)),
+    return areas.filter(
+      (a) =>
+        countyFids.has(a.fid) || municipalityFids.has(a.fid) || oceanAreaFids.has(a.fid) || (a.parentFid && countyFids.has(a.parentFid)),
     );
   }
 
@@ -669,22 +667,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
    * Valgte områder uten treff vises med "0" slik at brukeren ser at valget ga null resultater.
    */
   private mergeCountsIntoAreas(areas: AreaMarkerDto[], counts: Map<string, number>, filter: LocationSearchFilter): AreaMarkerDto[] {
-    const selectedFids = new Set([
-      ...(filter.countyIds ?? []),
-      ...(filter.municipalityIds ?? []),
-      ...(filter.oceanAreaIds ?? []),
-    ]);
+    const selectedFids = new Set([...(filter.countyIds ?? []), ...(filter.municipalityIds ?? []), ...(filter.oceanAreaIds ?? [])]);
 
     return this.filterCachedAreasBySelection(areas, filter)
-      .map(a => ({ ...a, observationCount: counts.get(a.fid) ?? 0 }))
-      .filter(a => (a.observationCount ?? 0) > 0 || selectedFids.has(a.fid));
+      .map((a) => ({ ...a, observationCount: counts.get(a.fid) ?? 0 }))
+      .filter((a) => (a.observationCount ?? 0) > 0 || selectedFids.has(a.fid));
   }
 
   /**
    * Bruker de forhåndsberegnede antallene som følger med geometriene.
    */
   private countsFromAreas(areas: AreaMarkerDto[]): Map<string, number> {
-    return new Map(areas.map(a => [a.fid, a.observationCount ?? 0]));
+    return new Map(areas.map((a) => [a.fid, a.observationCount ?? 0]));
   }
 
   private updateSelectedAreaOverlays(): void {
@@ -696,13 +690,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const countyAreas = this.geometryCacheByApiZoom.get(ApiZoomLevel.Counties) ?? [];
     const municipalityAreas = this.geometryCacheByApiZoom.get(ApiZoomLevel.Municipalities) ?? [];
 
-    const parentCountyFids = municipalityIds.length > 0
-      ? [...new Set(
-          municipalityAreas
-            .filter(a => municipalityIds.includes(a.fid) && a.parentFid)
-            .map(a => a.parentFid),
-        )]
-      : [];
+    const parentCountyFids =
+      municipalityIds.length > 0
+        ? [...new Set(municipalityAreas.filter((a) => municipalityIds.includes(a.fid) && a.parentFid).map((a) => a.parentFid))]
+        : [];
 
     const countyLevelFids = [...new Set([...countyIds, ...selectedOceanAreaFids, ...parentCountyFids])];
     const countyFeatures = this.areasService.buildOverlayFeatures(countyAreas, countyLevelFids);

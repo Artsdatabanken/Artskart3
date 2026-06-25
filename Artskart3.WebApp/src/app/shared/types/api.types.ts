@@ -17,6 +17,9 @@ export type StartExportRequestDto = components['schemas']['StartExportRequestDto
 export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
 
+export type SpeciesDto = components['schemas']['SpeciesDto'];
+export type VernacularNameDto = components['schemas']['VernacularNameDto'];
+
 // Export status enum
 export const CSV_EXPORT_STATUS = {
   Pending: 0,

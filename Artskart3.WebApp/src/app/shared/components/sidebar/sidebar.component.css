@@ -23,10 +23,6 @@
   }
 }
 
-.sidebar-heading {
-  margin-bottom: 0;
-}
-
 /* Remove default beige border from all accordions in sidebar */
 adb-accordion {
   --adb-border-default: transparent;
