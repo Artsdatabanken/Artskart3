@@ -258,6 +258,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.UserId, "IX_CsvExportJob_UserId");
 
             entity.Property(e => e.UserId).HasMaxLength(256);
+            entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.Status).HasConversion<int>();
             entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
             entity.Property(e => e.SelectedColumns).HasColumnType("nvarchar(max)");

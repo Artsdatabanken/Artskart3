@@ -17,22 +17,22 @@ namespace Artskart3.Workers.Export;
 /// <summary>
 /// Kjører CSV- og Excel-eksport: leser observasjoner i batcher og bygger begge formatene samtidig.
 /// </summary>
-public class CsvExportService
+public class ExportService
 {
     private readonly IArtsKartDbContext _context;
     private readonly IBlobStorageService _blobStorage;
     private readonly CsvWriterService _csvWriter;
     private readonly ExportColumnRegistry _columnRegistry;
     private readonly CsvExportOptions _options;
-    private readonly ILogger<CsvExportService> _logger;
+    private readonly ILogger<ExportService> _logger;
 
-    public CsvExportService(
+    public ExportService(
         IArtsKartDbContext context,
         IBlobStorageService blobStorage,
         CsvWriterService csvWriter,
         ExportColumnRegistry columnRegistry,
         IOptions<CsvExportOptions> options,
-        ILogger<CsvExportService> logger)
+        ILogger<ExportService> logger)
     {
         _context = context;
         _blobStorage = blobStorage;
@@ -60,8 +60,9 @@ public class CsvExportService
 
         var query = BuildQuery(filter, needsDetail);
 
-        var csvBlobPath = $"{job.UserId}/{job.Id}.csv";
-        var excelBlobPath = $"{job.UserId}/{job.Id}.xlsx";
+        var fileSlug = SanitizeBlobName(job.Name);
+        var csvBlobPath = $"exports/{job.Id}-{fileSlug}.csv";
+        var excelBlobPath = $"exports/{job.Id}-{fileSlug}.xlsx";
 
         // Kolonne-visningsnavn (brukes av både CSV og Excel)
         var columnMap = _columnRegistry.GetAllColumns().ToDictionary(c => c.Name, c => c.DisplayName);
@@ -163,6 +164,8 @@ public class CsvExportService
         }
 
         // Oppdater jobben som ferdig
+        var now = DateTime.UtcNow;
+        var expiresAt = now.AddDays(_options.Worker.ExpiresAtDays);
         await _context.Set<CsvExportJob>()
             .Where(j => j.Id == job.Id)
             .ExecuteUpdateAsync(s => s
@@ -172,8 +175,9 @@ public class CsvExportService
                 .SetProperty(j => j.ExcelBlobPath, savedExcelPath)
                 .SetProperty(j => j.FileSize, csvStream.Length)
                 .SetProperty(j => j.Status, CsvExportStatus.Complete)
-                .SetProperty(j => j.CompletedAt, DateTime.UtcNow),
-                cancellationToken);
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.ExpiresAt, expiresAt),
+                CancellationToken.None);
 
         _logger.LogInformation("Eksportjobb {JobId} fullført. {Rows} rader eksportert", job.Id, totalProcessed);
     }
@@ -209,5 +213,19 @@ public class CsvExportService
         }
 
         return query;
+    }
+
+    private static string SanitizeBlobName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "eksport";
+
+        // Behold kun bokstaver, sifre, bindestrek og understrek
+        var sanitized = new string(name
+            .Replace(' ', '-')
+            .Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')
+            .ToArray());
+
+        return string.IsNullOrEmpty(sanitized) ? "eksport" : sanitized;
     }
 }

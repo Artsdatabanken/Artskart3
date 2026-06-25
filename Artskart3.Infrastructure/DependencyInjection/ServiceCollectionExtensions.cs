@@ -30,9 +30,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationsService, NotificationsService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILookupService, LookupService>();
-        services.AddScoped<ICsvExportService, CsvExportService>();
+        services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<ExportColumnRegistry>();
-        services.AddSingleton<IBlobStorageService, BlobStorageService>();
+        services.AddScoped<IBlobStorageService, BlobStorageService>();
         // Add other application services here
         return services;
     }

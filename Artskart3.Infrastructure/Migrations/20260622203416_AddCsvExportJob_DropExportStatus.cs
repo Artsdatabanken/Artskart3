@@ -20,6 +20,7 @@ public partial class AddCsvExportJob_DropExportStatus : Migration
                 Id = table.Column<int>(type: "int", nullable: false)
                     .Annotation("SqlServer:Identity", "1, 1"),
                 UserId = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                 Status = table.Column<int>(type: "int", nullable: false),
                 FilterJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
                 SelectedColumns = table.Column<string>(type: "nvarchar(max)", nullable: false),

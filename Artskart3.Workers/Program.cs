@@ -66,9 +66,9 @@ builder.Services.Configure<CsvExportOptions>(
     builder.Configuration.GetSection("CsvExport"));
 
 // Tjenester
-builder.Services.AddSingleton<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
+builder.Services.AddScoped<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
 builder.Services.AddScoped<CsvWriterService>();
-builder.Services.AddScoped<CsvExportService>();
+builder.Services.AddScoped<ExportService>();
 builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
 
 // Helsesjekk
@@ -98,7 +98,8 @@ app.Run();
 
 async Task CheckBlobStorageConnectionAsync(IServiceProvider services, ILogger startupLogger)
 {
-    var blobStorage = services.GetRequiredService<IBlobStorageService>();
+    using var scope = services.CreateScope();
+    var blobStorage = scope.ServiceProvider.GetRequiredService<IBlobStorageService>();
     try
     {
         await blobStorage.CheckConnectionAsync();
@@ -123,6 +124,13 @@ void RegisterRecurringJobs(IConfiguration configuration)
         "csv-export-poll",
         job => job.ExecuteAsync(CancellationToken.None),
         csvExportCron);
+
+    // Opprydding av utløpte eksportjobber — kjører daglig kl. 03:00
+    var cleanupCron = schedules["CsvExportCleanup"] ?? "0 3 * * *";
+    RecurringJob.AddOrUpdate<CsvExportCleanupJob>(
+        "csv-export-cleanup",
+        job => job.ExecuteAsync(CancellationToken.None),
+        cleanupCron);
 
     // Fremtidige jobber (harvest, import, vedlikehold) registreres her
 }
