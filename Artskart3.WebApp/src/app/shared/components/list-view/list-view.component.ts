@@ -91,8 +91,8 @@ export class ListViewComponent {
   readonly pageSizeOptions = [10, 25, 50];
   readonly resultsPerPage = signal(this.pageSizeOptions[0]);
 
-  readonly observationsResource = rxResource<PagedObservationResponse, ObservationSearchFilter>({
-    params: () => {
+  private readonly searchParams = computed<ObservationSearchFilter>(
+    () => {
       const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
       const coordinatePrecisionFrom = this.filterState.coordinatePrecisionFrom();
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
@@ -116,6 +116,11 @@ export class ListViewComponent {
         period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
       };
     },
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+  );
+
+  readonly observationsResource = rxResource<PagedObservationResponse, ObservationSearchFilter>({
+    params: () => this.searchParams(),
     stream: ({ params }) => this.observationService.searchObservations(params),
   });
 
