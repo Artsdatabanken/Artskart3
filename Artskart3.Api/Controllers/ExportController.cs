@@ -6,21 +6,22 @@ using Microsoft.AspNetCore.Mvc;
 namespace Artskart3.Api.Controllers;
 
 [ApiController]
-[AllowAnonymous] // TODO: Bytt til [Authorize] når autentisering er satt opp
+[Authorize]
 [Route("api/export/csv")]
 public class ExportController : ControllerBase
 {
-    private readonly ICsvExportService _exportService;
+    private readonly IExportService _exportService;
     private readonly IBlobStorageService _blobStorageService;
     private readonly ILogger<ExportController> _logger;
 
-    public ExportController(ICsvExportService exportService, IBlobStorageService blobStorageService, ILogger<ExportController> logger)
+    public ExportController(IExportService exportService, IBlobStorageService blobStorageService, ILogger<ExportController> logger)
     {
         _exportService = exportService;
         _blobStorageService = blobStorageService;
         _logger = logger;
     }
 
+    [AllowAnonymous]
     [HttpGet("columns")]
     public async Task<ActionResult<List<ExportColumnDefinition>>> GetColumns(CancellationToken cancellationToken)
     {
@@ -48,7 +49,7 @@ public class ExportController : ControllerBase
 
         try
         {
-            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? []);
+            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? [], request.Name);
             return Ok(new { jobId });
         }
         catch (InvalidOperationException ex)
@@ -115,6 +116,8 @@ public class ExportController : ControllerBase
 
     private string GetUserId()
     {
-        return User.FindFirst("sub")?.Value ?? User.FindFirst("name")?.Value ?? "anonymous";
+        return User.FindFirst("sub")?.Value
+               ?? User.FindFirst("name")?.Value
+               ?? throw new InvalidOperationException("Bruker mangler 'sub'- eller 'name'-claim.");
     }
 }

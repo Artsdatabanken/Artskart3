@@ -4,6 +4,7 @@ import {
   inject,
   CUSTOM_ELEMENTS_SCHEMA,
   effect,
+  untracked,
   OnDestroy,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
@@ -36,7 +37,7 @@ export class MittArtskartComponent implements OnDestroy {
   constructor() {
     effect(() => {
       this.exportService.historyVersion();
-      this.historyResource.reload();
+      untracked(() => this.historyResource.reload());
     });
 
     effect(() => {
@@ -101,37 +102,26 @@ export class MittArtskartComponent implements OnDestroy {
 
   onDownload(job: CsvExportJobDto): void {
     if (!job.id) return;
-    const newWindow = window.open('', '_blank', 'noopener,noreferrer');
     this.exportService.getDownloadUrl(job.id).subscribe({
-      next: (response) => {
-        if (newWindow) {
-          newWindow.location.href = response.url;
-        } else {
-          window.location.href = response.url;
-        }
-      },
-      error: () => {
-        if (newWindow) newWindow.close();
-        this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed'));
-      },
+      next: (response) => this.triggerDownload(response.url),
+      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
     });
   }
 
   onDownloadExcel(job: CsvExportJobDto): void {
     if (!job.id) return;
-    const newWindow = window.open('', '_blank', 'noopener,noreferrer');
     this.exportService.getExcelDownloadUrl(job.id).subscribe({
-      next: (response) => {
-        if (newWindow) {
-          newWindow.location.href = response.url;
-        } else {
-          window.location.href = response.url;
-        }
-      },
-      error: () => {
-        if (newWindow) newWindow.close();
-        this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed'));
-      },
+      next: (response) => this.triggerDownload(response.url),
+      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
     });
+  }
+
+  private triggerDownload(url: string): void {
+    const a = document.createElement('a');
+    a.href = url;
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 }

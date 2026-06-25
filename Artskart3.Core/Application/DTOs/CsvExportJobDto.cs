@@ -5,6 +5,7 @@ namespace Artskart3.Core.Application.DTOs;
 public class CsvExportJobDto
 {
     public int Id { get; set; }
+    public string? Name { get; set; }
     public CsvExportStatus Status { get; set; }
     public int TotalRows { get; set; }
     public int RowsProcessed { get; set; }

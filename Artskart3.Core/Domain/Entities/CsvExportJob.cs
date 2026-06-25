@@ -7,6 +7,8 @@ public class CsvExportJob : BaseEntity
 {
     public string UserId { get; set; } = null!;
 
+    public string? Name { get; set; }
+
     public CsvExportStatus Status { get; set; } = CsvExportStatus.Pending;
 
     /// <summary>

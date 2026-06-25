@@ -12,17 +12,17 @@ using Microsoft.Extensions.Configuration;
 namespace Artskart3.Infrastructure.Persistence.Services;
 
 /// <summary>
-/// API-side implementasjon av ICsvExportService.
+/// API-side implementasjon av IExportService.
 /// Håndterer opprettelse og administrasjon av eksportjobber i databasen.
 /// Selve CSV-genereringen gjøres av workeren.
 /// </summary>
-public class CsvExportService : ICsvExportService
+public class ExportService : IExportService
 {
     private readonly IArtsKartDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly ExportColumnRegistry _columnRegistry;
 
-    public CsvExportService(IArtsKartDbContext context, IConfiguration configuration, ExportColumnRegistry columnRegistry)
+    public ExportService(IArtsKartDbContext context, IConfiguration configuration, ExportColumnRegistry columnRegistry)
     {
         _context = context;
         _configuration = configuration;
@@ -55,7 +55,7 @@ public class CsvExportService : ICsvExportService
         };
     }
 
-    public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns)
+    public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns, string? name)
     {
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
         var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
@@ -69,21 +69,21 @@ public class CsvExportService : ICsvExportService
             throw new InvalidOperationException(
                 $"Maks {maxConcurrent} samtidige eksportjobber per bruker.");
 
-        // Sjekk hard limit
+        // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
         var query = BuildFilteredQuery(filter);
-        var count = await query.CountAsync();
+        var exceedsLimit = await query.Skip(hardLimit).AnyAsync();
 
-        if (count > hardLimit)
+        if (exceedsLimit)
             throw new InvalidOperationException(
-                $"Antall rader ({count}) overstiger grensen ({hardLimit}).");
+                $"Antall rader overstiger grensen ({hardLimit}). Bruk summary-endepunktet for nøyaktig antall.");
 
         var job = new CsvExportJob
         {
             UserId = userId,
+            Name = name?.Trim(),
             Status = CsvExportStatus.Pending,
             FilterJson = JsonSerializer.Serialize(filter),
             SelectedColumns = JsonSerializer.Serialize(columns),
-            TotalRows = count
         };
 
         _context.Set<CsvExportJob>().Add(job);
@@ -164,6 +164,7 @@ public class CsvExportService : ICsvExportService
     private static CsvExportJobDto MapToDto(CsvExportJob job) => new()
     {
         Id = job.Id,
+        Name = job.Name,
         Status = job.Status,
         TotalRows = job.TotalRows,
         RowsProcessed = job.RowsProcessed,

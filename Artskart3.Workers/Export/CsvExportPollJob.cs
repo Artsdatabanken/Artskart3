@@ -61,7 +61,7 @@ public class CsvExportPollJob
 
         try
         {
-            var exportService = scope.ServiceProvider.GetRequiredService<CsvExportService>();
+            var exportService = scope.ServiceProvider.GetRequiredService<ExportService>();
             await exportService.ProcessJobAsync(job, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

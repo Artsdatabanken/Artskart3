@@ -421,6 +421,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("RowsProcessed")
                         .HasColumnType("int");
 
