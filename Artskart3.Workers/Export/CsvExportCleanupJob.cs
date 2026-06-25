@@ -29,8 +29,17 @@ public class CsvExportCleanupJob
         var blobStorage = scope.ServiceProvider.GetRequiredService<IBlobStorageService>();
 
         var now = DateTime.UtcNow;
+        var oneDayAgo = now.AddDays(-1);
+
+        // Hent jobber som skal ryddes opp:
+        // 1. Fullførte jobber der ExpiresAt er passert
+        // 2. Feilede/kansellerte jobber med blob-referanser eldre enn 1 dag
         var expiredJobs = await context.Set<CsvExportJob>()
-            .Where(j => j.ExpiresAt != null && j.ExpiresAt < now && j.Status == CsvExportStatus.Complete)
+            .Where(j =>
+                (j.Status == CsvExportStatus.Complete && j.ExpiresAt != null && j.ExpiresAt < now) ||
+                ((j.Status == CsvExportStatus.Failed || j.Status == CsvExportStatus.Cancelled)
+                    && (j.BlobPath != null || j.ExcelBlobPath != null)
+                    && j.CompletedAt != null && j.CompletedAt < oneDayAgo))
             .ToListAsync(cancellationToken);
 
         if (expiredJobs.Count == 0)

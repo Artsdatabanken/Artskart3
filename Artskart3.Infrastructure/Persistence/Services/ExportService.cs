@@ -34,10 +34,10 @@ public class ExportService : IExportService
         return Task.FromResult(_columnRegistry.GetAllColumns());
     }
 
-    public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns)
+    public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns, CancellationToken cancellationToken)
     {
         var query = BuildFilteredQuery(filter);
-        var count = await query.CountAsync();
+        var count = await query.CountAsync(cancellationToken);
 
         var softLimit = _configuration.GetValue("CsvExport:Limits:SoftRowLimit", 50_000);
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
@@ -55,7 +55,7 @@ public class ExportService : IExportService
         };
     }
 
-    public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns, string? name)
+    public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
     {
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
         var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
@@ -63,7 +63,7 @@ public class ExportService : IExportService
         // Sjekk antall samtidige jobber for bruker
         var activeJobCount = await _context.Set<CsvExportJob>()
             .CountAsync(j => j.UserId == userId &&
-                (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing));
+                (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing), cancellationToken);
 
         if (activeJobCount >= maxConcurrent)
             throw new InvalidOperationException(
@@ -71,7 +71,7 @@ public class ExportService : IExportService
 
         // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
         var query = BuildFilteredQuery(filter);
-        var exceedsLimit = await query.Skip(hardLimit).AnyAsync();
+        var exceedsLimit = await query.OrderBy(o => o.Id).Skip(hardLimit).AnyAsync(cancellationToken);
 
         if (exceedsLimit)
             throw new InvalidOperationException(
@@ -87,24 +87,24 @@ public class ExportService : IExportService
         };
 
         _context.Set<CsvExportJob>().Add(job);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
         return job.Id;
     }
 
-    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, string userId)
+    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, string userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId, cancellationToken);
 
         return job == null ? null : MapToDto(job);
     }
 
-    public async Task<bool> CancelExportAsync(int jobId, string userId)
+    public async Task<bool> CancelExportAsync(int jobId, string userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
-            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId, cancellationToken);
 
         if (job == null)
             return false;
@@ -114,43 +114,49 @@ public class ExportService : IExportService
 
         job.Status = CsvExportStatus.Cancelled;
         job.CompletedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
         return true;
     }
 
-    public async Task<string?> GetCsvBlobPathAsync(int jobId, string userId)
+    public async Task<string?> GetCsvBlobPathAsync(int jobId, string userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId, cancellationToken);
 
         if (job?.Status != CsvExportStatus.Complete || string.IsNullOrEmpty(job.BlobPath))
+            return null;
+
+        if (job.ExpiresAt.HasValue && job.ExpiresAt.Value < DateTime.UtcNow)
             return null;
 
         return job.BlobPath;
     }
 
-    public async Task<string?> GetExcelBlobPathAsync(int jobId, string userId)
+    public async Task<string?> GetExcelBlobPathAsync(int jobId, string userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId, cancellationToken);
 
         if (job?.Status != CsvExportStatus.Complete || string.IsNullOrEmpty(job.ExcelBlobPath))
+            return null;
+
+        if (job.ExpiresAt.HasValue && job.ExpiresAt.Value < DateTime.UtcNow)
             return null;
 
         return job.ExcelBlobPath;
     }
 
-    public async Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(string userId)
+    public async Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(string userId, CancellationToken cancellationToken)
     {
         var jobs = await _context.Set<CsvExportJob>()
             .AsNoTracking()
             .Where(j => j.UserId == userId)
             .OrderByDescending(j => j.CreatedAt)
             .Take(50)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return jobs.Select(MapToDto).ToList();
     }
@@ -176,5 +182,4 @@ public class ExportService : IExportService
         ExpiresAt = job.ExpiresAt,
         ErrorMessage = job.ErrorMessage
     };
-
 }
