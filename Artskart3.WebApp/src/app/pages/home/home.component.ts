@@ -1,7 +1,9 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
+import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { FilterStateService } from '../../shared/services/filter-state/filter-state.service';
 import { AreaService } from '../../shared/services/area/area.service';
 import { ExportService } from '../../shared/services/export/export.service';
@@ -11,19 +13,24 @@ import { ObservationSearchFilter } from '../../shared/types/api.types';
 
 @Component({
   selector: 'app-home',
-  imports: [SharedModule, TranslateModule, ListViewComponent],
+  imports: [SharedModule, TranslateModule, ListViewComponent, SidebarComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
 export class HomeComponent {
+  private readonly document = inject(DOCUMENT);
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
   private readonly exportService = inject(ExportService);
   private readonly translate = inject(TranslateService);
   readonly alertService = inject(AlertService);
   readonly authService = inject(AuthService);
+
+  readonly minWidth = this.getCSSVar('--panel-min-width', 300);
+  readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
+  readonly filterPanelWidth = signal(this.minWidth);
 
   activeTab = signal(0);
   exporting = signal(false);
@@ -85,5 +92,17 @@ export class HomeComponent {
         this.alertService.showError(this.translate.instant('export.startFailed'));
       },
     });
+  }
+
+  onFilterPanelResize(newWidth: number) {
+    const validatedWidth = Math.max(this.minWidth, Math.min(newWidth, this.maxWidth));
+    this.filterPanelWidth.set(validatedWidth);
+  }
+
+  private getCSSVar(name: string, fallback: number): number {
+    const value = this.document.documentElement
+      ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
+      : '';
+    return parseInt(value) || fallback;
   }
 }

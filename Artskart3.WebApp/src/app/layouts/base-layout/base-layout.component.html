@@ -1,21 +1,9 @@
 
 <div class="layout-wrapper">
-  <app-header (menuToggle)="toggleFilterPanel()"></app-header>
+  <app-header></app-header>
   <app-alert></app-alert>
 
   <div class="layout-container">
-    <aside class="sidebar">
-      <app-resizable-panel
-        [initialWidth]="filterPanelWidth()"
-        [minWidth]="300"
-        [maxWidth]="500"
-        [isDraggable]="true"
-        (widthChanged)="onFilterPanelResize($event)"
-      >
-        <app-sidebar></app-sidebar>
-      </app-resizable-panel>
-    </aside>
-
     <main class="main-content">
       <router-outlet></router-outlet>
     </main>
