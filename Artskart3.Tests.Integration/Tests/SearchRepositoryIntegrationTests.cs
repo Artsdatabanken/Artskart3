@@ -59,7 +59,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         await SeedTestDataAsync();
     }
@@ -72,7 +72,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_GroupsObservationsByLocation()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto()));
+        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
+        }));
 
         result.Should().HaveCount(3);
         result.Should().Contain(model => model.Id == _locationOne.Id && model.ObservationCount == 3);
@@ -83,7 +86,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_OrdersByObservationCountDescending()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto()));
+        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
+        }));
 
         result.Select(x => x.ObservationCount).Should().BeInDescendingOrder();
     }
@@ -150,6 +156,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             CoordinatePrecision = new CoordinatePrecisionDto { From = 100 }
         }));
 
@@ -161,6 +168,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             CoordinatePrecision = new CoordinatePrecisionDto { To = 50 }
         }));
 
@@ -173,6 +181,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             MaxResults = 2
         }));
 

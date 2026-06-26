@@ -43,6 +43,21 @@ public class LocationSearchFilterDto
         Period?.To != null;
 
     /// <summary>
+    /// Returnerer true dersom det finnes filtre som påvirker observasjonsantallet
+    /// (alt utenom rene områdefiltre som bare styrer hvilke områder som vises).
+    /// </summary>
+    public bool HasObservationAttributeFilters =>
+        TaxonGroupIds?.Length > 0 ||
+        CategoryIds?.Length > 0 ||
+        BasisOfRecordIds?.Length > 0 ||
+        OrganizationIds?.Length > 0 ||
+        BehaviorIds?.Length > 0 ||
+        CoordinatePrecision?.From != null ||
+        CoordinatePrecision?.To != null ||
+        Period?.From != null ||
+        Period?.To != null;
+
+    /// <summary>
     /// EPSG code for coordinate system (default: 25833)
     /// </summary>
     public int? Epsg { get; set; }

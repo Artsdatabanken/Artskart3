@@ -7,6 +7,7 @@ using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,12 +22,14 @@ public class SearchRepository : ISearchRepository
     private readonly IArtsKartDbContext _context;
     private readonly ILogger<SearchRepository> _logger;
     private readonly PaginationOptions _paginationOptions;
+    private readonly IAreaHierarchyService _areaHierarchy;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
+        _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -180,10 +183,10 @@ public class SearchRepository : ISearchRepository
 
         if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
         {
-            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
-            var countyIds = ConvertFidsToInt(filter.CountyIds);
-            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
-            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
             var orgIds = filter.OrganizationIds ?? [];
 
             query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
@@ -349,10 +352,10 @@ public class SearchRepository : ISearchRepository
 
         if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
         {
-            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
-            var countyIds = ConvertFidsToInt(filter.CountyIds);
-            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
-            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
             var orgIds = filter.OrganizationIds ?? [];
 
             query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
@@ -499,10 +502,37 @@ public class SearchRepository : ISearchRepository
                     .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
                     .ToListAsync(cancellationToken);
 
-            var usePrecomputedCounts = filter == null || !filter.HasActiveFilters;
+            var hasFilters = filter?.HasActiveFilters == true;
+            var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
             Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
+            // Aggregerte kommune-antall per fylke (kun for kommune-filter på fylkesnivå)
+            Dictionary<string, int>? municipalityCountsByCounty = null;
 
-            if (!usePrecomputedCounts)
+            if (hasFilters && !needsDynamicCounts)
+            {
+                var filtered = FilterAreasBySelection(areas, filter!);
+                if (filtered.Count > 0)
+                {
+                    var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
+                    var areasAreCounties = filtered.Any() && !filtered.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+
+                    if (hasMunicipalityFilter && areasAreCounties)
+                    {
+                        // Kommune-filter på fylkesnivå: summer kommunenes pre-beregnede antall per fylke
+                        municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
+                            filter.MunicipalityIds!, cancellationToken);
+                    }
+
+                    areas = filtered;
+                }
+                else
+                {
+                    needsDynamicCounts = true;
+                }
+            }
+
+            // Observasjonsattributtfiltre (eller fallback): beregn antall dynamisk
+            if (needsDynamicCounts)
             {
                 dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
             }
@@ -513,15 +543,25 @@ public class SearchRepository : ISearchRepository
                 {
                     var firstArea = g.FirstOrDefault(a => a.WktPolygon != null) ?? g.First();
 
-                    var count = usePrecomputedCounts
-                        ? g.Sum(a => a.ObservationCount ?? 0)
-                        : g.Sum(a =>
+                    int count;
+                    if (needsDynamicCounts)
+                    {
+                        count = g.Sum(a =>
                         {
-                            var entityId = ConvertSingleFidToInt(a.Fid);
+                            var entityId = _areaHierarchy.FidToEntityId(a.Fid);
                             return entityId.HasValue
                                 ? dynamicCounts!.GetValueOrDefault((a.AreaTypeId, entityId.Value), 0)
                                 : 0;
                         });
+                    }
+                    else if (municipalityCountsByCounty != null)
+                    {
+                        count = g.Sum(a => municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0));
+                    }
+                    else
+                    {
+                        count = g.Sum(a => a.ObservationCount ?? 0);
+                    }
 
                     return new AreaMarkerDto
                     {
@@ -538,6 +578,7 @@ public class SearchRepository : ISearchRepository
                             : null
                     };
                 })
+                .Where(a => a.ObservationCount > 0)
                 .ToList();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -546,6 +587,34 @@ public class SearchRepository : ISearchRepository
             throw new ApplicationException(
                 "An error occurred while retrieving areas. Please try again later.", ex);
         }
+    }
+
+    /// <summary>
+    /// Henter pre-beregnede observasjonsantall for valgte kommuner og aggregerer per forelder-fylke.
+    /// Brukes når kommune-filter er aktivt på fylkesnivå — unngår tung observasjonstelling.
+    /// </summary>
+    private async Task<Dictionary<string, int>> AggregateMunicipalityCountsByCounty(
+        string[] municipalityFids, CancellationToken cancellationToken)
+    {
+        var fidsSet = municipalityFids.ToHashSet();
+
+        var municipalityAreas = await _context.Set<Area>()
+            .Where(a => a.IsCurrent && fidsSet.Contains(a.Fid))
+            .Select(a => new { a.Fid, a.ParentFid, a.ObservationCount })
+            .ToListAsync(cancellationToken);
+
+        var countsByCounty = new Dictionary<string, int>();
+
+        foreach (var m in municipalityAreas)
+        {
+            var countyFid = m.ParentFid ?? _areaHierarchy.GetCountyFid(m.Fid);
+            if (countyFid == null) continue;
+
+            countsByCounty.TryGetValue(countyFid, out var current);
+            countsByCounty[countyFid] = current + (m.ObservationCount ?? 0);
+        }
+
+        return countsByCounty;
     }
 
     /// <summary>
@@ -558,7 +627,7 @@ public class SearchRepository : ISearchRepository
 
         var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
         var entityIds = areas
-            .Select(a => ConvertSingleFidToInt(a.Fid))
+            .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .Distinct()
@@ -574,34 +643,33 @@ public class SearchRepository : ISearchRepository
         return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
     }
 
-    private static int? ConvertSingleFidToInt(string fid)
+    /// <summary>
+    /// Filtrerer områdelisten basert på valgte fylker/kommuner.
+    /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
+    /// </summary>
+    private List<Area> FilterAreasBySelection(List<Area> areas, LocationSearchFilterDto filter)
     {
-        return int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null;
+        var countyFids = new HashSet<string>(filter.CountyIds ?? []);
+        var municipalityFids = new HashSet<string>(filter.MunicipalityIds ?? []);
+
+        if (countyFids.Count == 0 && municipalityFids.Count == 0)
+            return areas;
+
+        // Slå opp forelder-fylke for valgte kommuner
+        var derivedCountyFids = new HashSet<string>();
+        foreach (var mFid in municipalityFids)
+        {
+            var parentCounty = _areaHierarchy.GetCountyFid(mFid);
+            if (parentCounty != null)
+                derivedCountyFids.Add(parentCounty);
+        }
+
+        return areas.Where(a =>
+            countyFids.Contains(a.Fid) ||
+            municipalityFids.Contains(a.Fid) ||
+            countyFids.Contains(a.ParentFid) ||
+            derivedCountyFids.Contains(a.Fid)
+        ).ToList();
     }
 
-    /// <summary>
-    /// Konverterer string-Fid-er til int ved å fjerne "_" (for historiske fylkes-Fid-er som "15_2017").
-    /// </summary>
-    private static int[] ConvertFidsToInt(string[]? fids)
-    {
-        if (fids == null || fids.Length == 0) return [];
-        return fids
-            .Select(fid => int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToArray();
-    }
-
-    /// <summary>
-    /// Konverterer verneområde-Fid-er til int ved å fjerne "Naturbase VV"-prefiks.
-    /// </summary>
-    private static int[] ConvertRestrictedAreaFidsToInt(string[]? fids)
-    {
-        if (fids == null || fids.Length == 0) return [];
-        return fids
-            .Select(fid => int.TryParse(fid.Replace("Naturbase VV", ""), out var id) ? id : (int?)null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToArray();
-    }
 }

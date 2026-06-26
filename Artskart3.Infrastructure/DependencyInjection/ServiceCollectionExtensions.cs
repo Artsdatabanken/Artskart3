@@ -2,6 +2,7 @@ using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Infrastructure.DependencyInjection;
@@ -19,6 +20,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddSingleton<AreaHierarchyService>();
+        services.AddSingleton<IAreaHierarchyService>(sp => sp.GetRequiredService<AreaHierarchyService>());
+        services.AddHostedService(sp => sp.GetRequiredService<AreaHierarchyService>());
         services.AddScoped<ISearchService, SearchService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILookupService, LookupService>();
