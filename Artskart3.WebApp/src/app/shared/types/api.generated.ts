@@ -270,8 +270,8 @@ export interface paths {
                     CountyIds?: string[];
                     OceanAreaIds?: string[];
                     BehaviorIds?: number[];
-                    CoordinatePrecisionFrom?: number;
-                    CoordinatePrecisionTo?: number;
+                    "CoordinatePrecision.From"?: number;
+                    "CoordinatePrecision.To"?: number;
                     "Period.From"?: number;
                     "Period.To"?: number;
                     Epsg?: number;
@@ -354,6 +354,19 @@ export interface paths {
             parameters: {
                 query?: {
                     zoomLevel?: number;
+                    TaxonGroupIds?: number[];
+                    CategoryIds?: number[];
+                    BasisOfRecordIds?: number[];
+                    OrganizationIds?: number[];
+                    MunicipalityIds?: string[];
+                    CountyIds?: string[];
+                    RestrictedAreaIds?: string[];
+                    OceanAreaIds?: string[];
+                    BehaviorIds?: number[];
+                    "CoordinatePrecision.From"?: number;
+                    "CoordinatePrecision.To"?: number;
+                    "Period.From"?: number;
+                    "Period.To"?: number;
                 };
                 header?: never;
                 path?: never;

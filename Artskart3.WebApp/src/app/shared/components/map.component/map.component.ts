@@ -89,6 +89,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly _refetchOnFilterChange = effect(() => {
     this.locationFilter();
     if (this.mapReady) {
+      this.areaDataCacheByApiZoom.clear();
       this.emitFetchEvent();
     }
   });
@@ -231,7 +232,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             return EMPTY;
           }
 
-          return this.areasService.getAreaMarkers(olZoom).pipe(
+          const filter = this.locationFilter();
+          return this.areasService.getAreaMarkers(olZoom, filter).pipe(
             tap(areas => {
               this.areaDataCacheByApiZoom.set(apiZoomLevel, areas);
               const geojson = this.areasService.buildAreaGeoJson(areas, extent);

@@ -131,14 +131,20 @@ public class SearchController : ControllerBase
 
     /// <summary>
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
+    /// When filters are provided, observation counts are computed dynamically.
     /// </summary>
     [HttpGet("AreaMarkers")]
     [Produces("application/json")]
-    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, [FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, cancellationToken);
+            if (filter != null && !ValidateLocationFilterArraySizes(filter, out var validationError))
+            {
+                return validationError!;
+            }
+
+            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
             _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
             return Ok(areas.ToArray());
         }
@@ -256,7 +262,7 @@ public class SearchController : ControllerBase
             return false;
         }
 
-        if (!IsValidCoordinatePrecisionRange(filter.CoordinatePrecisionFrom, filter.CoordinatePrecisionTo))
+        if (filter.CoordinatePrecision?.From != null && filter.CoordinatePrecision?.To != null && !IsValidCoordinatePrecisionRange(filter.CoordinatePrecision.From.Value, filter.CoordinatePrecision.To.Value))
         {
             validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
             return false;

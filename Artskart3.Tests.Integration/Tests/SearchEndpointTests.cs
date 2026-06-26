@@ -128,7 +128,7 @@ public class SearchEndpointTests : IAsyncLifetime
     public async Task GetObservationLocations_WithInvertedPrecisionRange_Returns400()
     {
         var response = await _client.GetAsync(
-            "/api/Search/Locations?filter.CoordinatePrecisionFrom=1000&filter.CoordinatePrecisionTo=100");
+            "/api/Search/Locations?filter.CoordinatePrecision.From=1000&filter.CoordinatePrecision.To=100");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

@@ -299,17 +299,35 @@ export class AreasService {
 
   /**
    * Henter områdemarkører fra API for gitt zoomnivå.
+   * @param filter Valgfritt søkefilter — brukes til dynamisk telling av observasjoner per område
    */
-  getAreaMarkers(openLayerZoom: number): Observable<AreaMarkerDto[]> {
+  getAreaMarkers(openLayerZoom: number, filter?: LocationSearchFilter): Observable<AreaMarkerDto[]> {
     const validation = this.validationService.validateZoomLevel(openLayerZoom);
     if (!validation.valid) {
       throw new Error(validation.error || ApiMessages.Errors.InvalidParameters);
     }
 
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(validation.normalized!);
+    const params = new URLSearchParams();
+    params.set('zoomLevel', String(apiZoomLevel));
+
+    if (filter) {
+      this.appendArrayParam(params, 'CategoryIds', filter.categoryIds);
+      this.appendArrayParam(params, 'OrganizationIds', filter.organizationIds);
+      this.appendArrayParam(params, 'BehaviorIds', filter.behaviorIds);
+      this.appendArrayParam(params, 'BasisOfRecordIds', filter.basisOfRecordIds);
+      this.appendArrayParam(params, 'TaxonGroupIds', filter.taxonGroupIds);
+      this.appendArrayParam(params, 'CountyIds', filter.countyIds);
+      this.appendArrayParam(params, 'MunicipalityIds', filter.municipalityIds);
+      this.appendArrayParam(params, 'OceanAreaIds', filter.oceanAreaIds);
+      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecision.From', String(filter.coordinatePrecisionFrom));
+      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecision.To', String(filter.coordinatePrecisionTo));
+      if (filter.periodFrom != null) params.set('Period.From', String(filter.periodFrom));
+      if (filter.periodTo != null) params.set('Period.To', String(filter.periodTo));
+    }
 
     return this.apiClientService
-      .fetchJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, { responseType: 'text' })
+      .fetchJson<string>(`${this.areasBaseEndpoint}?${params.toString()}`, { responseType: 'text' })
       .pipe(
         map(responseText => {
           const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
@@ -345,8 +363,8 @@ export class AreasService {
       this.appendArrayParam(params, 'CountyIds', filter.countyIds);
       this.appendArrayParam(params, 'MunicipalityIds', filter.municipalityIds);
       this.appendArrayParam(params, 'OceanAreaIds', filter.oceanAreaIds);
-      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecisionFrom', String(filter.coordinatePrecisionFrom));
-      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecisionTo', String(filter.coordinatePrecisionTo));
+      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecision.From', String(filter.coordinatePrecisionFrom));
+      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecision.To', String(filter.coordinatePrecisionTo));
       if (filter.periodFrom != null) params.set('Period.From', String(filter.periodFrom));
       if (filter.periodTo != null) params.set('Period.To', String(filter.periodTo));
     }

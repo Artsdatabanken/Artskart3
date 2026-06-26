@@ -322,10 +322,12 @@ public class SearchRepository : ISearchRepository
         }
     }
 
-    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    /// <summary>
+    /// Legger til felles filterpredikater (taksongruppe, kategori, område, atferd, etc.) på en observasjonsspørring.
+    /// Brukes av både lokasjons- og områdemarkørspørringer.
+    /// </summary>
+    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, LocationSearchFilterDto filter)
     {
-        var query = _context.Set<Observation>().AsNoTracking();
-
         if (filter.TaxonGroupIds?.Any() == true)
         {
             var taxonGroupIds = filter.TaxonGroupIds.ToList();
@@ -338,7 +340,7 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
         }
 
-        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen (same mønster som observasjoner)
+        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen
         var hasMunicipality = filter.MunicipalityIds?.Any() == true;
         var hasCounty = filter.CountyIds?.Any() == true;
         var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
@@ -374,14 +376,14 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
 
-        if (filter.CoordinatePrecisionFrom > 0)
+        if (filter.CoordinatePrecision?.From.HasValue == true)
         {
-            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
+            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
         }
 
-        if (filter.CoordinatePrecisionTo > 0)
+        if (filter.CoordinatePrecision?.To.HasValue == true)
         {
-            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
+            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
         }
 
         if (filter.Period?.From.HasValue == true)
@@ -395,6 +397,14 @@ public class SearchRepository : ISearchRepository
             var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
             query = query.Where(o => o.DateTimeCollected <= toDate);
         }
+
+        return query;
+    }
+
+    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    {
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, filter);
 
         if (filter.Envelope != null)
         {
@@ -477,12 +487,11 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Retrieves all area markers (counties/municipalities) grouped by name with aggregated observation counts.
-    /// Returns one polygon per area name in WKT POLYGON format in UTM Zone 33N.
-    /// Area types: 1 = municipalities, 2 = counties.
-    /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
+    /// Henter områdemarkører (fylker/kommuner) gruppert etter navn med observasjonsantall.
+    /// Hybrid tilnærming: uten filtre brukes pre-beregnet antall fra Area-tabellen,
+    /// med filtre beregnes antall dynamisk via ObservationEntityIndex.
     /// </summary>
-    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -490,11 +499,30 @@ public class SearchRepository : ISearchRepository
                     .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
                     .ToListAsync(cancellationToken);
 
+            var usePrecomputedCounts = filter == null || !filter.HasActiveFilters;
+            Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
+
+            if (!usePrecomputedCounts)
+            {
+                dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
+            }
+
             return areas
                 .GroupBy(a => a.Name)
                 .Select(g =>
                 {
                     var firstArea = g.FirstOrDefault(a => a.WktPolygon != null) ?? g.First();
+
+                    var count = usePrecomputedCounts
+                        ? g.Sum(a => a.ObservationCount ?? 0)
+                        : g.Sum(a =>
+                        {
+                            var entityId = ConvertSingleFidToInt(a.Fid);
+                            return entityId.HasValue
+                                ? dynamicCounts!.GetValueOrDefault((a.AreaTypeId, entityId.Value), 0)
+                                : 0;
+                        });
+
                     return new AreaMarkerDto
                     {
                         Id = g.Min(a => a.Id),
@@ -503,7 +531,7 @@ public class SearchRepository : ISearchRepository
                         Name = g.Key,
                         AreaTypeId = firstArea.AreaTypeId,
                         ParentFid = firstArea.ParentFid,
-                        ObservationCount = g.Sum(a => a.ObservationCount),
+                        ObservationCount = count,
                         WktsPolygon = firstArea.WktPolygon?.AsText(),
                         Centroid = firstArea.Centroid?.Coordinate != null
                             ? new CentroidDto { X = firstArea.Centroid.Coordinate.X, Y = firstArea.Centroid.Coordinate.Y }
@@ -518,6 +546,37 @@ public class SearchRepository : ISearchRepository
             throw new ApplicationException(
                 "An error occurred while retrieving areas. Please try again later.", ex);
         }
+    }
+
+    /// <summary>
+    /// Beregner filtrerte observasjonsantall per område via ObservationEntityIndex.
+    /// </summary>
+    private async Task<Dictionary<(int entityTypeId, int entityId), int>> ComputeFilteredAreaCounts(
+        List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
+    {
+        var filteredQuery = ApplyCommonFilters(_context.Set<Observation>().AsNoTracking(), filter);
+
+        var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
+        var entityIds = areas
+            .Select(a => ConvertSingleFidToInt(a.Fid))
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        var counts = await _context.Set<ObservationEntityIndex>()
+            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId) && entityIds.Contains(idx.EntityId))
+            .Where(idx => filteredQuery.Select(o => o.Id).Contains(idx.ObservationId))
+            .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
+            .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
+    }
+
+    private static int? ConvertSingleFidToInt(string fid)
+    {
+        return int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null;
     }
 
     /// <summary>

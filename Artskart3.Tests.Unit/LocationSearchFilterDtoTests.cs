@@ -14,19 +14,11 @@ public class LocationSearchFilterDtoTests
     }
 
     [Fact]
-    public void CoordinatePrecisionFrom_HarStandardverdi0()
+    public void CoordinatePrecision_ErNullSomStandard()
     {
         var sut = new LocationSearchFilterDto();
 
-        sut.CoordinatePrecisionFrom.Should().Be(0);
-    }
-
-    [Fact]
-    public void CoordinatePrecisionTo_HarStandardverdi0()
-    {
-        var sut = new LocationSearchFilterDto();
-
-        sut.CoordinatePrecisionTo.Should().Be(0);
+        sut.CoordinatePrecision.Should().BeNull();
     }
 
     [Fact]
@@ -50,8 +42,7 @@ public class LocationSearchFilterDtoTests
             CountyIds = new[] { "03", "11" },
             OceanAreaIds = new[] { "500" },
             BehaviorIds = new[] { 9, 10 },
-            CoordinatePrecisionFrom = 10,
-            CoordinatePrecisionTo = 100,
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 },
             Period = new PeriodDto { From = 2000, To = 2024 },
             Epsg = 25833,
             MaxResults = 250
@@ -65,8 +56,8 @@ public class LocationSearchFilterDtoTests
         sut.CountyIds.Should().BeEquivalentTo(new[] { "03", "11" });
         sut.OceanAreaIds.Should().BeEquivalentTo(new[] { "500" });
         sut.BehaviorIds.Should().BeEquivalentTo(new[] { 9, 10 });
-        sut.CoordinatePrecisionFrom.Should().Be(10);
-        sut.CoordinatePrecisionTo.Should().Be(100);
+        sut.CoordinatePrecision!.From.Should().Be(10);
+        sut.CoordinatePrecision!.To.Should().Be(100);
         sut.Period!.From.Should().Be(2000);
         sut.Period!.To.Should().Be(2024);
         sut.Epsg.Should().Be(25833);

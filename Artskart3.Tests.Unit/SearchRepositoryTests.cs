@@ -184,7 +184,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionFrom = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([2, 3]);
     }
@@ -207,7 +207,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionTo = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -232,8 +232,7 @@ public class SearchRepositoryTests
 
         var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 25,
-            CoordinatePrecisionTo = 75
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 25, To = 75 }
         }));
 
         result.Should().ContainSingle();

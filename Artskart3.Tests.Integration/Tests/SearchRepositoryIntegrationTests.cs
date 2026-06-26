@@ -150,7 +150,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 100
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 100 }
         }));
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationTwo.Id, _locationThree.Id]);
@@ -161,7 +161,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionTo = 50
+            CoordinatePrecision = new CoordinatePrecisionDto { To = 50 }
         }));
 
         result.Should().ContainSingle();

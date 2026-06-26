@@ -20,17 +20,27 @@ public class LocationSearchFilterDto
 
     public int[]? BehaviorIds { get; set; }
 
-    /// <summary>
-    /// Minimum coordinate precision in meters (0 = no filter)
-    /// </summary>
-    public int CoordinatePrecisionFrom { get; set; } = 0;
-
-    /// <summary>
-    /// Maximum coordinate precision in meters (0 = no filter)
-    /// </summary>
-    public int CoordinatePrecisionTo { get; set; } = 0;
+    public CoordinatePrecisionDto? CoordinatePrecision { get; set; }
 
     public PeriodDto? Period { get; set; }
+
+    /// <summary>
+    /// Returnerer true dersom minst ett søkefilter er satt (ekskluderer Envelope, Epsg, MaxResults).
+    /// </summary>
+    public bool HasActiveFilters =>
+        TaxonGroupIds?.Length > 0 ||
+        CategoryIds?.Length > 0 ||
+        BasisOfRecordIds?.Length > 0 ||
+        OrganizationIds?.Length > 0 ||
+        MunicipalityIds?.Length > 0 ||
+        CountyIds?.Length > 0 ||
+        RestrictedAreaIds?.Length > 0 ||
+        OceanAreaIds?.Length > 0 ||
+        BehaviorIds?.Length > 0 ||
+        CoordinatePrecision?.From != null ||
+        CoordinatePrecision?.To != null ||
+        Period?.From != null ||
+        Period?.To != null;
 
     /// <summary>
     /// EPSG code for coordinate system (default: 25833)
