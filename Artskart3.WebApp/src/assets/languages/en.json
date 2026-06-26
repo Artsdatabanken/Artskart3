@@ -70,14 +70,16 @@
     "scientificName": "Scientific name",
     "author": "Autor",
     "locality": "Locality",
-    "institution": "Institution",
+    "institution": "Data supplier",
     "date": "Date",
     "municipality": "Municipality",
     "precision": "Precision",
+    "taxonGroup": "Taxon group",
+    "riskCategory": "Risk category",
     "noResults": "No observations found"
   },
   "sidebar": {
-    "categories": "Red List & Alien Species Categories",
+    "categories": "Red List and Alien Species Categories",
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
@@ -94,7 +96,7 @@
     "periodTo": "To year",
     "periodSearch": "Search",
     "institutions": "Data Supplier",
-    "behaviors": "Habitat & Species Properties",
+    "behaviors": "Habitat and Species Properties",
     "behaviorName": {
       "dead": "Dead",
       "feeding": "Foraging",
@@ -123,7 +125,7 @@
       "svalbard": "Svalbard",
       "oceanAreas": "Ocean Areas"
     },
-    "taxonGroups": "Taxon groups"
+    "taxonGroups": "Taxon Groups"
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",

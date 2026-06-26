@@ -38,6 +38,10 @@
   td {
     padding: var(--adb-spacing-sm) var(--adb-spacing-md);
     text-align: left;
+
+    &.right {
+      text-align: right;
+    }
   }
 
   thead th {
@@ -45,7 +49,7 @@
     top: 0;
     z-index: 2;
     background: var(--adb-surface-secondary);
-    color: var(--adb-text-accent);
+    color: var(--adb-text-primary);
     font-weight: var(--adb-font-weight-regular);
     font-size: var(--adb-font-size-3);
     white-space: nowrap;
@@ -56,6 +60,8 @@
 
   tbody tr {
     border-bottom: 1px solid var(--adb-border-default);
+    font-weight: var(--adb-font-weight-regular);
+    font-size: var(--adb-font-size-4);
 
     &:nth-child(odd) td {
       background: var(--adb-surface-primary);

@@ -14,6 +14,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<ISearchRepository, SearchRepository>();
+        services.AddScoped<INotificationsRepository, NotificationsRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ILookupRepository, LookupRepository>();
         // Add other repositories here
@@ -23,6 +24,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<ISearchService, SearchService>();
+        services.AddScoped<INotificationsService, NotificationsService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILookupService, LookupService>();
         services.AddScoped<IExportService, ExportService>();

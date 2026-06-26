@@ -70,10 +70,12 @@
     "scientificName": "Vitenskapelig navn",
     "author": "Autor",
     "locality": "Lokalitet",
-    "institution": "Institusjon",
+    "institution": "Dataleverandør",
     "date": "Dato",
     "municipality": "Kommune",
     "precision": "Presisjon",
+    "taxonGroup": "Artsgruppe",
+    "riskCategory": "Risikokategori",
     "noResults": "Ingen observasjoner funnet"
   },
   "sidebar": {

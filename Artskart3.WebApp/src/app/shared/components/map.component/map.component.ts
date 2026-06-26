@@ -15,9 +15,10 @@ import {
   inject,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
-import { Subject, Observable, EMPTY } from 'rxjs';
+import { Subject, EMPTY } from 'rxjs';
 import { catchError, debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService } from '@core/services/areas/areas.service';
+import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -43,11 +44,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
 
   public map!: NbicMapComponent;
-  private previousApiZoomLevel: number | null = null;
-  private geojsonCacheByApiZoom = new Map<number, string>();
+  private areaDataCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
 
   private destroy$ = new Subject<void>();
-  private fetchAreaData$ = new Subject<{ apiZoomLevel: number; olZoom: number; extent?: [number, number, number, number] }>();
+  private fetchAreaData$ = new Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
@@ -148,59 +148,67 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 100,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
+      cluster: {
+        enabled: true,
+        distance: 50,
+        keepSingleAsCluster: true,
+        countField: 'observationCount',
+        style: {
+          type: 'simple',
+          options: {
+            circle: { radius: 17, fillColor: '#005B72', strokeColor: 'white', strokeWidth: 1 },
+            text: { fillColor: 'white', font: 'bold 12px sans-serif' },
+          },
+        },
+      },
     });
   }
 
   private onCameraChanged(zoom: number): void {
-    const apiZoomLevel = ZoomConfig.getApiZoomLevel(zoom);
-
-    if (apiZoomLevel === ApiZoomLevel.LocationPoints) {
-      // For lokasjonspunkter: hent på nytt ved panorering og zoom
-      this.emitFetchEvent(zoom);
-    } else if (apiZoomLevel !== this.previousApiZoomLevel) {
-      this.emitFetchEvent(zoom);
-    }
+    this.emitFetchEvent(zoom);
   }
 
   private emitFetchEvent(olZoom?: number): void {
     const currentZoom = olZoom ?? this.map?.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(currentZoom);
-    const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
-    const extent = isLocationPoints
-      ? this.map.getExtent() as [number, number, number, number]
-      : undefined;
+    const extent = this.map.getExtent() as [number, number, number, number];
     this.fetchAreaData$.next({ apiZoomLevel, olZoom: currentZoom, extent });
   }
 
   private setupAreaDataPipeline(): void {
     this.fetchAreaData$.pipe(
       debounceTime(300),
-      tap(({ apiZoomLevel }) => this.previousApiZoomLevel = apiZoomLevel),
       switchMap(({ apiZoomLevel, olZoom, extent }) => {
         const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
 
-        // Bruk cache for fylker og kommuner, men ikke for lokasjonspunkter (avhenger av kartutsnitt)
+        // For områdemarkører: bruk cachet data og bygg GeoJSON med gjeldende kartutsnitt
         if (!isLocationPoints) {
-          const cached = this.geojsonCacheByApiZoom.get(apiZoomLevel);
-          if (cached) {
-            this.applyGeoJsonToLayer(apiZoomLevel, cached);
-            return [];
+          const cachedAreas = this.areaDataCacheByApiZoom.get(apiZoomLevel);
+          if (cachedAreas) {
+            const geojson = this.areasService.buildAreaGeoJson(cachedAreas, extent);
+            this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+            return EMPTY;
           }
+
+          return this.areasService.getAreaMarkers(olZoom).pipe(
+            tap(areas => {
+              this.areaDataCacheByApiZoom.set(apiZoomLevel, areas);
+              const geojson = this.areasService.buildAreaGeoJson(areas, extent);
+              this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+            }),
+            catchError((err: unknown) => {
+              this.logger.error(`Failed to load area markers for API zoom level ${apiZoomLevel}:`, 'MapComponent', err);
+              return EMPTY;
+            })
+          );
         }
 
-        const serviceCall$: Observable<string> = isLocationPoints
-          ? this.areasService.getLocationsAsGeoJsonString(extent)
-          : this.areasService.getAreaMarkersAsGeoJson(olZoom);
-
-        return serviceCall$.pipe(
+        return this.areasService.getLocationsAsGeoJsonString(extent).pipe(
           tap(geojson => {
-            if (!isLocationPoints) {
-              this.geojsonCacheByApiZoom.set(apiZoomLevel, geojson);
-            }
             this.applyGeoJsonToLayer(apiZoomLevel, geojson);
           }),
           catchError((err: unknown) => {
-            this.logger.error(`Failed to load area markers for API zoom level ${apiZoomLevel}:`, 'MapComponent', err);
+            this.logger.error(`Failed to load location points:`, 'MapComponent', err);
             return EMPTY;
           })
         );
@@ -228,7 +236,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private cleanup(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.geojsonCacheByApiZoom.clear();
+    this.areaDataCacheByApiZoom.clear();
     this.map?.destroy?.();
   }
 
