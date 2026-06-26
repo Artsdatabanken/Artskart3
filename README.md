@@ -12,6 +12,7 @@ Noen viktige mål
 * Node versjon 22.14 for Angular frontend
 * Angular CLI 21.1
 * Visual Studio 2026 er nødvendig for .NET 10
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) — kreves for å kjøre integrasjonstester (Testcontainers starter en SQL Server-container automatisk)
 
 * installasjon av lokale nbic-map-komponent
 Pakken er tilgjengelig på npm: https://www.npmjs.com/package/@artsdatabanken/nbic-map-component
@@ -110,6 +111,10 @@ dotnet test Artskart3.Tests.Unit --settings coverage.runsettings --collect "XPla
 ```
 
 **Kjør kun integrasjonstester:**
+
+> **Forutsetning:** Docker Desktop må kjøre. Testcontainers starter og stopper en SQL Server-container automatisk for hver testkjøring.
+> Se [`Artskart3.Tests.Integration/README.md`](Artskart3.Tests.Integration/README.md) for detaljer.
+
 ```powershell
 dotnet test Artskart3.Tests.Integration --settings coverage.runsettings --collect "XPlat Code Coverage"
 ```
