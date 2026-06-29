@@ -455,43 +455,44 @@ public class SearchRepository : ISearchRepository
             var hasFilters = filter?.HasActiveFilters == true;
             var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
             Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
-            // Aggregerte kommune-antall per fylke (kun for kommune-filter på fylkesnivå)
             Dictionary<string, int>? municipalityCountsByCounty = null;
 
-            if (hasFilters && !needsDynamicCounts)
+            // Steg 1: Filtrer hvilke områder som vises (uavhengig av tellemåte)
+            var hasAreaSelection = hasFilters && (
+                filter!.CountyIds?.Length > 0 ||
+                filter.MunicipalityIds?.Length > 0 ||
+                filter.OceanAreaIds?.Length > 0);
+
+            if (hasAreaSelection)
             {
                 var filtered = FilterAreasBySelection(areas, filter!);
                 if (filtered.Count > 0)
                 {
-                    var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
-                    var areasAreCounties = filtered.Any() && !filtered.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
-
-                    if (hasMunicipalityFilter && areasAreCounties)
-                    {
-                        // Kommune-filter på fylkesnivå: summer kommunenes pre-beregnede antall per fylke
-                        municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
-                            filter.MunicipalityIds!, cancellationToken);
-                    }
-
                     areas = filtered;
                 }
-                else if (filter!.HasObservationAttributeFilters)
+                else if (!needsDynamicCounts)
                 {
-                    // Områdefiltre matcher ikke på dette zoomnivået, men observasjonsfiltre
-                    // kan endre tellingen — fall tilbake til dynamisk telling.
-                    needsDynamicCounts = true;
-                }
-                else
-                {
-                    // Kun områdefiltre, men ingen matcher dette zoomnivået — ingen markører å vise.
+                    // Ingen områder matcher og ingen observasjonsfiltre — ingen markører å vise
                     areas = filtered;
                 }
             }
 
-            // Observasjonsattributtfiltre (eller fallback): beregn antall dynamisk
+            // Steg 2: Bestem tellemåte
             if (needsDynamicCounts)
             {
                 dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
+            }
+            else if (hasAreaSelection)
+            {
+                // Sjekk om kommune-filter på fylkesnivå krever aggregering
+                var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
+                var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+
+                if (hasMunicipalityFilter && areasAreCounties)
+                {
+                    municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
+                        filter.MunicipalityIds!, cancellationToken);
+                }
             }
 
             return areas
