@@ -33,15 +33,15 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         }
     }
 
-    public async Task<IEnumerable<ObservationDto>> GetObservationByLocation(int locationId)
+    public async Task<IEnumerable<ObservationDto>> GetObservationByLocation(IEnumerable<int> locationIds)
     {
         try
         {
             IEnumerable<Observation> observations = await context.Set<Observation>()
                 .Include(o => o.Taxon)
-                .Where(o => o.LocationId == locationId)
+                .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
                 .ToListAsync();
-            IEnumerable<ObservationDto> observationDto = observations.Select(o => new ObservationDto
+            IEnumerable<ObservationDto> observationDtos = observations.Select(o => new ObservationDto
             {
                 Id = o.Id,
                 PreferredPopularName = o.Taxon.PreferredPopularName ?? string.Empty,
@@ -49,7 +49,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                 TaxonGroupId = o.TaxonGroupId,
                 Locality = o.LocationId.ToString(),
             });
-            return observationDto;
+            return observationDtos;
         }
         catch (Exception e)
         {

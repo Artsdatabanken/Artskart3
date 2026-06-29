@@ -6,5 +6,5 @@ namespace Artskart3.Core.Application.Services.Interfaces;
 public interface IObservationService
 {
     Task<ObservationDto> GetObservationDetails(int locationId, int observationId);
-    Task<IEnumerable<ObservationDto>> GetObservationsByLocation(int locationId);
+    Task<IEnumerable<ObservationDto>> GetObservationsByLocation(IEnumerable<int> locationIds);
 }

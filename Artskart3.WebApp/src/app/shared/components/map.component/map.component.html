@@ -1,4 +1,7 @@
 <div class="map-container">
+  @if (showObservationList) {
+    <app-observation-list />
+  }
   <app-map-toolbar (iconClick)="onIconClick($event)"></app-map-toolbar>
   <div #mapEl class="map"></div>
 </div>

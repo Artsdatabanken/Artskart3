@@ -12,9 +12,9 @@ public class ObservationService(IObservationRepository observationService) : IOb
         return observation;
     }
 
-    public async Task<IEnumerable<ObservationDto>> GetObservationsByLocation(int locationId)
+    public async Task<IEnumerable<ObservationDto>> GetObservationsByLocation(IEnumerable<int> locationIds)
     {
-        IEnumerable<ObservationDto> observations = await observationService.GetObservationByLocation(locationId);
+        IEnumerable<ObservationDto> observations = await observationService.GetObservationByLocation(locationIds);
         return observations;
     }
 }
