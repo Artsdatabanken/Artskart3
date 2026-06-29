@@ -33,11 +33,13 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {ObservationService} from '@shared/services/observation/observation.service';
 import {HttpClient} from '@angular/common/http';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
+import {ObservationList} from '@shared/components/observation-list/observation-list';
+import {ObservationDto} from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, MapToolbarComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, ObservationList, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -160,6 +162,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   });
 
+  public showObservationList: boolean = false;
+  private observationList: ObservationDto[] = [];
+
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
   }
@@ -190,17 +195,34 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on('pointer:click', (payload) => {
+        console.log("this is the payload", payload);
         if(payload.features) {
-          for (const { feature, layer } of  payload.features) {
-            var id = feature.getId();
-            if (typeof id === 'number') {
-              this.observationService.getObservationByLocation(id).subscribe();
-            }
-            else {
-              this.logger.error("Feature ID is not a number:", id);
+            // @ts-ignore
+          var ids = payload.features.map(p => p.properties?.features || [])
+            .flat().map(f => f.values_?.id)
+            .filter(id => typeof id === 'number');
+          console.log("These are the ids: ", ids);
+            // @ts-ignore
+            if (payload.features.find(p => p.layerId === 'area-markers-locations') && (Array.isArray(ids) && ids.every(i => typeof i === 'number'))) {
+              this.observationService.getObservationByLocation(ids)
+                .pipe(
+                  tap(observations => {
+                    this.observationList = observations;
+                    this.showObservationList = true;
+                  }),
+                  catchError((err: unknown) => {
+                    this.logger.error("failed to fetch observations", ids?.toString(), err);
+                    return EMPTY;
+                  }),
+                  takeUntil(this.destroy$)
+                )
+                .subscribe();
             }
           }
-        }
+          else {
+            this.showObservationList = false;
+            this.logger.error("Feature ID is not a number");
+          }
       })
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);

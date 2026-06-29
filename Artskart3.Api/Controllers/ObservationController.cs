@@ -28,13 +28,12 @@ public class ObservationController(IObservationService observationService, ILogg
         }
     }
 
-    [HttpGet("{locationId}")]
-    public async Task<IEnumerable<ObservationDto>> GetObservationsByLocation(int locationId)
+    [HttpPost]
+    public async Task<IEnumerable<ObservationDto>> GetObservationsByLocation(IEnumerable<int> locationIds)
     {
         try
         {
-            Console.WriteLine("Hello", locationId);
-            IEnumerable<ObservationDto> observations = await observationService.GetObservationsByLocation(locationId);
+            IEnumerable<ObservationDto> observations = await observationService.GetObservationsByLocation(locationIds);
             return observations;
         }
         catch (Exception e)

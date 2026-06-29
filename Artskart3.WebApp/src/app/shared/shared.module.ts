@@ -8,6 +8,7 @@ import { MapComponent } from './components/map.component/map.component';
 import { MapToolbarComponent } from './components/map.component/map-toolbar/map-toolbar.component';
 import { MapTypeSelectorComponent } from './components/map.component/map-toolbar/map-type-selector';
 import { LoadingIndicatorComponent } from './components/loading-indicator/loading-indicator.component';
+import { ObservationList } from './components/observation-list/observation-list';
 
 @NgModule({
   imports: [
@@ -18,6 +19,7 @@ import { LoadingIndicatorComponent } from './components/loading-indicator/loadin
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
+    ObservationList,
     MapTypeSelectorComponent,
     LoadingIndicatorComponent,
   ],
@@ -27,6 +29,7 @@ import { LoadingIndicatorComponent } from './components/loading-indicator/loadin
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
+    ObservationList,
     MapTypeSelectorComponent,
     LoadingIndicatorComponent,
   ],

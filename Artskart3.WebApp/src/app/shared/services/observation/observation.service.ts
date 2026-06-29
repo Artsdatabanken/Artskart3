@@ -15,7 +15,7 @@ export class ObservationService {
     return this.http.post<PagedObservationResponse>(this.SearchObservationEndpoint, filter);
   }
 
-  getObservationByLocation(id: number): Observable<ObservationDto[]> {
-    return this.http.get<ObservationDto[]>(`${this.ObservationControllerEndpoint}/${id}`);
+  getObservationByLocation(ids: number[]): Observable<ObservationDto[]> {
+    return this.http.post<ObservationDto[]>(`${this.ObservationControllerEndpoint}`, ids);
   }
 }
