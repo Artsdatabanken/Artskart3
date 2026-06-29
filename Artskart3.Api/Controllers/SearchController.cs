@@ -56,9 +56,9 @@ public class SearchController : ControllerBase
     /// Returns aggregated observation counts grouped by location with UTM Zone 33N coordinates.
     /// Defaults to MaxResults = 1000.
     /// </summary>
-    [HttpGet("Locations")]
+    [HttpPost("Locations")]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<string>> GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -133,9 +133,9 @@ public class SearchController : ControllerBase
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
     /// When filters are provided, observation counts are computed dynamically.
     /// </summary>
-    [HttpGet("AreaMarkers")]
+    [HttpPost("AreaMarkers")]
     [Produces("application/json")]
-    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, [FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, [FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {

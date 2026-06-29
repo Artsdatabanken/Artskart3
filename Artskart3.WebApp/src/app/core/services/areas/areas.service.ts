@@ -308,26 +308,10 @@ export class AreasService {
     }
 
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(validation.normalized!);
-    const params = new URLSearchParams();
-    params.set('zoomLevel', String(apiZoomLevel));
-
-    if (filter) {
-      this.appendArrayParam(params, 'CategoryIds', filter.categoryIds);
-      this.appendArrayParam(params, 'OrganizationIds', filter.organizationIds);
-      this.appendArrayParam(params, 'BehaviorIds', filter.behaviorIds);
-      this.appendArrayParam(params, 'BasisOfRecordIds', filter.basisOfRecordIds);
-      this.appendArrayParam(params, 'TaxonGroupIds', filter.taxonGroupIds);
-      this.appendArrayParam(params, 'CountyIds', filter.countyIds);
-      this.appendArrayParam(params, 'MunicipalityIds', filter.municipalityIds);
-      this.appendArrayParam(params, 'OceanAreaIds', filter.oceanAreaIds);
-      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecision.From', String(filter.coordinatePrecisionFrom));
-      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecision.To', String(filter.coordinatePrecisionTo));
-      if (filter.periodFrom != null) params.set('Period.From', String(filter.periodFrom));
-      if (filter.periodTo != null) params.set('Period.To', String(filter.periodTo));
-    }
+    const body = this.buildFilterBody(filter);
 
     return this.apiClientService
-      .fetchJson<string>(`${this.areasBaseEndpoint}?${params.toString()}`, { responseType: 'text' })
+      .postJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body, { responseType: 'text' })
       .pipe(
         map(responseText => {
           const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
@@ -344,35 +328,9 @@ export class AreasService {
    * @param filter Valgfritt søkefilter for lokasjoner
    */
   getLocationsAsGeoJsonString(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
-    const params = new URLSearchParams();
+    const body = this.buildFilterBody(filter, extent);
 
-    if (extent) {
-      const [minX, minY, maxX, maxY] = extent;
-      params.set('Envelope.MinX', String(minX));
-      params.set('Envelope.MinY', String(minY));
-      params.set('Envelope.MaxX', String(maxX));
-      params.set('Envelope.MaxY', String(maxY));
-    }
-
-    if (filter) {
-      this.appendArrayParam(params, 'CategoryIds', filter.categoryIds);
-      this.appendArrayParam(params, 'OrganizationIds', filter.organizationIds);
-      this.appendArrayParam(params, 'BehaviorIds', filter.behaviorIds);
-      this.appendArrayParam(params, 'BasisOfRecordIds', filter.basisOfRecordIds);
-      this.appendArrayParam(params, 'TaxonGroupIds', filter.taxonGroupIds);
-      this.appendArrayParam(params, 'CountyIds', filter.countyIds);
-      this.appendArrayParam(params, 'MunicipalityIds', filter.municipalityIds);
-      this.appendArrayParam(params, 'OceanAreaIds', filter.oceanAreaIds);
-      if (filter.coordinatePrecisionFrom != null) params.set('CoordinatePrecision.From', String(filter.coordinatePrecisionFrom));
-      if (filter.coordinatePrecisionTo != null) params.set('CoordinatePrecision.To', String(filter.coordinatePrecisionTo));
-      if (filter.periodFrom != null) params.set('Period.From', String(filter.periodFrom));
-      if (filter.periodTo != null) params.set('Period.To', String(filter.periodTo));
-    }
-
-    const queryString = params.toString();
-    const url = queryString ? `${this.locationsEndpoint}?${queryString}` : this.locationsEndpoint;
-
-    return this.apiClientService.fetchJson<string>(url, { responseType: 'text' }).pipe(
+    return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
         const features = this.mapLocationsToGeoJson(parsed);
@@ -382,11 +340,32 @@ export class AreasService {
     );
   }
 
-  private appendArrayParam(params: URLSearchParams, name: string, values?: (string | number)[]): void {
-    if (!values?.length) return;
-    for (const v of values) {
-      params.append(name, String(v));
+  private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+
+    if (filter) {
+      if (filter.categoryIds?.length) body['categoryIds'] = filter.categoryIds;
+      if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
+      if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
+      if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
+      if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
+      if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
+      if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
+      if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
+        body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
+      }
+      if (filter.periodFrom != null || filter.periodTo != null) {
+        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      }
     }
+
+    if (extent) {
+      const [minX, minY, maxX, maxY] = extent;
+      body['envelope'] = { minX, minY, maxX, maxY };
+    }
+
+    return body;
   }
 
   /**

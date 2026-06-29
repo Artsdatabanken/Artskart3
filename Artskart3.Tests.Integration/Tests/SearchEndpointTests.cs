@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
@@ -87,13 +88,13 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Search/Locations (GetObservationLocations action)
+    // POST /api/Search/Locations (GetObservationLocations action)
     // -----------------------------------------------------------------------
 
     [Fact]
     public async Task GetObservationLocations_WithNoFilter_Returns200WithGeoJson()
     {
-        var response = await _client.GetAsync("/api/Search/Locations");
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
@@ -104,19 +105,19 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetObservationLocations_WithMaxResultsZero_Returns400()
     {
-        var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=0");
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 0 });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("1").And.Contain("100000"); // Min and Max values 
+        json.Should().Contain("1").And.Contain("100000"); // Min and Max values
     }
 
     [Fact]
     public async Task GetObservationLocations_WithMaxResultsTooHigh_Returns400()
     {
         // MaxLocationResults = 100000, so 100001 exceeds the limit
-        var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=100001");
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 100001 });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
@@ -127,8 +128,8 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetObservationLocations_WithInvertedPrecisionRange_Returns400()
     {
-        var response = await _client.GetAsync(
-            "/api/Search/Locations?filter.CoordinatePrecision.From=1000&filter.CoordinatePrecision.To=100");
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations",
+            new { coordinatePrecision = new { from = 1000, to = 100 } });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -136,7 +137,7 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Features()
     {
-        var response = await _client.GetAsync("/api/Search/Locations?filter.MaxResults=10");
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 10 });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
@@ -146,13 +147,13 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Search/AreaMarkers
+    // POST /api/Search/AreaMarkers
     // -----------------------------------------------------------------------
 
     [Fact]
     public async Task GetAreaMerkers_WithDefaultZoomLevel_Returns200()
     {
-        var response = await _client.GetAsync("/api/Search/AreaMarkers");
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaMarkers?zoomLevel=1", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
@@ -161,7 +162,7 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetAreaMarkers_WithZoomLevel1_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Search/AreaMarkers?zoomLevel=1");
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaMarkers?zoomLevel=1", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
@@ -172,7 +173,7 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetAreaMarkers_WithZoomLevel2_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Search/AreaMarkers?zoomLevel=2");
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaMarkers?zoomLevel=2", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
