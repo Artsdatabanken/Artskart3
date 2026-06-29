@@ -44,6 +44,10 @@
     }
   }
 
+  td {
+    vertical-align: top;
+  }
+
   thead th {
     position: sticky;
     top: 0;
@@ -61,7 +65,6 @@
   tbody tr {
     border-bottom: 1px solid var(--adb-border-default);
     font-weight: var(--adb-font-weight-regular);
-    font-size: var(--adb-font-size-4);
 
     &:nth-child(odd) td {
       background: var(--adb-surface-primary);
