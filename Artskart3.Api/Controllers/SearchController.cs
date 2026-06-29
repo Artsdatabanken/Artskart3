@@ -139,7 +139,12 @@ public class SearchController : ControllerBase
     {
         try
         {
-            if (filter != null && !ValidateLocationFilterArraySizes(filter, out var validationError))
+            if (zoomLevel < 1 || zoomLevel > 2)
+            {
+                return BadRequest(new { error = "zoomLevel must be 1 (counties) or 2 (municipalities)." });
+            }
+
+            if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
             {
                 return validationError!;
             }

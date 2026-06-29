@@ -91,7 +91,10 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
                 list.Add(m.Fid);
         }
 
-        // Atomisk swap — lesere ser enten gammel eller ny versjon, aldri delvis oppdatert
+        // Volatile swap — hver referanse settes atomisk, men de to tilordningene er ikke
+        // atomiske samlet. En leser kan i et kort øyeblikk se ny _municipalityToCounty
+        // med gammel _countyToMunicipalities. Akseptabelt fordi data sjelden endres
+        // og en enkelt forespørsel typisk bruker bare én av de to oppslagene.
         _municipalityToCounty = municipalityToCounty;
         _countyToMunicipalities = countyToMunicipalities;
         _initialized = true;

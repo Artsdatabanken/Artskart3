@@ -277,6 +277,7 @@ export interface LocationSearchFilter {
   taxonGroupIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
+  restrictedAreaIds?: string[];
   oceanAreaIds?: string[];
   coordinatePrecisionFrom?: number | null;
   coordinatePrecisionTo?: number | null;
@@ -351,6 +352,7 @@ export class AreasService {
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
+      if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
       if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };

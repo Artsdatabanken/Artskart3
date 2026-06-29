@@ -1,6 +1,6 @@
 namespace Artskart3.Core.Application.DTOs;
 
-public class LocationSearchFilterDto
+public class LocationSearchFilterDto : IObservationFilter
 {
     public int[]? TaxonGroupIds { get; set; }
 
@@ -43,14 +43,17 @@ public class LocationSearchFilterDto
         Period?.To != null;
 
     /// <summary>
-    /// Returnerer true dersom det finnes filtre som påvirker observasjonsantallet
-    /// (alt utenom rene områdefiltre som bare styrer hvilke områder som vises).
+    /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
+    /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.) og verneområder
+    /// (som krysser fylkes-/kommunegrenser). Fylker, kommuner og havområder bruker
+    /// pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
     /// </summary>
     public bool HasObservationAttributeFilters =>
         TaxonGroupIds?.Length > 0 ||
         CategoryIds?.Length > 0 ||
         BasisOfRecordIds?.Length > 0 ||
         OrganizationIds?.Length > 0 ||
+        RestrictedAreaIds?.Length > 0 ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||

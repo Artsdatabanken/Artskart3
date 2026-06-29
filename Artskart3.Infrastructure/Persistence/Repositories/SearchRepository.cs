@@ -145,6 +145,7 @@ public class SearchRepository : ISearchRepository
         var query = _context.Set<Observation>()
                             .AsNoTracking();
 
+        // Observasjonsspesifikke tekstfiltre
         if (!string.IsNullOrEmpty(filter.PreferredPopularName))
         {
             var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
@@ -163,73 +164,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
         }
 
-        if (filter.TaxonGroupIds?.Any() == true)
-        {
-            query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
-        }
-
-        if (filter.CategoryIds?.Any() == true)
-        {
-            query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
-        }
-
-        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen.
-        // Alle entiteter bruker int EntityId — string-Fid-er konverteres til int før spørring.
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
-        var hasOrg = filter.OrganizationIds?.Any() == true;
-
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
-        {
-            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
-            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
-            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
-            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
-            var orgIds = filter.OrganizationIds ?? [];
-
-            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
-                idx.ObservationId == o.Id && (
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
-                )));
-        }
-
-        if (filter.BehaviorIds?.Any() == true)
-        {
-            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
-        }
-
-        if (filter.BasisOfRecordIds?.Any() == true)
-        {
-            query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
-        }
-
-        if (filter.CoordinatePrecision?.From.HasValue == true)
-        {
-            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
-        }
-
-        if (filter.CoordinatePrecision?.To.HasValue == true)
-        {
-            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
-        }
-
-        if (filter.Period?.From.HasValue == true)
-        {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
-            query = query.Where(o => o.DateTimeCollected >= fromDate);
-        }
-
-        if (filter.Period?.To.HasValue == true)
-        {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(o => o.DateTimeCollected <= toDate);
-        }
+        // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
+        query = ApplyCommonFilters(query, filter);
 
         query = query.OrderBy(o => o.Id);
 
@@ -329,7 +265,7 @@ public class SearchRepository : ISearchRepository
     /// Legger til felles filterpredikater (taksongruppe, kategori, område, atferd, etc.) på en observasjonsspørring.
     /// Brukes av både lokasjons- og områdemarkørspørringer.
     /// </summary>
-    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, LocationSearchFilterDto filter)
+    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, IObservationFilter filter)
     {
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -502,6 +438,20 @@ public class SearchRepository : ISearchRepository
                     .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
                     .ToListAsync(cancellationToken);
 
+            // Havområder kan ha et annet zoomnivå — last inn separat når de er i filteret
+            if (filter?.OceanAreaIds?.Any() == true)
+            {
+                var loadedFids = areas.Select(a => a.Fid).ToHashSet();
+                var missingOceanFids = filter.OceanAreaIds.Where(fid => !loadedFids.Contains(fid)).ToArray();
+                if (missingOceanFids.Length > 0)
+                {
+                    var oceanAreas = await _context.Set<Area>()
+                        .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid))
+                        .ToListAsync(cancellationToken);
+                    areas.AddRange(oceanAreas);
+                }
+            }
+
             var hasFilters = filter?.HasActiveFilters == true;
             var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
             Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
@@ -525,9 +475,16 @@ public class SearchRepository : ISearchRepository
 
                     areas = filtered;
                 }
+                else if (filter!.HasObservationAttributeFilters)
+                {
+                    // Områdefiltre matcher ikke på dette zoomnivået, men observasjonsfiltre
+                    // kan endre tellingen — fall tilbake til dynamisk telling.
+                    needsDynamicCounts = true;
+                }
                 else
                 {
-                    needsDynamicCounts = true;
+                    // Kun områdefiltre, men ingen matcher dette zoomnivået — ingen markører å vise.
+                    areas = filtered;
                 }
             }
 
@@ -644,15 +601,17 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Filtrerer områdelisten basert på valgte fylker/kommuner.
+    /// Filtrerer områdelisten basert på valgte fylker, kommuner og havområder.
+    /// Alle er områdemarkører på samme nivå og filtreres via Fid-matching.
     /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
     /// </summary>
     private List<Area> FilterAreasBySelection(List<Area> areas, LocationSearchFilterDto filter)
     {
         var countyFids = new HashSet<string>(filter.CountyIds ?? []);
         var municipalityFids = new HashSet<string>(filter.MunicipalityIds ?? []);
+        var oceanAreaFids = new HashSet<string>(filter.OceanAreaIds ?? []);
 
-        if (countyFids.Count == 0 && municipalityFids.Count == 0)
+        if (countyFids.Count == 0 && municipalityFids.Count == 0 && oceanAreaFids.Count == 0)
             return areas;
 
         // Slå opp forelder-fylke for valgte kommuner
@@ -667,7 +626,8 @@ public class SearchRepository : ISearchRepository
         return areas.Where(a =>
             countyFids.Contains(a.Fid) ||
             municipalityFids.Contains(a.Fid) ||
-            countyFids.Contains(a.ParentFid) ||
+            oceanAreaFids.Contains(a.Fid) ||
+            (a.ParentFid != null && countyFids.Contains(a.ParentFid)) ||
             derivedCountyFids.Contains(a.Fid)
         ).ToList();
     }
