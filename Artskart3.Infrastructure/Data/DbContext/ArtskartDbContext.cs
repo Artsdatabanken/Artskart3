@@ -130,6 +130,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => e.ParentFid, "IX_ParentFid");
 
+            entity.HasIndex(e => new { e.ZoomLevel, e.IsCurrent }, "IX_Area_ZoomLevel_IsCurrent");
+
             entity.HasIndex(e => e.Name, "NonClusteredIndex-20180305-111522");
 
             entity.Property(e => e.AreaTypeId);
@@ -1019,8 +1021,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasKey(e => new { e.ObservationId, e.EntityTypeId, e.EntityId });
             entity.ToTable("ObservationEntityIndex");
 
-            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId }).HasDatabaseName("IX_ObservationEntityIndex_Lookup");
-            entity.HasIndex(e => e.ObservationId).HasDatabaseName("IX_ObservationEntityIndex_ObservationId");
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.ObservationId }).HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
         });
 
         OnModelCreatingPartial(modelBuilder);

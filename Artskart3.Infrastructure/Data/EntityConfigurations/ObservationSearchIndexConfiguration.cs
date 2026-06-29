@@ -24,6 +24,7 @@ public class ObservationSearchIndexConfiguration : IEntityTypeConfiguration<Obse
         builder.HasIndex(o => o.InstitutionCode, "IX_Observation_InstitutionCode");
         builder.HasIndex(o => o.YearCollected, "IX_Observation_YearCollected");
         builder.HasIndex(o => o.CoordinatePrecisionInMeters, "IX_Observation_CoordinatePrecisionInMeters");
+        builder.HasIndex(o => o.DateTimeCollected, "IX_Observation_DateTimeCollected");
         builder.HasIndex(o => o.DateLastModified, "IX_Observation_DateLastModified");
 
         // Composite indexes for common filter combinations
