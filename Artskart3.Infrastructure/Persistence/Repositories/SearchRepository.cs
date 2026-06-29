@@ -279,29 +279,36 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
         }
 
-        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen
+        // Geografiske områdefiltre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
         var hasMunicipality = filter.MunicipalityIds?.Any() == true;
         var hasCounty = filter.CountyIds?.Any() == true;
         var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
         var hasOcean = filter.OceanAreaIds?.Any() == true;
-        var hasOrg = filter.OrganizationIds?.Any() == true;
 
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
         {
             var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
             var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
             var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
             var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
-            var orgIds = filter.OrganizationIds ?? [];
 
             query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
                 idx.ObservationId == o.Id && (
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
                 )));
+        }
+
+        // Organisasjonsfilter (AND — separat fra geografiske filtre)
+        if (filter.OrganizationIds?.Any() == true)
+        {
+            var orgIds = filter.OrganizationIds;
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
+                idx.ObservationId == o.Id &&
+                idx.EntityTypeId == (int)ObservationIndexEntityType.Institution &&
+                orgIds.Contains(idx.EntityId)));
         }
 
         if (filter.BehaviorIds?.Any() == true)
