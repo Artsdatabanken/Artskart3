@@ -119,10 +119,10 @@ try
     }
 
     var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex");
-    if (string.IsNullOrEmpty(dbConnectionString))
-        throw new InvalidOperationException(
-            "Connection string 'ArtskartIndex' is not configured. " +
-            "For local development, use 'dotnet user-secrets set \"ConnectionStrings:ArtskartIndex\" \"<your-connection-string>\"'.");
+    //if (string.IsNullOrEmpty(dbConnectionString))
+    //    throw new InvalidOperationException(
+    //        "Connection string 'ArtskartIndex' is not configured. " +
+    //        "For local development, use 'dotnet user-secrets set \"ConnectionStrings:ArtskartIndex\" \"<your-connection-string>\"'.");
 
     builder.Services.AddBff()
         .ConfigureOpenIdConnect(options =>
