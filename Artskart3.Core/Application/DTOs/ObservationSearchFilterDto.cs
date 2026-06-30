@@ -1,6 +1,6 @@
 namespace Artskart3.Core.Application.DTOs;
 
-public class ObservationSearchFilterDto : PaginatedRequestDto
+public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilter
 {
     public string? PreferredPopularName { get; set; }
 

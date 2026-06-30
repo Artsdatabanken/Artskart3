@@ -56,9 +56,9 @@ public class SearchController : ControllerBase
     /// Returns aggregated observation counts grouped by location with UTM Zone 33N coordinates.
     /// Defaults to MaxResults = 1000.
     /// </summary>
-    [HttpGet("Locations")]
+    [HttpPost("Locations")]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> GetObservationLocations([FromQuery] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<string>> GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -131,14 +131,25 @@ public class SearchController : ControllerBase
 
     /// <summary>
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
+    /// When filters are provided, observation counts are computed dynamically.
     /// </summary>
-    [HttpGet("AreaMarkers")]
+    [HttpPost("AreaMarkers")]
     [Produces("application/json")]
-    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AreaMarkerDto[]>> GetAreaMarkers([FromQuery] int zoomLevel = 1, [FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, cancellationToken);
+            if (zoomLevel < 1 || zoomLevel > 2)
+            {
+                return BadRequest(new { error = "zoomLevel must be 1 (counties) or 2 (municipalities)." });
+            }
+
+            if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
+            {
+                return validationError!;
+            }
+
+            var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
             _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
             return Ok(areas.ToArray());
         }
@@ -256,7 +267,7 @@ public class SearchController : ControllerBase
             return false;
         }
 
-        if (!IsValidCoordinatePrecisionRange(filter.CoordinatePrecisionFrom, filter.CoordinatePrecisionTo))
+        if (filter.CoordinatePrecision?.From != null && filter.CoordinatePrecision?.To != null && !IsValidCoordinatePrecisionRange(filter.CoordinatePrecision.From.Value, filter.CoordinatePrecision.To.Value))
         {
             validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
             return false;
@@ -266,6 +277,44 @@ public class SearchController : ControllerBase
         {
             validationError = BadRequest(new { error = "Envelope bounds are invalid: MinX must be less than MaxX and MinY must be less than MaxY." });
             return false;
+        }
+
+        if (!ValidateLocationFilterArraySizes(filter, out validationError))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validerer at ingen filter-arrayer i lokasjonsfilter overskrider maksimal størrelse.
+    /// </summary>
+    private bool ValidateLocationFilterArraySizes(LocationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    {
+        validationError = null;
+        var max = SearchConstants.MaxFilterArraySize;
+
+        ReadOnlySpan<(string name, int? length)> arrays =
+        [
+            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
+            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
+            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
+            (nameof(filter.CountyIds), filter.CountyIds?.Length),
+            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
+            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
+            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
+            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
+        ];
+
+        foreach (var (name, length) in arrays)
+        {
+            if (length > max)
+            {
+                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
+                return false;
+            }
         }
 
         return true;

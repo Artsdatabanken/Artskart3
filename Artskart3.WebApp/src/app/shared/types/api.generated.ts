@@ -259,23 +259,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: {
+        get?: never;
+        put?: never;
+        post: {
             parameters: {
-                query?: {
-                    TaxonGroupIds?: number[];
-                    Categories?: number[];
-                    BasisOfRecords?: number[];
-                    CollectionIds?: string[];
-                    CoordinatePrecisionFrom?: number;
-                    CoordinatePrecisionTo?: number;
-                    Epsg?: number;
-                    MaxResults?: number;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LocationSearchFilterDto"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -288,8 +285,6 @@ export interface paths {
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -344,7 +339,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: {
+        get?: never;
+        put?: never;
+        post: {
             parameters: {
                 query?: {
                     zoomLevel?: number;
@@ -353,7 +350,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LocationSearchFilterDto"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -366,8 +367,6 @@ export interface paths {
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -448,6 +447,29 @@ export interface components {
             id?: number;
             name?: string | null;
             areas?: components["schemas"]["AreaDto"][] | null;
+        };
+        LocationSearchFilterDto: {
+            taxonGroupIds?: number[] | null;
+            categoryIds?: number[] | null;
+            basisOfRecordIds?: number[] | null;
+            organizationIds?: number[] | null;
+            municipalityIds?: string[] | null;
+            countyIds?: string[] | null;
+            restrictedAreaIds?: string[] | null;
+            oceanAreaIds?: string[] | null;
+            behaviorIds?: number[] | null;
+            coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
+            period?: components["schemas"]["PeriodDto"];
+            /** Format: int32 */
+            epsg?: number | null;
+            /** Format: int32 */
+            maxResults?: number;
+            envelope?: {
+                minX?: number;
+                minY?: number;
+                maxX?: number;
+                maxY?: number;
+            } | null;
         };
         BasisOfRecordDto: {
             /** Format: int32 */

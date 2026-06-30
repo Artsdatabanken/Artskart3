@@ -36,6 +36,22 @@ export class ApiClientService {
     );
   }
 
+  postJson<T>(endpoint: string, body: unknown, options?: { responseType?: 'json' | 'text' }): Observable<T> {
+    const responseType = options?.responseType ?? 'json';
+
+    const request$ = responseType === 'text'
+      ? (this.http.post(endpoint, body, { responseType: 'text' }) as Observable<T>)
+      : this.http.post<T>(endpoint, body);
+
+    return request$.pipe(
+      retry({
+        delay: RetryConfig.InitialDelayMs,
+        count: RetryConfig.MaxAttempts - 1
+      }),
+      catchError(error => this.handleError(error, `Failed to post ${endpoint}`))
+    );
+  }
+
   parseJsonResponse<T>(responseText: string, context?: string): T {
     if (!responseText?.trim()) {
       const msg = `Empty response from ${context || 'API'}`;

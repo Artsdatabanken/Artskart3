@@ -52,12 +52,13 @@ public class SearchControllerAdditionalTests
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
 
-        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 10, CoordinatePrecisionTo = 0 });
+        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10 } });
 
         result.Result.Should().BeOfType<ContentResult>();
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
-            f.CoordinatePrecisionFrom == 10 &&
-            f.CoordinatePrecisionTo == 0)), Times.Once);
+            f.CoordinatePrecision != null &&
+            f.CoordinatePrecision.From == 10 &&
+            f.CoordinatePrecision.To == null)), Times.Once);
     }
 
     [Fact]
@@ -68,12 +69,13 @@ public class SearchControllerAdditionalTests
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
 
-        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecisionFrom = 0, CoordinatePrecisionTo = 100 });
+        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } });
 
         result.Result.Should().BeOfType<ContentResult>();
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
-            f.CoordinatePrecisionFrom == 0 &&
-            f.CoordinatePrecisionTo == 100)), Times.Once);
+            f.CoordinatePrecision != null &&
+            f.CoordinatePrecision.From == null &&
+            f.CoordinatePrecision.To == 100)), Times.Once);
     }
 
     private SearchController CreateSut() => new(_serviceMock.Object, _loggerMock.Object);
