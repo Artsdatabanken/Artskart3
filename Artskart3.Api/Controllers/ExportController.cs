@@ -35,7 +35,7 @@ public class ExportController : ControllerBase
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
 
-        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], cancellationToken);
+        var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
         return Ok(summary);
     }
 

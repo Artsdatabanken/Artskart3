@@ -34,7 +34,7 @@ public class ExportService : IExportService
         return Task.FromResult(_columnRegistry.GetAllColumns());
     }
 
-    public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns, CancellationToken cancellationToken)
+    public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
     {
         var query = BuildFilteredQuery(filter);
         var count = await query.CountAsync(cancellationToken);
@@ -51,8 +51,23 @@ public class ExportService : IExportService
             TotalRows = count,
             EstimatedFileSizeBytes = estimatedSize,
             ExceedsSoftLimit = count > softLimit,
-            ExceedsHardLimit = count > hardLimit
+            ExceedsHardLimit = count > hardLimit,
+            ExportName = SanitizeExportName(name),
+            HardLimit = hardLimit
         };
+    }
+
+    private static string SanitizeExportName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "eksport";
+
+        var sanitized = new string(name
+            .Replace(' ', '-')
+            .Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')
+            .ToArray());
+
+        return string.IsNullOrEmpty(sanitized) ? "eksport" : sanitized;
     }
 
     public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)

@@ -6,4 +6,6 @@ public class ExportSummaryDto
     public long EstimatedFileSizeBytes { get; set; }
     public bool ExceedsSoftLimit { get; set; }
     public bool ExceedsHardLimit { get; set; }
+    public string ExportName { get; set; } = "eksport";
+    public int HardLimit { get; set; }
 }
