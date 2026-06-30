@@ -269,6 +269,22 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   return ensureInsideRing([largest.cx, largest.cy], largest.ring);
 }
 
+export interface LocationSearchFilter {
+  categoryIds?: number[];
+  organizationIds?: number[];
+  behaviorIds?: number[];
+  basisOfRecordIds?: number[];
+  taxonGroupIds?: number[];
+  countyIds?: string[];
+  municipalityIds?: string[];
+  restrictedAreaIds?: string[];
+  oceanAreaIds?: string[];
+  coordinatePrecisionFrom?: number | null;
+  coordinatePrecisionTo?: number | null;
+  periodFrom?: number | null;
+  periodTo?: number | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -284,17 +300,19 @@ export class AreasService {
 
   /**
    * Henter områdemarkører fra API for gitt zoomnivå.
+   * @param filter Valgfritt søkefilter — brukes til dynamisk telling av observasjoner per område
    */
-  getAreaMarkers(openLayerZoom: number): Observable<AreaMarkerDto[]> {
+  getAreaMarkers(openLayerZoom: number, filter?: LocationSearchFilter): Observable<AreaMarkerDto[]> {
     const validation = this.validationService.validateZoomLevel(openLayerZoom);
     if (!validation.valid) {
       throw new Error(validation.error || ApiMessages.Errors.InvalidParameters);
     }
 
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(validation.normalized!);
+    const body = this.buildFilterBody(filter);
 
     return this.apiClientService
-      .fetchJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, { responseType: 'text' })
+      .postJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body, { responseType: 'text' })
       .pipe(
         map(responseText => {
           const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
@@ -308,14 +326,12 @@ export class AreasService {
    * Fetches locations as a serialized GeoJSON FeatureCollection string
    * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
+   * @param filter Valgfritt søkefilter for lokasjoner
    */
-  getLocationsAsGeoJsonString(extent?: [number, number, number, number]): Observable<string> {
-    let url = this.locationsEndpoint;
-    if (extent) {
-      const [minX, minY, maxX, maxY] = extent;
-      url += `?Envelope.MinX=${minX}&Envelope.MinY=${minY}&Envelope.MaxX=${maxX}&Envelope.MaxY=${maxY}`;
-    }
-    return this.apiClientService.fetchJson<string>(url, { responseType: 'text' }).pipe(
+  getLocationsAsGeoJsonString(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+    const body = this.buildFilterBody(filter, extent);
+
+    return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
         const features = this.mapLocationsToGeoJson(parsed);
@@ -323,6 +339,35 @@ export class AreasService {
         return JSON.stringify({ type: 'FeatureCollection', features });
       })
     );
+  }
+
+  private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+
+    if (filter) {
+      if (filter.categoryIds?.length) body['categoryIds'] = filter.categoryIds;
+      if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
+      if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
+      if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
+      if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
+      if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
+      if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
+      if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
+      if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
+        body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
+      }
+      if (filter.periodFrom != null || filter.periodTo != null) {
+        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      }
+    }
+
+    if (extent) {
+      const [minX, minY, maxX, maxY] = extent;
+      body['envelope'] = { minX, minY, maxX, maxY };
+    }
+
+    return body;
   }
 
   /**

@@ -1,27 +1,64 @@
 namespace Artskart3.Core.Application.DTOs;
 
-public class LocationSearchFilterDto
+public class LocationSearchFilterDto : IObservationFilter
 {
     public int[]? TaxonGroupIds { get; set; }
 
-    public int[]? Categories { get; set; }
+    public int[]? CategoryIds { get; set; }
 
-    public int[]? BasisOfRecords { get; set; }
+    public int[]? BasisOfRecordIds { get; set; }
+
+    public int[]? OrganizationIds { get; set; }
+
+    public string[]? MunicipalityIds { get; set; }
+
+    public string[]? CountyIds { get; set; }
+
+    public string[]? RestrictedAreaIds { get; set; }
+
+    public string[]? OceanAreaIds { get; set; }
+
+    public int[]? BehaviorIds { get; set; }
+
+    public CoordinatePrecisionDto? CoordinatePrecision { get; set; }
+
+    public PeriodDto? Period { get; set; }
 
     /// <summary>
-    /// Array of CollectionIds (InstitutionCodes) to filter by
+    /// Returnerer true dersom minst ett søkefilter er satt (ekskluderer Envelope, Epsg, MaxResults).
     /// </summary>
-    public string[]? CollectionIds { get; set; }
+    public bool HasActiveFilters =>
+        TaxonGroupIds?.Length > 0 ||
+        CategoryIds?.Length > 0 ||
+        BasisOfRecordIds?.Length > 0 ||
+        OrganizationIds?.Length > 0 ||
+        MunicipalityIds?.Length > 0 ||
+        CountyIds?.Length > 0 ||
+        RestrictedAreaIds?.Length > 0 ||
+        OceanAreaIds?.Length > 0 ||
+        BehaviorIds?.Length > 0 ||
+        CoordinatePrecision?.From != null ||
+        CoordinatePrecision?.To != null ||
+        Period?.From != null ||
+        Period?.To != null;
 
     /// <summary>
-    /// Minimum coordinate precision in meters (0 = no filter)
+    /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
+    /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.) og verneområder
+    /// (som krysser fylkes-/kommunegrenser). Fylker, kommuner og havområder bruker
+    /// pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
     /// </summary>
-    public int CoordinatePrecisionFrom { get; set; } = 0;
-
-    /// <summary>
-    /// Maximum coordinate precision in meters (0 = no filter)
-    /// </summary>
-    public int CoordinatePrecisionTo { get; set; } = 0;
+    public bool HasObservationAttributeFilters =>
+        TaxonGroupIds?.Length > 0 ||
+        CategoryIds?.Length > 0 ||
+        BasisOfRecordIds?.Length > 0 ||
+        OrganizationIds?.Length > 0 ||
+        RestrictedAreaIds?.Length > 0 ||
+        BehaviorIds?.Length > 0 ||
+        CoordinatePrecision?.From != null ||
+        CoordinatePrecision?.To != null ||
+        Period?.From != null ||
+        Period?.To != null;
 
     /// <summary>
     /// EPSG code for coordinate system (default: 25833)

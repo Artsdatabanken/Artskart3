@@ -59,7 +59,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         await SeedTestDataAsync();
     }
@@ -74,7 +74,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = new[] { CollectionOne, CollectionTwo }
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
         }));
 
         result.Should().HaveCount(3);
@@ -88,7 +88,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = new[] { CollectionOne, CollectionTwo }
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
         }));
 
         result.Select(x => x.ObservationCount).Should().BeInDescendingOrder();
@@ -112,19 +112,16 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetLocationsAsync_FiltersByTaxonGroupIdAndCollection()
+    public async Task GetLocationsAsync_FiltersByTaxonGroupIdOnly()
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId },
-            CollectionIds = new[] { CollectionOne }
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId }
         }));
 
-        // Should return only locations with TaxonGroupOneId AND CollectionOne observations
         result.Should().NotBeEmpty();
         result.Select(x => x.Id).Should().Contain(_locationOne.Id);
         result.Select(x => x.Id).Should().Contain(_locationThree.Id);
-        // Should NOT contain location 2 (different taxon group and collection)
         result.Select(x => x.Id).Should().NotContain(_locationTwo.Id);
     }
 
@@ -133,7 +130,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            Categories = new[] { TestCategoryOneId }
+            CategoryIds = new[] { TestCategoryOneId }
         }));
 
         result.Should().ContainSingle();
@@ -145,31 +142,22 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            BasisOfRecords = new[] { TestBasisOfRecordOneId }
+            BasisOfRecordIds = new[] { TestBasisOfRecordOneId }
         }));
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationOne.Id, _locationThree.Id]);
     }
 
-    [Fact]
-    public async Task GetLocationsAsync_FiltersByCollectionId()
-    {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
-        {
-            CollectionIds = new[] { CollectionTwo }
-        }));
-
-        result.Should().ContainSingle();
-        result[0].Id.Should().Be(_locationTwo.Id);
-    }
+    // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
+    // OrganizationIds-filtrering krever seeding av ObservationEntityIndex-tabellen.
 
     [Fact]
     public async Task GetLocationsAsync_FiltersByCoordinatePrecisionFrom()
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = new[] { CollectionOne, CollectionTwo },
-            CoordinatePrecisionFrom = 100
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 100 }
         }));
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationTwo.Id, _locationThree.Id]);
@@ -180,8 +168,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = new[] { CollectionOne, CollectionTwo },
-            CoordinatePrecisionTo = 50
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
+            CoordinatePrecision = new CoordinatePrecisionDto { To = 50 }
         }));
 
         result.Should().ContainSingle();
@@ -193,7 +181,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CollectionIds = new[] { CollectionOne, CollectionTwo },
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             MaxResults = 2
         }));
 

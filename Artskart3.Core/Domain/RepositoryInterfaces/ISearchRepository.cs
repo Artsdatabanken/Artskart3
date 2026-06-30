@@ -8,5 +8,5 @@ public interface ISearchRepository
     Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default);
     IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default);
-    Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default);
+    Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
 }

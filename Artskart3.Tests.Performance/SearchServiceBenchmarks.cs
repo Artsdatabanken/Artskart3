@@ -49,7 +49,7 @@ public class SearchServiceBenchmarks
 
         _dbContext = new ArtskartDbContext(options);
 
-        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
         _searchService = new SearchService(repository, new MemoryCache(new MemoryCacheOptions()));
     }
 
@@ -113,8 +113,7 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 1,
-            CoordinatePrecisionTo = 100,
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 1, To = 100 },
             MaxResults = 1000
         });
     }
@@ -125,8 +124,7 @@ public class SearchServiceBenchmarks
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { 1 },
-            CoordinatePrecisionFrom = 1,
-            CoordinatePrecisionTo = 1000,
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 1, To = 1000 },
             MaxResults = 500
         });
     }

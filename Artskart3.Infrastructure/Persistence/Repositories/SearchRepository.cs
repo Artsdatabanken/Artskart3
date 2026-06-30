@@ -7,6 +7,7 @@ using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,12 +22,14 @@ public class SearchRepository : ISearchRepository
     private readonly IArtsKartDbContext _context;
     private readonly ILogger<SearchRepository> _logger;
     private readonly PaginationOptions _paginationOptions;
+    private readonly IAreaHierarchyService _areaHierarchy;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
+        _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -142,6 +145,7 @@ public class SearchRepository : ISearchRepository
         var query = _context.Set<Observation>()
                             .AsNoTracking();
 
+        // Observasjonsspesifikke tekstfiltre
         if (!string.IsNullOrEmpty(filter.PreferredPopularName))
         {
             var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
@@ -160,73 +164,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
         }
 
-        if (filter.TaxonGroupIds?.Any() == true)
-        {
-            query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
-        }
-
-        if (filter.CategoryIds?.Any() == true)
-        {
-            query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
-        }
-
-        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen.
-        // Alle entiteter bruker int EntityId — string-Fid-er konverteres til int før spørring.
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
-        var hasOrg = filter.OrganizationIds?.Any() == true;
-
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
-        {
-            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
-            var countyIds = ConvertFidsToInt(filter.CountyIds);
-            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
-            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
-            var orgIds = filter.OrganizationIds ?? [];
-
-            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
-                idx.ObservationId == o.Id && (
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
-                )));
-        }
-
-        if (filter.BehaviorIds?.Any() == true)
-        {
-            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
-        }
-
-        if (filter.BasisOfRecordIds?.Any() == true)
-        {
-            query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
-        }
-
-        if (filter.CoordinatePrecision?.From.HasValue == true)
-        {
-            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
-        }
-
-        if (filter.CoordinatePrecision?.To.HasValue == true)
-        {
-            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
-        }
-
-        if (filter.Period?.From.HasValue == true)
-        {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
-            query = query.Where(o => o.DateTimeCollected >= fromDate);
-        }
-
-        if (filter.Period?.To.HasValue == true)
-        {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(o => o.DateTimeCollected <= toDate);
-        }
+        // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
+        query = ApplyCommonFilters(query, filter);
 
         query = query.OrderBy(o => o.Id);
 
@@ -322,43 +261,96 @@ public class SearchRepository : ISearchRepository
         }
     }
 
-    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    /// <summary>
+    /// Legger til felles filterpredikater (taksongruppe, kategori, område, atferd, etc.) på en observasjonsspørring.
+    /// Brukes av både lokasjons- og områdemarkørspørringer.
+    /// </summary>
+    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, IObservationFilter filter)
     {
-        var query = _context.Set<Observation>().AsNoTracking();
-
         if (filter.TaxonGroupIds?.Any() == true)
         {
             var taxonGroupIds = filter.TaxonGroupIds.ToList();
             query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
         }
 
-        if (filter.CollectionIds?.Any() == true)
+        if (filter.CategoryIds?.Any() == true)
         {
-            var collectionIds = filter.CollectionIds.ToList();
-            query = query.Where(o => o.InstitutionCode != null && collectionIds.Contains(o.InstitutionCode));
+            var categoryIds = filter.CategoryIds.ToList();
+            query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
         }
 
-        if (filter.Categories?.Any() == true)
+        // Geografiske områdefiltre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
         {
-            var categories = filter.Categories.ToList();
-            query = query.Where(o => o.CategoryId.HasValue && categories.Contains(o.CategoryId.Value));
+            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
+                idx.ObservationId == o.Id && (
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
+                )));
         }
 
-        if (filter.BasisOfRecords?.Any() == true)
+        // Organisasjonsfilter (AND — separat fra geografiske filtre)
+        if (filter.OrganizationIds?.Any() == true)
         {
-            var basisOfRecords = filter.BasisOfRecords.ToList();
-            query = query.Where(o => basisOfRecords.Contains(o.BasisOfRecordId));
+            var orgIds = filter.OrganizationIds;
+            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
+                idx.ObservationId == o.Id &&
+                idx.EntityTypeId == (int)ObservationIndexEntityType.Institution &&
+                orgIds.Contains(idx.EntityId)));
         }
 
-        if (filter.CoordinatePrecisionFrom > 0)
+        if (filter.BehaviorIds?.Any() == true)
         {
-            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecisionFrom);
+            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
         }
 
-        if (filter.CoordinatePrecisionTo > 0)
+        if (filter.BasisOfRecordIds?.Any() == true)
         {
-            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecisionTo);
+            var basisOfRecordIds = filter.BasisOfRecordIds.ToList();
+            query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
+
+        if (filter.CoordinatePrecision?.From.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
+        }
+
+        if (filter.CoordinatePrecision?.To.HasValue == true)
+        {
+            query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
+        }
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(o => o.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(o => o.DateTimeCollected <= toDate);
+        }
+
+        return query;
+    }
+
+    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    {
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, filter);
 
         if (filter.Envelope != null)
         {
@@ -441,12 +433,11 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Retrieves all area markers (counties/municipalities) grouped by name with aggregated observation counts.
-    /// Returns one polygon per area name in WKT POLYGON format in UTM Zone 33N.
-    /// Area types: 1 = municipalities, 2 = counties.
-    /// At lower zoom levels shows counties; at higher zoom levels shows municipalities.
+    /// Henter områdemarkører (fylker/kommuner) gruppert etter navn med observasjonsantall.
+    /// Hybrid tilnærming: uten filtre brukes pre-beregnet antall fra Area-tabellen,
+    /// med filtre beregnes antall dynamisk via ObservationEntityIndex.
     /// </summary>
-    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -454,11 +445,89 @@ public class SearchRepository : ISearchRepository
                     .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
                     .ToListAsync(cancellationToken);
 
+            // Havområder kan ha et annet zoomnivå — last inn separat når de er i filteret
+            if (filter?.OceanAreaIds?.Any() == true)
+            {
+                var loadedFids = areas.Select(a => a.Fid).ToHashSet();
+                var missingOceanFids = filter.OceanAreaIds.Where(fid => !loadedFids.Contains(fid)).ToArray();
+                if (missingOceanFids.Length > 0)
+                {
+                    var oceanAreas = await _context.Set<Area>()
+                        .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid))
+                        .ToListAsync(cancellationToken);
+                    areas.AddRange(oceanAreas);
+                }
+            }
+
+            var hasFilters = filter?.HasActiveFilters == true;
+            var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
+            Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
+            Dictionary<string, int>? municipalityCountsByCounty = null;
+
+            // Steg 1: Filtrer hvilke områder som vises (uavhengig av tellemåte)
+            var hasAreaSelection = hasFilters && (
+                filter!.CountyIds?.Length > 0 ||
+                filter.MunicipalityIds?.Length > 0 ||
+                filter.OceanAreaIds?.Length > 0);
+
+            if (hasAreaSelection)
+            {
+                var filtered = FilterAreasBySelection(areas, filter!);
+                if (filtered.Count > 0)
+                {
+                    areas = filtered;
+                }
+                else if (!needsDynamicCounts)
+                {
+                    // Ingen områder matcher og ingen observasjonsfiltre — ingen markører å vise
+                    areas = filtered;
+                }
+            }
+
+            // Steg 2: Bestem tellemåte
+            if (needsDynamicCounts)
+            {
+                dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
+            }
+            else if (hasAreaSelection)
+            {
+                // Sjekk om kommune-filter på fylkesnivå krever aggregering
+                var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
+                var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+
+                if (hasMunicipalityFilter && areasAreCounties)
+                {
+                    municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
+                        filter.MunicipalityIds!, cancellationToken);
+                }
+            }
+
             return areas
                 .GroupBy(a => a.Name)
                 .Select(g =>
                 {
                     var firstArea = g.FirstOrDefault(a => a.WktPolygon != null) ?? g.First();
+
+                    int count;
+                    if (needsDynamicCounts)
+                    {
+                        count = g.Sum(a =>
+                        {
+                            var entityId = _areaHierarchy.FidToEntityId(a.Fid);
+                            return entityId.HasValue
+                                ? dynamicCounts!.GetValueOrDefault((a.AreaTypeId, entityId.Value), 0)
+                                : 0;
+                        });
+                    }
+                    else if (municipalityCountsByCounty != null)
+                    {
+                        count = g.Sum(a => municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0));
+                    }
+                    else
+                    {
+                        count = g.Sum(a => a.ObservationCount ?? 0);
+                    }
+
                     return new AreaMarkerDto
                     {
                         Id = g.Min(a => a.Id),
@@ -467,13 +536,14 @@ public class SearchRepository : ISearchRepository
                         Name = g.Key,
                         AreaTypeId = firstArea.AreaTypeId,
                         ParentFid = firstArea.ParentFid,
-                        ObservationCount = g.Sum(a => a.ObservationCount),
+                        ObservationCount = count,
                         WktsPolygon = firstArea.WktPolygon?.AsText(),
                         Centroid = firstArea.Centroid?.Coordinate != null
                             ? new CentroidDto { X = firstArea.Centroid.Coordinate.X, Y = firstArea.Centroid.Coordinate.Y }
                             : null
                     };
                 })
+                .Where(a => a.ObservationCount > 0)
                 .ToList();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -485,28 +555,89 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Konverterer string-Fid-er til int ved å fjerne "_" (for historiske fylkes-Fid-er som "15_2017").
+    /// Henter pre-beregnede observasjonsantall for valgte kommuner og aggregerer per forelder-fylke.
+    /// Brukes når kommune-filter er aktivt på fylkesnivå — unngår tung observasjonstelling.
     /// </summary>
-    private static int[] ConvertFidsToInt(string[]? fids)
+    private async Task<Dictionary<string, int>> AggregateMunicipalityCountsByCounty(
+        string[] municipalityFids, CancellationToken cancellationToken)
     {
-        if (fids == null || fids.Length == 0) return [];
-        return fids
-            .Select(fid => int.TryParse(fid.Replace("_", ""), out var id) ? id : (int?)null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToArray();
+        var fidsSet = municipalityFids.ToHashSet();
+
+        var municipalityAreas = await _context.Set<Area>()
+            .Where(a => a.IsCurrent && fidsSet.Contains(a.Fid))
+            .Select(a => new { a.Fid, a.ParentFid, a.ObservationCount })
+            .ToListAsync(cancellationToken);
+
+        var countsByCounty = new Dictionary<string, int>();
+
+        foreach (var m in municipalityAreas)
+        {
+            var countyFid = m.ParentFid ?? _areaHierarchy.GetCountyFid(m.Fid);
+            if (countyFid == null) continue;
+
+            countsByCounty.TryGetValue(countyFid, out var current);
+            countsByCounty[countyFid] = current + (m.ObservationCount ?? 0);
+        }
+
+        return countsByCounty;
     }
 
     /// <summary>
-    /// Konverterer verneområde-Fid-er til int ved å fjerne "Naturbase VV"-prefiks.
+    /// Beregner filtrerte observasjonsantall per område via ObservationEntityIndex.
     /// </summary>
-    private static int[] ConvertRestrictedAreaFidsToInt(string[]? fids)
+    private async Task<Dictionary<(int entityTypeId, int entityId), int>> ComputeFilteredAreaCounts(
+        List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
     {
-        if (fids == null || fids.Length == 0) return [];
-        return fids
-            .Select(fid => int.TryParse(fid.Replace("Naturbase VV", ""), out var id) ? id : (int?)null)
+        var filteredQuery = ApplyCommonFilters(_context.Set<Observation>().AsNoTracking(), filter);
+
+        var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
+        var entityIds = areas
+            .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
+            .Distinct()
             .ToArray();
+
+        var counts = await _context.Set<ObservationEntityIndex>()
+            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId) && entityIds.Contains(idx.EntityId))
+            .Where(idx => filteredQuery.Select(o => o.Id).Contains(idx.ObservationId))
+            .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
+            .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
     }
+
+    /// <summary>
+    /// Filtrerer områdelisten basert på valgte fylker, kommuner og havområder.
+    /// Alle er områdemarkører på samme nivå og filtreres via Fid-matching.
+    /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
+    /// </summary>
+    private List<Area> FilterAreasBySelection(List<Area> areas, LocationSearchFilterDto filter)
+    {
+        var countyFids = new HashSet<string>(filter.CountyIds ?? []);
+        var municipalityFids = new HashSet<string>(filter.MunicipalityIds ?? []);
+        var oceanAreaFids = new HashSet<string>(filter.OceanAreaIds ?? []);
+
+        if (countyFids.Count == 0 && municipalityFids.Count == 0 && oceanAreaFids.Count == 0)
+            return areas;
+
+        // Slå opp forelder-fylke for valgte kommuner
+        var derivedCountyFids = new HashSet<string>();
+        foreach (var mFid in municipalityFids)
+        {
+            var parentCounty = _areaHierarchy.GetCountyFid(mFid);
+            if (parentCounty != null)
+                derivedCountyFids.Add(parentCounty);
+        }
+
+        return areas.Where(a =>
+            countyFids.Contains(a.Fid) ||
+            municipalityFids.Contains(a.Fid) ||
+            oceanAreaFids.Contains(a.Fid) ||
+            (a.ParentFid != null && countyFids.Contains(a.ParentFid)) ||
+            derivedCountyFids.Contains(a.Fid)
+        ).ToList();
+    }
+
 }

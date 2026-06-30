@@ -49,21 +49,23 @@ public class SearchService : ISearchService
         return alltaxons;
     }
 
-    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
-        // Cacher resultater for zoomnivå 1 og 2 (fylker og kommuner)
+        var hasFilters = filter?.HasActiveFilters == true;
+
+        // Cacher kun ufiltrerte resultater for zoomnivå 1 og 2 (fylker og kommuner)
         // da geometridata er store og sjelden endres
-        if (zoomLevel is 1 or 2)
+        if (!hasFilters && zoomLevel is 1 or 2)
         {
             var cacheKey = $"areas_zoom_{zoomLevel}";
             if (!_cache.TryGetValue(cacheKey, out IEnumerable<AreaMarkerDto>? cached))
             {
-                cached = await _searchRepository.GetAreaMarkersAsync(zoomLevel, cancellationToken);
+                cached = await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
                 _cache.Set(cacheKey, cached, AreasCacheDuration);
             }
             return cached!;
         }
 
-        return await _searchRepository.GetAreaMarkersAsync(zoomLevel, cancellationToken);
+        return await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
     }
 }

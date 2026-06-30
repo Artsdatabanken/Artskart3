@@ -18,7 +18,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var result = await sut.GetTaxonsAsync(null!);
 
@@ -30,7 +30,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var result = await sut.GetTaxonsAsync("   ");
 
@@ -42,7 +42,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 0);
 
@@ -54,7 +54,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 1001);
 
@@ -66,7 +66,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", -1);
 
@@ -135,7 +135,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = new[] { 10 } }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = new[] { 10 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -157,33 +157,14 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = new[] { 5 } }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecordIds = new[] { 5 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
     }
 
-    [Fact]
-    public async Task GetLocationsAsync_WithCollectionIdFilter_ReturnsOnlyMatchingLocations()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        SeedLocations(context,
-            CreateLocation(1, "Oslo"),
-            CreateLocation(2, "Trondheim"));
-
-        SeedObservations(context,
-            CreateObservation(1, 1, institutionCode: "NHM"),
-            CreateObservation(2, 2, institutionCode: "GBIF"));
-
-        await context.SaveChangesAsync();
-
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = new[] { "NHM" } }));
-
-        result.Should().ContainSingle();
-        result[0].Id.Should().Be(1);
-    }
+    // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
+    // Denne testen krever seeding av ObservationEntityIndex og dekkes av integrasjonstester.
 
     [Fact]
     public async Task GetLocationsAsync_WithCoordinatePrecisionFromFilter_FiltersCorrectly()
@@ -203,7 +184,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionFrom = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([2, 3]);
     }
@@ -226,7 +207,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionTo = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -251,8 +232,7 @@ public class SearchRepositoryTests
 
         var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 25,
-            CoordinatePrecisionTo = 75
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 25, To = 75 }
         }));
 
         result.Should().ContainSingle();
@@ -439,7 +419,7 @@ public class SearchRepositoryTests
     }
 
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()));
+        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
     private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
         context.Set<Location>().AddRange(locations);

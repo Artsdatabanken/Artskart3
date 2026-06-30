@@ -110,8 +110,7 @@ public class SearchControllerTests
     {
         var filter = new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 500,
-            CoordinatePrecisionTo = 100
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 500, To = 100 }
         };
 
         var result = await _sut.GetObservationLocations(filter);
