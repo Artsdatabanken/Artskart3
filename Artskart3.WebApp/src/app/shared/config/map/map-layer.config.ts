@@ -4,10 +4,9 @@ export interface MapTypeOption {
 }
 
 export const MAP_TYPE_OPTIONS: MapTypeOption[] = [
-  { label: 'Standard', layerId: 'osm' },
-  { label: 'Landkart', layerId: 'topografisk' },
-  { label: 'Gråtonekart', layerId: 'topo4graatone' },
-  { label: 'Norge i bilder', layerId: 'nib' },
-  { label: 'Svalbard', layerId: 'svalbard' },
-  { label: 'Jan Mayen', layerId: 'janmayen' },
+  { label: 'mapToolbar.mapTypes.topografisk', layerId: 'topografisk' },
+  { label: 'mapToolbar.mapTypes.topo4graatone', layerId: 'topo4graatone' },
+  { label: 'mapToolbar.mapTypes.nib', layerId: 'nib' },
+  { label: 'mapToolbar.mapTypes.svalbard', layerId: 'svalbard' },
+  { label: 'mapToolbar.mapTypes.janmayen', layerId: 'janmayen' },
 ];

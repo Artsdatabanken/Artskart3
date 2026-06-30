@@ -111,7 +111,14 @@
     "zoomInAriaLabel": "Zoom inn",
     "zoomOutAriaLabel": "Zoom ut",
     "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
-    "mapTypeHeading": "Type kart",
+    "mapTypeHeading": "Bakgrunnskart",
+    "mapTypes": {
+      "topografisk": "Landkart (standard)",
+      "topo4graatone": "Gråtonekart",
+      "nib": "Norge i bilder",
+      "svalbard": "Svalbard",
+      "janmayen": "Jan Mayen"
+    },
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   }
 }
