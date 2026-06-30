@@ -514,6 +514,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationModel"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/SearchTaxons": {
         parameters: {
             query?: never;
@@ -563,21 +598,7 @@ export interface paths {
         put?: never;
         post: {
             parameters: {
-                query?: {
-                    TaxonGroupIds?: number[];
-                    Categories?: number[];
-                    BasisOfRecords?: number[];
-                    CollectionIds?: string[];
-                    CoordinatePrecisionFrom?: number;
-                    CoordinatePrecisionTo?: number;
-                    Epsg?: number;
-                    MaxResults?: number;
-                    "Envelope.MinX"?: number;
-                    "Envelope.MinY"?: number;
-                    "Envelope.MaxX"?: number;
-                    "Envelope.MaxY"?: number;
-                    "Envelope.IsValid"?: boolean;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -585,6 +606,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": components["schemas"]["LocationSearchFilterDto"];
+                    "text/json": components["schemas"]["LocationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["LocationSearchFilterDto"];
                 };
             };
             responses: {
@@ -667,6 +690,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": components["schemas"]["LocationSearchFilterDto"];
+                    "text/json": components["schemas"]["LocationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["LocationSearchFilterDto"];
                 };
             };
             responses: {
@@ -728,45 +753,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ExportColumnDefinition: {
-            name?: string | null;
-            displayName?: string | null;
-            isDefaultSelected?: boolean;
-        };
-        StartExportRequestDto: {
-            filter?: components["schemas"]["ObservationSearchFilterDto"];
-            selectedColumns?: string[] | null;
-        };
-        ExportSummaryDto: {
-            /** Format: int32 */
-            totalRows?: number;
-            /** Format: int64 */
-            estimatedFileSizeBytes?: number;
-            exceedsSoftLimit?: boolean;
-            exceedsHardLimit?: boolean;
-        };
-        CsvExportJobDto: {
-            /** Format: int32 */
-            id?: number;
-            status?: components["schemas"]["CsvExportStatus"];
-            /** Format: int32 */
-            totalRows?: number;
-            /** Format: int32 */
-            rowsProcessed?: number;
-            /** Format: int64 */
-            fileSize?: number;
-            hasExcel?: boolean;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            startedAt?: string | null;
-            /** Format: date-time */
-            completedAt?: string | null;
-            /** Format: date-time */
-            expiresAt?: string | null;
-            errorMessage?: string | null;
-        };
-        CategoryTypeDto: {
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        AlertType: 0 | 1 | 2 | 3 | 4;
+        AreaDto: {
             /** Format: int32 */
             id?: number;
             fid?: string | null;
@@ -787,6 +779,7 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
             wktsPolygon?: string | null;
+            centroid?: components["schemas"]["CentroidDto"];
         };
         AreaResponseDto: {
             counties?: components["schemas"]["CountyDto"];
@@ -799,29 +792,6 @@ export interface components {
             id?: number;
             name?: string | null;
             areas?: components["schemas"]["AreaDto"][] | null;
-        };
-        LocationSearchFilterDto: {
-            taxonGroupIds?: number[] | null;
-            categoryIds?: number[] | null;
-            basisOfRecordIds?: number[] | null;
-            organizationIds?: number[] | null;
-            municipalityIds?: string[] | null;
-            countyIds?: string[] | null;
-            restrictedAreaIds?: string[] | null;
-            oceanAreaIds?: string[] | null;
-            behaviorIds?: number[] | null;
-            coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
-            period?: components["schemas"]["PeriodDto"];
-            /** Format: int32 */
-            epsg?: number | null;
-            /** Format: int32 */
-            maxResults?: number;
-            envelope?: {
-                minX?: number;
-                minY?: number;
-                maxX?: number;
-                maxY?: number;
-            } | null;
         };
         BasisOfRecordDto: {
             /** Format: int32 */
@@ -855,6 +825,12 @@ export interface components {
             name?: string | null;
             categories?: components["schemas"]["CategoryDto"][] | null;
         };
+        CentroidDto: {
+            /** Format: double */
+            x?: number;
+            /** Format: double */
+            y?: number;
+        };
         CoordinatePrecisionDto: {
             /** Format: int32 */
             from?: number | null;
@@ -869,6 +845,7 @@ export interface components {
         CsvExportJobDto: {
             /** Format: int32 */
             id?: number;
+            name?: string | null;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
@@ -892,6 +869,17 @@ export interface components {
          * @enum {integer}
          */
         CsvExportStatus: 0 | 1 | 2 | 3 | 4;
+        EnvelopeDto: {
+            /** Format: double */
+            minX?: number;
+            /** Format: double */
+            minY?: number;
+            /** Format: double */
+            maxX?: number;
+            /** Format: double */
+            maxY?: number;
+            readonly isValid?: boolean;
+        };
         ExportColumnDefinition: {
             name?: string | null;
             displayName?: string | null;
@@ -912,6 +900,40 @@ export interface components {
             code?: string | null;
             /** Format: int32 */
             observationCount?: number | null;
+        };
+        LocationSearchFilterDto: {
+            taxonGroupIds?: number[] | null;
+            categoryIds?: number[] | null;
+            basisOfRecordIds?: number[] | null;
+            organizationIds?: number[] | null;
+            municipalityIds?: string[] | null;
+            countyIds?: string[] | null;
+            restrictedAreaIds?: string[] | null;
+            oceanAreaIds?: string[] | null;
+            behaviorIds?: number[] | null;
+            coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
+            period?: components["schemas"]["PeriodDto"];
+            readonly hasActiveFilters?: boolean;
+            readonly hasObservationAttributeFilters?: boolean;
+            /** Format: int32 */
+            epsg?: number | null;
+            /** Format: int32 */
+            maxResults?: number;
+            envelope?: components["schemas"]["EnvelopeDto"];
+        };
+        NotificationModel: {
+            type?: components["schemas"]["AlertType"];
+            heading?: string | null;
+            description?: string | null;
+            /** Format: date-time */
+            startDateTime?: string | null;
+            /** Format: date-time */
+            endDateTime?: string | null;
+            /** Format: date */
+            startDisplayDate?: string | null;
+            /** Format: date */
+            endDisplayDate?: string | null;
+            canClose?: boolean;
         };
         ObservationDto: {
             /** Format: int32 */
@@ -968,6 +990,7 @@ export interface components {
             to?: number | null;
         };
         StartExportRequestDto: {
+            name?: string | null;
             filter?: components["schemas"]["ObservationSearchFilterDto"];
             selectedColumns?: string[] | null;
         };
