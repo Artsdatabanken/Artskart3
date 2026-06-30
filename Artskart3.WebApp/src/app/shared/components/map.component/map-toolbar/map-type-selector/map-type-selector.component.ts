@@ -38,7 +38,8 @@ export class MapTypeSelectorComponent {
   }
 
   getToggleButtonAriaLabel(): string {
-    const selectedLabel = this.mapTypeOptions.find(opt => opt.layerId === this.selectedLayerId)?.label || '';
+    const selectedKey = this.mapTypeOptions.find((opt) => opt.layerId === this.selectedLayerId)?.label || '';
+    const selectedLabel = this.translate.instant(selectedKey);
     return this.translate.instant('mapToolbar.selectMapTypeAriaLabel', { mapType: selectedLabel });
   }
 }

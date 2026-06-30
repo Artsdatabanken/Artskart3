@@ -111,7 +111,14 @@
     "zoomInAriaLabel": "Zoom in",
     "zoomOutAriaLabel": "Zoom out",
     "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
-    "mapTypeHeading": "Map type",
+    "mapTypeHeading": "Background map",
+    "mapTypes": {
+      "topografisk": "Map (standard)",
+      "topo4graatone": "Greyscale map",
+      "nib": "Norway in pictures",
+      "svalbard": "Svalbard",
+      "janmayen": "Jan Mayen"
+    },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   }
 }
