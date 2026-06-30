@@ -16,6 +16,7 @@ export type CsvExportJobDto = components['schemas']['CsvExportJobDto'];
 export type StartExportRequestDto = components['schemas']['StartExportRequestDto'];
 export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
+export type NotificationModel = components['schemas']['NotificationModel'];
 
 // Export status enum
 export const CSV_EXPORT_STATUS = {
