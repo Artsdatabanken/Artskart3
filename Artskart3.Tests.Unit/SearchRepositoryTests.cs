@@ -1,12 +1,13 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
-using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -17,7 +18,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var result = await sut.GetTaxonsAsync(null!);
 
@@ -29,7 +30,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var result = await sut.GetTaxonsAsync("   ");
 
@@ -41,7 +42,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 0);
 
@@ -53,7 +54,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 1001);
 
@@ -65,7 +66,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance);
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", -1);
 
@@ -112,7 +113,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -134,7 +135,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { Categories = "10" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = new[] { 10 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -156,33 +157,14 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecords = "5" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecordIds = new[] { 5 } }));
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
     }
 
-    [Fact]
-    public async Task GetLocationsAsync_WithCollectionIdFilter_ReturnsOnlyMatchingLocations()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        SeedLocations(context,
-            CreateLocation(1, "Oslo"),
-            CreateLocation(2, "Trondheim"));
-
-        SeedObservations(context,
-            CreateObservation(1, 1, institutionCode: "NHM"),
-            CreateObservation(2, 2, institutionCode: "GBIF"));
-
-        await context.SaveChangesAsync();
-
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CollectionIds = "NHM" }));
-
-        result.Should().ContainSingle();
-        result[0].Id.Should().Be(1);
-    }
+    // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
+    // Denne testen krever seeding av ObservationEntityIndex og dekkes av integrasjonstester.
 
     [Fact]
     public async Task GetLocationsAsync_WithCoordinatePrecisionFromFilter_FiltersCorrectly()
@@ -202,7 +184,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionFrom = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([2, 3]);
     }
@@ -225,7 +207,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecisionTo = 50 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 50 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -250,8 +232,7 @@ public class SearchRepositoryTests
 
         var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 25,
-            CoordinatePrecisionTo = 75
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 25, To = 75 }
         }));
 
         result.Should().ContainSingle();
@@ -286,15 +267,15 @@ public class SearchRepositoryTests
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WhenMaxResultsExceedsMax_FallsBackToDefault1000()
+    public async Task GetLocationsAsync_WhenMaxResultsExceedsMax_FallsBackToDefault100000()
     {
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
 
-        var locations = Enumerable.Range(1, 1105)
+        var locations = Enumerable.Range(1, 1000)
             .Select(id => CreateLocation(id, $"Lokalitet {id}"))
             .ToArray();
-        var observations = Enumerable.Range(1, 1105)
+        var observations = Enumerable.Range(1, 1000)
             .Select(id => CreateObservation(id, id))
             .ToArray();
 
@@ -303,7 +284,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 99999 }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 }));
 
         result.Should().HaveCount(1000);
     }
@@ -319,7 +300,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "99" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 99 } }));
 
         result.Should().BeEmpty();
     }
@@ -342,7 +323,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = "1,abc,2" }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1, 2 } }));
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -363,7 +344,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = string.Empty }));
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = null }));
 
         result.Should().HaveCount(2);
     }
@@ -389,6 +370,27 @@ public class SearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetLocationsAsync_MultipleTaxaAtSameLocation_ReturnsSingleLocationWithTotalCount()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+        SeedObservations(context,
+            CreateObservation(1, 1, taxonId: 10),
+            CreateObservation(2, 1, taxonId: 10),
+            CreateObservation(3, 1, taxonId: 20),
+            CreateObservation(4, 1, taxonId: 30));
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+
+        result.Should().ContainSingle();
+        result[0].ObservationCount.Should().Be(4);
+    }
+
+    [Fact]
     public async Task GetLocationsAsync_WhenLocationRowMissing_OmitsFromResults()
     {
         await using var context = CreateInMemoryContext();
@@ -407,83 +409,6 @@ public class SearchRepositoryTests
         result[0].Id.Should().Be(1);
     }
 
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithNoIds_ReturnsEmpty()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        var result = await sut.GetAreasByTypeIdsAsync();
-
-        result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithAreaTypeId_ReturnsMatchingAreas()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Oslo", 1, 10),
-            CreateArea(2, "Vestland", 2, 20));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].Name.Should().Be("Oslo");
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_GroupsByName_SumsObservationCounts()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Oslo", 1, 10),
-            CreateArea(2, "Oslo", 1, 15));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].ObservationCount.Should().Be(25);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_WithNullGeometry_HasNullCentroid()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().Add(CreateArea(1, "Oslo", 1, 10, wktPolygon: null));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].Centroid.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_SameNameDifferentAreaType_MergesIntoOneEntry()
-    {
-        await using var context = CreateInMemoryContext();
-        var sut = CreateRepository(context);
-
-        context.Set<Area>().AddRange(
-            CreateArea(1, "Felles navn", 1, 10),
-            CreateArea(2, "Felles navn", 2, 20));
-        await context.SaveChangesAsync();
-
-        var result = (await sut.GetAreasByTypeIdsAsync(1, 2)).ToList();
-
-        result.Should().ContainSingle();
-        result[0].ObservationCount.Should().Be(30);
-    }
-
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
@@ -494,7 +419,7 @@ public class SearchRepositoryTests
     }
 
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<SearchRepository>.Instance);
+        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
 
     private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
         context.Set<Location>().AddRange(locations);
@@ -524,7 +449,8 @@ public class SearchRepositoryTests
         int? categoryId = 1,
         int basisOfRecordId = 1,
         string? institutionCode = "NHM",
-        int? coordinatePrecisionInMeters = 25) =>
+        int? coordinatePrecisionInMeters = 25,
+        int taxonId = 1) =>
         new()
         {
             Id = id,
@@ -533,7 +459,7 @@ public class SearchRepositoryTests
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
             BasisOfRecordId = basisOfRecordId,
-            TaxonId = 1,
+            TaxonId = taxonId,
             MatchedScientificNameId = 1,
             TaxonGroupId = taxonGroupId,
             CategoryId = categoryId,

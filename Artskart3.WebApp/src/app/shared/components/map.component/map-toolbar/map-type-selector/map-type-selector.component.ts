@@ -16,7 +16,7 @@ export class MapTypeSelectorComponent {
 
   readonly mapTypeOptions = MAP_TYPE_OPTIONS;
   isMapTypesOpen = false;
-  selectedLayerId = 'topografiskBaseLayer';
+  selectedLayerId = 'topografisk';
 
   private readonly translate = inject(TranslateService);
 
@@ -38,7 +38,8 @@ export class MapTypeSelectorComponent {
   }
 
   getToggleButtonAriaLabel(): string {
-    const selectedLabel = this.mapTypeOptions.find(opt => opt.layerId === this.selectedLayerId)?.label || '';
+    const selectedKey = this.mapTypeOptions.find((opt) => opt.layerId === this.selectedLayerId)?.label || '';
+    const selectedLabel = this.translate.instant(selectedKey);
     return this.translate.instant('mapToolbar.selectMapTypeAriaLabel', { mapType: selectedLabel });
   }
 }

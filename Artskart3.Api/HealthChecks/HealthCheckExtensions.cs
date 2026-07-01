@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Data.SqlClient;
 using Artskart3.Api.HealthChecks;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 /// <summary>
 /// Extensions for configuring health checks in the application.
@@ -46,10 +46,10 @@ public static class HealthCheckExtensions
         logger.LogInformation("Health checks configuration completed");
         return healthChecksBuilder;
     }
-       private static async Task<HealthCheckResult> ExecuteHealthCheckAsync(
-        string serviceName,
-        Func<CancellationToken, Task> healthCheckFunc,
-        ILogger logger)
+    private static async Task<HealthCheckResult> ExecuteHealthCheckAsync(
+     string serviceName,
+     Func<CancellationToken, Task> healthCheckFunc,
+     ILogger logger)
     {
         try
         {
@@ -76,7 +76,7 @@ public static class HealthCheckExtensions
         {
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(ct);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT 1";
             command.CommandTimeout = HealthCheckTimeoutSeconds;
@@ -90,7 +90,7 @@ public static class HealthCheckExtensions
         {
             if (string.IsNullOrWhiteSpace(keyVaultUrl) || !Uri.TryCreate(keyVaultUrl, UriKind.Absolute, out _))
                 throw new InvalidOperationException($"Invalid Key Vault URL: {keyVaultUrl}");
-            
+
             await Task.CompletedTask;
         }, logger);
     }

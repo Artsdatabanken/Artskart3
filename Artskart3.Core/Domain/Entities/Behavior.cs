@@ -1,4 +1,4 @@
-﻿using Artskart3.Core.Domain.Entities.Base;
+using Artskart3.Core.Domain.Entities.Base;
 
 namespace Artskart3.Core.Domain.Entities;
 

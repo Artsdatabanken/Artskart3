@@ -165,11 +165,61 @@
       }
     },
     {
+      "id": 5,
+      "title": "ObservationSearch — Responstid (ms)",
+      "description": "Gjennomsnittlig responstid for observasjonssøk med område- og institusjonsfiltre via ObservationAreaIndex.",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 27 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-local" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "influxdb", "uid": "influxdb-local" },
+          "query": "from(bucket: \"benchmarks\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"benchmark\")\n  |> filter(fn: (r) => r._field == \"mean\")\n  |> filter(fn: (r) => r.category == \"Municipality\" or r.category == \"County\" or r.category == \"OceanArea\" or r.category == \"RestrictedArea\" or r.category == \"Institution\" or r.category == \"Municipality1\" or r.category == \"County1\" or r.category == \"OceanArea1\" or r.category == \"RestrictedArea1\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000000.0, _field: r.method}))\n  |> group(columns: [\"_field\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false,
+            "showPoints": "always",
+            "pointSize": 6,
+            "stacking": { "mode": "none" },
+            "axisPlacement": "auto",
+            "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
       "id": 4,
       "title": "Minnebruk per benchmark (bytes allokert per operasjon)",
       "description": "Gjennomsnittlig minneallokering per benchmark-operasjon over tid.",
       "type": "timeseries",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 27 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 36 },
       "datasource": { "type": "influxdb", "uid": "influxdb-local" },
       "targets": [
         {

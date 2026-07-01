@@ -579,7 +579,7 @@ PRINT 'SET IDENTITY_INSERT [Area] ON;';
 
 IF COL_LENGTH('Area', 'CreatedAt') IS NOT NULL
     SET @sql = N'
-    SELECT ''INSERT INTO [Area] ([Id],[DocumentId],[Fid],[Name],[AreaTypeId],[ParentFid],[SyncDateTime],''
+    SELECT ''INSERT INTO [Area] ([Id],[DocumentId],[Fid],[Name],[AreaTypeId],[ZoomLevel],[ParentFid],[SyncDateTime],''
         + ''[ObservationCount],[Bbox],[TimeStamp],[IsCurrent],[WktPolygon],''
         + ''[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (''
         + CAST(a.Id AS VARCHAR(20)) + '',''
@@ -587,6 +587,7 @@ IF COL_LENGTH('Area', 'CreatedAt') IS NOT NULL
         + '''''''' + REPLACE(a.Fid, '''''''', '''''''''''') + '''''''' + '',''
         + '''''''' + REPLACE(a.Name, '''''''', '''''''''''') + '''''''' + '',''
         + CAST(a.AreaTypeId AS VARCHAR(20)) + '',''
+        + CAST(a.ZoomLevel AS VARCHAR(20)) + '',''
         + '''''''' + REPLACE(a.ParentFid, '''''''', '''''''''''') + '''''''' + '',''
         + '''''''' + CONVERT(VARCHAR(23), a.SyncDateTime, 126) + '''''''' + '',''
         + ISNULL(CAST(a.ObservationCount AS VARCHAR(20)), ''NULL'') + '',''
@@ -602,13 +603,14 @@ IF COL_LENGTH('Area', 'CreatedAt') IS NOT NULL
     FROM [Area] a WHERE a.AreaTypeId IN (1, 2) ORDER BY a.AreaTypeId, a.Id;';
 ELSE
     SET @sql = N'
-    SELECT ''INSERT INTO [Area] ([Id],[DocumentId],[Fid],[Name],[AreaTypeId],[ParentFid],[SyncDateTime],''
+    SELECT ''INSERT INTO [Area] ([Id],[DocumentId],[Fid],[Name],[AreaTypeId],[ZoomLevel],[ParentFid],[SyncDateTime],''
         + ''[ObservationCount],[Bbox],[TimeStamp],[IsCurrent],[WktPolygon]) VALUES (''
         + CAST(a.Id AS VARCHAR(20)) + '',''
         + '''''''' + REPLACE(a.DocumentId, '''''''', '''''''''''') + '''''''' + '',''
         + '''''''' + REPLACE(a.Fid, '''''''', '''''''''''') + '''''''' + '',''
         + '''''''' + REPLACE(a.Name, '''''''', '''''''''''') + '''''''' + '',''
         + CAST(a.AreaTypeId AS VARCHAR(20)) + '',''
+        + CAST(a.ZoomLevel AS VARCHAR(20)) + '',''
         + '''''''' + REPLACE(a.ParentFid, '''''''', '''''''''''') + '''''''' + '',''
         + '''''''' + CONVERT(VARCHAR(23), a.SyncDateTime, 126) + '''''''' + '',''
         + ISNULL(CAST(a.ObservationCount AS VARCHAR(20)), ''NULL'') + '',''
