@@ -37,14 +37,14 @@
                 <td>{{ job.fileSize | formatFileSize:translate.currentLang }}</td>
                 <td>
                   @if (isDownloadable(job)) {
-                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadCsvLink' | translate }}" (click)="onDownload(job); $event.preventDefault()">{{ 'mittArtskart.downloadCsvLink' | translate }}</a>
+                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadCsvLink' | translate }}" (click)="onDownload(job); $event.preventDefault()">{{ getFileName(job, 'csv') }}</a>
                   } @else {
                     -
                   }
                 </td>
                 <td>
                   @if (isDownloadable(job) && job.hasExcel) {
-                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadExcelLink' | translate }}" (click)="onDownloadExcel(job); $event.preventDefault()">{{ 'mittArtskart.downloadExcelLink' | translate }}</a>
+                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadExcelLink' | translate }}" (click)="onDownloadExcel(job); $event.preventDefault()">{{ getFileName(job, 'xlsx') }}</a>
                   } @else {
                     -
                   }

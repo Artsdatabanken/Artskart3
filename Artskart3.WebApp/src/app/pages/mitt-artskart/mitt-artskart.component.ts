@@ -64,6 +64,10 @@ export class MittArtskartComponent implements OnDestroy {
     return baseName;
   }
 
+  getFileName(job: CsvExportJobDto, extension: string): string {
+    return `${job.fileName}.${extension}`;
+  }
+
   isDownloadable(job: CsvExportJobDto): boolean {
     return job.status === CSV_EXPORT_STATUS.Complete;
   }

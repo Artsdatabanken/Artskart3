@@ -189,6 +189,7 @@ public class ExportService : IExportService
     {
         Id = job.Id,
         Name = job.Name,
+        FileName = $"{job.Id}-{SanitizeExportName(job.Name)}",
         Status = job.Status,
         TotalRows = job.TotalRows,
         RowsProcessed = job.RowsProcessed,

@@ -846,6 +846,7 @@ export interface components {
             /** Format: int32 */
             id?: number;
             name?: string | null;
+            fileName?: string;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
