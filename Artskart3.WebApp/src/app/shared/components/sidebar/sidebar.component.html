@@ -1,0 +1,330 @@
+<div class="sidebar-content">
+  <div class="filter-section search-field">
+    <input id="search" type="text" [attr.placeholder]="'baseLayout.searchPlaceholder' | translate" class="filter-input" />
+  </div>
+  <div class="sidebar-header">
+    <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
+    <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+  </div>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+      @if (taxonGroups(); as taxonGroupList) {
+        @if (taxonGroupList.length > 0) {
+          <div class="checkbox-accordion-children">
+            @for (taxonGroup of taxonGroupList; track taxonGroup.id ?? $index) {
+              @if (taxonGroup.id !== undefined && taxonGroup.id !== null) {
+                <adb-checkbox [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null" (change)="onTaxonGroupToggle(taxonGroup.id)">
+                  {{ taxonGroup.name }}
+                  @if (taxonGroup.observationCount !== null && taxonGroup.observationCount !== undefined) {
+                    <span slot="counter">{{ taxonGroup.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
+      @if (categoryTypes(); as types) {
+        <adb-accordion>
+          @for (type of types; track type.id ?? $index) {
+            <adb-accordion-item>
+              <adb-checkbox
+                slot="heading"
+                [attr.checked]="isAllInTypeSelected(type) ? '' : null"
+                [attr.indeterminate]="isSomeInTypeSelected(type) ? '' : null"
+                (click)="$event.stopPropagation()"
+                (change)="onTypeToggle(type)"
+              >
+                {{ 'sidebar.categoryType.' + type.name | translate }}
+              </adb-checkbox>
+              <div class="category-children">
+                @for (category of type.categories ?? []; track category.id ?? $index) {
+                  @if (category.id !== undefined) {
+                    <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
+                      {{ category.name }} {{ category.code }}
+                      @if (category.observationCount !== null && category.observationCount !== undefined) {
+                        <span slot="counter">{{ category.observationCount | formatNumber }}</span>
+                      }
+                    </adb-checkbox>
+                  }
+                }
+              </div>
+            </adb-accordion-item>
+          }
+        </adb-accordion>
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+      @if (countyGroups(); as groups) {
+        @if (groups.length > 0) {
+          <h6 class="area-section-heading">
+            {{ 'sidebar.areaSection.fastlandsNorge' | translate }}
+          </h6>
+          <adb-accordion>
+            @for (group of groups; track group.county.fid) {
+              <adb-accordion-item>
+                <adb-checkbox
+                  slot="heading"
+                  [attr.checked]="isAllInCountySelected(group) ? '' : null"
+                  [attr.indeterminate]="isSomeInCountySelected(group) ? '' : null"
+                  (click)="$event.stopPropagation()"
+                  (change)="onCountyToggle(group)"
+                >
+                  {{ group.county.name }}
+                  @if (group.county.observationCount !== null && group.county.observationCount !== undefined) {
+                    <span slot="counter">{{ group.county.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+                <div class="category-children">
+                  @for (municipality of group.municipalities; track municipality.fid) {
+                    @if (municipality.fid) {
+                      <adb-checkbox
+                        [attr.checked]="isMunicipalitySelected(municipality.fid) ? '' : null"
+                        (change)="onMunicipalityToggle(municipality.fid)"
+                      >
+                        {{ municipality.name }}
+                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
+                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                        }
+                      </adb-checkbox>
+                    }
+                  }
+                </div>
+              </adb-accordion-item>
+            }
+          </adb-accordion>
+          @if (janMayenGroup(); as janMayen) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.janMayen' | translate }}</h6>
+            <adb-accordion>
+              <adb-accordion-item>
+                <adb-checkbox
+                  slot="heading"
+                  [attr.checked]="isAllInCountySelected(janMayen) ? '' : null"
+                  [attr.indeterminate]="isSomeInCountySelected(janMayen) ? '' : null"
+                  (click)="$event.stopPropagation()"
+                  (change)="onCountyToggle(janMayen)"
+                >
+                  {{ janMayen.county.name }}
+                  @if (janMayen.county.observationCount !== null && janMayen.county.observationCount !== undefined) {
+                    <span slot="counter">{{ janMayen.county.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+                <div class="category-children">
+                  @for (municipality of janMayen.municipalities; track municipality.fid) {
+                    @if (municipality.fid) {
+                      <adb-checkbox
+                        [attr.checked]="isMunicipalitySelected(municipality.fid) ? '' : null"
+                        (change)="onMunicipalityToggle(municipality.fid)"
+                      >
+                        {{ municipality.name }}
+                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
+                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                        }
+                      </adb-checkbox>
+                    }
+                  }
+                </div>
+              </adb-accordion-item>
+            </adb-accordion>
+          }
+          @if (svalbardGroup(); as svalbard) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.svalbard' | translate }}</h6>
+            <adb-accordion>
+              <adb-accordion-item>
+                <adb-checkbox
+                  slot="heading"
+                  [attr.checked]="isAllInCountySelected(svalbard) ? '' : null"
+                  [attr.indeterminate]="isSomeInCountySelected(svalbard) ? '' : null"
+                  (click)="$event.stopPropagation()"
+                  (change)="onCountyToggle(svalbard)"
+                >
+                  {{ svalbard.county.name }}
+                  @if (svalbard.county.observationCount !== null && svalbard.county.observationCount !== undefined) {
+                    <span slot="counter">{{ svalbard.county.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+                <div class="category-children">
+                  @for (municipality of svalbard.municipalities; track municipality.fid) {
+                    @if (municipality.fid) {
+                      <adb-checkbox
+                        [attr.checked]="isMunicipalitySelected(municipality.fid) ? '' : null"
+                        (change)="onMunicipalityToggle(municipality.fid)"
+                      >
+                        {{ municipality.name }}
+                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
+                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                        }
+                      </adb-checkbox>
+                    }
+                  }
+                </div>
+              </adb-accordion-item>
+            </adb-accordion>
+          }
+          @if (oceanAreaGroup(); as oceanAreas) {
+            <h6 class="area-section-heading">{{ 'sidebar.areaSection.oceanAreas' | translate }}</h6>
+            <div class="category-flat">
+              @for (area of oceanAreas.municipalities; track area.fid) {
+                @if (area.fid) {
+                  <adb-checkbox [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null" (change)="onOceanAreaToggle(area.fid)">
+                    {{ area.name }}
+                    @if (area.observationCount !== null && area.observationCount !== undefined) {
+                      <span slot="counter">{{ area.observationCount | formatNumber }}</span>
+                    }
+                  </adb-checkbox>
+                }
+              }
+            </div>
+          }
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.coordinatePrecision' | translate">
+      <div class="coordinate-precision-filter">
+        <div class="coordinate-precision-inputs">
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.coordinatePrecisionFrom' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              class="coordinate-precision-input"
+              placeholder="0"
+              [value]="coordinatePrecisionFromInput()"
+              (input)="onCoordinatePrecisionFromChange($event)"
+            />
+          </label>
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.coordinatePrecisionTo' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              class="coordinate-precision-input"
+              placeholder="1000"
+              [value]="coordinatePrecisionToInput()"
+              (input)="onCoordinatePrecisionToChange($event)"
+            />
+          </label>
+        </div>
+        <adb-button variant="secondary" size="md" (click)="onApplyCoordinatePrecision()">
+          {{ 'sidebar.coordinatePrecisionSearch' | translate }}
+        </adb-button>
+      </div>
+    </adb-accordion-item>
+  </adb-accordion>
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.period' | translate">
+      <div class="coordinate-precision-filter">
+        <div class="coordinate-precision-inputs">
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.periodFrom' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              class="coordinate-precision-input"
+              placeholder="1800"
+              [value]="periodFromInput()"
+              (input)="onPeriodFromChange($event)"
+            />
+          </label>
+          <label class="coordinate-precision-label">
+            {{ 'sidebar.periodTo' | translate }}
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              class="coordinate-precision-input"
+              placeholder="2026"
+              [value]="periodToInput()"
+              (input)="onPeriodToChange($event)"
+            />
+          </label>
+        </div>
+        <adb-button variant="secondary" size="md" (click)="onApplyPeriod()">
+          {{ 'sidebar.periodSearch' | translate }}
+        </adb-button>
+      </div>
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+      @if (behaviors(); as behaviorList) {
+        @if (behaviorList.length > 0) {
+          <div class="checkbox-accordion-children">
+            @for (behavior of behaviorList; track behavior.id ?? $index) {
+              @if (behavior.id !== undefined && behavior.id !== null) {
+                <adb-checkbox [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null" (change)="onBehaviorToggle(behavior.id)">
+                  {{ getBehaviorDisplayName(behavior) }}
+                  @if (behavior.observationCount !== null && behavior.observationCount !== undefined) {
+                    <span slot="counter">{{ behavior.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+      @if (basisOfRecords(); as basisOfRecordList) {
+        @if (basisOfRecordList.length > 0) {
+          <div class="checkbox-accordion-children">
+            @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
+              @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isBasisOfRecordSelected(basisOfRecord.id) ? '' : null"
+                  (change)="onBasisOfRecordToggle(basisOfRecord.id)"
+                >
+                  {{ getBasisOfRecordDisplayName(basisOfRecord) }}
+                  @if (basisOfRecord.observationCount !== null && basisOfRecord.observationCount !== undefined) {
+                    <span slot="counter">{{ basisOfRecord.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+      @if (institutions(); as institutionList) {
+        @if (institutionList.length > 0) {
+          <div class="checkbox-accordion-children">
+            @for (institution of institutionList; track institution.id ?? $index) {
+              @if (institution.id !== undefined && institution.id !== null) {
+                <adb-checkbox
+                  [attr.checked]="isInstitutionSelected(institution.id) ? '' : null"
+                  (change)="onInstitutionToggle(institution.id)"
+                >
+                  {{ institution.name }}
+                  @if (institution.observationCount !== null && institution.observationCount !== undefined) {
+                    <span slot="counter">{{ institution.observationCount | formatNumber }}</span>
+                  }
+                </adb-checkbox>
+              }
+            }
+          </div>
+        }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+</div>

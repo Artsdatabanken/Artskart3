@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+namespace Artskart3.Core.Domain.Enums;
 
-namespace Artskart3.Core.Domain.Enums
+public enum OrganizationType
 {
-    public enum OrganizationType
-    {
-        Undefined = 0,
-        Institution = 1,
-        Collection = 2,
-        Dataset = 3
-    }
+    Undefined = 0,
+    Institution = 1,
+    Collection = 2,
+    Dataset = 3
 }

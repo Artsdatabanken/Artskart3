@@ -1,11 +1,14 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using BenchmarkDotNet.Attributes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Tests.Performance;
 
@@ -46,8 +49,8 @@ public class SearchServiceBenchmarks
 
         _dbContext = new ArtskartDbContext(options);
 
-        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance);
-        _searchService = new SearchService(repository);
+        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        _searchService = new SearchService(repository, new MemoryCache(new MemoryCacheOptions()));
     }
 
     [GlobalCleanup]
@@ -100,7 +103,7 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = "1",
+            TaxonGroupIds = new[] { 1 },
             MaxResults = 500
         });
     }
@@ -110,20 +113,9 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 1,
-            CoordinatePrecisionTo = 100,
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 1, To = 100 },
             MaxResults = 1000
         });
-    }
-
-    // -----------------------------------------------------------------------
-    // GetAreas — tester henting av områder og beregning av tyngdepunkt
-    // -----------------------------------------------------------------------
-
-    [Benchmark]
-    public async Task GetAreas_AllCountiesAndMunicipalities()
-    {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1, 2);
     }
 
     [Benchmark]
@@ -131,28 +123,34 @@ public class SearchServiceBenchmarks
     {
         _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto
         {
-            TaxonGroupIds = "1",
-            CoordinatePrecisionFrom = 1,
-            CoordinatePrecisionTo = 1000,
+            TaxonGroupIds = new[] { 1 },
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 1, To = 1000 },
             MaxResults = 500
         });
     }
 
     [Benchmark]
-    public async Task GetAreas_MunicipalitiesOnly()
+    public async Task GetObservationsByZoomLevel_Level10()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(1);
+        _ = await _searchService.GetAreaMarkersAsync(10);
     }
 
     [Benchmark]
-    public async Task GetAreas_CountiesOnly()
+    public async Task GetObservationsByZoomLevel_Level15()
     {
-        _ = await _searchService.GetAreasByTypeIdsAsync(2);
+        _ = await _searchService.GetAreaMarkersAsync(15);
     }
 
     [Benchmark]
-    public async Task GetLocations_MaxResults_5000()
+    public async Task GetObservationsByZoomLevel_Level20()
     {
-        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 5000 });
+        _ = await _searchService.GetAreaMarkersAsync(20);
+    }
+
+
+    [Benchmark]
+    public async Task GetLocations_MaxResults_100000()
+    {
+        _ = await _searchService.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100000 });
     }
 }

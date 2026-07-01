@@ -20,7 +20,6 @@
 }
 
 .sidebar {
-  display: none; /* Temporarily hide sidebar until it has any usefull content ( https://github.com/Artsdatabanken/Artskart3/issues/108 ) */
   flex-shrink: 0;
   background-color: var(--adb-background-default);
   overflow: hidden;

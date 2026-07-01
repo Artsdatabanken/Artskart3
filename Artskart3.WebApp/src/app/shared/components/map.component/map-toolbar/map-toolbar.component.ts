@@ -1,9 +1,10 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, Output, EventEmitter, Input, CUSTOM_ELEMENTS_SCHEMA, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { ToolbarAction } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
+import { LoggingService } from '@shared/logging.service';
 
 type ActionHandler = () => void;
 
@@ -17,15 +18,13 @@ type ActionHandler = () => void;
 })
 export class MapToolbarComponent implements OnInit, OnDestroy {
   @Input() public map!: NbicMapComponent;
-  isGeolocating = false;
-  @Input() mapEl!: HTMLDivElement;
-
-  private cachedPosition: GeolocationPosition | null = null;
-  private watchId: number | null = null;
   @Output() iconClick = new EventEmitter<string>();
 
+  private readonly logger = inject(LoggingService);
   protected readonly toolbarActions = ToolbarAction;
+  protected readonly geolocationDenied = signal(false);
 
+  private permissionStatus: PermissionStatus | null = null;
 
   private readonly actionHandlers: Record<ToolbarAction, ActionHandler> = {
     [ToolbarAction.ZOOM_IN]: () => this.zoomIn(),
@@ -38,29 +37,43 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     [ToolbarAction.POLYGON]: () => this.emitAction(ToolbarAction.POLYGON),
   };
 
-  ngOnInit(): void {
-    if (navigator.geolocation) {
-      this.watchId = navigator.geolocation.watchPosition(
-        (pos) => { this.cachedPosition = pos; },
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        () => {},
-        { enableHighAccuracy: false, maximumAge: 300000 }
-      );
-    }
-  }
-
-  ngOnDestroy(): void {
-    if (this.watchId !== null) {
-      navigator.geolocation.clearWatch(this.watchId);
-    }
-  }
-
   onButtonClick(iconName: string): void {
     this.handleIconClick(iconName);
   }
 
   onMapTypeSelected(layerId: string): void {
     this.iconClick.emit(`map-type:${layerId}`);
+  }
+
+  ngOnInit(): void {
+    this.queryGeolocationPermission();
+  }
+
+  ngOnDestroy(): void {
+    if (this.permissionStatus) {
+      this.permissionStatus.onchange = null;
+    }
+  }
+
+  private queryGeolocationPermission(): void {
+    if (!navigator.permissions) return;
+
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        this.permissionStatus = status;
+
+        if (status.state === 'denied') {
+          this.geolocationDenied.set(true);
+        }
+
+        status.onchange = () => {
+          this.geolocationDenied.set(status.state === 'denied');
+        };
+      })
+      .catch(() => {
+        // Permissions API not supported for geolocation in this browser
+      });
   }
 
   private handleIconClick(actionName: string): void {
@@ -70,8 +83,8 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     if (handler) {
       try {
         handler();
-      } catch (error) {
-        console.error(`Error executing action '${actionName}':`, error);
+      } catch (error: unknown) {
+        this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
       }
     } else {
       this.iconClick.emit(actionName);
@@ -90,27 +103,35 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
     this.map.setZoom(zoom - 1);
   }
 
-  private geolocation(): void {
-    if (this.isGeolocating || !this.map) return;
+  private async geolocation(): Promise<void> {
+    if (!this.map) return;
 
-    this.isGeolocating = true;
+    const permissionGranted = await new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(true),
+        (error) => {
+          if (error.code === 1) {
+            // PERMISSION_DENIED
+            resolve(false);
+          } else {
+            // Other errors (timeout, position unavailable) — still allowed
+            resolve(true);
+          }
+        },
+        { timeout: 5000, maximumAge: Infinity },
+      );
+    });
 
-
-    if (this.cachedPosition) {
-      const { longitude, latitude } = this.cachedPosition.coords;
-      const coord = this.map.transformCoordsFrom([longitude, latitude], 'EPSG:4326', 'EPSG:25833');
-      this.map.setCenter(coord);
-      this.map.setZoom(14);
-    } else {
-      this.map.zoomToGeolocation();
+    if (!permissionGranted) {
+      this.geolocationDenied.set(true);
+      return;
     }
-    setTimeout(() => {
-      this.resetGeolocationState();
-    }, 100);
-  }
 
-  private resetGeolocationState(): void {
-    this.isGeolocating = false;
+    try {
+      await this.map.zoomToGeolocation(14);
+    } catch {
+      // Map zoom failed but permission was granted — don't disable button
+    }
   }
 
   private emitAction(action: ToolbarAction): void {
@@ -118,15 +139,11 @@ export class MapToolbarComponent implements OnInit, OnDestroy {
   }
 
   private toggleFullscreen(): void {
-    const mapContainer = this.mapEl;
+    if (!this.map) return;
     if (!document.fullscreenElement) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
-      mapContainer.requestFullscreen().catch((err: any) => {
-      });
+      this.map.enterFullScreen();
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function
-      document.exitFullscreen().catch((err: any) => {
-      });
+      this.map.leaveFullScreen();
     }
   }
 }

@@ -1,11 +1,20 @@
-namespace Artskart3.Core.Application.DTOs
+namespace Artskart3.Core.Application.DTOs;
+
+public class CentroidDto
 {
-    public class AreaMarkerDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = null!;
-        public int AreaTypeId { get; set; }
-        public int? ObservationCount { get; set; }
-        public string? Centroid { get; set; } // Er det bedre å sende å sende koordinater, så slipper frontend å bruke energi på å parse?
-    }
+    public double X { get; set; }
+    public double Y { get; set; }
+}
+
+public class AreaMarkerDto
+{
+    public int Id { get; set; }
+    public string DocumentId { get; set; } = null!;
+    public string Fid { get; set; } = null!;
+    public string Name { get; set; } = null!;
+    public int AreaTypeId { get; set; }
+    public string ParentFid { get; set; } = null!;
+    public int? ObservationCount { get; set; }
+    public string? WktsPolygon { get; set; }
+    public CentroidDto? Centroid { get; set; }
 }
