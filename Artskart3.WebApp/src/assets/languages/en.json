@@ -27,7 +27,8 @@
     "goodbye": "Goodbye",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "close": "Close"
   },
   "baseLayout": {
     "searchPlaceholder": "Search in Artskart"
@@ -39,6 +40,47 @@
     "map": "Map",
     "list": "List",
     "ariaLabel": "Select view"
+  },
+  "export": {
+    "button": "Export selection",
+    "started": "Export started (job ID: {{jobId}}). You will be notified when it's ready.",
+    "startFailed": "Could not start export. Please try again later.",
+    "complete": "Export complete",
+    "goToExport": "Go to export",
+    "failed": "Export failed. Please try again later.",
+    "statusCheckFailed": "Could not check export status. Please try again later.",
+    "modalTitle": "Export",
+    "nameLabel": "Name export",
+    "nameRequired": "(Required)",
+    "startButton": "Start export",
+    "loadingButton": "Loading...",
+    "cancelButton": "Cancel",
+    "startedTitle": "Export started",
+    "startedMessage": "Exporting large datasets may take a while. You can find the export under My Artskart and track its progress there.",
+    "estimatedSize": "Estimated file size: {{size}}",
+    "dontShowAgain": "Don't show this message again",
+    "closeButton": "Close",
+    "exceedsLimitTitle": "Export not possible",
+    "exceedsLimitMessage": "The result contains {{totalRows}} rows, which exceeds the limit of {{hardLimit}} rows for export. Please narrow down your filter to reduce the number of results.",
+    "summaryFailed": "Could not check export size. Please try again later."
+  },
+  "mittArtskart": {
+    "title": "My Artskart",
+    "exportJobs": "Export jobs",
+    "loadError": "Could not load export history.",
+    "date": "Date",
+    "exportName": "Export name",
+    "fileSize": "File size",
+    "downloadCsv": "Download CSV",
+    "downloadExcel": "Download Excel",
+    "downloadCsvLink": "Download .csv",
+    "downloadExcelLink": "Download .xlsx",
+    "noJobs": "No export jobs found.",
+    "exportBaseName": "Export #{{id}}",
+    "exportProcessing": "Exporting ({{percent}}%) - {{name}}",
+    "exportPending": "Pending - {{name}}",
+    "downloadFailed": "Could not download the file. Please try again later.",
+    "failed": "Failed"
   },
   "listView": {
     "name": "Species name",

@@ -103,7 +103,10 @@ try
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.OperationFilter<Artskart3.Api.Filters.ExportRequestExampleFilter>();
+    });
 
     var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
     if (!string.IsNullOrEmpty(appInsightsConnectionString))

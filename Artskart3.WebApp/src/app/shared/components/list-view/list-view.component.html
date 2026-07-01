@@ -33,9 +33,9 @@
               <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
               <td>{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
               <td>{{ obs.institution }}</td>
-              <td>{{ obs.dateTimeCollected | localeDate }}</td>
+              <td>{{ obs.dateTimeCollected | localeDate:translate.currentLang }}</td>
               <td>{{ obs.locality }}</td>
-              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
+              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit:translate.currentLang }}</td>
               <td>{{ getAreaName(obs.municipalityId) }}</td>
             </tr>
           } @empty {
