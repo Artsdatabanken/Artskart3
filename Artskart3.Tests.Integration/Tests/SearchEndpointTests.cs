@@ -88,6 +88,36 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // GET /api/Search/Species
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task SearchSpecies_WithEmptySearch_Returns400()
+    {
+        var response = await _client.GetAsync("/api/Search/Species?search=");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SearchSpecies_WithValidSearch_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Search/Species?search=test");
+
+        // Enten 200 med resultater fra NorTaxa, eller 502 hvis NorTaxa er utilgjengelig.
+        // Begge er gyldige i integrasjonstestmiljø.
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.BadGateway);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+            var json = await response.Content.ReadAsStringAsync();
+            var doc = JsonDocument.Parse(json);
+            doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // POST /api/Search/Locations (GetObservationLocations action)
     // -----------------------------------------------------------------------
 
