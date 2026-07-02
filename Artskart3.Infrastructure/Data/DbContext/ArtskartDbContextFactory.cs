@@ -26,7 +26,7 @@ public class ArtskartDbContextFactory : IDesignTimeDbContextFactory<ArtskartDbCo
         optionsBuilder.UseSqlServer(connectionString, sqlOptions =>
         {
             sqlOptions.UseNetTopologySuite();
-            sqlOptions.CommandTimeout(3600);
+            sqlOptions.CommandTimeout(1800);
         });
 
         return new ArtskartDbContext(optionsBuilder.Options);
