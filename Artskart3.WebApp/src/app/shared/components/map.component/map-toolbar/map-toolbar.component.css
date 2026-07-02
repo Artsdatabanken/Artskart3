@@ -7,23 +7,17 @@
   pointer-events: none;
 }
 
-.map-toolbar-top,
-  .map-toolbar-right {
-    position: absolute;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    z-index: 100;
-    pointer-events: auto;
-  }
-  .map-toolbar-top {
-    top: 20px;
-  }
-  .map-toolbar-right {
-    bottom: 20px;
-  }
+.map-toolbar-top {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 100;
+  pointer-events: auto;
+  top: 20px;
+}
 
 adb-icon-button[disabled] {
   cursor: not-allowed;
@@ -37,30 +31,4 @@ adb-icon-button {
 
 .hidden-not-implemented {
   display: none;
-}
-
-.tooltip-wrapper {
-  position: relative;
-}
-
-.toolbar-tooltip {
-  display: none;
-  position: absolute;
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: #333;
-  color: #fff;
-  font-size: 13px;
-  line-height: 1.4;
-  padding: 6px 10px;
-  border-radius: 4px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 200;
-}
-
-.tooltip-wrapper:hover .toolbar-tooltip,
-.tooltip-wrapper:focus-within .toolbar-tooltip {
-  display: block;
 }
