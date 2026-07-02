@@ -175,7 +175,7 @@ try
         options.UseSqlServer(dbConnectionString, x =>
         {
             x.UseNetTopologySuite();
-            x.CommandTimeout(600);
+            x.CommandTimeout(1800);
         });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
