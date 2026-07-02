@@ -1,0 +1,60 @@
+<div class="list-view">
+  @if (observationsResource.isLoading()) {
+    <p class="status-message">{{ 'common.loading' | translate }}</p>
+  }
+
+  @if (observationsResource.error()) {
+    <p class="status-message error">{{ 'common.error' | translate }}</p>
+  }
+
+  @if (observationsResource.hasValue()) {
+    <div class="table-container">
+      <table class="observations-table">
+        <thead>
+          <tr>
+            <th>{{ 'listView.name' | translate }}</th>
+            <th>{{ 'listView.scientificName' | translate }}</th>
+            <th>{{ 'listView.author' | translate }}</th>
+            <th>{{ 'listView.taxonGroup' | translate }}</th>
+            <th>{{ 'listView.riskCategory' | translate }}</th>
+            <th>{{ 'listView.institution' | translate }}</th>
+            <th>{{ 'listView.date' | translate }}</th>
+            <th>{{ 'listView.locality' | translate }}</th>
+            <th class="right">{{ 'listView.precision' | translate }}</th>
+            <th>{{ 'listView.municipality' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (obs of observationsResource.value().items; track obs.id ?? $index) {
+            <tr>
+              <td>{{ obs.preferredPopularName }}</td>
+              <td [innerHTML]="obs.scientificName"></td>
+              <td>{{ obs.author }}</td>
+              <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
+              <td>{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
+              <td>{{ obs.institution }}</td>
+              <td>{{ obs.dateTimeCollected | localeDate }}</td>
+              <td>{{ obs.locality }}</td>
+              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
+              <td>{{ getAreaName(obs.municipalityId) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="10" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <adb-pagination
+        class="pagination"
+        [attr.current-page]="pageNumber()"
+        [attr.visible-pages]="4"
+        [attr.has-more-pages]="hasMorePages() || null"
+        [attr.page-size-options]="pageSizeOptions.join(',')"
+        [attr.page-size]="resultsPerPage()"
+        (page-change)="onPageChange($any($event).detail.page)"
+        (page-size-change)="onPageSizeChange($any($event).detail.pageSize)"
+      />
+    </div>
+  }
+</div>

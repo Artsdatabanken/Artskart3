@@ -1,12 +1,12 @@
-using Microsoft.EntityFrameworkCore;
-using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data.EntityConfigurations;
+using Microsoft.EntityFrameworkCore;
 
-namespace Artskart3.Infrastructure.Data
+namespace Artskart3.Infrastructure.Data;
+
+public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 {
-    public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
-    {
     public ArtskartDbContext()
     {
     }
@@ -90,6 +90,8 @@ namespace Artskart3.Infrastructure.Data
 
     public virtual DbSet<SensitiveObservationDatum> SensitiveObservationData { get; set; }
 
+    public virtual DbSet<SlowQueryLog> SlowQueryLogs { get; set; }
+
     public virtual DbSet<SpatialRefSy> SpatialRefSys { get; set; }
 
     public virtual DbSet<Tag> Tags { get; set; }
@@ -108,6 +110,8 @@ namespace Artskart3.Infrastructure.Data
 
     public virtual DbSet<TaxonomyState> TaxonomyStates { get; set; }
 
+    public virtual DbSet<User> Users { get; set; }
+
     // Removed OnConfiguring to use DI-based configuration from Program.cs
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -122,7 +126,11 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.Fid, "IX_Fid");
 
+            entity.HasIndex(e => new { e.AreaTypeId, e.Fid, e.IsCurrent }, "IX_Area_AreaTypeId_Fid_IsCurrent");
+
             entity.HasIndex(e => e.ParentFid, "IX_ParentFid");
+
+            entity.HasIndex(e => new { e.ZoomLevel, e.IsCurrent }, "IX_Area_ZoomLevel_IsCurrent");
 
             entity.HasIndex(e => e.Name, "NonClusteredIndex-20180305-111522");
 
@@ -374,6 +382,7 @@ namespace Artskart3.Infrastructure.Data
                         j.HasIndex(new[] { "AreaId" }, "IX_AreaId");
                         j.HasIndex(new[] { "LocationId" }, "IX_LocationId");
                         j.HasIndex(new[] { "LocationId", "AreaId" }, "IX_LocationIdArea");
+                        j.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
                     });
         });
 
@@ -700,6 +709,8 @@ namespace Artskart3.Infrastructure.Data
 
             entity.HasIndex(e => e.RelationTypeId, "IX_RelationTypeId");
 
+            entity.HasIndex(e => new { e.OrganizationId, e.ObservationId }, "IX_OrganizationRelation_OrgId_ObsId");
+
             entity.HasOne(d => d.Observation).WithMany(p => p.OrganizationRelations)
                 .HasForeignKey(d => d.ObservationId)
                 .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Observation_ObservationId");
@@ -991,6 +1002,28 @@ namespace Artskart3.Infrastructure.Data
             entity.Property(e => e.LastEventProcessedTimeStamp).HasColumnType("datetime");
         });
 
+        modelBuilder.Entity<SlowQueryLog>(entity =>
+        {
+            entity.ToTable("SlowQueryLog");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Endpoint).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.RequestPath).HasMaxLength(2048);
+            entity.Property(e => e.RequestBody).HasMaxLength(4000);
+            entity.Property(e => e.OccurredAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.Endpoint).HasDatabaseName("IX_SlowQueryLog_Endpoint");
+            entity.HasIndex(e => e.OccurredAt).HasDatabaseName("IX_SlowQueryLog_OccurredAt");
+        });
+
+        modelBuilder.Entity<ObservationEntityIndex>(entity =>
+        {
+            entity.HasKey(e => new { e.ObservationId, e.EntityTypeId, e.EntityId });
+            entity.ToTable("ObservationEntityIndex");
+
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.ObservationId }).HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
+        });
+
         OnModelCreatingPartial(modelBuilder);
     }
 
@@ -999,6 +1032,5 @@ namespace Artskart3.Infrastructure.Data
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new ObservationSearchIndexConfiguration());
-    }
     }
 }

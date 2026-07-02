@@ -18,7 +18,7 @@ namespace Artskart3.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -93,10 +93,17 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<Geometry>("WktPolygon")
                         .HasColumnType("geometry");
 
+                    b.Property<int>("ZoomLevel")
+                        .HasColumnType("int");
+
                     b.HasKey("Id")
                         .HasName("PK_dbo.Area");
 
                     b.HasIndex(new[] { "AreaTypeId", "Id", "Fid" }, "IX_AreaTypeID");
+
+                    b.HasIndex(new[] { "AreaTypeId", "Fid", "IsCurrent" }, "IX_Area_AreaTypeId_Fid_IsCurrent");
+
+                    b.HasIndex(new[] { "ZoomLevel", "IsCurrent" }, "IX_Area_ZoomLevel_IsCurrent");
 
                     b.HasIndex(new[] { "Fid" }, "IX_Fid");
 
@@ -1207,6 +1214,8 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
+                    b.HasIndex(new[] { "DateTimeCollected" }, "IX_Observation_DateTimeCollected");
+
                     b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
 
                     b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
@@ -1356,6 +1365,25 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "Id" }, "IX_Id");
 
                     b.ToTable("ObservationDetails");
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationEntityIndex", b =>
+                {
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ObservationId", "EntityTypeId", "EntityId");
+
+                    b.HasIndex("EntityTypeId", "EntityId", "ObservationId")
+                        .HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
+
+                    b.ToTable("ObservationEntityIndex", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationError", b =>
@@ -1570,6 +1598,8 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
                     b.HasIndex(new[] { "OrganizationId" }, "IX_OrganizationId");
+
+                    b.HasIndex(new[] { "OrganizationId", "ObservationId" }, "IX_OrganizationRelation_OrgId_ObsId");
 
                     b.HasIndex(new[] { "RelationTypeId" }, "IX_RelationTypeId");
 
@@ -1948,6 +1978,49 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
 
                     b.ToTable("SensitiveObservationData");
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.SlowQueryLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<long>("QueryTimeMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RequestBody")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("RequestPath")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<long>("ThresholdMs")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .HasDatabaseName("IX_SlowQueryLog_Endpoint");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("IX_SlowQueryLog_OccurredAt");
+
+                    b.ToTable("SlowQueryLog", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.SpatialRefSy", b =>
@@ -2349,6 +2422,37 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("TaxonomyState", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("LocationArea", b =>
                 {
                     b.Property<int>("LocationId")
@@ -2361,6 +2465,8 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.LocationAreas");
 
                     b.HasIndex(new[] { "AreaId" }, "IX_AreaId");
+
+                    b.HasIndex(new[] { "AreaId", "LocationId" }, "IX_AreaId_LocationId");
 
                     b.HasIndex(new[] { "LocationId" }, "IX_LocationId");
 

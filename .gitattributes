@@ -1,0 +1,21 @@
+# Normalize all text files to LF in the repository.
+# Git will convert to the OS line ending on checkout only if core.autocrlf is true,
+# but storing LF in the repo is enforced regardless of local Git config.
+* text=auto eol=lf
+
+# Windows-specific scripts must use CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binaries — no line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary

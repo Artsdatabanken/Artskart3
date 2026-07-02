@@ -1,8 +1,8 @@
-﻿using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.Entities;
 
-public partial class Maskeringsruter8x8km 
+public partial class Maskeringsruter8x8km
 {
     public int Objectid { get; set; }
 

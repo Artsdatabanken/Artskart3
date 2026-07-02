@@ -3,6 +3,7 @@ using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -15,7 +16,7 @@ public class SearchServiceTests
     public SearchServiceTests()
     {
         _repositoryMock = new Mock<ISearchRepository>();
-        _sut = new SearchService(_repositoryMock.Object);
+        _sut = new SearchService(_repositoryMock.Object, new MemoryCache(new MemoryCacheOptions()));
     }
 
     // -----------------------------------------------------------------------
@@ -108,36 +109,36 @@ public class SearchServiceTests
         await act.Should().ThrowAsync<ApplicationException>();
     }
 
-    // -----------------------------------------------------------------------
-    // GetAreasByTypeIdsAsync
-    // -----------------------------------------------------------------------
-
     [Fact]
-    public async Task GetAreasByTypeIdsAsync_ReturnsDelegatedResult()
+    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidGeoJson()
     {
-        var expected = new List<AreaMarkerDto>
-        {
-            new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 100 }
-        };
+        // Arrange: Create 100,000 location items
+        var largeDataSet = Enumerable.Range(1, 100000)
+            .Select(i => new LocationModel
+            {
+                Id = i,
+                East = 262000 + i,
+                North = 6650000 + i,
+                Latitude = 59.9 + (i * 0.0001),
+                Longitude = 10.7 + (i * 0.0001),
+                ObservationCount = i % 10 + 1,
+                Locality = $"Location-{i}"
+            })
+            .ToList();
+
         _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(1, 2))
-            .ReturnsAsync(expected);
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Returns(AsyncEnumerable(largeDataSet));
 
-        var result = await _sut.GetAreasByTypeIdsAsync(1, 2);
+        // Act
+        var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        result.Should().BeEquivalentTo(expected);
-    }
-
-    [Fact]
-    public async Task GetAreasByTypeIdsAsync_PassesTypeIdsToRepository()
-    {
-        _repositoryMock
-            .Setup(r => r.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
-            .ReturnsAsync(Enumerable.Empty<AreaMarkerDto>());
-
-        await _sut.GetAreasByTypeIdsAsync(1, 2);
-
-        _repositoryMock.Verify(r => r.GetAreasByTypeIdsAsync(1, 2), Times.Once);
+        // Assert
+        result.Should().NotBeNullOrWhiteSpace();
+        result.Should().Contain("FeatureCollection");
+        result.Should().Contain("Feature");
+        result.Should().Contain("\"type\":\"Point\"");
+        result.Length.Should().BeGreaterThan(100000);
     }
 
     // -----------------------------------------------------------------------
@@ -157,6 +158,8 @@ public class SearchServiceTests
     {
         await Task.Yield();
         throw ex;
+#pragma warning disable CS0162 // Unreachable code detected
         yield break; // unreachable, but required by compiler
+#pragma warning restore CS0162 // Unreachable code detected
     }
 }

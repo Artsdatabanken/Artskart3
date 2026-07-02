@@ -11,9 +11,9 @@ internal static class BenchmarkToInfluxDb
 
     public static async Task ImportAsync(IConfiguration config)
     {
-        var url    = config["ARTSKART_BENCH_INFLUX_URL"]    ?? "http://localhost:8086";
-        var token  = config["ARTSKART_BENCH_INFLUX_TOKEN"]  ?? "benchmark-local-token";
-        var org    = config["ARTSKART_BENCH_INFLUX_ORG"]    ?? "artsdatabanken";
+        var url = config["ARTSKART_BENCH_INFLUX_URL"] ?? "http://localhost:8086";
+        var token = config["ARTSKART_BENCH_INFLUX_TOKEN"] ?? "benchmark-local-token";
+        var org = config["ARTSKART_BENCH_INFLUX_ORG"] ?? "artsdatabanken";
         var bucket = config["ARTSKART_BENCH_INFLUX_BUCKET"] ?? "benchmarks";
 
         var jsonFile = FindNewestReportFile();
@@ -71,18 +71,18 @@ internal static class BenchmarkToInfluxDb
 
     private static string BuildLineProtocol(List<BenchmarkEntry> benchmarks, DateTime fileTimeUtc)
     {
-        var epoch   = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var fileTs  = new DateTimeOffset(DateTime.SpecifyKind(fileTimeUtc, DateTimeKind.Utc), TimeSpan.Zero);
-        var nanos   = (fileTs - epoch).Ticks * 100; // 1 tick = 100 nanoseconds
+        var epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var fileTs = new DateTimeOffset(DateTime.SpecifyKind(fileTimeUtc, DateTimeKind.Utc), TimeSpan.Zero);
+        var nanos = (fileTs - epoch).Ticks * 100; // 1 tick = 100 nanoseconds
         var machine = EscapeTagValue(Environment.MachineName);
-        var sb      = new StringBuilder();
+        var sb = new StringBuilder();
 
         foreach (var b in benchmarks)
         {
             if (b.Statistics is null)
                 continue;
 
-            var method   = EscapeTagValue(b.FullName.Split('.').Last());
+            var method = EscapeTagValue(b.FullName.Split('.').Last());
             var category = EscapeTagValue(method.Split('_')[0]);
 
             Console.WriteLine($"  {method,-55} mean = {b.Statistics.Mean / 1e6,8:F2} ms");
@@ -111,7 +111,7 @@ internal static class BenchmarkToInfluxDb
         using var client = new HttpClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", token);
 
-        var uri     = $"{url}/api/v2/write?org={Uri.EscapeDataString(org)}&bucket={Uri.EscapeDataString(bucket)}&precision=ns";
+        var uri = $"{url}/api/v2/write?org={Uri.EscapeDataString(org)}&bucket={Uri.EscapeDataString(bucket)}&precision=ns";
         var content = new StringContent(body, Encoding.UTF8, "text/plain");
 
         try

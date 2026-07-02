@@ -1,0 +1,143 @@
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-left: 1rem;
+  margin-right: 0.5rem;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin-top: 1rem;
+
+  .sidebar-heading {
+    margin-bottom: 0;
+  }
+}
+
+.search-field {
+  display: none;
+}
+
+/* Remove default beige border from all accordions in sidebar */
+adb-accordion {
+  --adb-border-default: transparent;
+}
+
+/* Remove bottom border on nested (non-top-level) accordion items */
+adb-accordion-item adb-accordion adb-accordion-item {
+  --adb-border-accent: transparent;
+}
+
+/* Restore border-accent for checkboxes inside nested accordion items */
+adb-accordion-item adb-accordion adb-accordion-item adb-checkbox {
+  --adb-border-accent: #005a71;
+}
+
+/* Reduce summary spacing on nested accordion items */
+adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
+  padding: var(--adb-spacing-3xsm, 4px);
+}
+
+/* Indent child checkboxes to align with parent checkbox label */
+.category-children {
+  padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));
+  margin-inline-end: -6px;
+  margin-top: var(--adb-spacing-xsm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm, 8px);
+}
+
+.category-flat {
+  padding-inline-start: var(--adb-spacing-3xsm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm, 8px);
+  margin-right: 10px;
+}
+
+/* Coordinate precision filter */
+.coordinate-precision-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--adb-spacing-xsm, 8px);
+  padding: var(--adb-spacing-3xsm);
+  flex-wrap: nowrap;
+  margin-top: var(--adb-spacing-2xsm);
+}
+
+.coordinate-precision-inputs {
+  display: flex;
+  gap: var(--adb-spacing-xsm, 8px);
+  flex: 1;
+  min-width: 0;
+}
+
+.coordinate-precision-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-3xsm, 4px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  flex: 1;
+  min-width: 0;
+}
+
+.coordinate-precision-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: var(--adb-spacing-xsm, 8px);
+  border: 2px solid var(--adb-neutrals-sand-100);
+  background-color: var(--adb-surface-primary, #fff);
+  color: var(--adb-text-default, inherit);
+  border-radius: var(--adb-border-radius-md, 8px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  box-sizing: border-box;
+  outline: none;
+}
+
+:host-context([data-theme='dark']) .coordinate-precision-input {
+  border-color: var(--adb-neutrals-ocean-80);
+}
+
+.coordinate-precision-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  outline: none;
+}
+
+:host-context([data-theme='dark']) .coordinate-precision-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  outline: none;
+}
+
+.checkbox-accordion-children {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-2xsm);
+  margin-top: var(--adb-spacing-md);
+  margin-right: 10px;
+}
+
+/* Restore counter padding stripped by global * { padding: 0 } reset,
+   and right-align the counter badge */
+adb-checkbox [slot='counter'] {
+  padding: 0 var(--adb-spacing-2xsm, 4px);
+  margin-inline-start: auto;
+}
+
+/* Only expand heading checkboxes to full width when they have a counter */
+adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
+  width: fit-content;
+}
+
+.area-section-heading {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  margin: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
+  padding-inline-start: var(--adb-spacing-3xsm, 4px);
+}

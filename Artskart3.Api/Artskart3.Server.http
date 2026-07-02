@@ -22,4 +22,185 @@ X-CSRF: 1
 ### Get all area markers (counties and municipalities)
 GET {{Artskart3.Server_HostAddress}}/api/Search/Areas
 X-CSRF: 1
-  
+
+### Search observation, no filters
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{}
+
+### Search observation, filter on preferred popular name
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "preferredPopularName": "slettsnok"
+}
+
+### Search observation, filter on scientific name
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "scientificName": "Dermochelys"
+}
+
+### Search observation, filter on multiple TaxonGroupIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "taxonGroupIds": [1, 2, 3]
+}
+
+### Search observation, filter on multiple OrganizationIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "organizationIds": [1301, 1305, 3100]
+}
+
+### Search observation, filter on multiple CategoryIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "categoryIds": [1, 2, 3]
+}
+
+### Search observation, filter on multiple MunicipalityIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "municipalityIds": ["1101", "1145", "1260"]
+}
+
+### Search observation, filter on multiple CountyIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "countyIds": ["15"]
+}
+
+### Search observation, filter on multiple RestrictedAreaIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "restrictedAreaIds": ["1", "2"]
+}
+
+### Search observation, filter on multiple OceanAreaIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "oceanAreaIds": ["1", "2"]
+}
+
+### Search observation, filter on multiple BehaviorIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "behaviorIds": [1, 2, 3]
+}
+
+### Search observation, filter on multiple BasisOfRecordIds
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "basisOfRecordIds": [1, 2]
+}
+
+### Search observation, filter on coordinate precision range
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "coordinatePrecision": { "from": 0, "to": 100 }
+}
+
+### Search observation, filter on period (date range)
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "period": { "from": 2000, "to": 2005 }
+}
+
+### Search observation, all list filters combined with multiple ids
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "organizationIds": [1997]
+}
+
+### Search observation, paginated
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "pageNumber": 5,
+  "resultsPerPage": 30
+}
+
+### Search observation, all list filters combined with pagination
+POST {{Artskart3.Server_HostAddress}}/api/Search/Observation
+X-CSRF: 1
+Content-Type: application/json
+
+{
+  "preferredPopularName": "slettsnok",
+  "taxonGroupIds": [12],
+  "organizationIds": [1997, 1998],
+  "risikokategoriIder": [11],
+  "municipalityIds": ["4203", "4202"],
+  "pageNumber": 1,
+  "resultsPerPage": 10
+}
+
+### Get all categories with category type (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Categories
+X-CSRF: 1
+
+### Get all area types with their areas (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Areas
+X-CSRF: 1
+
+### Get all institutions (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Institutions
+X-CSRF: 1
+
+### Get all taxon groups (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/TaxonGroups
+X-CSRF: 1
+
+### Get all behaviors (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/Behaviors
+X-CSRF: 1
+
+### Get all basis of record types (for filter dropdowns)
+GET {{Artskart3.Server_HostAddress}}/api/Lookup/BasisOfRecords
+X-CSRF: 1

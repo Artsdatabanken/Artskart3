@@ -11,14 +11,16 @@ namespace Artskart3.Tests.Unit;
 public class SearchControllerTests
 {
     private readonly Mock<ISearchService> _serviceMock;
+    private readonly Mock<ISpeciesService> _speciesServiceMock;
     private readonly Mock<ILogger<SearchController>> _loggerMock;
     private readonly SearchController _sut;
 
     public SearchControllerTests()
     {
         _serviceMock = new Mock<ISearchService>();
+        _speciesServiceMock = new Mock<ISpeciesService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
-        _sut = new SearchController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
     }
 
     // -----------------------------------------------------------------------
@@ -65,157 +67,107 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task SearchTaxons_WhenServiceThrowsApplicationException_Returns503()
+    public async Task SearchTaxons_WhenServiceThrowsApplicationException_Throws()
     {
         _serviceMock
             .Setup(s => s.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ThrowsAsync(new ApplicationException("Service unavailable"));
 
-        var result = await _sut.SearchTaxons("parus");
+        var act = () => _sut.SearchTaxons("parus");
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
+        await act.Should().ThrowAsync<ApplicationException>();
     }
 
     [Fact]
-    public async Task SearchTaxons_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task SearchTaxons_WhenServiceThrowsUnexpectedException_Throws()
     {
         _serviceMock
             .Setup(s => s.GetTaxonsAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var result = await _sut.SearchTaxons("parus");
+        var act = () => _sut.SearchTaxons("parus");
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     // -----------------------------------------------------------------------
-    // GetLocations
+    // GetObservationLocations
     // -----------------------------------------------------------------------
 
     [Theory]
     [InlineData(0)]
-    [InlineData(10001)]
+    [InlineData(100001)]
     [InlineData(-1)]
-    public async Task GetLocations_WithInvalidMaxResults_ReturnsBadRequest(int maxResults)
+    public async Task GetObservationLocations_WithInvalidMaxResults_ReturnsBadRequest(int maxResults)
     {
         var filter = new LocationSearchFilterDto { MaxResults = maxResults };
 
-        var result = await _sut.GetLocations(filter);
+        var result = await _sut.GetObservationLocations(filter);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public async Task GetLocations_WhenPrecisionFromExceedsPrecisionTo_ReturnsBadRequest()
+    public async Task GetObservationLocations_WhenPrecisionFromExceedsPrecisionTo_ReturnsBadRequest()
     {
         var filter = new LocationSearchFilterDto
         {
-            CoordinatePrecisionFrom = 500,
-            CoordinatePrecisionTo = 100
+            CoordinatePrecision = new CoordinatePrecisionDto { From = 500, To = 100 }
         };
 
-        var result = await _sut.GetLocations(filter);
+        var result = await _sut.GetObservationLocations(filter);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public async Task GetLocations_WithValidFilter_ReturnsContentResult()
+    public async Task GetObservationLocations_WithValidFilter_ReturnsContentResult()
     {
         var geoJson = """{"type":"FeatureCollection","features":[]}""";
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync(geoJson);
 
-        var result = await _sut.GetLocations(new LocationSearchFilterDto());
+        var result = await _sut.GetObservationLocations(new LocationSearchFilterDto());
 
         result.Result.Should().BeOfType<ContentResult>()
             .Which.ContentType.Should().Be("application/json");
     }
 
     [Fact]
-    public async Task GetLocations_WithNullFilter_UsesDefaultsAndSucceeds()
+    public async Task GetObservationLocations_WithNullFilter_UsesDefaultsAndSucceeds()
     {
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ReturnsAsync("""{"type":"FeatureCollection","features":[]}""");
 
-        var result = await _sut.GetLocations(null);
+        var result = await _sut.GetObservationLocations(null);
 
         result.Result.Should().BeOfType<ContentResult>();
     }
 
     [Fact]
-    public async Task GetLocations_WhenServiceThrowsApplicationException_Returns503()
+    public async Task GetObservationLocations_WhenServiceThrowsApplicationException_Throws()
     {
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ThrowsAsync(new ApplicationException("DB error"));
 
-        var result = await _sut.GetLocations(new LocationSearchFilterDto());
+        var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
+        await act.Should().ThrowAsync<ApplicationException>();
     }
 
     [Fact]
-    public async Task GetLocations_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetObservationLocations_WhenServiceThrowsUnexpectedException_Throws()
     {
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
             .ThrowsAsync(new Exception("Unexpected"));
 
-        var result = await _sut.GetLocations(new LocationSearchFilterDto());
+        var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<Exception>();
     }
 
-    // -----------------------------------------------------------------------
-    // GetAreas
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public async Task GetAreas_ReturnsOkWithAreaArray()
-    {
-        var areas = new List<AreaMarkerDto>
-        {
-            new() { Id = 1, Name = "Oslo", AreaTypeId = 2, ObservationCount = 500 }
-        };
-        _serviceMock.Setup(s => s.GetAreasByTypeIdsAsync(1, 2)).ReturnsAsync(areas);
-
-        var result = await _sut.GetAreas();
-
-        result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeOfType<AreaMarkerDto[]>()
-            .Which.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task GetAreas_WhenServiceThrowsApplicationException_Returns503()
-    {
-        _serviceMock
-            .Setup(s => s.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
-            .ThrowsAsync(new ApplicationException("Service error"));
-
-        var result = await _sut.GetAreas();
-
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
-    }
-
-    [Fact]
-    public async Task GetAreas_WhenServiceThrowsUnexpectedException_Returns500()
-    {
-        _serviceMock
-            .Setup(s => s.GetAreasByTypeIdsAsync(It.IsAny<int[]>()))
-            .ThrowsAsync(new Exception("Unexpected error"));
-
-        var result = await _sut.GetAreas();
-
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
-    }
 }

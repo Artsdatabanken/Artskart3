@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using NetTopologySuite.Geometries;
 using Artskart3.Core.Domain.Entities.Base;
+using NetTopologySuite.Geometries;
 
 namespace Artskart3.Core.Domain.Entities;
 
@@ -15,6 +13,8 @@ public partial class Area : BaseEntity
     public string Name { get; set; } = null!;
 
     public int AreaTypeId { get; set; }
+
+    public int ZoomLevel { get; set; }
 
     public string ParentFid { get; set; } = null!;
 

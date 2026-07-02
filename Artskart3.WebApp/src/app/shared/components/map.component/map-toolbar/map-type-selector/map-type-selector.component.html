@@ -24,7 +24,7 @@
           <adb-radio
             [attr.value]="option.layerId"
             [attr.checked]="selectedLayerId === option.layerId ? '' : null"
-          >{{ option.label }}</adb-radio>
+          >{{ option.label | translate }}</adb-radio>
         }
       </adb-radio-group>
     </div>

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Artskart3.Api.HealthChecks;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -7,7 +8,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using System.Text.Json;
 
 namespace Artskart3.Tests.Unit;
 
