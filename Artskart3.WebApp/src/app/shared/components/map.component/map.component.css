@@ -15,6 +15,119 @@
   width: 100%;
 }
 
+/* Adopted OL controls — shared button styles */
+/* ::ng-deep is deprecated but required here since OL controls render outside Angular's view encapsulation */
+
+::ng-deep .artskart-zoom,
+::ng-deep .artskart-fullscreen,
+::ng-deep .artskart-geolocation {
+  background: transparent;
+  border-radius: 0;
+}
+
+::ng-deep .artskart-zoom button,
+::ng-deep .artskart-fullscreen button,
+::ng-deep .artskart-geolocation button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--adb-surface-primary, #fff);
+  color: var(--adb-text-accent, #005a71);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--adb-border-accent, #005a71);
+  padding: 0;
+  transition: box-shadow 0.15s, background-color 0.15s, color 0.15s;
+}
+
+::ng-deep .artskart-zoom button:hover,
+::ng-deep .artskart-fullscreen button:hover,
+::ng-deep .artskart-geolocation button:hover {
+  background: var(--adb-surface-primary, #fff);
+  color: var(--adb-text-hover, #004557);
+  box-shadow: inset 0 0 0 4px var(--adb-border-hover, #004557);
+  outline: none;
+}
+
+::ng-deep .artskart-zoom button:active,
+::ng-deep .artskart-fullscreen button:active,
+::ng-deep .artskart-geolocation button:active {
+  background: var(--adb-surface-accent, #005a71);
+  color: var(--adb-text-invert, #fff);
+}
+
+::ng-deep .artskart-zoom button:focus-visible,
+::ng-deep .artskart-fullscreen button:focus-visible,
+::ng-deep .artskart-geolocation button:focus-visible {
+  color: var(--adb-text-hover, #004557);
+  box-shadow: inset 0 0 0 4px var(--adb-border-hover, #004557);
+  outline: 2px solid var(--adb-border-accent, #005a71);
+  outline-offset: 2px;
+}
+
+::ng-deep .artskart-geolocation button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+::ng-deep .artskart-geolocation button:disabled:hover {
+  box-shadow: inset 0 0 0 2px var(--adb-border-accent, #005a71);
+  color: var(--adb-text-accent, #005a71);
+}
+
+/* Adopted OL controls — positioning */
+
+::ng-deep .artskart-zoom {
+  position: absolute;
+  bottom: 40px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+::ng-deep .artskart-fullscreen {
+  position: absolute;
+  bottom: 136px;
+  right: 12px;
+}
+
+::ng-deep .artskart-geolocation {
+  position: absolute;
+  bottom: 184px;
+  right: 12px;
+}
+
+::ng-deep .artskart-geolocation-wrapper {
+  position: relative;
+}
+
+::ng-deep .artskart-geolocation-tooltip {
+  display: none;
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #333;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 200;
+}
+
+::ng-deep .artskart-geolocation-wrapper:hover .artskart-geolocation-tooltip--visible,
+::ng-deep .artskart-geolocation-wrapper:focus-within .artskart-geolocation-tooltip--visible {
+  display: block;
+}
+
 .marker-tooltip {
   position: fixed;
   background: white;
