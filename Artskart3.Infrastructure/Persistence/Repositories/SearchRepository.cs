@@ -640,4 +640,70 @@ public class SearchRepository : ISearchRepository
         ).ToList();
     }
 
+    /// <summary>
+    /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
+    /// </summary>
+    public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            var query = BuildLocationsQuery(filter);
+            var aggregated = await AggregateLocationObservations(query, filter.MaxResults, cancellationToken);
+
+            if (aggregated.Count == 0) return [];
+
+            var locationIds = aggregated.Select(x => x.LocationId).ToList();
+
+            var locations = await _context.Set<Location>()
+                .AsNoTracking()
+                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && l.Geometry.NumPoints > 5)
+                .ToListAsync(cancellationToken);
+
+            if (locations.Count == 0) return [];
+
+            var countLookup = aggregated.ToDictionary(x => x.LocationId, x => x.ObservationCount);
+
+            var result = new List<LocationPolygonDto>();
+
+            foreach (var location in locations)
+            {
+                var geo = location.Geometry;
+                if (geo == null) continue;
+
+                if (geo.GeometryType != "Polygon" && geo.GeometryType != "MultiPolygon") continue;
+
+                if (IsAxisAlignedRectangle(geo)) continue;
+
+                result.Add(new LocationPolygonDto
+                {
+                    LocationId = location.Id,
+                    Locality = location.Locality,
+                    WktPolygon = geo.AsText(),
+                    ObservationCount = countLookup.GetValueOrDefault(location.Id)
+                });
+            }
+
+            _logger.LogInformation("Location polygon search completed. Returned {Count} polygons", result.Count);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonspolygoner");
+            throw new ApplicationException("An error occurred while retrieving location polygons. Please try again later.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the geometry is an axis-aligned rectangle.
+    /// Any non-rectangular polygon will always have area strictly less than its bounding box.
+    /// </summary>
+    private static bool IsAxisAlignedRectangle(NetTopologySuite.Geometries.Geometry geo)
+    {
+        var envelope = geo.EnvelopeInternal;
+        if (envelope.Area <= 0) return false;
+        return Math.Abs(geo.Area - envelope.Area) / envelope.Area < 1e-10;
+    }
+
 }

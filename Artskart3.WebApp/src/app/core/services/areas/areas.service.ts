@@ -14,6 +14,7 @@ import { map } from 'rxjs/operators';
 import {
   AreaMarkerDto,
   AreaMarkerFeature,
+  LocationPolygonDto,
 } from '@shared/models/area/area-marker.model';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -297,6 +298,7 @@ export class AreasService {
 
   private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
   private readonly locationsEndpoint = '/api/Search/Locations';
+  private readonly locationPolygonsEndpoint = '/api/Search/LocationPolygons';
 
   /**
    * Henter områdemarkører fra API for gitt zoomnivå.
@@ -339,6 +341,52 @@ export class AreasService {
         return JSON.stringify({ type: 'FeatureCollection', features });
       })
     );
+  }
+
+  /**
+   * Fetches location polygon geometries and returns as a GeoJSON FeatureCollection string.
+   */
+  getLocationPolygons(filter?: LocationSearchFilter): Observable<string> {
+    const body = this.buildFilterBody(filter);
+
+    return this.apiClientService.postJson<LocationPolygonDto[]>(this.locationPolygonsEndpoint, body).pipe(
+      map(polygons => {
+        if (!Array.isArray(polygons)) {
+          return JSON.stringify({ type: 'FeatureCollection', features: [] });
+        }
+
+        const features = polygons
+          .map(p => this.createPolygonFeature(p))
+          .filter((f): f is AreaMarkerFeature => f !== null);
+
+        this.loggerService.info(`Retrieved ${features.length} location polygon features`, AreasService.SERVICE_NAME);
+        return JSON.stringify({ type: 'FeatureCollection', features });
+      })
+    );
+  }
+
+  private createPolygonFeature(dto: LocationPolygonDto): AreaMarkerFeature | null {
+    const parsed = parseWkt(dto.wktPolygon);
+    if (!parsed) return null;
+
+    const count = dto.observationCount ?? 0;
+    return {
+      type: 'Feature',
+      id: dto.locationId,
+      geometry: { type: parsed.type, coordinates: parsed.coordinates },
+      properties: {
+        id: dto.locationId,
+        name: dto.locality ?? `Location ${dto.locationId}`,
+        observationCount: count,
+        observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count) : '',
+        isPolygon: true,
+        'nbic:style': {
+          fillColor: 'rgba(0, 90, 113, 0.25)',
+          strokeColor: '#005A71',
+          strokeWidth: 1.5,
+        },
+      },
+    };
   }
 
   private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
