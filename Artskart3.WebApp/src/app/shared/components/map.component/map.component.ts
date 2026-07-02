@@ -30,6 +30,10 @@ import { ImageTile } from 'ol';
 import { ApiZoomLevel } from './map.types';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
+import { ArtskartZoomControl } from './controls/zoom.control';
+import { ArtskartFullscreenControl } from './controls/fullscreen.control';
+import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-map',
@@ -48,6 +52,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
 
   public map!: NbicMapComponent;
+  private zoomControl?: ArtskartZoomControl;
+  private fullscreenControl?: ArtskartFullscreenControl;
+  private geolocationControl?: GeolocationMapControl;
   private areaDataCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
   private mapReady = false;
 
@@ -59,6 +66,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly logger = inject(LoggingService);
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
+  private readonly translate = inject(TranslateService);
 
   private readonly locationFilter = computed<LocationSearchFilter>(
     () => {
@@ -120,6 +128,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       });
 
       this.setupBaseMapLayers();
+      this.adoptMapControls();
+      this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
@@ -150,6 +160,64 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       };
     }
     this.map.addLayer(nib);
+  }
+
+  private adoptMapControls(): void {
+    this.adoptZoomControl();
+    this.adoptFullscreenControl();
+    this.adoptGeolocationControl();
+    // TODO: Polygon draw controls should be adopted here using nbic-map-component's draw API
+    // (map.startDrawing, map.stopDrawing, map.undoLastPoint, map.finishCurrent, etc.)
+    // See Artsobservasjoner3's shared-map.component.ts for reference implementation.
+  }
+
+  private adoptZoomControl(): void {
+    if (!this.map) return;
+    this.zoomControl = new ArtskartZoomControl({
+      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+    });
+    this.map.adoptControl(this.zoomControl, 'zoom');
+  }
+
+  private adoptFullscreenControl(): void {
+    if (!this.map) return;
+    this.fullscreenControl = new ArtskartFullscreenControl({
+      tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+    });
+    this.map.adoptControl(this.fullscreenControl, 'fullscreen');
+  }
+
+  private adoptGeolocationControl(): void {
+    if (!this.map) return;
+    this.geolocationControl = createGeolocationControl(
+      {
+        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+      },
+      {
+        onClick: () => this.map.zoomToGeolocation(14),
+      },
+    );
+    this.map.adoptControl(this.geolocationControl, 'geolocation');
+  }
+
+  private listenForLanguageChanges(): void {
+    this.translate.onLangChange
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.zoomControl?.updateLabels({
+          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+        });
+        this.fullscreenControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+        });
+        this.geolocationControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+        });
+      });
   }
 
   private onMapReady(): void {
@@ -280,6 +348,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private cleanup(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.geolocationControl?.dispose();
     this.areaDataCacheByApiZoom.clear();
     this.map?.destroy?.();
   }
