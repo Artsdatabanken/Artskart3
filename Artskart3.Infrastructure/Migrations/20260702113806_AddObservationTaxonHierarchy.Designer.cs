@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260702113806_AddObservationTaxonHierarchy")]
+    partial class AddObservationTaxonHierarchy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -381,85 +384,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("CommandLog", (string)null);
                 });
 
-            modelBuilder.Entity("Artskart3.Core.Domain.Entities.CsvExportJob", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("BlobPath")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("ExcelBlobPath")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FilterJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("RowsProcessed")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SelectedColumns")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TotalRows")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex(new[] { "Status" }, "IX_CsvExportJob_Status");
-
-                    b.HasIndex(new[] { "UserId" }, "IX_CsvExportJob_UserId");
-
-                    b.ToTable("CsvExportJob", (string)null);
-                });
-
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.DeletedItem", b =>
                 {
                     b.Property<int>("Id")
@@ -501,6 +425,54 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "TimeStamp" }, "Ix_TimeStampWithRecordId");
 
                     b.ToTable("DeletedItem", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ExportStatus", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Doi")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExportCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExportFinished")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExportInfo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExportJobId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ExportStarted")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id")
+                        .HasName("PK_dbo.ExportStatus");
+
+                    b.ToTable("ExportStatus", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Fab4exclude", b =>
@@ -1409,34 +1381,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
-                    b.Property<int>("BasisOfRecordId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CategoryId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CoordinatePrecisionInMeters")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("DateTimeCollected")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("HasMediaFiles")
-                        .HasColumnType("bit");
-
-                    b.Property<byte>("RegistrationStatusId")
-                        .HasColumnType("tinyint");
-
-                    b.Property<int>("TaxonGroupId")
-                        .HasColumnType("int");
-
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
                     b.HasIndex("EntityTypeId", "EntityId", "ObservationId")
                         .HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
-
-                    b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
-                        .HasDatabaseName("IX_ObservationEntityIndex_AreaFilter");
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });

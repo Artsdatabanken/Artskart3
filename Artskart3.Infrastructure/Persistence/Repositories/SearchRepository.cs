@@ -23,13 +23,15 @@ public class SearchRepository : ISearchRepository
     private readonly ILogger<SearchRepository> _logger;
     private readonly PaginationOptions _paginationOptions;
     private readonly IAreaHierarchyService _areaHierarchy;
+    private readonly ITaxonHierarchyService _taxonHierarchy;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy, ITaxonHierarchyService taxonHierarchy)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
         _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
+        _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -295,8 +297,14 @@ public class SearchRepository : ISearchRepository
 
         if (filter.TaxonIds?.Any() == true)
         {
-            var taxonIds = filter.TaxonIds.ToList();
-            query = query.Where(o => taxonIds.Contains(o.TaxonId));
+            // Hierarkisk filtrering via ObservationTaxonHierarchy — inkluderer alle etterkommere
+            IQueryable<int>? combinedQuery = null;
+            foreach (var taxonId in filter.TaxonIds)
+            {
+                var subquery = GetObservationIdsByTaxonHierarchy(taxonId);
+                combinedQuery = combinedQuery == null ? subquery : combinedQuery.Union(subquery);
+            }
+            query = query.Where(o => combinedQuery!.Contains(o.Id));
         }
 
         if (filter.CategoryIds?.Any() == true)
@@ -425,6 +433,47 @@ public class SearchRepository : ISearchRepository
 
         return query;
     }
+    /// <summary>
+    /// Returnerer ObservationId-er som matcher et gitt taxonId via ObservationTaxonHierarchy.
+    /// Slår opp taxonens rang og spør mot riktig kolonne i hierarkitabellen.
+    /// </summary>
+    private IQueryable<int> GetObservationIdsByTaxonHierarchy(int taxonId)
+    {
+        var rankId = _taxonHierarchy.GetTaxonRankId(taxonId);
+        var h = _context.Set<ObservationTaxonHierarchy>();
+
+        return rankId switch
+        {
+            1  => h.Where(x => x.KingdomTaxonId == taxonId).Select(x => x.ObservationId),
+            2  => h.Where(x => x.SubkingdomTaxonId == taxonId).Select(x => x.ObservationId),
+            3  => h.Where(x => x.PhylumTaxonId == taxonId).Select(x => x.ObservationId),
+            4  => h.Where(x => x.SubphylumTaxonId == taxonId).Select(x => x.ObservationId),
+            5  => h.Where(x => x.SuperclassTaxonId == taxonId).Select(x => x.ObservationId),
+            6  => h.Where(x => x.ClassTaxonId == taxonId).Select(x => x.ObservationId),
+            7  => h.Where(x => x.SubclassTaxonId == taxonId).Select(x => x.ObservationId),
+            8  => h.Where(x => x.InfraclassTaxonId == taxonId).Select(x => x.ObservationId),
+            9  => h.Where(x => x.CohortTaxonId == taxonId).Select(x => x.ObservationId),
+            10 => h.Where(x => x.SuperorderTaxonId == taxonId).Select(x => x.ObservationId),
+            11 => h.Where(x => x.OrderTaxonId == taxonId).Select(x => x.ObservationId),
+            12 => h.Where(x => x.SuborderTaxonId == taxonId).Select(x => x.ObservationId),
+            13 => h.Where(x => x.InfraorderTaxonId == taxonId).Select(x => x.ObservationId),
+            14 => h.Where(x => x.SuperfamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            15 => h.Where(x => x.FamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            16 => h.Where(x => x.SubfamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            17 => h.Where(x => x.TribeTaxonId == taxonId).Select(x => x.ObservationId),
+            18 => h.Where(x => x.SubtribeTaxonId == taxonId).Select(x => x.ObservationId),
+            19 => h.Where(x => x.GenusTaxonId == taxonId).Select(x => x.ObservationId),
+            20 => h.Where(x => x.SubgenusTaxonId == taxonId).Select(x => x.ObservationId),
+            21 => h.Where(x => x.SectionTaxonId == taxonId).Select(x => x.ObservationId),
+            22 => h.Where(x => x.SpeciesTaxonId == taxonId).Select(x => x.ObservationId),
+            23 => h.Where(x => x.SubspeciesTaxonId == taxonId).Select(x => x.ObservationId),
+            24 => h.Where(x => x.VarietyTaxonId == taxonId).Select(x => x.ObservationId),
+            25 => h.Where(x => x.FormTaxonId == taxonId).Select(x => x.ObservationId),
+            26 => h.Where(x => x.NotSetTaxonId == taxonId).Select(x => x.ObservationId),
+            _  => h.Where(x => x.ObservationId == -1).Select(x => x.ObservationId) // ukjent rang, tomt resultat
+        };
+    }
+
     /// <summary>
     /// Henter områdemarkører (fylker/kommuner) gruppert etter navn med observasjonsantall.
     /// Hybrid tilnærming: uten filtre brukes pre-beregnet antall fra Area-tabellen,
@@ -667,19 +716,15 @@ public class SearchRepository : ISearchRepository
             var ids = filter.TaxonGroupIds.ToList();
             query = query.Where(idx => ids.Contains(idx.TaxonGroupId));
         }
-
         if (filter.CategoryIds?.Any() == true)
         {
             var ids = filter.CategoryIds.ToList();
             query = query.Where(idx => idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value));
         }
-
         if (filter.BasisOfRecordIds?.Any() == true)
         {
             var ids = filter.BasisOfRecordIds.ToList();
             query = query.Where(idx => ids.Contains(idx.BasisOfRecordId));
-        }
-
         if (filter.CoordinatePrecision?.From.HasValue == true)
             query = query.Where(idx => idx.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
 
@@ -760,8 +805,22 @@ public class SearchRepository : ISearchRepository
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
             .ToListAsync(cancellationToken);
 
-        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
+        return fullCounts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
     }
+
+    /// <summary>
+    /// Sjekker om filteret har observasjonsattributtfiltre utover TaxonIds/TaxonGroupIds.
+    /// </summary>
+    private static bool HasNonTaxonObservationFilters(LocationSearchFilterDto filter) =>
+        filter.CategoryIds?.Length > 0 ||
+        filter.BasisOfRecordIds?.Length > 0 ||
+        filter.OrganizationIds?.Length > 0 ||
+        filter.RestrictedAreaIds?.Length > 0 ||
+        filter.BehaviorIds?.Length > 0 ||
+        filter.CoordinatePrecision?.From != null ||
+        filter.CoordinatePrecision?.To != null ||
+        filter.Period?.From != null ||
+        filter.Period?.To != null;
 
     /// <summary>
     /// Filtrerer områdelisten basert på valgte fylker, kommuner og havområder.

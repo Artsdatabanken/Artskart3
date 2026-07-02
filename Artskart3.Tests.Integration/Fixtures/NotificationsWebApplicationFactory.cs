@@ -28,12 +28,22 @@ public sealed class NotificationsWebApplicationFactory : WebApplicationFactory<P
             // Fjern AreaHierarchyService (hosted service) som prøver å koble til DB ved oppstart
             services.RemoveAll<AreaHierarchyService>();
             services.RemoveAll<IAreaHierarchyService>();
-            var hostedDescriptor = services.FirstOrDefault(d =>
+            var areaHostedDescriptor = services.FirstOrDefault(d =>
                 d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
                 d.ImplementationFactory?.Method.ReturnType == typeof(AreaHierarchyService));
-            if (hostedDescriptor != null) services.Remove(hostedDescriptor);
+            if (areaHostedDescriptor != null) services.Remove(areaHostedDescriptor);
 
             services.AddSingleton<IAreaHierarchyService, StubAreaHierarchyService>();
+
+            // Fjern TaxonHierarchyService (hosted service) som prøver å koble til DB ved oppstart
+            services.RemoveAll<TaxonHierarchyService>();
+            services.RemoveAll<ITaxonHierarchyService>();
+            var taxonHostedDescriptor = services.FirstOrDefault(d =>
+                d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+                d.ImplementationFactory?.Method.ReturnType == typeof(TaxonHierarchyService));
+            if (taxonHostedDescriptor != null) services.Remove(taxonHostedDescriptor);
+
+            services.AddSingleton<ITaxonHierarchyService, StubTaxonHierarchyService>();
         });
     }
 }
