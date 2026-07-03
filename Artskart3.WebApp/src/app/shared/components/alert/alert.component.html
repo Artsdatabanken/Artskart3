@@ -1,0 +1,19 @@
+@for (alert of alertService.visibleAlerts(); track alert.id) {
+  <adb-alert
+    [attr.variant]="alert.variant"
+    [attr.heading]="alert.heading ?? null"
+    [attr.closable]="alert.closable ? '' : null"
+    (adb-close)="alertService.dismiss(alert.id)"
+  >
+    @if (alert.message) {
+      {{ alert.message }}
+    }
+    @if (alert.link) {
+      <a
+        [href]="alert.link.route"
+        class="alert-link"
+        (click)="onLinkClick($event, alert.link.route, alert.id)"
+      >{{ alert.link.text }}</a>
+    }
+  </adb-alert>
+}

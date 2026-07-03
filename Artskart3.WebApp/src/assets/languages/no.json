@@ -27,7 +27,8 @@
     "goodbye": "Ha det",
     "loading": "Laster...",
     "error": "Feil",
-    "success": "Suksess"
+    "success": "Suksess",
+    "close": "Lukk"
   },
   "baseLayout": {
     "searchPlaceholder": "Søk i Artskart"
@@ -39,6 +40,47 @@
     "map": "Kart",
     "list": "Liste",
     "ariaLabel": "Velg visning"
+  },
+  "export": {
+    "button": "Eksporter utvalg",
+    "started": "Eksport startet (jobb-ID: {{jobId}}). Du får beskjed når den er klar.",
+    "startFailed": "Kunne ikke starte eksport. Prøv igjen senere.",
+    "complete": "Eksport fullført",
+    "goToExport": "Gå til eksport",
+    "failed": "Eksporten feilet. Prøv igjen senere.",
+    "statusCheckFailed": "Kunne ikke sjekke eksportstatus. Prøv igjen senere.",
+    "modalTitle": "Eksport",
+    "nameLabel": "Navngi eksport",
+    "nameRequired": "(Må fylles ut)",
+    "startButton": "Start eksport",
+    "loadingButton": "Laster...",
+    "cancelButton": "Avbryt",
+    "startedTitle": "Eksport startet",
+    "startedMessage": "Eksport av store datasett kan ta litt tid. Du finner eksporten under Mitt Artskart, og kan se progresjonen der.",
+    "estimatedSize": "Estimert filstørrelse: {{size}}",
+    "dontShowAgain": "Ikke vis denne beskjeden flere ganger",
+    "closeButton": "Lukk",
+    "exceedsLimitTitle": "Eksport ikke mulig",
+    "exceedsLimitMessage": "Resultatet inneholder {{totalRows}} rader, som overskrider grensen på {{hardLimit}} rader for eksport. Vennligst avgrens filteret ditt for å redusere antall treff.",
+    "summaryFailed": "Kunne ikke sjekke eksportstørrelse. Prøv igjen senere."
+  },
+  "mittArtskart": {
+    "title": "Mitt Artskart",
+    "exportJobs": "Eksportjobber",
+    "loadError": "Kunne ikke laste eksporthistorikk.",
+    "date": "Dato",
+    "exportName": "Navn på eksport",
+    "fileSize": "Filstørrelse",
+    "downloadCsv": "Last ned CSV",
+    "downloadExcel": "Last ned Excel",
+    "downloadCsvLink": "Last ned CSV",
+    "downloadExcelLink": "Last ned Excel",
+    "noJobs": "Ingen eksportjobber funnet.",
+    "exportBaseName": "Eksport #{{id}}",
+    "exportProcessing": "Eksporterer ({{percent}}%) - {{name}}",
+    "exportPending": "Venter - {{name}}",
+    "downloadFailed": "Kunne ikke laste ned filen. Prøv igjen senere.",
+    "failed": "Feilet"
   },
   "listView": {
     "name": "Bokmålsnavn",
