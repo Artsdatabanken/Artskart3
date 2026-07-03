@@ -75,3 +75,5 @@ TestResults/
 .copilot/
 .aider*
 .codeium/
+.playwright-mcp/
+.sisyphus/
