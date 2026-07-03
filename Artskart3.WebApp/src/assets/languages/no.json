@@ -177,6 +177,7 @@
       "oceanAreas": "Havområder"
     },
     "taxonGroups": "Artsgrupper",
+    "taxonTree": "Artstre",
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}} - {{to}} meter",
     "chipPeriod": "Periode: {{from}} - {{to}}",

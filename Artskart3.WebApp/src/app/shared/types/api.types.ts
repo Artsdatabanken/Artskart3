@@ -30,3 +30,16 @@ export const CSV_EXPORT_STATUS = {
 } as const;
 
 export type CsvExportStatus = (typeof CSV_EXPORT_STATUS)[keyof typeof CSV_EXPORT_STATUS];
+
+export interface TaxonTreeNodeDto {
+  id: number;
+  validScientificName?: string | null;
+  preferredPopularName?: string | null;
+  taxonRankId: number;
+  taxonGroupId: number;
+  cumulativeObservationCount?: number | null;
+  existsInCountry: boolean;
+  hasChildren: boolean;
+  children: TaxonTreeNodeDto[];
+}
+

@@ -1,3 +1,5 @@
+using Artskart3.Core.Application.DTOs;
+
 namespace Artskart3.Core.Application.Services.Interfaces;
 
 /// <summary>
@@ -11,4 +13,11 @@ public interface ITaxonHierarchyService
     /// Brukes for å bestemme hvilken kolonne i ObservationTaxonHierarchy som skal spørres.
     /// </summary>
     int? GetTaxonRankId(int taxonId);
+
+    /// <summary>
+    /// Returnerer direkte barn av en gitt taxon som trenoder.
+    /// Hvis parentTaxonId er null, returneres rotnodene (kingdom-nivå).
+    /// Filtrerer til kun taxoner med observasjoner eller som finnes i landet.
+    /// </summary>
+    List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId);
 }

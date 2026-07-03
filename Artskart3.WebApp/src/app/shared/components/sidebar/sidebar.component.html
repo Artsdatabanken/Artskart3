@@ -29,6 +29,14 @@
   </adb-accordion>
 
   <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
+      @if (taxonTreeOpened()) {
+        <app-taxon-tree />
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
       @if (categoryTypes(); as types) {
         <adb-accordion>

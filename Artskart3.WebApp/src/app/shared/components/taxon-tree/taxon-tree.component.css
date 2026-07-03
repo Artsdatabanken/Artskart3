@@ -1,0 +1,26 @@
+:host {
+  display: flex;
+  flex-direction: column;
+}
+
+adb-accordion {
+  --adb-border-default: transparent;
+}
+
+adb-accordion-item::part(summary) {
+  padding: var(--adb-spacing-3xsm, 4px);
+}
+
+adb-accordion-item adb-checkbox {
+  --adb-border-accent: #005a71;
+}
+
+adb-checkbox [slot='counter'] {
+  padding: 0 var(--adb-spacing-2xsm, 4px);
+  margin-inline-start: auto;
+}
+
+.taxon-leaf {
+  padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));
+  margin-inline-end: -6px;
+}
