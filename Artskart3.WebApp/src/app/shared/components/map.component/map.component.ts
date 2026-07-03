@@ -12,7 +12,7 @@ import {
   EventEmitter,
   ViewChild,
   OnDestroy,
-  inject,
+  inject, signal,
   computed,
   effect,
 } from '@angular/core';
@@ -35,7 +35,6 @@ import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
 import {ObservationService} from '@shared/services/observation/observation.service';
-import {HttpClient} from '@angular/common/http';
 import {ObservationList} from '@shared/components/observation-list/observation-list';
 import {ObservationDto} from '@shared/types/api.types';
 
@@ -121,8 +120,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   });
 
-  public showObservationList: boolean = false;
-  private observationList: ObservationDto[] = [];
+  public showObservationList = signal(false);
+  public observationList= signal<ObservationDto[]>([]);
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
@@ -154,20 +153,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on('pointer:click', (payload) => {
-        console.log("this is the payload", payload);
+        console.log("showObservationList: ", this.showObservationList);
         if(payload.features) {
             // @ts-ignore
           var ids = payload.features.map(p => p.properties?.features || [])
             .flat().map(f => f.values_?.id)
             .filter(id => typeof id === 'number');
-          console.log("These are the ids: ", ids);
             // @ts-ignore
             if (payload.features.find(p => p.layerId === 'area-markers-locations') && (Array.isArray(ids) && ids.every(i => typeof i === 'number'))) {
               this.observationService.getObservationByLocation(ids)
                 .pipe(
                   tap(observations => {
-                    this.observationList = observations;
-                    this.showObservationList = true;
+                    this.observationList.set(observations);
+                    this.showObservationList.set(true);
                   }),
                   catchError((err: unknown) => {
                     this.logger.error("failed to fetch observations", ids?.toString(), err);
@@ -179,8 +177,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             }
           }
           else {
-            this.showObservationList = false;
-            this.logger.error("Feature ID is not a number");
+            this.showObservationList.set(false);
           }
       })
     } catch (error: unknown) {

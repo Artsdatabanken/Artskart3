@@ -319,5 +319,8 @@
     "paginationSmall": "Small (sm)",
     "paginationLarge": "Large (lg)",
     "icons": "Icons"
+  },
+  "observationList": {
+    "location": "Observation"
   }
 }
