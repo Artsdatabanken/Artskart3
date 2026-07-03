@@ -1,0 +1,34 @@
+@for (node of nodes(); track node.id) {
+  @if (node.hasChildren) {
+    <adb-accordion>
+      <adb-accordion-item (toggle)="onNodeToggle(node.id)">
+        <adb-checkbox
+          slot="heading"
+          [attr.checked]="isTaxonSelected(node.id) ? '' : null"
+          (click)="$event.stopPropagation()"
+          (change)="onTaxonToggle(node.id)"
+        >
+          {{ node.preferredPopularName ?? node.validScientificName }}
+          @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
+            <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
+          }
+        </adb-checkbox>
+        @if (isNodeExpanded(node.id)) {
+          <app-taxon-tree [parentTaxonId]="node.id" />
+        }
+      </adb-accordion-item>
+    </adb-accordion>
+  } @else {
+    <div class="taxon-leaf">
+      <adb-checkbox
+        [attr.checked]="isTaxonSelected(node.id) ? '' : null"
+        (change)="onTaxonToggle(node.id)"
+      >
+        {{ node.preferredPopularName ?? node.validScientificName }}
+        @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
+          <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
+        }
+      </adb-checkbox>
+    </div>
+  }
+}

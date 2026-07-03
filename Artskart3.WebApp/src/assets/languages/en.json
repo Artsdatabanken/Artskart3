@@ -177,6 +177,7 @@
       "oceanAreas": "Ocean Areas"
     },
     "taxonGroups": "Taxon Groups",
+    "taxonTree": "Taxonomy Tree",
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
     "chipPeriod": "Period: {{from}} - {{to}}",

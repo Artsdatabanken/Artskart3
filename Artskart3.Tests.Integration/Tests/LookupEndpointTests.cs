@@ -140,4 +140,30 @@ public class LookupEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/TaxonTree
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetTaxonTree_WithoutParent_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/TaxonTree");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetTaxonTree_WithParentTaxonId_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/TaxonTree?parentTaxonId=1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
 }

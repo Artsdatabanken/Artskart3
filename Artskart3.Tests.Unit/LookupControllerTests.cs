@@ -15,13 +15,13 @@ public class LookupControllerTests
     public LookupControllerTests()
     {
         _serviceMock = new Mock<ILookupService>();
-        _sut = new LookupController(_serviceMock.Object);
+        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService());
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLookupServiceIsNull()
     {
-        var act = () => new LookupController(null!);
+        var act = () => new LookupController(null!, new StubTaxonHierarchyService());
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("lookupService");
     }

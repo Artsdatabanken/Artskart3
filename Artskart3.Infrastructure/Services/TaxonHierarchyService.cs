@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
@@ -10,14 +11,16 @@ namespace Artskart3.Infrastructure.Services;
 
 /// <summary>
 /// Oppslag for taksonhierarki.
-/// Laster TaxonRankId for alle taxoner ved oppstart og oppdaterer periodisk.
-/// Brukes av SearchRepository for å bestemme hvilken kolonne i ObservationTaxonHierarchy som skal spørres.
+/// Laster alle aktive taxoner ved oppstart og oppdaterer periodisk.
+/// Brukes av SearchRepository (rangoppslag) og LookupController (trevisning).
 /// </summary>
 public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDisposable
 {
     private static readonly TimeSpan ReloadInterval = TimeSpan.FromHours(1);
 
     private volatile Dictionary<int, int> _taxonRanks = new();
+    private volatile Dictionary<int, TaxonData> _taxons = new();
+    private volatile Dictionary<int, List<int>> _childrenByParent = new();
     private volatile bool _initialized;
     private PeriodicTimer? _timer;
     private Task? _backgroundTask;
@@ -65,29 +68,108 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IArtsKartDbContext>();
 
-        var taxons = await context.Set<Taxon>()
+        var taxonList = await context.Set<Taxon>()
             .Where(t => !t.IsDeleted)
-            .Select(t => new { t.Id, t.TaxonRankId })
+            .Select(t => new
+            {
+                t.Id,
+                t.TaxonRankId,
+                t.ParentTaxonId,
+                t.TaxonGroupId,
+                t.ValidScientificName,
+                t.PreferredPopularName,
+                t.CumulativeObservationCount,
+                t.ExistsInCountry
+            })
             .ToListAsync(cancellationToken);
 
-        var taxonRanks = new Dictionary<int, int>(taxons.Count);
-        foreach (var t in taxons)
+        var taxonRanks = new Dictionary<int, int>(taxonList.Count);
+        var taxons = new Dictionary<int, TaxonData>(taxonList.Count);
+        var childrenByParent = new Dictionary<int, List<int>>();
+
+        foreach (var t in taxonList)
         {
             taxonRanks[t.Id] = t.TaxonRankId;
+            taxons[t.Id] = new TaxonData
+            {
+                Id = t.Id,
+                TaxonRankId = t.TaxonRankId,
+                ParentTaxonId = t.ParentTaxonId,
+                TaxonGroupId = t.TaxonGroupId,
+                ValidScientificName = t.ValidScientificName,
+                PreferredPopularName = t.PreferredPopularName,
+                CumulativeObservationCount = t.CumulativeObservationCount,
+                ExistsInCountry = t.ExistsInCountry
+            };
+
+            if (t.ParentTaxonId == 0) continue;
+
+            if (!childrenByParent.TryGetValue(t.ParentTaxonId, out var list))
+            {
+                list = [];
+                childrenByParent[t.ParentTaxonId] = list;
+            }
+            list.Add(t.Id);
         }
 
         _taxonRanks = taxonRanks;
+        _taxons = taxons;
+        _childrenByParent = childrenByParent;
         _initialized = true;
 
         _logger.LogInformation(
             "Lastet taksonhierarki: {TaxonCount} taxoner",
-            taxons.Count);
+            taxonList.Count);
     }
 
     public int? GetTaxonRankId(int taxonId)
     {
         EnsureInitialized();
         return _taxonRanks.TryGetValue(taxonId, out var rankId) ? rankId : null;
+    }
+
+    public List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId)
+    {
+        EnsureInitialized();
+
+        var parentId = parentTaxonId ?? 0;
+        List<int>? childIds;
+
+        if (parentId == 0)
+        {
+            // Rotnoder: taxoner med ParentTaxonId = 0
+            childIds = _taxons.Values
+                .Where(t => t.ParentTaxonId == 0)
+                .Select(t => t.Id)
+                .ToList();
+        }
+        else if (!_childrenByParent.TryGetValue(parentId, out childIds))
+        {
+            return [];
+        }
+
+        var result = new List<TaxonTreeNodeDto>(childIds.Count);
+        foreach (var childId in childIds)
+        {
+            if (!_taxons.TryGetValue(childId, out var taxon)) continue;
+
+            // Filtrer: kun taxoner med observasjoner eller som finnes i landet
+            if (taxon.CumulativeObservationCount is null or 0 && !taxon.ExistsInCountry) continue;
+
+            result.Add(new TaxonTreeNodeDto
+            {
+                Id = taxon.Id,
+                ValidScientificName = taxon.ValidScientificName,
+                PreferredPopularName = taxon.PreferredPopularName,
+                TaxonRankId = taxon.TaxonRankId,
+                TaxonGroupId = taxon.TaxonGroupId,
+                CumulativeObservationCount = taxon.CumulativeObservationCount,
+                ExistsInCountry = taxon.ExistsInCountry,
+                HasChildren = _childrenByParent.ContainsKey(taxon.Id)
+            });
+        }
+
+        return result.OrderBy(t => t.ValidScientificName).ToList();
     }
 
     private void EnsureInitialized()
@@ -99,5 +181,17 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
     public void Dispose()
     {
         _timer?.Dispose();
+    }
+
+    private class TaxonData
+    {
+        public int Id { get; init; }
+        public int TaxonRankId { get; init; }
+        public int ParentTaxonId { get; init; }
+        public int TaxonGroupId { get; init; }
+        public string? ValidScientificName { get; init; }
+        public string? PreferredPopularName { get; init; }
+        public int? CumulativeObservationCount { get; init; }
+        public bool ExistsInCountry { get; init; }
     }
 }
