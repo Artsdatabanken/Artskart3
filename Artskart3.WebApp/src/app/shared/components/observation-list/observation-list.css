@@ -1,0 +1,22 @@
+.observation-list {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  margin: 1rem;
+  padding: 1rem;
+  width: 20rem;
+  border-radius: 1rem;
+  max-height: 95%;
+  overflow: auto;
+  background-color: var(--adb-surface-primary, #fff);
+  top: 0;
+  left: 0;
+}
+
+adb-accordion {
+  --adb-border-default: transparent;
+}
+
+adb-accordion-item adb-accordion {
+  --adb-border-default: transparent;
+}

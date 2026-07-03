@@ -351,5 +351,8 @@
     "paginationSmall": "Liten (sm)",
     "paginationLarge": "Stor (lg)",
     "icons": "Ikoner"
+  },
+  "observationList": {
+    "location": "Observasjon"
   }
 }
