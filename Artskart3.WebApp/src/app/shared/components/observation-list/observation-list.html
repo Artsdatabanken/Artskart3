@@ -1,4 +1,13 @@
 <div class="observation-list">
-  <h1>DETTE ER EN TEST</h1>
+  @for (observation of observationList(); track observation.id) {
+    <adb-accordion class="observation-item">
+      <adb-accordion-item [attr.heading]="'observationList.location' | translate">
+        @if (observation.preferredPopularName) {
+          <p>{{ observation.preferredPopularName }}</p>
+        }
+        <p [innerHTML]="observation.scientificName" ]></p>
+      </adb-accordion-item>
+    </adb-accordion>
+  }
 </div>
 
