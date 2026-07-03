@@ -24,16 +24,6 @@ public partial class AddObservationEntityIndex : Migration
                 table.PrimaryKey("PK_ObservationEntityIndex", x => new { x.ObservationId, x.EntityTypeId, x.EntityId });
             });
 
-        migrationBuilder.CreateIndex(
-            name: "IX_ObservationEntityIndex_Lookup",
-            table: "ObservationEntityIndex",
-            columns: new[] { "EntityTypeId", "EntityId" });
-
-        migrationBuilder.CreateIndex(
-            name: "IX_ObservationEntityIndex_ObservationId",
-            table: "ObservationEntityIndex",
-            column: "ObservationId");
-
         var restrictedArea = (int)ObservationIndexEntityType.RestrictedArea;
         var institution = (int)ObservationIndexEntityType.Institution;
 
@@ -65,6 +55,16 @@ FROM dbo.OrganizationRelation r
 JOIN dbo.Organization org ON org.Id = r.OrganizationId
 WHERE org.OrganizationTypeId = {(int)OrganizationType.Institution};
 ");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_ObservationEntityIndex_Lookup",
+            table: "ObservationEntityIndex",
+            columns: new[] { "EntityTypeId", "EntityId" });
+
+        migrationBuilder.CreateIndex(
+            name: "IX_ObservationEntityIndex_ObservationId",
+            table: "ObservationEntityIndex",
+            column: "ObservationId");
     }
 
     /// <inheritdoc />
