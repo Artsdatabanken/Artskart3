@@ -1,7 +1,9 @@
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Repositories;
+using Artskart3.Infrastructure.Persistence.Services;
 using Artskart3.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,6 +30,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationsService, NotificationsService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILookupService, LookupService>();
+        services.AddScoped<IExportService, ExportService>();
+        services.AddSingleton<ExportColumnRegistry>();
+        services.AddScoped<IBlobStorageService, BlobStorageService>();
         // Add other application services here
         return services;
     }

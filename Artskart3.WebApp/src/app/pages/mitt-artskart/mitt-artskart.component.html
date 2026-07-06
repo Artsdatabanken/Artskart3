@@ -1,0 +1,63 @@
+<div class="mitt-artskart">
+  <h1>{{ 'mittArtskart.title' | translate }}</h1>
+
+  <section>
+    <h2>{{ 'mittArtskart.exportJobs' | translate }}</h2>
+
+    @if (historyResource.isLoading() && !historyResource.hasValue()) {
+      <p class="status-message">{{ 'common.loading' | translate }}</p>
+    }
+
+    @if (historyResource.error() && !historyResource.hasValue()) {
+      <p class="status-message error">{{ 'mittArtskart.loadError' | translate }}</p>
+    }
+
+    @if (historyResource.hasValue()) {
+      <div class="table-container">
+        <table class="export-table">
+          <thead>
+            <tr>
+              <th>{{ 'mittArtskart.date' | translate }}</th>
+              <th>{{ 'mittArtskart.exportName' | translate }}</th>
+              <th>{{ 'mittArtskart.fileSize' | translate }}</th>
+              <th>{{ 'mittArtskart.downloadCsv' | translate }}</th>
+              <th>{{ 'mittArtskart.downloadExcel' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (job of historyResource.value(); track job.id) {
+              <tr [class.export-row-failed]="isFailed(job)">
+                <td>{{ job.createdAt | localeDateTime:translate.currentLang }}</td>
+                <td>
+                  @if (isFailed(job)) {
+                    <span class="export-failed-label">{{ 'mittArtskart.failed' | translate }}</span>
+                  }
+                  {{ getExportName(job) }}
+                </td>
+                <td>{{ job.fileSize | formatFileSize:translate.currentLang }}</td>
+                <td>
+                  @if (isDownloadable(job)) {
+                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadCsvLink' | translate }}" (click)="onDownload(job); $event.preventDefault()">{{ getFileName(job, 'csv') }}</a>
+                  } @else {
+                    -
+                  }
+                </td>
+                <td>
+                  @if (isDownloadable(job) && job.hasExcel) {
+                    <a href="#" role="button" aria-label="{{ 'mittArtskart.downloadExcelLink' | translate }}" (click)="onDownloadExcel(job); $event.preventDefault()">{{ getFileName(job, 'xlsx') }}</a>
+                  } @else {
+                    -
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-message">{{ 'mittArtskart.noJobs' | translate }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>
