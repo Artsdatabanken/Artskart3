@@ -651,7 +651,10 @@ public class SearchRepository : ISearchRepository
             filter ??= new LocationSearchFilterDto();
 
             var query = BuildLocationsQuery(filter);
-            var aggregated = await AggregateLocationObservations(query, filter.MaxResults, cancellationToken);
+            var polygonMaxResults = filter.MaxResults > 0
+                ? Math.Min(filter.MaxResults, SearchConstants.MaxPolygonResults)
+                : SearchConstants.DefaultMaxPolygons;
+            var aggregated = await AggregateLocationObservations(query, polygonMaxResults, cancellationToken);
 
             if (aggregated.Count == 0) return [];
 
@@ -659,7 +662,8 @@ public class SearchRepository : ISearchRepository
 
             var locations = await _context.Set<Location>()
                 .AsNoTracking()
-                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null)
+                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && (l.Geometry.GeometryType == "Polygon" || l.Geometry.GeometryType == "MultiPolygon"))
+                .Select(l => new { l.Id, l.Locality, l.Geometry })
                 .ToListAsync(cancellationToken);
 
             if (locations.Count == 0) return [];
@@ -670,12 +674,7 @@ public class SearchRepository : ISearchRepository
 
             foreach (var location in locations)
             {
-                var geo = location.Geometry;
-                if (geo == null) continue;
-
-                // Only include Polygon and MultiPolygon — skip Point, LineString, etc.
-                if (geo.GeometryType != "Polygon" && geo.GeometryType != "MultiPolygon") continue;
-
+                var geo = location.Geometry!;
                 var wkt = geo.AsText();
                 if (IsRectangularPolygon(wkt)) continue;
 
