@@ -1,5 +1,6 @@
 import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -15,7 +16,7 @@ export interface MenuItem {
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css']
@@ -26,6 +27,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
+  isUserMenuOpen = false;
   isDarkMode = false;
   currentLanguage: SupportedLanguage = 'no';
   supportedLanguages: SupportedLanguage[] = [];
@@ -82,10 +84,24 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   toggleLanguageMenu(): void {
     this.isLanguageMenuOpen = !this.isLanguageMenuOpen;
+    if (this.isLanguageMenuOpen) {
+      this.isUserMenuOpen = false;
+    }
   }
 
   closeLanguageMenu(): void {
     this.isLanguageMenuOpen = false;
+  }
+
+  toggleUserMenu(): void {
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+    if (this.isUserMenuOpen) {
+      this.isLanguageMenuOpen = false;
+    }
+  }
+
+  closeUserMenu(): void {
+    this.isUserMenuOpen = false;
   }
 
   changeLanguage(lang: SupportedLanguage): void {

@@ -1,12 +1,32 @@
 :host {
   display: flex;
-  flex-direction: column;
   height: 100%;
+  overflow: hidden;
+}
+
+.sidebar {
+  flex-shrink: 0;
+  background-color: var(--adb-background-default);
+  overflow: hidden;
+  border-right: 1px solid var(--adb-border-default);
+  height: 100%;
+  z-index: 100;
+}
+
+.home-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   overflow: hidden;
 }
 
 .tabs {
   background-color: var(--adb-surface-primary);
+}
+
+.export-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .tab-panels {
@@ -22,4 +42,74 @@
 
 .tab-panel-hidden {
   display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+/* Export modal styles */
+.export-name-label {
+  display: flex;
+  gap: var(--adb-spacing-xs, 4px);
+  align-items: baseline;
+  font-weight: var(--adb-font-weight-semibold, 600);
+  font-size: var(--adb-font-size-base, 0.875rem);
+}
+
+.export-name-required {
+  font-weight: var(--adb-font-weight-regular, 400);
+  color: var(--adb-text-secondary, #666);
+  font-size: var(--adb-font-size-sm, 0.8rem);
+}
+
+.export-name-input {
+  width: 100%;
+  padding: var(--adb-spacing-xsm, 8px);
+  border: 2px solid var(--adb-neutrals-sand-100);
+  border-radius: var(--adb-border-radius-md, 8px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+  background-color: var(--adb-surface-primary);
+  color: var(--adb-text-default, inherit);
+  outline: none;
+}
+
+:host-context([data-theme='dark']) .export-name-input {
+  border-color: var(--adb-neutrals-ocean-80);
+}
+
+.export-name-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  outline: none;
+}
+
+:host-context([data-theme='dark']) .export-name-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  outline: none;
+}
+
+.export-info-message {
+  margin-bottom: 0;
+  color: var(--adb-text-primary, #333);
+}
+
+.export-info-size {
+  margin-bottom: 0;
+  font-weight: var(--adb-font-weight-semibold, 600);
+}
+
+.export-dont-show-label {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-sm, 8px);
+  font-size: var(--adb-font-size-sm, 0.8rem);
+  color: var(--adb-text-secondary, #666);
+  cursor: pointer;
 }

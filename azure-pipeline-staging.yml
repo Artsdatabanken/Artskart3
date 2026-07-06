@@ -85,11 +85,26 @@ steps:
   displayName: "Publish .NET backend"
   inputs:
     command: 'publish'
-    publishWebProjects: true
+    publishWebProjects: false
+    projects: 'Artskart3.Api/Artskart3.Api.csproj'
     arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/backend'
+    zipAfterPublish: true
+
+- task: DotNetCoreCLI@2
+  displayName: "Publish Workers"
+  inputs:
+    command: 'publish'
+    publishWebProjects: false
+    projects: 'Artskart3.Workers/Artskart3.Workers.csproj'
+    arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/workers'
     zipAfterPublish: true
 
 - publish: $(Build.ArtifactStagingDirectory)/backend
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/staging'))
   displayName: "Publish backend artifact"
   artifact: backend
+
+- publish: $(Build.ArtifactStagingDirectory)/workers
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/staging'))
+  displayName: "Publish workers artifact"
+  artifact: workers
