@@ -346,8 +346,8 @@ export class AreasService {
   /**
    * Fetches location polygon geometries and returns as a GeoJSON FeatureCollection string.
    */
-  getLocationPolygons(filter?: LocationSearchFilter): Observable<string> {
-    const body = this.buildFilterBody(filter);
+  getLocationPolygons(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+    const body = this.buildFilterBody(filter, extent);
 
     return this.apiClientService.postJson<LocationPolygonDto[]>(this.locationPolygonsEndpoint, body).pipe(
       map(polygons => {

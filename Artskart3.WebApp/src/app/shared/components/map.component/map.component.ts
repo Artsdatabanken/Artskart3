@@ -333,7 +333,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
               return EMPTY;
             })
           ),
-          this.areasService.getLocationPolygons(filter).pipe(
+          this.areasService.getLocationPolygons(extent, filter).pipe(
             tap(polygons => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, polygons, { mode: 'replace' })),
             catchError((err: unknown) => {
               this.logger.error('Failed to load location polygons:', 'MapComponent', err);

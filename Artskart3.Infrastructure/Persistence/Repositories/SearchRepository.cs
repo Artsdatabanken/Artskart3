@@ -642,6 +642,7 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
+    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort.
     /// </summary>
     public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
@@ -658,7 +659,7 @@ public class SearchRepository : ISearchRepository
 
             var locations = await _context.Set<Location>()
                 .AsNoTracking()
-                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && l.Geometry.NumPoints > 5)
+                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null)
                 .ToListAsync(cancellationToken);
 
             if (locations.Count == 0) return [];
@@ -672,15 +673,26 @@ public class SearchRepository : ISearchRepository
                 var geo = location.Geometry;
                 if (geo == null) continue;
 
+                // Only include Polygon and MultiPolygon — skip Point, LineString, etc.
                 if (geo.GeometryType != "Polygon" && geo.GeometryType != "MultiPolygon") continue;
 
-                if (IsAxisAlignedRectangle(geo)) continue;
+                var wkt = geo.AsText();
+                if (IsRectangularPolygon(wkt)) continue;
+
+                // Skip polygons whose bounding box doesn't intersect the visible map extent
+                if (filter.Envelope != null)
+                {
+                    var env = geo.EnvelopeInternal;
+                    if (env.MaxX < filter.Envelope.MinX || env.MinX > filter.Envelope.MaxX ||
+                        env.MaxY < filter.Envelope.MinY || env.MinY > filter.Envelope.MaxY)
+                        continue;
+                }
 
                 result.Add(new LocationPolygonDto
                 {
                     LocationId = location.Id,
                     Locality = location.Locality,
-                    WktPolygon = geo.AsText(),
+                    WktPolygon = wkt,
                     ObservationCount = countLookup.GetValueOrDefault(location.Id)
                 });
             }
@@ -696,14 +708,23 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Returns true when the geometry is an axis-aligned rectangle.
-    /// Any non-rectangular polygon will always have area strictly less than its bounding box.
+    /// Returns true when the WKT string represents a rectangular polygon (exactly 5 coordinate pairs in the exterior ring).
     /// </summary>
-    private static bool IsAxisAlignedRectangle(NetTopologySuite.Geometries.Geometry geo)
+    private static bool IsRectangularPolygon(string? wkt)
     {
-        var envelope = geo.EnvelopeInternal;
-        if (envelope.Area <= 0) return false;
-        return Math.Abs(geo.Area - envelope.Area) / envelope.Area < 1e-10;
+        if (string.IsNullOrEmpty(wkt)) return false;
+        var ringStart = wkt.IndexOf('(', wkt.IndexOf('(') + 1);
+        var ringEnd = wkt.IndexOf(')', ringStart);
+        if (ringStart < 0 || ringEnd < 0) return false;
+
+        var ring = wkt.AsSpan(ringStart + 1, ringEnd - ringStart - 1);
+        var commaCount = 0;
+        foreach (var ch in ring)
+        {
+            if (ch == ',') commaCount++;
+        }
+
+        return commaCount == 4;
     }
 
 }
