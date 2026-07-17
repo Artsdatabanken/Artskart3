@@ -793,30 +793,6 @@ export interface components {
             name?: string | null;
             areas?: components["schemas"]["AreaDto"][] | null;
         };
-        LocationSearchFilterDto: {
-            taxonGroupIds?: number[] | null;
-            categoryIds?: number[] | null;
-            basisOfRecordIds?: number[] | null;
-            registrationStatusId?: number | null;
-            organizationIds?: number[] | null;
-            municipalityIds?: string[] | null;
-            countyIds?: string[] | null;
-            restrictedAreaIds?: string[] | null;
-            oceanAreaIds?: string[] | null;
-            behaviorIds?: number[] | null;
-            coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
-            period?: components["schemas"]["PeriodDto"];
-            /** Format: int32 */
-            epsg?: number | null;
-            /** Format: int32 */
-            maxResults?: number;
-            envelope?: {
-                minX?: number;
-                minY?: number;
-                maxX?: number;
-                maxY?: number;
-            } | null;
-        };
         BasisOfRecordDto: {
             /** Format: int32 */
             id?: number;
@@ -933,6 +909,7 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
