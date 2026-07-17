@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
@@ -20,6 +20,7 @@ import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
   styleUrl: './list-view.component.css',
 })
 export class ListViewComponent {
+  protected readonly translate = inject(TranslateService);
   private readonly observationService = inject(ObservationService);
   private readonly areaService = inject(AreaService);
   private readonly categoryService = inject(CategoryService);

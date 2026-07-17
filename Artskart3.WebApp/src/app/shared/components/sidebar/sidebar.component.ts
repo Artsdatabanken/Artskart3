@@ -40,7 +40,7 @@ export class SidebarComponent {
   private readonly basisOfRecordService = inject(BasisOfRecordService);
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
-  private readonly translate = inject(TranslateService);
+  protected readonly translate = inject(TranslateService);
 
   readonly registreringOptions: RegistreringOption[] = [
     { id: null, labelKey: 'sidebar.registreringStatus.alle' },

@@ -1,67 +1,67 @@
 <section class="design-section">
   <div class="headings">
-    <h1>H1 Heading 1</h1>
-    <h2>H2 Heading 2</h2>
-    <h3>H3 Heading 3</h3>
-    <h4>H4 Heading 4</h4>
-    <h5>H5 Heading 5</h5>
-    <h6>H6 Heading 6</h6>
+    <h1>{{ 'design.heading1' | translate }}</h1>
+    <h2>{{ 'design.heading2' | translate }}</h2>
+    <h3>{{ 'design.heading3' | translate }}</h3>
+    <h4>{{ 'design.heading4' | translate }}</h4>
+    <h5>{{ 'design.heading5' | translate }}</h5>
+    <h6>{{ 'design.heading6' | translate }}</h6>
   </div>
 
   <div class="link-grid">
-    <a href="" class="adb-link large">Link Large</a><a href="" class="adb-link adb-link--external large">Link external Large</a>
-    <a href="" class="adb-link medium">Link medium</a><a href="" class="adb-link adb-link--external medium">Link external Medium</a>
-    <a href="" class="adb-link">Link normal</a><a href="" class="adb-link adb-link--external">Link external Normal</a>
-    <a href="" class="adb-link small">Link small</a><a href="" class="adb-link adb-link--external small">Link external Small</a>
+    <a href="" class="adb-link large">{{ 'design.linkLarge' | translate }}</a><a href="" class="adb-link adb-link--external large">{{ 'design.linkExternalLarge' | translate }}</a>
+    <a href="" class="adb-link medium">{{ 'design.linkMedium' | translate }}</a><a href="" class="adb-link adb-link--external medium">{{ 'design.linkExternalMedium' | translate }}</a>
+    <a href="" class="adb-link">{{ 'design.linkNormal' | translate }}</a><a href="" class="adb-link adb-link--external">{{ 'design.linkExternalNormal' | translate }}</a>
+    <a href="" class="adb-link small">{{ 'design.linkSmall' | translate }}</a><a href="" class="adb-link adb-link--external small">{{ 'design.linkExternalSmall' | translate }}</a>
   </div>
 
   <div class="paragraph">
-    <p class="large"><strong>This is a paragraph, large size</strong> - Lorem itsum dolor sit amet. Sed non sagittis leo, ut finibus purus. Nunc condimentum, sapien ut fermentum bibendum, erat velit posuere elit, id vestibulum purus sem id mauris. Praesent in consequat magna. Sed lobortis turpis et leo ornare, nec tincidunt nisl placerat. Nam ullamcorper ex nisl, in convallis ex dapibus eget. Donec tempor feugiat velit sed dignissim. Nulla iaculis egestas orci, eu tempor lorem. Vivamus sit amet tellus neque.</p>
-    <p class="medium"><strong>This is a paragraph, medium size</strong> - Sed non sagittis leo, ut finibus purus. Nunc condimentum, sapien ut fermentum bibendum, erat velit posuere elit, id vestibulum purus sem id mauris. Praesent in consequat magna. Sed lobortis turpis et leo ornare, nec tincidunt nisl placerat. Nam ullamcorper ex nisl, in convallis ex dapibus eget. Donec tempor feugiat velit sed dignissim. Nulla iaculis egestas orci, eu tempor lorem. Vivamus sit amet tellus neque.</p>
-    <p><strong>This is a paragraph, normal size</strong> - Sed non sagittis leo, ut finibus purus. Nunc condimentum, sapien ut fermentum bibendum, erat velit posuere elit, id vestibulum purus sem id mauris. Praesent in consequat magna. Sed lobortis turpis et leo ornare, nec tincidunt nisl placerat. Nam ullamcorper ex nisl, in convallis ex dapibus eget. Donec tempor feugiat velit sed dignissim. Nulla iaculis egestas orci, eu tempor lorem. Vivamus sit amet tellus neque.</p>
-    <p class="small"><strong>This is a paragraph, small size</strong> - Sed non sagittis leo, ut finibus purus. Nunc condimentum, sapien ut fermentum bibendum, erat velit posuere elit, id vestibulum purus sem id mauris. Praesent in consequat magna. Sed lobortis turpis et leo ornare, nec tincidunt nisl placerat. Nam ullamcorper ex nisl, in convallis ex dapibus eget. Donec tempor feugiat velit sed dignissim. Nulla iaculis egestas orci, eu tempor lorem. Vivamus sit amet tellus neque.</p>
+    <p class="large"><strong>{{ 'design.paragraphLarge' | translate }}</strong> - {{ 'design.loremIpsum' | translate }}</p>
+    <p class="medium"><strong>{{ 'design.paragraphMedium' | translate }}</strong> - {{ 'design.loremIpsum' | translate }}</p>
+    <p><strong>{{ 'design.paragraphNormal' | translate }}</strong> - {{ 'design.loremIpsum' | translate }}</p>
+    <p class="small"><strong>{{ 'design.paragraphSmall' | translate }}</strong> - {{ 'design.loremIpsum' | translate }}</p>
   </div>
 
   <div class="horizontal-rule-compact"></div>
-  <h2>Komponenter</h2>
-  <h3>Fra det kodede designsystemet</h3>
+  <h2>{{ 'design.components' | translate }}</h2>
+  <h3>{{ 'design.fromDesignSystem' | translate }}</h3>
   <div>
-    <h3>Avkryssningsboks</h3>
-    <adb-checkbox>Valg</adb-checkbox>
-    <adb-checkbox checked description="Med hjelpetekst">Alternativ</adb-checkbox>
+    <h3>{{ 'design.checkbox' | translate }}</h3>
+    <adb-checkbox>{{ 'design.checkboxChoice' | translate }}</adb-checkbox>
+    <adb-checkbox checked [attr.description]="'design.checkboxDescription' | translate">{{ 'design.checkboxAlternative' | translate }}</adb-checkbox>
   </div>
   <div>
-    <h3>Faner</h3>
+    <h3>{{ 'design.tabsHeading' | translate }}</h3>
     <adb-tabs>
       <adb-tab slot="tab">
         <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M12.5 17.5L7.5 15.75L3.625 17.25C3.34722 17.3611 3.09028 17.3299 2.85417 17.1563C2.61806 16.9826 2.5 16.75 2.5 16.4583V4.79167C2.5 4.61111 2.55208 4.45139 2.65625 4.3125C2.76042 4.17361 2.90278 4.06944 3.08333 4L7.5 2.5L12.5 4.25L16.375 2.75C16.6528 2.63889 16.9097 2.67014 17.1458 2.84375C17.3819 3.01736 17.5 3.25 17.5 3.54167V15.2083C17.5 15.3889 17.4479 15.5486 17.3438 15.6875C17.2396 15.8264 17.0972 15.9306 16.9167 16L12.5 17.5ZM11.6667 15.4583V5.70833L8.33333 4.54167V14.2917L11.6667 15.4583ZM13.3333 15.4583L15.8333 14.625V4.75L13.3333 5.70833V15.4583ZM4.16667 15.25L6.66667 14.2917V4.54167L4.16667 5.375V15.25Z" fill="currentColor"/>
         </svg>
-        Kart
+        {{ 'design.tabMap' | translate }}
       </adb-tab>
       <adb-tab slot="tab">
         <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M5.83333 7.50004V5.83337H17.5V7.50004H5.83333ZM5.83333 10.8334V9.16671H17.5V10.8334H5.83333ZM5.83333 14.1667V12.5H17.5V14.1667H5.83333ZM3.33333 7.50004C3.09722 7.50004 2.89931 7.42018 2.73958 7.26046C2.57986 7.10074 2.5 6.90282 2.5 6.66671C2.5 6.4306 2.57986 6.23268 2.73958 6.07296C2.89931 5.91324 3.09722 5.83337 3.33333 5.83337C3.56944 5.83337 3.76736 5.91324 3.92708 6.07296C4.08681 6.23268 4.16667 6.4306 4.16667 6.66671C4.16667 6.90282 4.08681 7.10074 3.92708 7.26046C3.76736 7.42018 3.56944 7.50004 3.33333 7.50004ZM3.33333 10.8334C3.09722 10.8334 2.89931 10.7535 2.73958 10.5938C2.57986 10.4341 2.5 10.2362 2.5 10C2.5 9.76393 2.57986 9.56601 2.73958 9.40629C2.89931 9.24657 3.09722 9.16671 3.33333 9.16671C3.56944 9.16671 3.76736 9.24657 3.92708 9.40629C4.08681 9.56601 4.16667 9.76393 4.16667 10C4.16667 10.2362 4.08681 10.4341 3.92708 10.5938C3.76736 10.7535 3.56944 10.8334 3.33333 10.8334ZM3.33333 14.1667C3.09722 14.1667 2.89931 14.0868 2.73958 13.9271C2.57986 13.7674 2.5 13.5695 2.5 13.3334C2.5 13.0973 2.57986 12.8993 2.73958 12.7396C2.89931 12.5799 3.09722 12.5 3.33333 12.5C3.56944 12.5 3.76736 12.5799 3.92708 12.7396C4.08681 12.8993 4.16667 13.0973 4.16667 13.3334C4.16667 13.5695 4.08681 13.7674 3.92708 13.9271C3.76736 14.0868 3.56944 14.1667 3.33333 14.1667Z" fill="currentColor"/>
         </svg>
-        Liste
+        {{ 'design.tabList' | translate }}
       </adb-tab>
       <adb-tab slot="tab">
         <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M2.49967 15.8333C2.04134 15.8333 1.64898 15.6701 1.32259 15.3437C0.996202 15.0173 0.833008 14.625 0.833008 14.1666V5.83329C0.833008 5.37496 0.996202 4.9826 1.32259 4.65621C1.64898 4.32982 2.04134 4.16663 2.49967 4.16663H10.833C11.2913 4.16663 11.6837 4.32982 12.0101 4.65621C12.3365 4.9826 12.4997 5.37496 12.4997 5.83329V14.1666C12.4997 14.625 12.3365 15.0173 12.0101 15.3437C11.6837 15.6701 11.2913 15.8333 10.833 15.8333H2.49967ZM14.9997 9.16663C14.7636 9.16663 14.5656 9.08677 14.4059 8.92704C14.2462 8.76732 14.1663 8.5694 14.1663 8.33329V4.99996C14.1663 4.76385 14.2462 4.56593 14.4059 4.40621C14.5656 4.24649 14.7636 4.16663 14.9997 4.16663H18.333C18.5691 4.16663 18.767 4.24649 18.9268 4.40621C19.0865 4.56593 19.1663 4.76385 19.1663 4.99996V8.33329C19.1663 8.5694 19.0865 8.76732 18.9268 8.92704C18.767 9.08677 18.5691 9.16663 18.333 9.16663H14.9997ZM15.833 7.49996H17.4997V5.83329H15.833V7.49996ZM2.49967 14.1666H10.833V5.83329H2.49967V14.1666ZM3.33301 12.5H9.99967L7.81217 9.58329L6.24967 11.6666L5.10384 10.1458L3.33301 12.5ZM14.9997 15.8333C14.7636 15.8333 14.5656 15.7534 14.4059 15.5937C14.2462 15.434 14.1663 15.2361 14.1663 15V11.6666C14.1663 11.4305 14.2462 11.2326 14.4059 11.0729C14.5656 10.9132 14.7636 10.8333 14.9997 10.8333H18.333C18.5691 10.8333 18.767 10.9132 18.9268 11.0729C19.0865 11.2326 19.1663 11.4305 19.1663 11.6666V15C19.1663 15.2361 19.0865 15.434 18.9268 15.5937C18.767 15.7534 18.5691 15.8333 18.333 15.8333H14.9997ZM15.833 14.1666H17.4997V12.5H15.833V14.1666Z" fill="currentColor"/>
         </svg>
-        Galleri
+        {{ 'design.tabGallery' | translate }}
       </adb-tab>
       <adb-tab slot="tab">
         <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M13.333 16.6667V10.8334H16.6663V16.6667H13.333ZM8.33301 16.6667V3.33337H11.6663V16.6667H8.33301ZM3.33301 16.6667V7.50004H6.66634V16.6667H3.33301Z" fill="currentColor"/>
         </svg>
-        Statistikk
+        {{ 'design.tabStatistics' | translate }}
       </adb-tab>
-      <adb-tab slot="actions"><adb-button variant="secondary" size="sm">Eksporter utvalg</adb-button></adb-tab>
+      <adb-tab slot="actions"><adb-button variant="secondary" size="sm">{{ 'design.exportSelection' | translate }}</adb-button></adb-tab>
     </adb-tabs>
   </div>
   <div>
-    <h3>Ikonknapp</h3>
+    <h3>{{ 'design.iconButton' | translate }}</h3>
     <adb-icon-button>
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="white"/>
@@ -69,166 +69,355 @@
     </adb-icon-button>
   </div>
   <div>
-    <h3>Knapper</h3>
+    <h3>{{ 'design.buttons' | translate }}</h3>
     <div  class="button-grid">
       <adb-button variant="primary" size="sm">
-        Primær liten
+        {{ 'design.primarySmall' | translate }}
       </adb-button>
       <adb-button variant="primary" size="md">
-        Primær medium
+        {{ 'design.primaryMedium' | translate }}
       </adb-button>
       <adb-button variant="primary" size="lg">
-        Primær stor
+        {{ 'design.primaryLarge' | translate }}
       </adb-button>
       <adb-button variant="primary" size="md" disabled>
-        Primær disabled
+        {{ 'design.primaryDisabled' | translate }}
       </adb-button>
       <adb-button variant="primary" size="md" color="danger">
-        Primær danger
+        {{ 'design.primaryDanger' | translate }}
       </adb-button>
       <adb-button variant="primary" size="md" color="danger" disabled>
-        Primær danger disabled
+        {{ 'design.primaryDangerDisabled' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="sm">
-        Sekundær liten
+        {{ 'design.secondarySmall' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="md">
-        Sekundær medium
+        {{ 'design.secondaryMedium' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="lg">
-        Sekundær stor
+        {{ 'design.secondaryLarge' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="md" disabled>
-        Sekundær disabled
+        {{ 'design.secondaryDisabled' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="md" color="danger">
-        Sekundær danger
+        {{ 'design.secondaryDanger' | translate }}
       </adb-button>
       <adb-button variant="secondary" size="md" color="danger" disabled>
-        Sekundær danger disabled
+        {{ 'design.secondaryDangerDisabled' | translate }}
       </adb-button>
       <adb-button variant="tertiary" size="sm">
-        Tertiær liten
+        {{ 'design.tertiarySmall' | translate }}
       </adb-button>
       <adb-button variant="tertiary" size="md">
-        Tertiær medium
+        {{ 'design.tertiaryMedium' | translate }}
       </adb-button>
       <adb-button variant="tertiary" size="lg">
-        Tertiær stor
+        {{ 'design.tertiaryLarge' | translate }}
       </adb-button>
       <adb-button variant="tertiary" size="md" disabled>
-        Tertiær disabled
+        {{ 'design.tertiaryDisabled' | translate }}
       </adb-button>
     </div>
   </div>
   <div>
-    <h3>Radioknapper</h3>
-    <adb-radio-group label="Velg et alternativ (vertical)">
-      <adb-radio>Alternativ 1</adb-radio>
-      <adb-radio>Alternativ 2</adb-radio>
+    <h3>{{ 'design.radioButtons' | translate }}</h3>
+    <adb-radio-group [attr.label]="'design.radioLabelVertical' | translate">
+      <adb-radio>{{ 'design.radioOption1' | translate }}</adb-radio>
+      <adb-radio>{{ 'design.radioOption2' | translate }}</adb-radio>
     </adb-radio-group>
-    <adb-radio-group label="Velg et alternativ (horizontal)" orientation="horizontal">
-      <adb-radio>Alternativ 1</adb-radio>
-      <adb-radio>Alternativ 2</adb-radio>
+    <adb-radio-group [attr.label]="'design.radioLabelHorizontal' | translate" orientation="horizontal">
+      <adb-radio>{{ 'design.radioOption1' | translate }}</adb-radio>
+      <adb-radio>{{ 'design.radioOption2' | translate }}</adb-radio>
     </adb-radio-group>
-    <adb-radio-group label="Velg et alternativ (disabled)" orientation="horizontal" disabled>
-      <adb-radio>Alternativ 1</adb-radio>
-      <adb-radio>Alternativ 2</adb-radio>
+    <adb-radio-group [attr.label]="'design.radioLabelDisabled' | translate" orientation="horizontal" disabled>
+      <adb-radio>{{ 'design.radioOption1' | translate }}</adb-radio>
+      <adb-radio>{{ 'design.radioOption2' | translate }}</adb-radio>
     </adb-radio-group>
   </div>
   <div class="accordion-wrapper">
-    <h3>Trekkspill (Accordion)</h3>
-    <h4>Neutral</h4>
+    <h3>{{ 'design.accordion' | translate }}</h3>
+    <h4>{{ 'design.accordionNeutral' | translate }}</h4>
     <adb-accordion>
-      <adb-accordion-item heading="Artsgrupper">
+      <adb-accordion-item [attr.heading]="'design.accordionSpeciesGroups' | translate">
         <p>Proin lobortis placerat aliquet. Suspendisse pellentesque blandit neque a bibendum.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Artstre">
+      <adb-accordion-item [attr.heading]="'design.accordionSpeciesTree' | translate">
         <p>Fusce mollis nunc eget lectus pharetra rhoncus a placerat lacus.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Rødliste- og fremmedartkategorier">
+      <adb-accordion-item [attr.heading]="'design.accordionRedlistCategories' | translate">
         <p>Nunc sollicitudin orci id neque venenatis, at aliquet dolor finibus.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Område">
+      <adb-accordion-item [attr.heading]="'design.accordionArea' | translate">
         <p>Donec porttitor luctus massa, sed sollicitudin velit fermentum id.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Koordinatpresisjon">
+      <adb-accordion-item [attr.heading]="'design.accordionCoordinatePrecision' | translate">
         <p>Donec justo purus, viverra vitae magna ut, suscipit interdum odio.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Periode">
+      <adb-accordion-item [attr.heading]="'design.accordionPeriod' | translate">
         <p>Nam sodales sollicitudin tellus, porta efficitur lacus facilisis sit amet.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Habitat- og Artsegenskaper">
+      <adb-accordion-item [attr.heading]="'design.accordionHabitat' | translate">
         <p>Sed vitae feugiat ex. Morbi consequat quam eget tristique lacinia.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Funntype">
+      <adb-accordion-item [attr.heading]="'design.accordionFindType' | translate">
         <p>Quisque risus lacus, sodales vitae molestie a, eleifend eget massa</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Institusjoner">
+      <adb-accordion-item [attr.heading]="'design.accordionInstitutions' | translate">
         <p>Curabitur augue lectus, porta vel interdum in, faucibus sed nunc.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Uker og Måneder">
+      <adb-accordion-item [attr.heading]="'design.accordionWeeksMonths' | translate">
         <p>Vivamus non vulputate nunc. Proin rhoncus massa sed turpis efficitur, quis lobortis dolor lacinia.</p>
       </adb-accordion-item>
     </adb-accordion>
-    <h4>Subtle</h4>
+    <h4>{{ 'design.accordionSubtle' | translate }}</h4>
     <adb-accordion variant="subtle">
-      <adb-accordion-item heading="Artsgrupper">
+      <adb-accordion-item [attr.heading]="'design.accordionSpeciesGroups' | translate">
         <p>Proin lobortis placerat aliquet. Suspendisse pellentesque blandit neque a bibendum.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Artstre">
+      <adb-accordion-item [attr.heading]="'design.accordionSpeciesTree' | translate">
         <p>Fusce mollis nunc eget lectus pharetra rhoncus a placerat lacus.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Rødliste- og fremmedartkategorier">
+      <adb-accordion-item [attr.heading]="'design.accordionRedlistCategories' | translate">
         <p>Nunc sollicitudin orci id neque venenatis, at aliquet dolor finibus.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Område">
+      <adb-accordion-item [attr.heading]="'design.accordionArea' | translate">
         <p>Donec porttitor luctus massa, sed sollicitudin velit fermentum id.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Koordinatpresisjon">
+      <adb-accordion-item [attr.heading]="'design.accordionCoordinatePrecision' | translate">
         <p>Donec justo purus, viverra vitae magna ut, suscipit interdum odio.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Periode">
+      <adb-accordion-item [attr.heading]="'design.accordionPeriod' | translate">
         <p>Nam sodales sollicitudin tellus, porta efficitur lacus facilisis sit amet.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Habitat- og Artsegenskaper">
+      <adb-accordion-item [attr.heading]="'design.accordionHabitat' | translate">
         <p>Sed vitae feugiat ex. Morbi consequat quam eget tristique lacinia.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Funntype">
+      <adb-accordion-item [attr.heading]="'design.accordionFindType' | translate">
         <p>Quisque risus lacus, sodales vitae molestie a, eleifend eget massa</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Institusjoner">
+      <adb-accordion-item [attr.heading]="'design.accordionInstitutions' | translate">
         <p>Curabitur augue lectus, porta vel interdum in, faucibus sed nunc.</p>
       </adb-accordion-item>
-      <adb-accordion-item heading="Uker og Måneder">
+      <adb-accordion-item [attr.heading]="'design.accordionWeeksMonths' | translate">
         <p>Vivamus non vulputate nunc. Proin rhoncus massa sed turpis efficitur, quis lobortis dolor lacinia.</p>
       </adb-accordion-item>
     </adb-accordion>
   </div>
   <div class="alert-wrapper">
-    <h3>Varsel</h3>
-    <adb-alert variant="danger" heading="Fare (danger) global" global>
-      <p>Her kan du legge inn mer informasjon.</p>
+    <h3>{{ 'design.alerts' | translate }}</h3>
+    <adb-alert variant="danger" [attr.heading]="'design.alertDangerGlobal' | translate" global>
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="danger" heading="Fare (danger)">
-      <p>Her kan du legge inn mer informasjon.</p>
+    <adb-alert variant="danger" [attr.heading]="'design.alertDanger' | translate">
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="warning" heading="Advarsel (warning)">
-      <p>Her kan du legge inn mer informasjon.</p>
+    <adb-alert variant="warning" [attr.heading]="'design.alertWarning' | translate">
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="success" closable heading="Suksess (success)" auto-close>
-      <p>Her kan du legge inn mer informasjon.</p>
+    <adb-alert variant="success" closable [attr.heading]="'design.alertSuccess' | translate" auto-close>
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="info" closable heading="Informasjon" auto-close>
-      <span slot="meta">Dato: 30. april 2025</span>
-      <p>Her kan du legge inn mer informasjon.</p>
+    <adb-alert variant="info" closable [attr.heading]="'design.alertInfo' | translate" auto-close>
+      <span slot="meta">{{ 'design.alertMetaDate' | translate }}</span>
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="neutral" closable heading="Nøytral (neutral)" auto-close>
-      <p>Her kan du legge inn mer informasjon.</p>
+    <adb-alert variant="neutral" closable [attr.heading]="'design.alertNeutral' | translate" auto-close>
+      <p>{{ 'design.alertMoreInfo' | translate }}</p>
     </adb-alert>
-    <adb-alert variant="danger" heading="Fare (danger) inline" type="inline" />
-    <adb-alert variant="warning" heading="Advarsel (warning) inline" type="inline" />
-    <adb-alert variant="success" closable heading="Suksess (success) inline" type="inline" />
-    <adb-alert variant="neutral" closable heading="Nøytral (neutral) inline" type="inline" />
+    <adb-alert variant="danger" [attr.heading]="'design.alertDangerInline' | translate" type="inline" />
+    <adb-alert variant="warning" [attr.heading]="'design.alertWarningInline' | translate" type="inline" />
+    <adb-alert variant="success" closable [attr.heading]="'design.alertSuccessInline' | translate" type="inline" />
+    <adb-alert variant="neutral" closable [attr.heading]="'design.alertNeutralInline' | translate" type="inline" />
+  </div>
+  <div>
+    <h3>{{ 'design.minimalButton' | translate }}</h3>
+    <div class="button-grid">
+      <adb-minimal-button size="sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+      <adb-minimal-button size="md">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+      <adb-minimal-button size="lg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+      <adb-minimal-button variant="attention" size="sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M6 19C5.45 19 4.97917 18.8042 4.5875 18.4125C4.19583 18.0208 4 17.55 4 17V7C4 6.45 4.19583 5.97917 4.5875 5.5875C4.97917 5.19583 5.45 5 6 5H18C18.55 5 19.0208 5.19583 19.4125 5.5875C19.8042 5.97917 20 6.45 20 7V17C20 17.55 19.8042 18.0208 19.4125 18.4125C19.0208 18.8042 18.55 19 18 19H6ZM6 17H18V7H6V17ZM8 15H16L13.25 11.25L11 14.1L9.25 11.75L8 15Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+      <adb-minimal-button variant="attention" size="md">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+      <adb-minimal-button disabled size="md">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M11 13H5V11H11V5H13V11H19V13H13V19H11V13Z" fill="currentColor"/>
+        </svg>
+      </adb-minimal-button>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.searchField' | translate }}</h3>
+    <div class="search-wrapper">
+      <adb-search [attr.placeholder]="'design.searchPlaceholder' | translate" size="md"></adb-search>
+      <adb-search [attr.placeholder]="'design.searchPlaceholder' | translate" size="sm"></adb-search>
+      <adb-search [attr.placeholder]="'design.searchPlaceholder' | translate" variant="standalone" size="md"></adb-search>
+      <adb-search [attr.placeholder]="'design.searchPlaceholder' | translate" button-variant="filled" size="md"></adb-search>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.darkModeToggle' | translate }}</h3>
+    <adb-dark-mode-toggle></adb-dark-mode-toggle>
+  </div>
+  <div>
+    <h3>{{ 'design.menuButton' | translate }}</h3>
+    <div class="component-row">
+      <adb-menu-toggle></adb-menu-toggle>
+      <adb-menu-toggle open></adb-menu-toggle>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.logo' | translate }}</h3>
+    <div class="component-row">
+      <adb-logo size="sm" href="#"></adb-logo>
+      <adb-logo size="md" href="#"></adb-logo>
+      <adb-logo size="lg" href="#"></adb-logo>
+      <adb-logo size="md" language="en" href="#"></adb-logo>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.avatar' | translate }}</h3>
+    <div class="component-row">
+      <adb-avatar size="sm"></adb-avatar>
+      <adb-avatar size="md"></adb-avatar>
+      <adb-avatar size="lg"></adb-avatar>
+      <adb-avatar size="md" background="rounded"></adb-avatar>
+      <adb-avatar size="md" background="circle"></adb-avatar>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.dropdown' | translate }}</h3>
+    <div class="component-row">
+      <adb-dropdown [attr.label]="'design.dropdownChoose' | translate" size="sm">
+        <adb-dropdown-group [attr.label]="'design.dropdownGroup1' | translate">
+          <adb-dropdown-item value="1">{{ 'design.dropdownOption1' | translate }}</adb-dropdown-item>
+          <adb-dropdown-item value="2">{{ 'design.dropdownOption2' | translate }}</adb-dropdown-item>
+        </adb-dropdown-group>
+        <adb-dropdown-group [attr.label]="'design.dropdownGroup2' | translate">
+          <adb-dropdown-item value="3">{{ 'design.dropdownOption3' | translate }}</adb-dropdown-item>
+          <adb-dropdown-item value="4" disabled>{{ 'design.dropdownOption4Disabled' | translate }}</adb-dropdown-item>
+        </adb-dropdown-group>
+      </adb-dropdown>
+      <adb-dropdown [attr.label]="'design.dropdownSorting' | translate" variant="secondary" size="sm">
+        <adb-dropdown-item value="name">{{ 'design.dropdownName' | translate }}</adb-dropdown-item>
+        <adb-dropdown-item value="date" selected>{{ 'design.dropdownDate' | translate }}</adb-dropdown-item>
+        <adb-dropdown-item value="relevance">{{ 'design.dropdownRelevance' | translate }}</adb-dropdown-item>
+      </adb-dropdown>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.toc' | translate }}</h3>
+    <div class="toc-wrapper">
+      <adb-toc default-open>
+        <adb-toc-item href="#" active>{{ 'design.tocIntroduction' | translate }}</adb-toc-item>
+        <adb-toc-item href="#">{{ 'design.tocMethod' | translate }}</adb-toc-item>
+        <adb-toc-item href="#">{{ 'design.tocResults' | translate }}</adb-toc-item>
+        <adb-toc-item href="#">{{ 'design.tocDiscussion' | translate }}</adb-toc-item>
+        <adb-toc-item href="#">{{ 'design.tocReferences' | translate }}</adb-toc-item>
+      </adb-toc>
+      <adb-toc variant="narrow" default-open>
+        <adb-toc-item href="#">{{ 'design.tocIntroduction' | translate }}</adb-toc-item>
+        <adb-toc-item href="#" active>{{ 'design.tocMethod' | translate }}</adb-toc-item>
+        <adb-toc-item href="#">{{ 'design.tocResults' | translate }}</adb-toc-item>
+      </adb-toc>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.pagination' | translate }}</h3>
+    <div class="pagination-wrapper">
+      <h4>{{ 'design.paginationStandard' | translate }}</h4>
+      <adb-pagination current-page="3" total-pages="10"></adb-pagination>
+      <h4>{{ 'design.paginationWithPageSize' | translate }}</h4>
+      <adb-pagination current-page="2" total-pages="20" page-size="25" page-size-options="10,25,50,100" total-items="500" show-jump-to></adb-pagination>
+      <h4>{{ 'design.paginationSmall' | translate }}</h4>
+      <adb-pagination current-page="1" total-pages="5" size="sm"></adb-pagination>
+      <h4>{{ 'design.paginationLarge' | translate }}</h4>
+      <adb-pagination current-page="4" total-pages="8" size="lg"></adb-pagination>
+    </div>
+  </div>
+  <div>
+    <h3>{{ 'design.icons' | translate }}</h3>
+    <div class="icon-grid">
+      <div class="icon-item">
+        <adb-icon name="arrow-back"></adb-icon>
+        <span>arrow-back</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="campaign"></adb-icon>
+        <span>campaign</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="check-circle"></adb-icon>
+        <span>check-circle</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="close"></adb-icon>
+        <span>close</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="dark-mode"></adb-icon>
+        <span>dark-mode</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="error"></adb-icon>
+        <span>error</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="info"></adb-icon>
+        <span>info</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="light-mode"></adb-icon>
+        <span>light-mode</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="menu"></adb-icon>
+        <span>menu</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="open-in-new"></adb-icon>
+        <span>open-in-new</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="search"></adb-icon>
+        <span>search</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="sort"></adb-icon>
+        <span>sort</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="unfold-less"></adb-icon>
+        <span>unfold-less</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="unfold-more"></adb-icon>
+        <span>unfold-more</span>
+      </div>
+      <div class="icon-item">
+        <adb-icon name="warning"></adb-icon>
+        <span>warning</span>
+      </div>
+    </div>
   </div>
 </section>

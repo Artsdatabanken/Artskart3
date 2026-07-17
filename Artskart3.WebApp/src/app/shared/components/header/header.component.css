@@ -164,9 +164,16 @@
   padding: var(--adb-spacing-2xsm);
 }
 
+.close-btn {
+  font-size: var(--adb-font-size-3);
+}
+
 .language-control {
   display: flex;
   align-items: center;
+  position: relative;
+  overflow: visible;
+  z-index: 1002;
 }
 
 .language-btn {
@@ -190,6 +197,7 @@
   padding: var(--adb-spacing-md) 0;
   display: flex;
   flex-direction: column;
+  min-height: 300px;
   max-height: calc(100vh - 80px);
   overflow-y: auto;
   overflow-x: visible;
@@ -256,11 +264,6 @@
   overflow: visible;
 }
 
-/* Language control wrapper for dropdown positioning */
-.language-control {
-  overflow: visible;
-  z-index: 1002;
-}
 
 /* ============================================================================
    RESPONSIVE DESIGN
@@ -291,12 +294,25 @@
 
   .header-right .language-control,
   .header-right .icon-btn,
+  .header-right .user-control,
   .header-right > button.header-btn:not(.burger-menu-btn):not(.close-btn) {
     display: none !important;
   }
 
   .service-name {
     margin-right: 0;
+  }
+
+  .header.menu-open {
+    justify-content: center;
+  }
+
+  .header.menu-open .header-left {
+    display: none;
+  }
+
+  .header.menu-open .header-right {
+    margin-left: auto;
   }
 }
 

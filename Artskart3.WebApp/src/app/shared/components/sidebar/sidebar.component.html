@@ -17,7 +17,7 @@
                 <adb-checkbox [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null" (change)="onTaxonGroupToggle(taxonGroup.id)">
                   {{ taxonGroup.name }}
                   @if (taxonGroup.observationCount !== null && taxonGroup.observationCount !== undefined) {
-                    <span slot="counter">{{ taxonGroup.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ taxonGroup.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
               }
@@ -49,7 +49,7 @@
                     <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                       {{ category.name }} {{ category.code }}
                       @if (category.observationCount !== null && category.observationCount !== undefined) {
-                        <span slot="counter">{{ category.observationCount | formatNumber }}</span>
+                        <span slot="counter">{{ category.observationCount | formatNumber:translate.currentLang }}</span>
                       }
                     </adb-checkbox>
                   }
@@ -81,7 +81,7 @@
                 >
                   {{ group.county.name }}
                   @if (group.county.observationCount !== null && group.county.observationCount !== undefined) {
-                    <span slot="counter">{{ group.county.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ group.county.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
                 <div class="category-children">
@@ -93,7 +93,7 @@
                       >
                         {{ municipality.name }}
                         @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
-                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                          <span slot="counter">{{ municipality.observationCount | formatNumber:translate.currentLang }}</span>
                         }
                       </adb-checkbox>
                     }
@@ -115,7 +115,7 @@
                 >
                   {{ janMayen.county.name }}
                   @if (janMayen.county.observationCount !== null && janMayen.county.observationCount !== undefined) {
-                    <span slot="counter">{{ janMayen.county.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ janMayen.county.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
                 <div class="category-children">
@@ -127,7 +127,7 @@
                       >
                         {{ municipality.name }}
                         @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
-                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                          <span slot="counter">{{ municipality.observationCount | formatNumber:translate.currentLang }}</span>
                         }
                       </adb-checkbox>
                     }
@@ -149,7 +149,7 @@
                 >
                   {{ svalbard.county.name }}
                   @if (svalbard.county.observationCount !== null && svalbard.county.observationCount !== undefined) {
-                    <span slot="counter">{{ svalbard.county.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ svalbard.county.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
                 <div class="category-children">
@@ -161,7 +161,7 @@
                       >
                         {{ municipality.name }}
                         @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
-                          <span slot="counter">{{ municipality.observationCount | formatNumber }}</span>
+                          <span slot="counter">{{ municipality.observationCount | formatNumber:translate.currentLang }}</span>
                         }
                       </adb-checkbox>
                     }
@@ -178,7 +178,7 @@
                   <adb-checkbox [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null" (change)="onOceanAreaToggle(area.fid)">
                     {{ area.name }}
                     @if (area.observationCount !== null && area.observationCount !== undefined) {
-                      <span slot="counter">{{ area.observationCount | formatNumber }}</span>
+                      <span slot="counter">{{ area.observationCount | formatNumber:translate.currentLang }}</span>
                     }
                   </adb-checkbox>
                 }
@@ -269,7 +269,7 @@
                 <adb-checkbox [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null" (change)="onBehaviorToggle(behavior.id)">
                   {{ getBehaviorDisplayName(behavior) }}
                   @if (behavior.observationCount !== null && behavior.observationCount !== undefined) {
-                    <span slot="counter">{{ behavior.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ behavior.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
               }
@@ -293,7 +293,7 @@
                 >
                   {{ getBasisOfRecordDisplayName(basisOfRecord) }}
                   @if (basisOfRecord.observationCount !== null && basisOfRecord.observationCount !== undefined) {
-                    <span slot="counter">{{ basisOfRecord.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ basisOfRecord.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
               }
@@ -334,7 +334,7 @@
                 >
                   {{ institution.name }}
                   @if (institution.observationCount !== null && institution.observationCount !== undefined) {
-                    <span slot="counter">{{ institution.observationCount | formatNumber }}</span>
+                    <span slot="counter">{{ institution.observationCount | formatNumber:translate.currentLang }}</span>
                   }
                 </adb-checkbox>
               }

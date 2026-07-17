@@ -193,6 +193,74 @@ a:focus-visible {
   width: auto;
 }
 
+.mobile-user-dropdown {
+  top: 100%;
+  left: 0;
+  right: auto;
+  transform: none;
+  margin-top: 4px;
+  z-index: 2000 !important;
+  position: absolute;
+  min-width: 160px;
+}
+
+.user-control {
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: visible;
+  z-index: 1002;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--adb-background-default);
+  min-width: 160px;
+  margin-top: 1px;
+  z-index: 1001;
+  overflow: hidden;
+  padding: var(--adb-spacing-xsm);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--adb-spacing-2xsm);
+  border: 1px solid var(--adb-border-default);
+  border-radius: var(--adb-border-radius-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.user-dropdown-item {
+  display: block;
+  padding: var(--adb-spacing-sm) var(--adb-spacing-md);
+  color: var(--adb-text-primary);
+  text-decoration: none;
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-3);
+  border-radius: var(--adb-border-radius-sm);
+}
+
+.user-dropdown-item:hover {
+  background: var(--adb-background-subtle);
+  color: var(--adb-text-hover);
+}
+
+.user-dropdown-item:focus-visible {
+  outline: 4px solid var(--adb-focus-outer);
+  outline-offset: 2px;
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background-color: var(--adb-border-default);
+  margin: var(--adb-spacing-2xsm) 0;
+}
+
+.user-dropdown adb-button {
+  width: 100%;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
