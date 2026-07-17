@@ -20,6 +20,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public int[]? BehaviorIds { get; set; }
 
+    public int? RegistrationStatusId { get; set; }
+
     public CoordinatePrecisionDto? CoordinatePrecision { get; set; }
 
     public PeriodDto? Period { get; set; }
@@ -31,6 +33,7 @@ public class LocationSearchFilterDto : IObservationFilter
         TaxonGroupIds?.Length > 0 ||
         CategoryIds?.Length > 0 ||
         BasisOfRecordIds?.Length > 0 ||
+        RegistrationStatusId.HasValue ||
         OrganizationIds?.Length > 0 ||
         MunicipalityIds?.Length > 0 ||
         CountyIds?.Length > 0 ||
@@ -52,6 +55,7 @@ public class LocationSearchFilterDto : IObservationFilter
         TaxonGroupIds?.Length > 0 ||
         CategoryIds?.Length > 0 ||
         BasisOfRecordIds?.Length > 0 ||
+        RegistrationStatusId.HasValue ||
         OrganizationIds?.Length > 0 ||
         RestrictedAreaIds?.Length > 0 ||
         BehaviorIds?.Length > 0 ||

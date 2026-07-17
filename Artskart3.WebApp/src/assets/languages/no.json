@@ -84,6 +84,9 @@
     "basisOfRecordName": {
       "assessment": "Sakkyndig vurdering",
       "carcassobservation": "Kadaverundersøkelse",
+      "dna": "DNA",
+      "edna": "eDNA",
+      "edna_barcoding": "eDNA Barcoding",
       "fossil_specimen": "Fossil",
       "humanobservation": "Menneskelig observasjon",
       "litteratur": "Litteratur",
@@ -93,6 +96,16 @@
       "objekt": "Belagt funn",
       "observasjon": "Observasjon",
       "unrecognised": "Ukjent"
+    },
+    "registrering": "Registrering",
+    "registreringStatus": {
+      "alle": "Alle (standard)",
+      "present": "Funn",
+      "presentDescription": "Faktiske funn",
+      "absent": "Ikke funnet",
+      "absentDescription": "Målrettet søk uten funn",
+      "notrefound": "Ikke gjenfunnet",
+      "notrefoundDescription": "Målrettet søk på tidligere kjent lokalitet uten gjenfunn"
     },
     "areaSection": {
       "fastlandsNorge": "Fastlands-Norge",

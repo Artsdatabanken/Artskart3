@@ -10,6 +10,7 @@ export class FilterStateService {
   readonly selectedInstitutionIds = signal<number[]>([]);
   readonly selectedBehaviorIds = signal<number[]>([]);
   readonly selectedBasisOfRecordIds = signal<number[]>([]);
+  readonly selectedRegistrationStatusId = signal<number | null>(null);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
@@ -135,6 +136,14 @@ export class FilterStateService {
     this.selectedBasisOfRecordIds.set([]);
   }
 
+  setRegistrationStatus(id: number | null): void {
+    this.selectedRegistrationStatusId.set(id);
+  }
+
+  clearRegistrationStatus(): void {
+    this.selectedRegistrationStatusId.set(null);
+  }
+
   toggleTaxonGroup(id: number): void {
     this.selectedTaxonGroupIds.update((ids) =>
       ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
@@ -198,6 +207,7 @@ export class FilterStateService {
     this.clearInstitutions();
     this.clearBehaviors();
     this.clearBasisOfRecords();
+    this.clearRegistrationStatus();
     this.clearTaxonGroups();
     this.clearCoordinatePrecision();
     this.clearPeriod();

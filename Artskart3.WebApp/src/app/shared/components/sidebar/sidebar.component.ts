@@ -4,6 +4,7 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -16,6 +17,12 @@ import { TaxonGroupService } from '../../services/taxon-group/taxon-group.servic
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
+
+interface RegistreringOption {
+  id: number | null;
+  labelKey: string;
+  descriptionKey?: string;
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -34,6 +41,13 @@ export class SidebarComponent {
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
   private readonly translate = inject(TranslateService);
+
+  readonly registreringOptions: RegistreringOption[] = [
+    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
+    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
+    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
+    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
+  ];
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -58,7 +72,14 @@ export class SidebarComponent {
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
-  readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly basisOfRecords = computed(() => {
+    const list = this.basisOfRecordsResource.value() ?? [];
+    return [...list].sort((a, b) => {
+      const nameA = this.getBasisOfRecordDisplayName(a).toLowerCase();
+      const nameB = this.getBasisOfRecordDisplayName(b).toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+  });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
   readonly janMayenGroup = this.areaService.janMayenGroup;
@@ -180,6 +201,14 @@ export class SidebarComponent {
 
   onBasisOfRecordToggle(id: number): void {
     this.filterState.toggleBasisOfRecord(id);
+  }
+
+  isRegistrationStatusSelected(id: number | null): boolean {
+    return this.filterState.selectedRegistrationStatusId() === id;
+  }
+
+  onRegistrationStatusChange(id: number | null): void {
+    this.filterState.setRegistrationStatus(id);
   }
 
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {

@@ -301,6 +301,23 @@
           </div>
         }
       }
+
+      <h6 class="filter-section-subheading">{{ 'sidebar.registrering' | translate }}</h6>
+
+      <div class="radio-group">
+        @for (option of registreringOptions; track option.id) {
+          <adb-radio
+            name="registrationStatus"
+            [attr.checked]="isRegistrationStatusSelected(option.id) ? '' : null"
+            (change)="onRegistrationStatusChange(option.id)"
+          >
+            {{ option.labelKey | translate }}
+            @if (option.descriptionKey) {
+              <span class="radio-description">{{ option.descriptionKey | translate }}</span>
+            }
+          </adb-radio>
+        }
+      </div>
     </adb-accordion-item>
   </adb-accordion>
 

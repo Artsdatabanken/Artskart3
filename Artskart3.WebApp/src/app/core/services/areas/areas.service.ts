@@ -274,6 +274,7 @@ export interface LocationSearchFilter {
   organizationIds?: number[];
   behaviorIds?: number[];
   basisOfRecordIds?: number[];
+  registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
@@ -349,6 +350,7 @@ export class AreasService {
       if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
       if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
       if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
