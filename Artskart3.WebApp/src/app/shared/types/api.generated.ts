@@ -992,6 +992,7 @@ export interface components {
             from?: number | null;
             /** Format: int32 */
             to?: number | null;
+            months?: number[] | null;
         };
         StartExportRequestDto: {
             name?: string | null;

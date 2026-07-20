@@ -112,6 +112,21 @@
     "periodFrom": "Fra år",
     "periodTo": "Til år",
     "periodSearch": "Søk",
+    "periodMonths": "Måneder",
+    "months": {
+      "january": "Januar",
+      "february": "Februar",
+      "march": "Mars",
+      "april": "April",
+      "may": "Mai",
+      "june": "Juni",
+      "july": "Juli",
+      "august": "August",
+      "september": "September",
+      "october": "Oktober",
+      "november": "November",
+      "december": "Desember"
+    },
     "institutions": "Dataleverandører",
     "behaviors": "Habitat- og artsegenskaper",
     "behaviorName": {
