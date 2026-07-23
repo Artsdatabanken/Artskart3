@@ -5,5 +5,5 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces;
 public interface IObservationRepository
 {
     Task<ObservationDto> GetObservationDetails(int locationId, int observationId);
-    Task<IEnumerable<ObservationDto>> GetObservationByLocation(IEnumerable<int> locationIds);
+    Task<IEnumerable<ObservationDto>> GetObservationByLocations(IEnumerable<int> locationIds);
 }

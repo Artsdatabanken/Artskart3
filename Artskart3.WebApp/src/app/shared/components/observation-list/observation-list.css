@@ -13,6 +13,10 @@
   left: 0;
 }
 
+.observation-item {
+  margin-bottom: 1rem;
+}
+
 adb-accordion {
   --adb-border-default: transparent;
 }
