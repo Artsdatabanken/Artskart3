@@ -33,7 +33,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         }
     }
 
-    public async Task<IEnumerable<ObservationDto>> GetObservationByLocation(IEnumerable<int> locationIds)
+    public async Task<IEnumerable<ObservationDto>> GetObservationByLocations(IEnumerable<int> locationIds)
     {
         try
         {
