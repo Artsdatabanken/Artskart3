@@ -1,11 +1,18 @@
 <div class="observation-list">
-  @for (observation of observationList(); track observation.id) {
-    <adb-accordion class="observation-item">
-      <adb-accordion-item [attr.heading]="'observationList.location' | translate">
-        @if (observation.preferredPopularName) {
-          <p>{{ observation.preferredPopularName }}</p>
+  @if (groupedObservations().length === 0) {
+    <div class="empty-state">No observations found</div>
+  }
+  @for (group of groupedObservations(); track group.locationId) {
+    <adb-accordion>
+      <adb-accordion-item [attr.heading]="group.locationId + ' (' + group.observations.length + ')'">
+        @for (observation of group.observations; track observation.id) {
+          <div class="observation-item">
+            <div class="observation-popular-name">
+              {{observation.preferredPopularName || ""}}
+            </div>
+            <div class="observation-scientific-name" [innerHTML]="observation.scientificName" ]></div>
+          </div>
         }
-        <p [innerHTML]="observation.scientificName" ]></p>
       </adb-accordion-item>
     </adb-accordion>
   }
