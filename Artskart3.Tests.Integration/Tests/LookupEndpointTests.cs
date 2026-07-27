@@ -103,7 +103,7 @@ public class LookupEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetSearchOrganizations_Returns200WithJsonArray()
     {
-        var response = await _client.GetAsync("/api/Lookup/SearchOrganizations?search=test&maxCount=10");
+        var response = await _client.GetAsync("/api/Lookup/Organizations?search=test&maxCount=10");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
