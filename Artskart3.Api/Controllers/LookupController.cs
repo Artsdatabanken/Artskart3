@@ -56,7 +56,7 @@ public class LookupController : ControllerBase
     /// </summary>
     [HttpGet("Organizations")]
     [Produces("application/json")]
-    public async Task<ActionResult<IEnumerable<OrganizationDto>>> SearchOrganizations(
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchOrganizations(
         [FromQuery] string search,
         [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
         CancellationToken cancellationToken = default)
