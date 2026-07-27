@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,6 +49,30 @@ public class LookupController : ControllerBase
     {
         var institutions = await _lookupService.GetInstitutionsAsync(cancellationToken);
         return Ok(institutions);
+    }
+
+    /// <summary>
+    /// Returns organizations by name up to maxCount results matching the search term.
+    /// </summary>
+    [HttpGet("Organizations")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> SearchOrganizations(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var organizations = await _lookupService.SearchOrganizationsAsync(search, maxCount, cancellationToken);
+        return Ok(organizations);
     }
 
     /// <summary>

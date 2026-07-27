@@ -17,4 +17,9 @@ public interface IObservationFilter
     int[]? BasisOfRecordIds { get; }
     CoordinatePrecisionDto? CoordinatePrecision { get; }
     PeriodDto? Period { get; }
+    string? ProjectName { get; }
+    int? ProjectOrganizationId { get; }
+    string? CollectionCode { get; }
+    string? CatalogNumber { get; }
+    bool? WithImages { get; }
 }

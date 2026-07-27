@@ -917,6 +917,11 @@ export interface components {
             behaviorIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -977,6 +982,16 @@ export interface components {
             basisOfRecordIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
+        };
+        OrganizationDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
         };
         PagedObservationResponseDto: {
             items?: components["schemas"]["ObservationDto"][] | null;

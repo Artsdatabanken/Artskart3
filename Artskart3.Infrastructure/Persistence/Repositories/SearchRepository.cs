@@ -344,6 +344,36 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.DateTimeCollected <= toDate);
         }
 
+        if (filter.ProjectOrganizationId.HasValue)
+        {
+            var projectOrganizationId = filter.ProjectOrganizationId.Value;
+            query = query.Where(o => o.OrganizationRelations.Any(r => r.OrganizationId == projectOrganizationId));
+        }
+        else if (!string.IsNullOrWhiteSpace(filter.ProjectName))
+        {
+            var projectNamePattern = SqlWildcard + filter.ProjectName.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.OrganizationRelations.Any(r => EF.Functions.Like(r.Organization.Name, projectNamePattern)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.CollectionCode))
+        {
+            var collectionCodePattern = SqlWildcard + filter.CollectionCode.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.CollectionCode != null && EF.Functions.Like(o.CollectionCode, collectionCodePattern));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.CatalogNumber))
+        {
+            var catalogNumberPattern = SqlWildcard + filter.CatalogNumber.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.CatalogNumber != null && EF.Functions.Like(o.CatalogNumber, catalogNumberPattern));
+        }
+
+        if (filter.WithImages.HasValue)
+        {
+            query = filter.WithImages.Value
+                ? query.Where(o => o.MediaFiles.Any())
+                : query.Where(o => !o.MediaFiles.Any());
+        }
+
         return query;
     }
 

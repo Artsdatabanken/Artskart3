@@ -283,6 +283,11 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  projectName?: string;
+  projectOrganizationId?: number | null;
+  collectionCode?: string;
+  catalogNumber?: string;
+  withImages?: boolean | null;
 }
 
 @Injectable({
@@ -360,6 +365,11 @@ export class AreasService {
       if (filter.periodFrom != null || filter.periodTo != null) {
         body['period'] = { from: filter.periodFrom, to: filter.periodTo };
       }
+      if (filter.projectName) body['projectName'] = filter.projectName;
+      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
+      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
+      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 
     if (extent) {
