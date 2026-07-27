@@ -96,6 +96,22 @@ public class LookupEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // GET /api/Lookup/SearchOrganizations
+    // -----------------------------------------------------------------------
+
+
+    [Fact]
+    public async Task GetSearchOrganizations_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/SearchOrganizations?search=test&maxCount=10");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
     // GET /api/Lookup/Areas
     // -----------------------------------------------------------------------
 
