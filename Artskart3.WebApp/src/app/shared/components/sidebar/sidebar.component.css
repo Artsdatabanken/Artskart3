@@ -135,9 +135,47 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   width: fit-content;
 }
 
+  align-self: center;
+}
+
+adb-checkbox::part(text-wrapper) {
+  align-self: center;
+}
+
 .area-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-sm, 0.875rem);
   margin: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
+
+.category-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-code {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-family: Chivo, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.category-name {
+  color: var(--text-base-text-primary, #262F31);
+  font-family: var(--font-family-primary, Chivo);
+  font-size: var(--font-size-1, 11px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 150%;
+}
+
