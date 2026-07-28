@@ -135,6 +135,7 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   width: fit-content;
 }
 
+adb-checkbox::part(control) {
   align-self: center;
 }
 
