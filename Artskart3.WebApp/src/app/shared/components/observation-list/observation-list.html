@@ -13,10 +13,10 @@
     <adb-accordion class="observation-group">
       <adb-accordion-item class="observation-item" [attr.heading]="group.groupKey + ' (' + group.observations.length + ')'">
         @for (observation of group.observations; track observation.id) {
-          <div class="observation-popular-name">
-            {{observation.preferredPopularName || ""}}
+          <div class="observation-details">
+            {{observation.preferredPopularName || ""}} <div [innerHTML]="observation.scientificName"></div>
           </div>
-          <div class="observation-scientific-name" [innerHTML]="observation.scientificName"></div>
+
         }
       </adb-accordion-item>
     </adb-accordion>

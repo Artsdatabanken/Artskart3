@@ -33,20 +33,23 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         }
     }
 
-    public async Task<IEnumerable<ObservationDto>> GetObservationByLocations(IEnumerable<int> locationIds)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(IEnumerable<int> locationIds)
     {
         try
         {
             IEnumerable<Observation> observations = await context.Set<Observation>()
                 .Include(o => o.Taxon)
+                .ThenInclude(t => t.TaxonGroup.Name)
                 .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
                 .ToListAsync();
-            IEnumerable<ObservationDto> observationDtos = observations.Select(o => new ObservationDto
+            IEnumerable<ObservationListInfoDto> observationDtos = observations.Select(o => new ObservationListInfoDto
             {
                 Id = o.Id,
                 PreferredPopularName = o.Taxon.PreferredPopularName ?? string.Empty,
                 ScientificName = o.Taxon.ValidScientificName ?? string.Empty,
+                Author = o.Taxon.ValidScientificNameAuthorship ?? string.Empty,
                 TaxonGroupId = o.TaxonGroupId,
+                TaxonGroupName = o.Taxon.TaxonGroup.Name ?? string.Empty,
                 Locality = o.LocationId.ToString(),
                 CategoryId = o.CategoryId
             });
