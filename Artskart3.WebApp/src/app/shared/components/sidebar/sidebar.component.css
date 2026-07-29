@@ -168,3 +168,9 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
 :host-context([data-theme='dark']) .radio-description {
   color: var(--adb-text-subtle, #aaa);
 }
+.period-months-heading {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  margin: var(--adb-spacing-sm, 12px) 0 0 0;
+  padding-inline-start: var(--adb-spacing-3xsm, 4px);
+}

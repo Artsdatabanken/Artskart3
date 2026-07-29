@@ -284,6 +284,7 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  periodMonths?: number[] | null;
 }
 
 @Injectable({
@@ -359,8 +360,12 @@ export class AreasService {
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }
-      if (filter.periodFrom != null || filter.periodTo != null) {
-        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      if (filter.periodFrom != null || filter.periodTo != null || filter.periodMonths?.length) {
+        body['period'] = {
+          from: filter.periodFrom,
+          to: filter.periodTo,
+          months: filter.periodMonths?.length ? filter.periodMonths : undefined,
+        };
       }
     }
 
