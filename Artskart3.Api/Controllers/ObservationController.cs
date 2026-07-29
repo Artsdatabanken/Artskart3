@@ -38,7 +38,7 @@ public class ObservationController(IObservationService observationService, ILogg
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to get observation by location.");
+            logger.LogError(e, "Failed to get observations by location.");
             throw;
         }
     }
