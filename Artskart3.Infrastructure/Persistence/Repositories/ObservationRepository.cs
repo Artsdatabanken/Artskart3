@@ -48,6 +48,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                 ScientificName = o.Taxon.ValidScientificName ?? string.Empty,
                 TaxonGroupId = o.TaxonGroupId,
                 Locality = o.LocationId.ToString(),
+                CategoryId = o.CategoryId
             });
             return observationDtos;
         }

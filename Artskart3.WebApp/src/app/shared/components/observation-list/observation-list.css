@@ -17,6 +17,15 @@
   margin-bottom: 1rem;
 }
 
+.filter-dropdown {
+  display: inline-flex;
+  padding: var(--spacing-spacing-2xsm, 4px) var(--spacing-spacing-xsm, 8px);
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-spacing-3xsm, 2px);
+  border-bottom: var(--spacing-spacing-3xsm, 2px) solid var(--border-base-border-subtle, #D2DDE0);
+}
+
 adb-accordion {
   --adb-border-default: transparent;
 }
