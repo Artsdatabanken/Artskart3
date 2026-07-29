@@ -16,6 +16,7 @@ export class FilterStateService {
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
   readonly periodTo = signal<number | null>(null);
+  readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -187,9 +188,20 @@ export class FilterStateService {
     this.periodTo.set(to);
   }
 
+  toggleMonth(month: number): void {
+    this.selectedMonths.update((months) =>
+      months.includes(month) ? months.filter((m) => m !== month) : [...months, month],
+    );
+  }
+
+  clearMonths(): void {
+    this.selectedMonths.set([]);
+  }
+
   clearPeriod(): void {
     this.periodFrom.set(null);
     this.periodTo.set(null);
+    this.clearMonths();
   }
 
   clearAll(): void {

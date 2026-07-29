@@ -150,8 +150,9 @@ export class HomeComponent {
     const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
     const periodFrom = this.filterState.periodFrom();
     const periodTo = this.filterState.periodTo();
+    const periodMonths = this.filterState.selectedMonths();
     const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-    const hasPeriod = periodFrom != null || periodTo != null;
+    const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
     return {
       categoryIds: this.filterState.selectedCategoryIds().length
@@ -177,7 +178,9 @@ export class HomeComponent {
       coordinatePrecision: hasCoordinatePrecision
         ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
         : undefined,
-      period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
+      period: hasPeriod
+        ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
+        : undefined,
     };
   }
 
