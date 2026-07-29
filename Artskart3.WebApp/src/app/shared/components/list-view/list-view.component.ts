@@ -78,11 +78,13 @@ export class ListViewComponent {
     this.filterState.selectedInstitutionIds();
     this.filterState.selectedBehaviorIds();
     this.filterState.selectedBasisOfRecordIds();
+    this.filterState.selectedRegistrationStatusId();
     this.filterState.selectedTaxonGroupIds();
     this.filterState.coordinatePrecisionFrom();
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
+    this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {
         this.pageNumber.set(1);
@@ -99,8 +101,9 @@ export class ListViewComponent {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
+      const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-      const hasPeriod = periodFrom != null || periodTo != null;
+      const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
       return {
         pageNumber: this.pageNumber(),
@@ -109,12 +112,15 @@ export class ListViewComponent {
         organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
         behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
+        period: hasPeriod
+          ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
+          : undefined,
       };
     },
     { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },

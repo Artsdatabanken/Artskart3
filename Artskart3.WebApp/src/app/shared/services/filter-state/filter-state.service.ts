@@ -10,12 +10,14 @@ export class FilterStateService {
   readonly selectedInstitutionIds = signal<number[]>([]);
   readonly selectedBehaviorIds = signal<number[]>([]);
   readonly selectedBasisOfRecordIds = signal<number[]>([]);
+  readonly selectedRegistrationStatusId = signal<number | null>(null);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
   readonly periodTo = signal<number | null>(null);
+  readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
     this.selectedCategoryIds.update((ids) =>
@@ -135,6 +137,14 @@ export class FilterStateService {
     this.selectedBasisOfRecordIds.set([]);
   }
 
+  setRegistrationStatus(id: number | null): void {
+    this.selectedRegistrationStatusId.set(id);
+  }
+
+  clearRegistrationStatus(): void {
+    this.selectedRegistrationStatusId.set(null);
+  }
+
   toggleTaxonGroup(id: number): void {
     this.selectedTaxonGroupIds.update((ids) =>
       ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
@@ -187,9 +197,20 @@ export class FilterStateService {
     this.periodTo.set(to);
   }
 
+  toggleMonth(month: number): void {
+    this.selectedMonths.update((months) =>
+      months.includes(month) ? months.filter((m) => m !== month) : [...months, month],
+    );
+  }
+
+  clearMonths(): void {
+    this.selectedMonths.set([]);
+  }
+
   clearPeriod(): void {
     this.periodFrom.set(null);
     this.periodTo.set(null);
+    this.clearMonths();
   }
 
   clearAll(): void {
@@ -198,6 +219,7 @@ export class FilterStateService {
     this.clearInstitutions();
     this.clearBehaviors();
     this.clearBasisOfRecords();
+    this.clearRegistrationStatus();
     this.clearTaxonGroups();
     this.clearCoordinatePrecision();
     this.clearPeriod();

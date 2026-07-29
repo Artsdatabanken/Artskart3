@@ -4,6 +4,7 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -18,6 +19,12 @@ import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGr
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_COLORS, CATEGORY_ORDER } from '@shared/constants/category-colors.const';
 
+
+interface RegistreringOption {
+  id: number | null;
+  labelKey: string;
+  descriptionKey?: string;
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -36,6 +43,13 @@ export class SidebarComponent {
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
   protected readonly translate = inject(TranslateService);
+
+  readonly registreringOptions: RegistreringOption[] = [
+    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
+    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
+    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
+    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
+  ];
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -60,7 +74,14 @@ export class SidebarComponent {
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
-  readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly basisOfRecords = computed(() => {
+    const list = this.basisOfRecordsResource.value() ?? [];
+    return [...list].sort((a, b) => {
+      const nameA = this.getBasisOfRecordDisplayName(a).toLowerCase();
+      const nameB = this.getBasisOfRecordDisplayName(b).toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+  });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
   readonly janMayenGroup = this.areaService.janMayenGroup;
@@ -205,6 +226,14 @@ export class SidebarComponent {
     this.filterState.toggleBasisOfRecord(id);
   }
 
+  isRegistrationStatusSelected(id: number | null): boolean {
+    return this.filterState.selectedRegistrationStatusId() === id;
+  }
+
+  onRegistrationStatusChange(id: number | null): void {
+    this.filterState.setRegistrationStatus(id);
+  }
+
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
     if (!basisOfRecord.name) return basisOfRecord.description ?? '';
     const key = 'sidebar.basisOfRecordName.' + basisOfRecord.name;
@@ -292,5 +321,28 @@ export class SidebarComponent {
     }
 
     this.filterState.setPeriod(from, to);
+  }
+
+  readonly months = [
+    { value: 1, labelKey: 'sidebar.months.january' },
+    { value: 2, labelKey: 'sidebar.months.february' },
+    { value: 3, labelKey: 'sidebar.months.march' },
+    { value: 4, labelKey: 'sidebar.months.april' },
+    { value: 5, labelKey: 'sidebar.months.may' },
+    { value: 6, labelKey: 'sidebar.months.june' },
+    { value: 7, labelKey: 'sidebar.months.july' },
+    { value: 8, labelKey: 'sidebar.months.august' },
+    { value: 9, labelKey: 'sidebar.months.september' },
+    { value: 10, labelKey: 'sidebar.months.october' },
+    { value: 11, labelKey: 'sidebar.months.november' },
+    { value: 12, labelKey: 'sidebar.months.december' },
+  ];
+
+  isMonthSelected(month: number): boolean {
+    return this.filterState.selectedMonths().includes(month);
+  }
+
+  onMonthToggle(month: number): void {
+    this.filterState.toggleMonth(month);
   }
 }

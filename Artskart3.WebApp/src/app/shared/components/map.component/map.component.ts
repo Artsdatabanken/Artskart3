@@ -75,12 +75,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
+      const periodMonths = this.filterState.selectedMonths();
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
         organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
         behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
@@ -89,6 +91,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         coordinatePrecisionTo: coordinatePrecisionTo,
         periodFrom: periodFrom,
         periodTo: periodTo,
+        periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },
     { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
