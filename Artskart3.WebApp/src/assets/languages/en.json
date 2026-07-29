@@ -141,6 +141,9 @@
     "basisOfRecordName": {
       "assessment": "Assessment",
       "carcassobservation": "Carcass observation",
+      "dna": "DNA",
+      "edna": "eDNA",
+      "edna_barcoding": "eDNA Barcoding",
       "fossil_specimen": "Fossil specimen",
       "humanobservation": "Human observation",
       "litteratur": "Literature",
@@ -150,6 +153,16 @@
       "objekt": "Occurrence",
       "observasjon": "Observation",
       "unrecognised": "Unrecognised"
+    },
+    "registrering": "Registration",
+    "registreringStatus": {
+      "alle": "All (default)",
+      "present": "Found",
+      "presentDescription": "Factual finds",
+      "absent": "Not found",
+      "absentDescription": "Targeted search without finds",
+      "notrefound": "Not refound",
+      "notrefoundDescription": "Targeted search at previously known locality without refinding"
     },
     "areaSection": {
       "fastlandsNorge": "Mainland Norway",

@@ -909,6 +909,7 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
@@ -975,6 +976,7 @@ export interface components {
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
         };

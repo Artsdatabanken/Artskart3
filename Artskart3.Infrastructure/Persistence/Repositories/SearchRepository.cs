@@ -12,6 +12,7 @@ using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -320,6 +321,22 @@ public class SearchRepository : ISearchRepository
         {
             var basisOfRecordIds = filter.BasisOfRecordIds.ToList();
             query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
+        }
+
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            switch (filter.RegistrationStatusId.Value)
+            {
+                case 1:
+                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
+                    break;
+                case 2:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
+                    break;
+                case 3:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
+                    break;
+            }
         }
 
         if (filter.CoordinatePrecision?.From.HasValue == true)
