@@ -6,7 +6,7 @@
   padding: 1rem;
   width: 20rem;
   border-radius: 1rem;
-  max-height: 95%;
+  height: 1037px;
   overflow: auto;
   background-color: var(--adb-surface-primary, #fff);
   top: 0;
@@ -15,6 +15,12 @@
 
 .observation-item {
   margin-bottom: 1rem;
+}
+
+.observation-details {
+  display: flex;
+  flex-direction: row;
+  gap: 0.25rem;
 }
 
 .filter-dropdown {
