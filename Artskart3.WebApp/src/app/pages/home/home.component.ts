@@ -7,7 +7,7 @@ import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
-import { FilterStateService } from '../../shared/services/filter-state/filter-state.service';
+import { FilterStateService, imageFilterToWithImages } from '../../shared/services/filter-state/filter-state.service';
 import { AreaService } from '../../shared/services/area/area.service';
 import { ExportService } from '../../shared/services/export/export.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
@@ -152,6 +152,10 @@ export class HomeComponent {
     const periodTo = this.filterState.periodTo();
     const periodMonths = this.filterState.selectedMonths();
     const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
+    const projectName = this.filterState.projectName().trim();
+    const collectionCode = this.filterState.collectionCode().trim();
+    const catalogNumber = this.filterState.catalogNumber().trim();
+    const withImages = imageFilterToWithImages(this.filterState.imageFilter());
     const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
     return {
@@ -178,6 +182,11 @@ export class HomeComponent {
       coordinatePrecision: hasCoordinatePrecision
         ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
         : undefined,
+     
+      projectName: projectName ? projectName : undefined,
+      collectionCode: collectionCode ? collectionCode : undefined,
+      catalogNumber: catalogNumber ? catalogNumber : undefined,
+      withImages: withImages,
       period: hasPeriod
         ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
         : undefined,

@@ -5,7 +5,7 @@ import { ObservationService } from '../../services/observation/observation.servi
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
@@ -84,6 +84,11 @@ export class ListViewComponent {
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
+    this.filterState.projectName();
+    this.filterState.projectOrganizationId();
+    this.filterState.collectionCode();
+    this.filterState.catalogNumber();
+    this.filterState.imageFilter();
     this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {
@@ -103,6 +108,11 @@ export class ListViewComponent {
       const periodTo = this.filterState.periodTo();
       const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
+      const projectName = this.filterState.projectName().trim();
+      const projectOrganizationId = this.filterState.projectOrganizationId();
+      const collectionCode = this.filterState.collectionCode().trim();
+      const catalogNumber = this.filterState.catalogNumber().trim();
+      const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
       return {
@@ -118,6 +128,11 @@ export class ListViewComponent {
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
+        projectName: projectName ? projectName : undefined,
+        projectOrganizationId: projectOrganizationId ?? undefined,
+        collectionCode: collectionCode ? collectionCode : undefined,
+        catalogNumber: catalogNumber ? catalogNumber : undefined,
+        withImages: withImages,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
