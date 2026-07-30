@@ -389,6 +389,8 @@ public class SearchRepository : ISearchRepository
             query = filter.WithImages.Value
                 ? query.Where(o => o.MediaFiles.Any())
                 : query.Where(o => !o.MediaFiles.Any());
+        }
+
         if (filter.Period?.Months?.Any() == true)
         {
             var months = filter.Period.Months;
@@ -397,7 +399,6 @@ public class SearchRepository : ISearchRepository
 
         return query;
     }
-
     private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
     {
         var query = _context.Set<Observation>().AsNoTracking();
