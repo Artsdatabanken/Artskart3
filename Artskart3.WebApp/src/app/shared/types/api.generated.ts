@@ -909,6 +909,7 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
@@ -917,6 +918,11 @@ export interface components {
             behaviorIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -975,8 +981,19 @@ export interface components {
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
+        };
+        OrganizationDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
         };
         PagedObservationResponseDto: {
             items?: components["schemas"]["ObservationDto"][] | null;
@@ -992,6 +1009,7 @@ export interface components {
             from?: number | null;
             /** Format: int32 */
             to?: number | null;
+            months?: number[] | null;
         };
         StartExportRequestDto: {
             name?: string | null;

@@ -62,6 +62,9 @@ INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[U
 INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (13,'materialsample','Material Sample','materialsample,material_sample,material_citation','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
 INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (14,'humanobservation','Human Observasjon','humanobservation,human_observation,still image','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
 INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (15,'carcassobservation','Carcass Observation','carcass_observation,carcassobservation','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
+INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (16,'dna','DNA','dna,DNA','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
+INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (17,'edna','eDNA','edna,eDNA,environmental dna,environmental DNA','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
+INSERT INTO [BasisOfRecord] ([Id],[Name],[Description],[Variants],[CreatedAt],[UpdatedAt],[IsDeleted],[DeletedAt]) VALUES (18,'edna_barcoding','eDNA Barcoding','edna_barcoding,eDNA Barcoding,eDAN Barcoding','0001-01-01T00:00:00','0001-01-01T00:00:00',0,NULL);
 
  
 -- ============================================================

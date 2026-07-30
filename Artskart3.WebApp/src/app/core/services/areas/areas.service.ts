@@ -275,6 +275,7 @@ export interface LocationSearchFilter {
   organizationIds?: number[];
   behaviorIds?: number[];
   basisOfRecordIds?: number[];
+  registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
@@ -284,6 +285,12 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  projectName?: string;
+  projectOrganizationId?: number | null;
+  collectionCode?: string;
+  catalogNumber?: string;
+  withImages?: boolean | null;
+  periodMonths?: number[] | null;
 }
 
 @Injectable({
@@ -397,6 +404,7 @@ export class AreasService {
       if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
       if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
       if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
@@ -405,9 +413,18 @@ export class AreasService {
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }
-      if (filter.periodFrom != null || filter.periodTo != null) {
-        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      if (filter.periodFrom != null || filter.periodTo != null || filter.periodMonths?.length) {
+        body['period'] = {
+          from: filter.periodFrom,
+          to: filter.periodTo,
+          months: filter.periodMonths?.length ? filter.periodMonths : undefined,
+        };
       }
+      if (filter.projectName) body['projectName'] = filter.projectName;
+      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
+      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
+      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 
     if (extent) {

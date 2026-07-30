@@ -47,6 +47,11 @@ public class LookupService : ILookupService
         return _lookupRepository.GetInstitutionsAsync(cancellationToken);
     }
 
+    public Task<IEnumerable<OrganizationDto>> SearchOrganizationsAsync(string name, int maxCount, CancellationToken cancellationToken = default)
+    {
+        return _lookupRepository.SearchOrganizationsAsync(name, maxCount, cancellationToken);
+    }
+
     public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)
     {
         return _lookupRepository.GetTaxonGroupsAsync(cancellationToken);

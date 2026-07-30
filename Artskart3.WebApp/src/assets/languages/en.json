@@ -112,6 +112,21 @@
     "periodFrom": "From year",
     "periodTo": "To year",
     "periodSearch": "Search",
+    "periodMonths": "Months",
+    "months": {
+      "january": "January",
+      "february": "February",
+      "march": "March",
+      "april": "April",
+      "may": "May",
+      "june": "June",
+      "july": "July",
+      "august": "August",
+      "september": "September",
+      "october": "October",
+      "november": "November",
+      "december": "December"
+    },
     "institutions": "Data Supplier",
     "behaviors": "Habitat and Species Properties",
     "behaviorName": {
@@ -126,6 +141,9 @@
     "basisOfRecordName": {
       "assessment": "Assessment",
       "carcassobservation": "Carcass observation",
+      "dna": "DNA",
+      "edna": "eDNA",
+      "edna_barcoding": "eDNA Barcoding",
       "fossil_specimen": "Fossil specimen",
       "humanobservation": "Human observation",
       "litteratur": "Literature",
@@ -136,13 +154,31 @@
       "observasjon": "Observation",
       "unrecognised": "Unrecognised"
     },
+    "registrering": "Registration",
+    "registreringStatus": {
+      "alle": "All (default)",
+      "present": "Found",
+      "presentDescription": "Factual finds",
+      "absent": "Not found",
+      "absentDescription": "Targeted search without finds",
+      "notrefound": "Not refound",
+      "notrefoundDescription": "Targeted search at previously known locality without refinding"
+    },
     "areaSection": {
       "fastlandsNorge": "Mainland Norway",
       "janMayen": "Jan Mayen",
       "svalbard": "Svalbard",
       "oceanAreas": "Ocean Areas"
     },
-    "taxonGroups": "Taxon Groups"
+    "taxonGroups": "Taxon Groups",
+    "otherProperties": "Other find properties",
+    "project": "Project",
+    "collectionCode": "Collection",
+    "catalogNumber": "Catalog number",
+    "image": "Image",
+    "imageAll": "All (default)",
+    "imageWith": "With image",
+    "imageWithout": "Without image"
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",

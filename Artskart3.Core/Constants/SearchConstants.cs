@@ -6,6 +6,8 @@ public static class SearchConstants
     public const int DefaultMaxTaxonCount = 20;
     public const int MaxTaxonCount = 1000;
     public const int MinTaxonResults = 1;
+    public const int DefaultMaxOrganizationCount = 10;
+    public const int MaxOrganizationCount = 50;
 
     // Location search constants
     public const int DefaultMaxLocations = 100000;
