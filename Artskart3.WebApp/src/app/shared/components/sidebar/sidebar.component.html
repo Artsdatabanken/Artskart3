@@ -256,6 +256,14 @@
           {{ 'sidebar.periodSearch' | translate }}
         </adb-button>
       </div>
+      <p class="period-months-heading">{{ 'sidebar.periodMonths' | translate }}</p>
+      <div class="checkbox-accordion-children">
+        @for (month of months; track month.value) {
+          <adb-checkbox [attr.checked]="isMonthSelected(month.value) ? '' : null" (change)="onMonthToggle(month.value)">
+            {{ month.labelKey | translate }}
+          </adb-checkbox>
+        }
+      </div>
     </adb-accordion-item>
   </adb-accordion>
 
@@ -301,6 +309,23 @@
           </div>
         }
       }
+
+      <h6 class="filter-section-subheading">{{ 'sidebar.registrering' | translate }}</h6>
+
+      <div class="radio-group">
+        @for (option of registreringOptions; track option.id) {
+          <adb-radio
+            name="registrationStatus"
+            [attr.checked]="isRegistrationStatusSelected(option.id) ? '' : null"
+            (change)="onRegistrationStatusChange(option.id)"
+          >
+            {{ option.labelKey | translate }}
+            @if (option.descriptionKey) {
+              <span class="radio-description">{{ option.descriptionKey | translate }}</span>
+            }
+          </adb-radio>
+        }
+      </div>
     </adb-accordion-item>
   </adb-accordion>
 

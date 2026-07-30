@@ -80,12 +80,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const collectionCode = this.filterState.collectionCode().trim();
       const catalogNumber = this.filterState.catalogNumber().trim();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const periodMonths = this.filterState.selectedMonths();
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
         organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
         behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
@@ -99,6 +101,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         collectionCode: collectionCode ? collectionCode : undefined,
         catalogNumber: catalogNumber ? catalogNumber : undefined,
         withImages: withImages,
+        periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },
     { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },

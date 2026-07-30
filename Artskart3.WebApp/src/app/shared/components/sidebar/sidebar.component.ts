@@ -5,6 +5,7 @@ import {
   DestroyRef,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
@@ -29,6 +30,12 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 2;
+
+interface RegistreringOption {
+  id: number | null;
+  labelKey: string;
+  descriptionKey?: string;
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -75,6 +82,12 @@ export class SidebarComponent {
         this.showProjectNameSuggestions.set(organizations.length > 0);
       });
   }
+  readonly registreringOptions: RegistreringOption[] = [
+    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
+    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
+    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
+    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
+  ];
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -99,7 +112,14 @@ export class SidebarComponent {
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
-  readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly basisOfRecords = computed(() => {
+    const list = this.basisOfRecordsResource.value() ?? [];
+    return [...list].sort((a, b) => {
+      const nameA = this.getBasisOfRecordDisplayName(a).toLowerCase();
+      const nameB = this.getBasisOfRecordDisplayName(b).toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+  });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
   readonly janMayenGroup = this.areaService.janMayenGroup;
@@ -221,6 +241,14 @@ export class SidebarComponent {
 
   onBasisOfRecordToggle(id: number): void {
     this.filterState.toggleBasisOfRecord(id);
+  }
+
+  isRegistrationStatusSelected(id: number | null): boolean {
+    return this.filterState.selectedRegistrationStatusId() === id;
+  }
+
+  onRegistrationStatusChange(id: number | null): void {
+    this.filterState.setRegistrationStatus(id);
   }
 
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
@@ -358,5 +386,26 @@ export class SidebarComponent {
     if (target.value) {
       this.filterState.setImageFilter(target.value as ImageFilterOption);
     }
+  readonly months = [
+    { value: 1, labelKey: 'sidebar.months.january' },
+    { value: 2, labelKey: 'sidebar.months.february' },
+    { value: 3, labelKey: 'sidebar.months.march' },
+    { value: 4, labelKey: 'sidebar.months.april' },
+    { value: 5, labelKey: 'sidebar.months.may' },
+    { value: 6, labelKey: 'sidebar.months.june' },
+    { value: 7, labelKey: 'sidebar.months.july' },
+    { value: 8, labelKey: 'sidebar.months.august' },
+    { value: 9, labelKey: 'sidebar.months.september' },
+    { value: 10, labelKey: 'sidebar.months.october' },
+    { value: 11, labelKey: 'sidebar.months.november' },
+    { value: 12, labelKey: 'sidebar.months.december' },
+  ];
+
+  isMonthSelected(month: number): boolean {
+    return this.filterState.selectedMonths().includes(month);
+  }
+
+  onMonthToggle(month: number): void {
+    this.filterState.toggleMonth(month);
   }
 }

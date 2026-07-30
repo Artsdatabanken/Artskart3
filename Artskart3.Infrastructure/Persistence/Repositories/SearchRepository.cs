@@ -12,6 +12,7 @@ using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -322,6 +323,22 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
 
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            switch (filter.RegistrationStatusId.Value)
+            {
+                case 1:
+                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
+                    break;
+                case 2:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
+                    break;
+                case 3:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
+                    break;
+            }
+        }
+
         if (filter.CoordinatePrecision?.From.HasValue == true)
         {
             query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
@@ -372,6 +389,10 @@ public class SearchRepository : ISearchRepository
             query = filter.WithImages.Value
                 ? query.Where(o => o.MediaFiles.Any())
                 : query.Where(o => !o.MediaFiles.Any());
+        if (filter.Period?.Months?.Any() == true)
+        {
+            var months = filter.Period.Months;
+            query = query.Where(o => o.DateTimeCollected.HasValue && months.Contains(o.DateTimeCollected.Value.Month));
         }
 
         return query;

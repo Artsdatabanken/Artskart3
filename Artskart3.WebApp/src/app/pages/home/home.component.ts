@@ -150,12 +150,13 @@ export class HomeComponent {
     const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
     const periodFrom = this.filterState.periodFrom();
     const periodTo = this.filterState.periodTo();
+    const periodMonths = this.filterState.selectedMonths();
     const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-    const hasPeriod = periodFrom != null || periodTo != null;
     const projectName = this.filterState.projectName().trim();
     const collectionCode = this.filterState.collectionCode().trim();
     const catalogNumber = this.filterState.catalogNumber().trim();
     const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+    const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
     return {
       categoryIds: this.filterState.selectedCategoryIds().length
@@ -181,11 +182,14 @@ export class HomeComponent {
       coordinatePrecision: hasCoordinatePrecision
         ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
         : undefined,
-      period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
+     
       projectName: projectName ? projectName : undefined,
       collectionCode: collectionCode ? collectionCode : undefined,
       catalogNumber: catalogNumber ? catalogNumber : undefined,
       withImages: withImages,
+      period: hasPeriod
+        ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
+        : undefined,
     };
   }
 

@@ -163,6 +163,96 @@ public class SearchRepositoryTests
         result[0].Id.Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetLocationsAsync_WithRegistrationStatusPresent_ExcludesAbsentAndNotRecovered()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"),
+            CreateLocation(3, "Bergen"),
+            CreateLocation(4, "Tromso"));
+
+        var absentTag = CreateTag(5, "Absent");
+        var notRecoveredTag = CreateTag(6, "NotRecovered");
+        var validatedTag = CreateTag(3, "Validated");
+        context.Set<Tag>().AddRange(absentTag, notRecoveredTag, validatedTag);
+
+        var foundObservation = CreateObservation(1, 1);
+        var absentObservation = CreateObservation(2, 2);
+        absentObservation.Tags.Add(absentTag);
+        var notRecoveredObservation = CreateObservation(3, 3);
+        notRecoveredObservation.Tags.Add(notRecoveredTag);
+        var otherTagObservation = CreateObservation(4, 4);
+        otherTagObservation.Tags.Add(validatedTag);
+
+        SeedObservations(context,
+            foundObservation,
+            absentObservation,
+            notRecoveredObservation,
+            otherTagObservation);
+
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 1 }));
+
+        result.Select(x => x.Id).Should().BeEquivalentTo([1, 4]);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithRegistrationStatusAbsent_ReturnsOnlyAbsent()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        var absentTag = CreateTag(5, "Absent");
+        context.Set<Tag>().Add(absentTag);
+
+        var absentObservation = CreateObservation(1, 1);
+        absentObservation.Tags.Add(absentTag);
+        var foundObservation = CreateObservation(2, 2);
+
+        SeedObservations(context, absentObservation, foundObservation);
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 2 }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithRegistrationStatusNotRefound_ReturnsOnlyNotRecovered()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Oslo"),
+            CreateLocation(2, "Trondheim"));
+
+        var notRecoveredTag = CreateTag(6, "NotRecovered");
+        context.Set<Tag>().Add(notRecoveredTag);
+
+        var notRecoveredObservation = CreateObservation(1, 1);
+        notRecoveredObservation.Tags.Add(notRecoveredTag);
+        var foundObservation = CreateObservation(2, 2);
+
+        SeedObservations(context, notRecoveredObservation, foundObservation);
+        await context.SaveChangesAsync();
+
+        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 3 }));
+
+        result.Should().ContainSingle();
+        result[0].Id.Should().Be(1);
+    }
+
     // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
     // Denne testen krever seeding av ObservationEntityIndex og dekkes av integrasjonstester.
 
@@ -474,6 +564,15 @@ public class SearchRepositoryTests
             ProcessEngineId = 1,
             HasAnnotations = false,
             HasErrors = false
+        };
+
+    private static Tag CreateTag(int id, string name) =>
+        new()
+        {
+            Id = id,
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
     private static Area CreateArea(int id, string name, int areaTypeId, int? observationCount, object? wktPolygon = null) =>

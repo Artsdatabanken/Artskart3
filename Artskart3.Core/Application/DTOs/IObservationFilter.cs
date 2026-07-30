@@ -15,6 +15,7 @@ public interface IObservationFilter
     string[]? OceanAreaIds { get; }
     int[]? BehaviorIds { get; }
     int[]? BasisOfRecordIds { get; }
+    int? RegistrationStatusId { get; }
     CoordinatePrecisionDto? CoordinatePrecision { get; }
     PeriodDto? Period { get; }
     string? ProjectName { get; }
