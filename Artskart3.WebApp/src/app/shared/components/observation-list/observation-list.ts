@@ -1,12 +1,12 @@
 import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, input, signal} from '@angular/core';
-import {ObservationDto} from '@shared/types/api.types';
+import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
 type ObservationFilterKey = 'locality' | 'taxonGroupId' | 'categoryId';
 
 type ObservationFilter = {
   groupKey: string;
-  observations: ObservationDto[];
+  observations: ObservationListInfoDto[];
 }
 
 @Component({
@@ -17,7 +17,8 @@ type ObservationFilter = {
   styleUrl: './observation-list.css',
 })
 export class ObservationList {
-  observationList = input<ObservationDto[]>([]);
+  private localityNumbers = new Map<string, number>();
+  observationList = input<ObservationListInfoDto[]>([]);
   filterByInput = input<ObservationFilterKey>('locality');
 
   filterBy = signal<ObservationFilterKey>('locality');
@@ -33,21 +34,30 @@ export class ObservationList {
     this.filterBy.set(filter);
   }
 
-  private groupValue(observation: ObservationDto): string {
+  private groupValue(observation: ObservationListInfoDto): string {
     switch (this.filterBy()) {
       case "categoryId":
-        return String(observation.categoryId ?? 'unknown')
+        return observation.categoryName ?? 'Ukjent'
       case "locality":
-        return String(observation.locality ?? 'unknown')
+        const locality = observation.locality ?? 'Ukjent';
+        const localityIndex = this.localityNumbers.get(locality);
+        if (localityIndex !== undefined) {
+          return `location ${localityIndex}`;
+        }
+
+        const nextIndex = this.localityNumbers.size + 1;
+        this.localityNumbers.set(locality, nextIndex);
+        return `location ${nextIndex}`;
       case "taxonGroupId":
-        return String(observation.taxonGroupId ?? 'unknown')
+        return observation.taxonGroupName ?? 'Ukjent'
       default:
-        return observation.locality ?? 'unknown';
+        return observation.locality ?? 'Ukjent';
     }
   }
 
   groupedObservations = computed<ObservationFilter[]>(() => {
-    const observationGroups = new Map<string, ObservationDto[]>();
+    const observationGroups = new Map<string, ObservationListInfoDto[]>();
+    this.localityNumbers = new Map<string, number>();
     for (const observation of this.observationList()) {
       const groupKey = this.groupValue(observation);
       const groupList = observationGroups.get(groupKey) ?? [];

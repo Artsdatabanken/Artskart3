@@ -34,7 +34,7 @@ import {ObservationService} from '@shared/services/observation/observation.servi
 import {HttpClient} from '@angular/common/http';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import {ObservationList} from '@shared/components/observation-list/observation-list';
-import {ObservationDto} from '@shared/types/api.types';
+import { ObservationListInfoDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map',
@@ -163,7 +163,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   });
 
   public showObservationList = signal(false);
-  public observationList= signal<ObservationDto[]>([]);
+  public observationList= signal<ObservationListInfoDto[]>([]);
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);

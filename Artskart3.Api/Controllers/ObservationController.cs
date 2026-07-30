@@ -13,7 +13,6 @@ public class ObservationController(IObservationService observationService, ILogg
 {
     [HttpGet("{locationId}/{observationId}")]
     [Produces("application/json")]
-    //TODO Make ObservationDto
     public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId)
     {
         try
