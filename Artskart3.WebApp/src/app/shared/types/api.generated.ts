@@ -549,6 +549,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Observation/{locationId}/{observationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    locationId: number;
+                    observationId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObservationDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Observation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": number[];
+                    "text/json": number[];
+                    "application/*+json": number[];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ObservationListInfoDto"][];
+                        "application/json": components["schemas"]["ObservationListInfoDto"][];
+                        "text/json": components["schemas"]["ObservationListInfoDto"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/SearchTaxons": {
         parameters: {
             query?: never;
@@ -712,6 +793,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Search/Species": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpeciesDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/User": {
         parameters: {
             query?: never;
@@ -846,7 +987,7 @@ export interface components {
             /** Format: int32 */
             id?: number;
             name?: string | null;
-            fileName?: string;
+            fileName?: string | null;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
@@ -963,6 +1104,22 @@ export interface components {
             /** Format: int32 */
             coordinatePrecisionInMeters?: number | null;
         };
+        ObservationListInfoDto: {
+            /** Format: int32 */
+            id?: number;
+            preferredPopularName?: string | null;
+            scientificName?: string | null;
+            author?: string | null;
+            /** Format: int32 */
+            taxonGroupId?: number | null;
+            taxonGroupName?: string | null;
+            /** Format: int32 */
+            categoryId?: number | null;
+            categoryName?: string | null;
+            institutionId?: string | null;
+            institutionName?: string | null;
+            locality?: string | null;
+        };
         ObservationSearchFilterDto: {
             /** Format: int32 */
             pageNumber?: number | null;
@@ -1012,6 +1169,33 @@ export interface components {
             to?: number | null;
             months?: number[] | null;
         };
+        ProblemDetails: {
+            type?: string | null;
+            title?: string | null;
+            /** Format: int32 */
+            status?: number | null;
+            detail?: string | null;
+            instance?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        ScientificNameSynonymDto: {
+            name?: string | null;
+            nameFormatted?: string | null;
+            author?: string | null;
+            rank?: string | null;
+        };
+        SpeciesDto: {
+            /** Format: int32 */
+            taxonId?: number;
+            scientificName?: string | null;
+            scientificNameFormatted?: string | null;
+            author?: string | null;
+            rank?: string | null;
+            preferredVernacularNames?: components["schemas"]["VernacularNameDto"][] | null;
+            vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][] | null;
+            scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][] | null;
+        };
         StartExportRequestDto: {
             name?: string | null;
             filter?: components["schemas"]["ObservationSearchFilterDto"];
@@ -1043,6 +1227,10 @@ export interface components {
         UserDto: {
             name?: string | null;
             email?: string | null;
+        };
+        VernacularNameDto: {
+            name?: string | null;
+            language?: string | null;
         };
     };
     responses: never;

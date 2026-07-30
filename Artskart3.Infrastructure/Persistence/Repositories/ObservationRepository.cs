@@ -39,9 +39,11 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         {
             IEnumerable<Observation> observations = await context.Set<Observation>()
                 .Include(o => o.Taxon)
-                .ThenInclude(t => t.TaxonGroup.Name)
+                .ThenInclude(t => t.TaxonGroup)
+                .Include(o => o.Category)
                 .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
                 .ToListAsync();
+
             IEnumerable<ObservationListInfoDto> observationDtos = observations.Select(o => new ObservationListInfoDto
             {
                 Id = o.Id,
@@ -51,7 +53,8 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                 TaxonGroupId = o.TaxonGroupId,
                 TaxonGroupName = o.Taxon.TaxonGroup.Name ?? string.Empty,
                 Locality = o.LocationId.ToString(),
-                CategoryId = o.CategoryId
+                CategoryId = o.CategoryId,
+                CategoryName = o.Category?.Name
             });
             return observationDtos;
         }

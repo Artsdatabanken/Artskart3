@@ -1,7 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import {ObservationDto, ObservationSearchFilter, PagedObservationResponse} from '../../types/api.types';
+import {
+  ObservationDto,
+  ObservationListInfoDto,
+  ObservationSearchFilter,
+  PagedObservationResponse
+} from '../../types/api.types';
 
 @Injectable({
   providedIn: 'root',
@@ -15,7 +20,7 @@ export class ObservationService {
     return this.http.post<PagedObservationResponse>(this.SearchObservationEndpoint, filter);
   }
 
-  getObservationByLocation(ids: number[]): Observable<ObservationDto[]> {
-    return this.http.post<ObservationDto[]>(`${this.ObservationControllerEndpoint}`, ids);
+  getObservationByLocation(ids: number[]): Observable<ObservationListInfoDto[]> {
+    return this.http.post<ObservationListInfoDto[]>(`${this.ObservationControllerEndpoint}`, ids);
   }
 }
