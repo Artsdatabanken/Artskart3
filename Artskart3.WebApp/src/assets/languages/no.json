@@ -83,7 +83,7 @@
     "failed": "Feilet"
   },
   "listView": {
-    "name": "Bokmålsnavn",
+    "name": "Populærnavn (nb)",
     "scientificName": "Vitenskapelig navn",
     "author": "Autor",
     "locality": "Lokalitet",
