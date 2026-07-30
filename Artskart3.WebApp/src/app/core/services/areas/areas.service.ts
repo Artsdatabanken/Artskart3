@@ -284,6 +284,11 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  projectName?: string;
+  projectOrganizationId?: number | null;
+  collectionCode?: string;
+  catalogNumber?: string;
+  withImages?: boolean | null;
   periodMonths?: number[] | null;
 }
 
@@ -367,6 +372,11 @@ export class AreasService {
           months: filter.periodMonths?.length ? filter.periodMonths : undefined,
         };
       }
+      if (filter.projectName) body['projectName'] = filter.projectName;
+      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
+      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
+      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 
     if (extent) {

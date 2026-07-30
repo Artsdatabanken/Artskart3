@@ -170,7 +170,15 @@
       "svalbard": "Svalbard",
       "oceanAreas": "Ocean Areas"
     },
-    "taxonGroups": "Taxon Groups"
+    "taxonGroups": "Taxon Groups",
+    "otherProperties": "Other find properties",
+    "project": "Project",
+    "collectionCode": "Collection",
+    "catalogNumber": "Catalog number",
+    "image": "Image",
+    "imageAll": "All (default)",
+    "imageWith": "With image",
+    "imageWithout": "Without image"
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",

@@ -26,6 +26,16 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public PeriodDto? Period { get; set; }
 
+    public string? ProjectName { get; set; }
+
+    public int? ProjectOrganizationId { get; set; }
+
+    public string? CollectionCode { get; set; }
+
+    public string? CatalogNumber { get; set; }
+
+    public bool? WithImages { get; set; }
+
     /// <summary>
     /// Returnerer true dersom minst ett søkefilter er satt (ekskluderer Envelope, Epsg, MaxResults).
     /// </summary>
@@ -43,7 +53,12 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
-        Period?.To != null;
+        Period?.To != null ||
+        !string.IsNullOrWhiteSpace(ProjectName) ||
+        ProjectOrganizationId.HasValue ||
+        !string.IsNullOrWhiteSpace(CollectionCode) ||
+        !string.IsNullOrWhiteSpace(CatalogNumber) ||
+        WithImages != null;
 
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
@@ -62,7 +77,12 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
-        Period?.To != null;
+        Period?.To != null ||
+        !string.IsNullOrWhiteSpace(ProjectName) ||
+        ProjectOrganizationId.HasValue ||
+        !string.IsNullOrWhiteSpace(CollectionCode) ||
+        !string.IsNullOrWhiteSpace(CatalogNumber) ||
+        WithImages != null;
 
     /// <summary>
     /// EPSG code for coordinate system (default: 25833)

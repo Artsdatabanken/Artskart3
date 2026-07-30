@@ -28,7 +28,7 @@ import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ImageTile } from 'ol';
 import { ApiZoomLevel } from './map.types';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
@@ -75,6 +75,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
+      const projectName = this.filterState.projectName().trim();
+      const projectOrganizationId = this.filterState.projectOrganizationId();
+      const collectionCode = this.filterState.collectionCode().trim();
+      const catalogNumber = this.filterState.catalogNumber().trim();
+      const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const periodMonths = this.filterState.selectedMonths();
 
       return {
@@ -91,6 +96,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         coordinatePrecisionTo: coordinatePrecisionTo,
         periodFrom: periodFrom,
         periodTo: periodTo,
+        projectName: projectName ? projectName : undefined,
+        projectOrganizationId: projectOrganizationId ?? undefined,
+        collectionCode: collectionCode ? collectionCode : undefined,
+        catalogNumber: catalogNumber ? catalogNumber : undefined,
+        withImages: withImages,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },

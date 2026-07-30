@@ -2,11 +2,14 @@ import {
   Component,
   ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
   inject,
   signal,
   computed,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
 import { AreaService, CountyGroup } from '../../services/area/area.service';
@@ -14,9 +17,19 @@ import { InstitutionService } from '../../services/institution/institution.servi
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto } from '../../types/api.types';
+import { OrganizationService } from '../../services/organization/organization.service';
+import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import {
+  BehaviorDto,
+  BasisOfRecordDto,
+  CategoryTypeDto,
+  InstitutionDto,
+  TaxonGroupDto,
+} from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
+import type { components } from '../../types/api.generated';
+
+const MinProjectNameSearchLength = 2;
 
 interface RegistreringOption {
   id: number | null;
@@ -39,9 +52,36 @@ export class SidebarComponent {
   private readonly behaviorService = inject(BehaviorService);
   private readonly basisOfRecordService = inject(BasisOfRecordService);
   private readonly taxonGroupService = inject(TaxonGroupService);
+  private readonly organizationService = inject(OrganizationService);
   private readonly filterState = inject(FilterStateService);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly translate = inject(TranslateService);
 
+  private readonly projectNameSearch$ = new Subject<string>();
+  readonly projectNameSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
+  readonly showProjectNameSuggestions = signal<boolean>(false);
+
+  constructor() {
+    this.projectNameSearch$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const trimmed = term.trim();
+          if (trimmed.length < MinProjectNameSearchLength) {
+            return of<components['schemas']['OrganizationDto'][]>([]);
+          }
+          return this.organizationService.searchOrganizations(trimmed).pipe(
+            catchError(() => of<components['schemas']['OrganizationDto'][]>([])),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((organizations) => {
+        this.projectNameSuggestions.set(organizations);
+        this.showProjectNameSuggestions.set(organizations.length > 0);
+      });
+  }
   readonly registreringOptions: RegistreringOption[] = [
     { id: null, labelKey: 'sidebar.registreringStatus.alle' },
     { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
@@ -298,6 +338,54 @@ export class SidebarComponent {
     }
 
     this.filterState.setPeriod(from, to);
+  }
+
+  readonly projectName = this.filterState.projectName;
+  readonly collectionCode = this.filterState.collectionCode;
+  readonly catalogNumber = this.filterState.catalogNumber;
+  readonly imageFilter = this.filterState.imageFilter;
+
+  onProjectNameChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setProjectName(input.value);
+    // Manual typing invalidates any previously selected exact match.
+    this.filterState.setProjectOrganizationId(null);
+    this.projectNameSearch$.next(input.value);
+  }
+
+  onProjectNameFocus(): void {
+    if (this.projectNameSuggestions().length > 0) {
+      this.showProjectNameSuggestions.set(true);
+    }
+  }
+
+  onProjectNameBlur(): void {
+    // Delay hiding so a (mousedown) selection on a suggestion registers first.
+    setTimeout(() => this.showProjectNameSuggestions.set(false), 150);
+  }
+
+  selectProjectNameSuggestion(organization: components['schemas']['OrganizationDto']): void {
+    this.filterState.setProjectName(organization.name ?? '');
+    this.filterState.setProjectOrganizationId(organization.id ?? null);
+    this.projectNameSuggestions.set([]);
+    this.showProjectNameSuggestions.set(false);
+  }
+
+  onCollectionCodeChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setCollectionCode(input.value);
+  }
+
+  onCatalogNumberChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setCatalogNumber(input.value);
+  }
+
+  onImageFilterChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setImageFilter(target.value as ImageFilterOption);
+    }
   }
 
   readonly months = [

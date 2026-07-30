@@ -1,5 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 
+export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
+
+export function imageFilterToWithImages(option: ImageFilterOption): boolean | undefined {
+  if (option === 'withImage') return true;
+  if (option === 'withoutImage') return false;
+  return undefined;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -17,6 +25,11 @@ export class FilterStateService {
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
   readonly periodTo = signal<number | null>(null);
+  readonly projectName = signal<string>('');
+  readonly projectOrganizationId = signal<number | null>(null);
+  readonly collectionCode = signal<string>('');
+  readonly catalogNumber = signal<string>('');
+  readonly imageFilter = signal<ImageFilterOption>('all');
   readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
@@ -213,6 +226,34 @@ export class FilterStateService {
     this.clearMonths();
   }
 
+  setProjectName(value: string): void {
+    this.projectName.set(value);
+  }
+
+  setProjectOrganizationId(id: number | null): void {
+    this.projectOrganizationId.set(id);
+  }
+
+  setCollectionCode(value: string): void {
+    this.collectionCode.set(value);
+  }
+
+  setCatalogNumber(value: string): void {
+    this.catalogNumber.set(value);
+  }
+
+  setImageFilter(value: ImageFilterOption): void {
+    this.imageFilter.set(value);
+  }
+
+  clearOtherFindProperties(): void {
+    this.projectName.set('');
+    this.projectOrganizationId.set(null);
+    this.collectionCode.set('');
+    this.catalogNumber.set('');
+    this.imageFilter.set('all');
+  }
+
   clearAll(): void {
     this.clearCategories();
     this.clearAreas();
@@ -223,5 +264,6 @@ export class FilterStateService {
     this.clearTaxonGroups();
     this.clearCoordinatePrecision();
     this.clearPeriod();
+    this.clearOtherFindProperties();
   }
 }
