@@ -170,7 +170,15 @@
       "svalbard": "Svalbard",
       "oceanAreas": "Havområder"
     },
-    "taxonGroups": "Artsgrupper"
+    "taxonGroups": "Artsgrupper",
+    "otherProperties": "Andre funnegenskaper",
+    "project": "Prosjekt",
+    "collectionCode": "Samling",
+    "catalogNumber": "Katalognummer",
+    "image": "Bilde",
+    "imageAll": "Alle (standard)",
+    "imageWith": "Med bilde",
+    "imageWithout": "Uten bilde"
   },
   "mapToolbar": {
     "layersAriaLabel": "Lag",

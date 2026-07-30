@@ -174,12 +174,123 @@ adb-checkbox::part(text-wrapper) {
 .category-name {
   color: var(--text-base-text-primary, #262F31);
   font-family: var(--font-family-primary, Chivo);
-  font-size: var(--font-size-1, 16px);
+  font-size: var(--adb-font-size-16, 16px);
   font-style: normal;
   font-weight: 400;
   line-height: 150%;
 }
 
+/* Other find properties filter (Andre funnegenskaper) */
+.other-properties-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-sm, 12px);
+  padding: var(--adb-spacing-3xsm);
+  margin-top: var(--adb-spacing-2xsm);
+}
+
+.other-properties-row {
+  display: flex;
+  gap: var(--adb-spacing-xsm, 8px);
+}
+
+.other-properties-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-3xsm, 4px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-icon {
+  position: absolute;
+  left: var(--adb-spacing-xsm, 8px);
+  color: var(--adb-text-subtle, #6b6b6b);
+  pointer-events: none;
+}
+
+.other-properties-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px) calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-2xsm, 4px));
+  border: 2px solid var(--adb-neutrals-sand-100);
+  background-color: var(--adb-surface-primary, #fff);
+  color: var(--adb-text-default, inherit);
+  border-radius: var(--adb-border-radius-md, 8px);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-weight: 400;
+  box-sizing: border-box;
+  outline: none;
+}
+
+:host-context([data-theme='dark']) .other-properties-input {
+  border-color: var(--adb-neutrals-ocean-80);
+}
+
+.other-properties-input:focus {
+  border-color: var(--adb-border-accent, #005a71);
+  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  outline: none;
+}
+
+.project-name-suggestions {
+  position: absolute;
+  top: calc(100% + var(--adb-spacing-2xsm, 4px));
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 12rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--adb-spacing-2xsm, 4px) 0;
+  list-style: none;
+  background-color: var(--adb-surface-primary, #fff);
+  border: 2px solid var(--adb-neutrals-sand-100);
+  border-radius: var(--adb-border-radius-md, 8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:host-context([data-theme='dark']) .project-name-suggestions {
+  border-color: var(--adb-neutrals-ocean-80);
+}
+
+.project-name-suggestion {
+  display: block;
+  width: 100%;
+  padding: var(--adb-spacing-2xsm, 4px) var(--adb-spacing-xsm, 8px);
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-name-suggestion:hover,
+.project-name-suggestion:focus {
+  background-color: var(--adb-neutrals-sand-20, #f2f2f2);
+  outline: none;
+}
+
+.other-properties-image-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-2xsm, 4px);
+}
+
+.other-properties-image-heading {
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-weight: 600;
 .filter-section-subheading {
   font-weight: 600;
   font-size: var(--adb-font-size-sm, 0.875rem);
@@ -203,12 +314,10 @@ adb-checkbox::part(text-wrapper) {
   margin-top: var(--adb-spacing-3xsm, 2px);
 }
 
-:host-context([data-theme='dark']) .radio-description {
-  color: var(--adb-text-subtle, #aaa);
-}
 .period-months-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-sm, 0.875rem);
   margin: var(--adb-spacing-sm, 12px) 0 0 0;
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
+}
 }
