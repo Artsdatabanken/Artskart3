@@ -2,7 +2,7 @@ import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, input, signal} from
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
-type ObservationFilterKey = 'locality' | 'taxonGroupId' | 'categoryId';
+type ObservationFilterKey = 'Lokasjon' | 'Artsgruppe' | 'Kategori';
 
 type ObservationFilter = {
   groupKey: string;
@@ -19,10 +19,10 @@ type ObservationFilter = {
 export class ObservationList {
   private localityNumbers = new Map<string, number>();
   observationList = input<ObservationListInfoDto[]>([]);
-  filterByInput = input<ObservationFilterKey>('locality');
+  filterByInput = input<ObservationFilterKey>('Lokasjon');
 
-  filterBy = signal<ObservationFilterKey>('locality');
-  filterByOptions: ObservationFilterKey[] = ['locality', 'taxonGroupId', 'categoryId'];
+  filterBy = signal<ObservationFilterKey>('Lokasjon');
+  filterByOptions: ObservationFilterKey[] = ['Lokasjon', 'Artsgruppe', 'Kategori'];
 
   constructor() {
     effect(() => {
@@ -36,9 +36,9 @@ export class ObservationList {
 
   private groupValue(observation: ObservationListInfoDto): string {
     switch (this.filterBy()) {
-      case "categoryId":
+      case "Kategori":
         return observation.categoryName ?? 'Ukjent'
-      case "locality":
+      case "Lokasjon":
         const locality = observation.locality ?? 'Ukjent';
         const localityIndex = this.localityNumbers.get(locality);
         if (localityIndex !== undefined) {
@@ -48,7 +48,7 @@ export class ObservationList {
         const nextIndex = this.localityNumbers.size + 1;
         this.localityNumbers.set(locality, nextIndex);
         return `location ${nextIndex}`;
-      case "taxonGroupId":
+      case "Artsgruppe":
         return observation.taxonGroupName ?? 'Ukjent'
       default:
         return observation.locality ?? 'Ukjent';
