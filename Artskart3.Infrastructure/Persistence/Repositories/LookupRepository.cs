@@ -89,7 +89,10 @@ public class LookupRepository : ILookupRepository
         try
         {
             return await _context.Set<Organization>()
-                .Where(o => !o.IsDeleted && o.OrganizationTypeId == InstitutionOrganizationTypeId)
+                .Where(o => !o.IsDeleted
+                    && o.OrganizationTypeId == InstitutionOrganizationTypeId
+                    && o.ObservationCount != null
+                    && o.ObservationCount > 0)
                 .OrderBy(o => o.Name)
                 .Select(o => new InstitutionDto
                 {
