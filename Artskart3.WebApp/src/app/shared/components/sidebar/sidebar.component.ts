@@ -386,6 +386,8 @@ export class SidebarComponent {
     if (target.value) {
       this.filterState.setImageFilter(target.value as ImageFilterOption);
     }
+  }
+
   readonly months = [
     { value: 1, labelKey: 'sidebar.months.january' },
     { value: 2, labelKey: 'sidebar.months.february' },
