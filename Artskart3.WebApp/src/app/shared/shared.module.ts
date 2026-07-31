@@ -7,7 +7,7 @@ import { ResizablePanelComponent } from './components/resizable-panel/resizable-
 import { MapComponent } from './components/map.component/map.component';
 import { MapToolbarComponent } from './components/map.component/map-toolbar/map-toolbar.component';
 import { MapTypeSelectorComponent } from './components/map.component/map-toolbar/map-type-selector';
-import { ObservationList } from './components/observation-list/observation-list';
+import { ObservationListComponent } from './components/observation-list.component/observation-list.component';
 
 @NgModule({
   imports: [
@@ -18,7 +18,7 @@ import { ObservationList } from './components/observation-list/observation-list'
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
-    ObservationList,
+    ObservationListComponent,
     MapTypeSelectorComponent,
   ],
   exports: [
@@ -27,7 +27,7 @@ import { ObservationList } from './components/observation-list/observation-list'
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
-    ObservationList,
+    ObservationListComponent,
     MapTypeSelectorComponent,
   ],
 })

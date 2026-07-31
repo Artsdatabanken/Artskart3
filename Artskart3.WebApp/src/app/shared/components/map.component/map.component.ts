@@ -35,13 +35,13 @@ import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
 import {ObservationService} from '@shared/services/observation/observation.service';
-import {ObservationList} from '@shared/components/observation-list/observation-list';
+import {ObservationListComponent} from '@shared/components/observation-list.component/observation-list.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, MapToolbarComponent, ObservationList],
+  imports: [CommonModule, MapToolbarComponent, ObservationListComponent],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
