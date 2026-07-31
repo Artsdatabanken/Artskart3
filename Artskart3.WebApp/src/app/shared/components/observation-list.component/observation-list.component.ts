@@ -13,10 +13,10 @@ type ObservationFilter = {
   selector: 'app-observation-list',
   imports: [TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  templateUrl: './observation-list.html',
-  styleUrl: './observation-list.css',
+  templateUrl: './observation-list.component.html',
+  styleUrl: './observation-list.component.css',
 })
-export class ObservationList {
+export class ObservationListComponent {
   private localityNumbers = new Map<string, number>();
   observationList = input<ObservationListInfoDto[]>([]);
   filterByInput = input<ObservationFilterKey>('Lokasjon');

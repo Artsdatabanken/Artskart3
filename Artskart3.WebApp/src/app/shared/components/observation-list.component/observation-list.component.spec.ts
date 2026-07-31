@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ObservationList } from './observation-list';
+import { ObservationListComponent } from './observation-list.component';
 
 describe('ObservationList', () => {
-  let component: ObservationList;
-  let fixture: ComponentFixture<ObservationList>;
+  let component: ObservationListComponent;
+  let fixture: ComponentFixture<ObservationListComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ObservationList]
+      declarations: [ObservationListComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(ObservationList);
+    fixture = TestBed.createComponent(ObservationListComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
