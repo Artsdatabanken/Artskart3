@@ -2,8 +2,11 @@ using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.BusinessModels;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -23,6 +26,16 @@ public class SearchControllerTests
         _speciesServiceMock = new Mock<ISpeciesService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
         _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+
+        var services = new ServiceCollection();
+        services.AddMvcCore();
+        services.AddLogging();
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        _sut.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
 
     // -----------------------------------------------------------------------
@@ -100,60 +113,72 @@ public class SearchControllerTests
     [InlineData(0)]
     [InlineData(100001)]
     [InlineData(-1)]
-    public async Task GetObservationLocations_WithInvalidMaxResults_ReturnsBadRequest(int maxResults)
+    public async Task GetObservationLocations_WithInvalidMaxResults_Returns400(int maxResults)
     {
         var filter = new LocationSearchFilterDto { MaxResults = maxResults };
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(filter);
+        await _sut.GetObservationLocations(filter);
 
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _sut.HttpContext.Response.StatusCode.Should().Be(400);
     }
 
     [Fact]
-    public async Task GetObservationLocations_WhenPrecisionFromExceedsPrecisionTo_ReturnsBadRequest()
+    public async Task GetObservationLocations_WhenPrecisionFromExceedsPrecisionTo_Returns400()
     {
         var filter = new LocationSearchFilterDto
         {
             CoordinatePrecision = new CoordinatePrecisionDto { From = 500, To = 100 }
         };
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(filter);
+        await _sut.GetObservationLocations(filter);
 
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _sut.HttpContext.Response.StatusCode.Should().Be(400);
     }
 
     [Fact]
-    public async Task GetObservationLocations_WithValidFilter_ReturnsContentResult()
+    public async Task GetObservationLocations_WithValidFilter_WritesJsonToResponseBody()
     {
-        var geoJson = """{"type":"FeatureCollection","features":[]}""";
+        var locations = new List<LocationModel>
+        {
+            new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
+        };
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync(geoJson);
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(locations);
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(new LocationSearchFilterDto());
+        await _sut.GetObservationLocations(new LocationSearchFilterDto());
 
-        result.Result.Should().BeOfType<ContentResult>()
-            .Which.ContentType.Should().Be("application/json");
+        _sut.HttpContext.Response.ContentType.Should().Be("application/json");
+        _sut.HttpContext.Response.Body.Position = 0;
+        var body = await new StreamReader(_sut.HttpContext.Response.Body).ReadToEndAsync();
+        body.Should().Contain("\"locations\"");
+        body.Should().Contain("\"epsg\"");
     }
 
     [Fact]
     public async Task GetObservationLocations_WithNullFilter_UsesDefaultsAndSucceeds()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync("""{"type":"FeatureCollection","features":[]}""");
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>());
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(null);
+        await _sut.GetObservationLocations(null);
 
-        result.Result.Should().BeOfType<ContentResult>();
+        _sut.HttpContext.Response.ContentType.Should().Be("application/json");
+        _serviceMock.Verify(s => s.GetLocationsAsync(It.IsNotNull<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetObservationLocations_WhenServiceThrowsApplicationException_Throws()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ApplicationException("DB error"));
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
         var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 
@@ -164,8 +189,9 @@ public class SearchControllerTests
     public async Task GetObservationLocations_WhenServiceThrowsUnexpectedException_Throws()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Unexpected"));
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
         var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 

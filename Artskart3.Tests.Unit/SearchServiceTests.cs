@@ -69,20 +69,19 @@ public class SearchServiceTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetLocationsAsync_ReturnsCompactJsonString()
+    public async Task GetLocationsAsync_ReturnsListFromRepository()
     {
+        var expected = new List<LocationModel>
+        {
+            new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
+        };
         _repositoryMock
             .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<LocationModel>
-            {
-                new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
-            });
+            .ReturnsAsync(expected);
 
         var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        result.Should().NotBeNullOrWhiteSpace();
-        result.Should().Contain("\"locations\"");
-        result.Should().Contain("\"epsg\"");
+        result.Should().BeEquivalentTo(expected);
     }
 
     [Fact]
@@ -94,12 +93,12 @@ public class SearchServiceTests
 
         var result = await _sut.GetLocationsAsync(null);
 
-        result.Should().NotBeNull();
+        result.Should().NotBeNull().And.BeEmpty();
         _repositoryMock.Verify(r => r.GetLocationsAsync(It.IsNotNull<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WhenRepositoryThrows_WrapsInApplicationException()
+    public async Task GetLocationsAsync_WhenRepositoryThrows_PropagatesException()
     {
         _repositoryMock
             .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
@@ -107,11 +106,11 @@ public class SearchServiceTests
 
         var act = () => _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        await act.Should().ThrowAsync<ApplicationException>();
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB down");
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidCompactJson()
+    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsAllItems()
     {
         var largeDataSet = Enumerable.Range(1, 100000)
             .Select(i => new LocationModel
@@ -129,9 +128,7 @@ public class SearchServiceTests
 
         var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        result.Should().NotBeNullOrWhiteSpace();
-        result.Should().Contain("\"locations\"");
-        result.Should().Contain("\"epsg\"");
-        result.Length.Should().BeGreaterThan(100000);
+        result.Should().HaveCount(100000);
+        result.Should().BeEquivalentTo(largeDataSet);
     }
 }

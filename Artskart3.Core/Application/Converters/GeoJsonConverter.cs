@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Artskart3.Core.Domain.BusinessModels;
 
@@ -9,16 +8,16 @@ public static class GeoJsonConverter
     private const int DefaultEpsg = 25833;
 
     /// <summary>
-    /// Serialiserer lokasjoner til kompakt JSON-format: { epsg, locations: [[id, lon, lat, count], ...] }
+    /// Skriver lokasjoner direkte til en strøm i kompakt JSON-format: { epsg, locations: [[id, lon, lat, count], ...] }
     /// </summary>
-    public static string LocationsToCompactJson(
+    public static async Task WriteLocationsToStreamAsync(
+        Stream output,
         List<LocationModel> locations,
         int? targetEpsg = null)
     {
         int epsgCode = targetEpsg ?? DefaultEpsg;
 
-        using var stream = new MemoryStream();
-        using var writer = new Utf8JsonWriter(stream);
+        await using var writer = new Utf8JsonWriter(output, new JsonWriterOptions { SkipValidation = false });
 
         writer.WriteStartObject();
         writer.WriteNumber("epsg", epsgCode);
@@ -38,8 +37,6 @@ public static class GeoJsonConverter
 
         writer.WriteEndArray();
         writer.WriteEndObject();
-        writer.Flush();
-
-        return Encoding.UTF8.GetString(stream.ToArray());
+        await writer.FlushAsync();
     }
 }

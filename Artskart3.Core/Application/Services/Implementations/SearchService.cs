@@ -1,6 +1,6 @@
-using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -18,23 +18,10 @@ public class SearchService : ISearchService
         _cache = cache;
     }
 
-    public async Task<string> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task<List<LocationModel>> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
-        filter = filter ?? new LocationSearchFilterDto();
-
-        try
-        {
-            var locations = await _searchRepository.GetLocationsAsync(filter, cancellationToken);
-            return GeoJsonConverter.LocationsToCompactJson(locations, filter.Epsg);
-        }
-        catch (ApplicationException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            throw new ApplicationException("Feil ved henting av lokasjoner", ex);
-        }
+        filter ??= new LocationSearchFilterDto();
+        return await _searchRepository.GetLocationsAsync(filter, cancellationToken);
     }
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
