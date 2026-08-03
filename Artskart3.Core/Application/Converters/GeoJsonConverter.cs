@@ -73,9 +73,6 @@ public static class GeoJsonConverter
         }
         writer.WriteEndObject();
 
-        // Write CRS
-        WriteCrs(writer, epsgCode);
-
         writer.WriteEndObject();
         writer.Flush();
 

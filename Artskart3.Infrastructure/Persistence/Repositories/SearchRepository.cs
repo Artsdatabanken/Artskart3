@@ -447,6 +447,16 @@ public class SearchRepository : ISearchRepository
         var locationLookup = await _context.Set<Location>()
             .Where(l => locationIds.Contains(l.Id))
             .AsNoTracking()
+            .Select(l => new Location
+            {
+                Id = l.Id,
+                Locality = l.Locality,
+                Latitude = l.Latitude,
+                Longitude = l.Longitude,
+                East = l.East,
+                North = l.North,
+                CoordinatePrecision = l.CoordinatePrecision
+            })
             .ToDictionaryAsync(l => l.Id, cancellationToken);
 
         var locationModels = new List<LocationModel>(aggregatedData.Count);
