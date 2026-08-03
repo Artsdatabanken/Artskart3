@@ -42,6 +42,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                 .ThenInclude(t => t.TaxonGroup)
                 .Include(o => o.Category)
                 .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
+                .Take(2500)
                 .ToListAsync();
 
             IEnumerable<ObservationListInfoDto> observationDtos = observations.Select(o => new ObservationListInfoDto
