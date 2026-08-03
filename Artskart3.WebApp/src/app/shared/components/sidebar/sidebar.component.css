@@ -10,11 +10,11 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  margin-top: 1rem;
+  background: var(--adb-background-default);
+}
 
-  .sidebar-heading {
-    margin-bottom: 0;
-  }
+.sidebar-heading {
+  margin-bottom: 0;
 }
 
 .search-field {
