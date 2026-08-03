@@ -155,7 +155,7 @@ export class ListViewComponent {
   readonly hasMorePages = computed(() => {
     const response = this.observationsResource.value();
     if (!response) return false;
-    return (response.lookaheadCount ?? 0) > 0;
+    return response.hasMorePages ?? false;
   });
 
   onPageChange(page: number) {
