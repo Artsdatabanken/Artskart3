@@ -23,14 +23,6 @@
 
 .table-container {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  max-height: calc(100% - 80px);
-}
-
-.table-scroll {
-  flex: 1;
   overflow: auto;
 }
 
@@ -96,4 +88,5 @@
 
 .pagination {
   padding-top: var(--adb-spacing-md);
+  margin-bottom: var(--adb-spacing-md);
 }
