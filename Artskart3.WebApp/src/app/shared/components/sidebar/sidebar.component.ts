@@ -148,7 +148,7 @@ export class SidebarComponent {
     }
     getCategoryTextColor(category: CategoryDto): string {
     return this.getCategoryColor(category).toUpperCase() === '#FFF'
-      ? '#31363A' : '#FFFFFF';
+      ? '#262F31' : '#FFFFFF';
   }
 
   getCategoryBorder(category: CategoryDto): string {
