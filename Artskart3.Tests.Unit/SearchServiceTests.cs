@@ -69,7 +69,7 @@ public class SearchServiceTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetLocationsAsync_ReturnsGeoJsonString()
+    public async Task GetLocationsAsync_ReturnsCompactJsonString()
     {
         _repositoryMock
             .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
@@ -81,7 +81,8 @@ public class SearchServiceTests
         var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
         result.Should().NotBeNullOrWhiteSpace();
-        result.Should().Contain("FeatureCollection"); // GeoJSON root type
+        result.Should().Contain("\"locations\"");
+        result.Should().Contain("\"epsg\"");
     }
 
     [Fact]
@@ -110,7 +111,7 @@ public class SearchServiceTests
     }
 
     [Fact]
-    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidGeoJson()
+    public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidCompactJson()
     {
         // Arrange: Create 100,000 location items
         var largeDataSet = Enumerable.Range(1, 100000)
@@ -135,9 +136,9 @@ public class SearchServiceTests
 
         // Assert
         result.Should().NotBeNullOrWhiteSpace();
-        result.Should().Contain("FeatureCollection");
-        result.Should().Contain("Feature");
-        result.Should().Contain("\"type\":\"Point\"");
+        result.Should().Contain("\"locations\"");
+        result.Should().Contain("\"epsg\"");
+        result.Should().Contain("Location-1");
         result.Length.Should().BeGreaterThan(100000);
     }
 

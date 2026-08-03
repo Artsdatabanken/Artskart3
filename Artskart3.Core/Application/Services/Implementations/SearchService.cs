@@ -1,7 +1,6 @@
 using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -26,7 +25,7 @@ public class SearchService : ISearchService
         try
         {
             var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
-            return await GeoJsonConverter.LocationsToGeoJson(locations, StyleType.Unknown, filter.Epsg, cancellationToken);
+            return await GeoJsonConverter.LocationsToCompactJson(locations, filter.Epsg, cancellationToken);
         }
         catch (ApplicationException)
         {
