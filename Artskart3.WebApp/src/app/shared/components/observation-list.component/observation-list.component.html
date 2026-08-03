@@ -10,12 +10,14 @@
     <div class="empty-state">No observations found</div>
   }
   @for (group of groupedObservations(); track group.groupKey) {
-    <adb-accordion class="observation-group">
-      <adb-accordion-item class="observation-item" [attr.heading]="group.groupKey + ' (' + group.observations.length + ')'">
+    <adb-accordion>
+      <adb-accordion-item [attr.heading]="group.groupKey + ' (' + group.observations.length + ')'">
         @for (observation of group.observations; track observation.id) {
-          <div class="observation-details">
-            {{observation.preferredPopularName || ""}} <div [innerHTML]="observation.scientificName"></div>
-          </div>
+          <adb-accordion>
+            <adb-accordion-item [attr.heading]="observation.preferredPopularName">
+              <div class="observation-details">{{observation.preferredPopularName || ""}} <div [innerHTML]="observation.scientificName"></div></div>
+            </adb-accordion-item>
+          </adb-accordion>
         }
       </adb-accordion-item>
     </adb-accordion>
