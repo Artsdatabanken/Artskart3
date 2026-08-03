@@ -118,7 +118,7 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
 .checkbox-accordion-children {
   display: flex;
   flex-direction: column;
-  gap: var(--adb-spacing-xsm, 8px);
+  gap: var(--adb-spacing-2xsm);
   margin-top: var(--adb-spacing-md);
   margin-right: 10px;
 }
