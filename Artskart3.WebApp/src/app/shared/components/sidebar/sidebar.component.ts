@@ -1,12 +1,4 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  CUSTOM_ELEMENTS_SCHEMA,
-  DestroyRef,
-  inject,
-  signal,
-  computed,
-} from '@angular/core';
+import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, signal, computed } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -69,9 +61,9 @@ export class SidebarComponent {
           if (trimmed.length < MinProjectNameSearchLength) {
             return of<components['schemas']['OrganizationDto'][]>([]);
           }
-          return this.organizationService.searchOrganizations(trimmed).pipe(
-            catchError(() => of<components['schemas']['OrganizationDto'][]>([])),
-          );
+          return this.organizationService
+            .searchOrganizations(trimmed)
+            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
         }),
         takeUntilDestroyed(this.destroyRef),
       )
