@@ -118,8 +118,8 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
 .checkbox-accordion-children {
   display: flex;
   flex-direction: column;
-  gap: var(--adb-spacing-2xsm);
-  margin-top: var(--adb-spacing-md);
+  gap: var(--adb-spacing-xsm, 8px);
+  margin-top: var(--adb-spacing-xsm);
   margin-right: 10px;
 }
 
@@ -274,12 +274,5 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   font-size: var(--adb-font-size-xs, 0.75rem);
   color: var(--adb-text-subtle, #666);
   margin-top: var(--adb-spacing-3xsm, 2px);
-}
-
-.period-months-heading {
-  font-weight: 600;
-  font-size: var(--adb-font-size-sm, 0.875rem);
-  margin: var(--adb-spacing-sm, 12px) 0 0 0;
-  padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
 }
