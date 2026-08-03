@@ -13,14 +13,17 @@
   left: 0;
 }
 
-.observation-item {
-  margin-bottom: 1rem;
-}
-
 .observation-details {
   display: flex;
-  flex-direction: row;
-  gap: 0.25rem;
+  padding-left: var(--spacing-spacing-lg, 24px);
+  align-items: center;
+  gap: var(--spacing-spacing-15-sm, 6px);
+  align-self: stretch;
+}
+
+/* Remove bottom border on nested (non-top-level) accordion items */
+adb-accordion-item adb-accordion adb-accordion-item {
+  --adb-border-accent: transparent;
 }
 
 .filter-dropdown {
