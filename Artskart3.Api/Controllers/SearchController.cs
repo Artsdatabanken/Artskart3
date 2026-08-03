@@ -1,9 +1,11 @@
 using Artskart3.Api.Filters;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Api.Controllers;
 
@@ -15,12 +17,14 @@ public class SearchController : ControllerBase
     private readonly ISearchService _searchService;
     private readonly ISpeciesService _speciesService;
     private readonly ILogger<SearchController> _logger;
+    private readonly PaginationOptions _paginationOptions;
 
-    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
         _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _paginationOptions = paginationOptions?.Value ?? throw new ArgumentNullException(nameof(paginationOptions));
     }
 
     /// <summary>
@@ -109,12 +113,14 @@ public class SearchController : ControllerBase
                 var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
                 var pageNumber = filter.PageNumber!.Value;
+                var lookaheadLimit = resultsPerPage * _paginationOptions.LookaheadMultiplier;
                 var pagedResult = new PagedObservationResponseDto
                 {
                     Items = allItems.Take(resultsPerPage),
                     PageNumber = pageNumber,
                     ResultsPerPage = resultsPerPage,
-                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1)
+                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1),
+                    HasMorePages = allItems.Count >= lookaheadLimit
                 };
 
                 return Ok(pagedResult);
