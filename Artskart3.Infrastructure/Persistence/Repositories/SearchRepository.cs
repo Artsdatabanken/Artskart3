@@ -450,7 +450,6 @@ public class SearchRepository : ISearchRepository
             .Select(l => new Location
             {
                 Id = l.Id,
-                Locality = l.Locality,
                 Latitude = l.Latitude,
                 Longitude = l.Longitude,
                 East = l.East,
@@ -476,7 +475,6 @@ public class SearchRepository : ISearchRepository
         return new LocationModel
         {
             Id = location.Id,
-            Locality = location.Locality ?? string.Empty,
             Latitude = location.Latitude ?? 0,
             Longitude = location.Longitude ?? 0,
             East = location.East,

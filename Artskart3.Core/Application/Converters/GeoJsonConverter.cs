@@ -9,7 +9,7 @@ public static class GeoJsonConverter
     private const int DefaultEpsg = 25833;
 
     /// <summary>
-    /// Serialiserer lokasjoner til kompakt JSON-format: { epsg, locations: [[id, lon, lat, count, "locality"], ...] }
+    /// Serialiserer lokasjoner til kompakt JSON-format: { epsg, locations: [[id, lon, lat, count], ...] }
     /// </summary>
     public static async Task<string> LocationsToCompactJson(
         IAsyncEnumerable<LocationModel> locations,
@@ -34,7 +34,6 @@ public static class GeoJsonConverter
             writer.WriteNumberValue(location.Longitude);
             writer.WriteNumberValue(location.Latitude);
             writer.WriteNumberValue(location.ObservationCount);
-            writer.WriteStringValue(location.Locality ?? string.Empty);
             writer.WriteEndArray();
         }
 

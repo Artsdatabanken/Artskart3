@@ -122,8 +122,7 @@ public class SearchServiceTests
                 North = 6650000 + i,
                 Latitude = 59.9 + (i * 0.0001),
                 Longitude = 10.7 + (i * 0.0001),
-                ObservationCount = i % 10 + 1,
-                Locality = $"Location-{i}"
+                ObservationCount = i % 10 + 1
             })
             .ToList();
 
@@ -138,7 +137,6 @@ public class SearchServiceTests
         result.Should().NotBeNullOrWhiteSpace();
         result.Should().Contain("\"locations\"");
         result.Should().Contain("\"epsg\"");
-        result.Should().Contain("Location-1");
         result.Length.Should().BeGreaterThan(100000);
     }
 

@@ -388,7 +388,7 @@ export class AreasService {
   }
 
   /**
-   * Mapper kompakt lokasjon-respons [id, lon, lat, count, locality] til GeoJSON-features.
+   * Mapper kompakt lokasjon-respons [id, lon, lat, count] til GeoJSON-features.
    */
   private mapCompactLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
     if (typeof response !== 'object' || response === null) return [];
@@ -398,7 +398,7 @@ export class AreasService {
     const features: AreaMarkerFeature[] = [];
     for (const loc of locations) {
       if (!Array.isArray(loc) || loc.length < 4) continue;
-      const [id, lon, lat, count, locality] = loc as [number, number, number, number, string?];
+      const [id, lon, lat, count] = loc as [number, number, number, number];
       if (isNaN(lon) || isNaN(lat)) continue;
 
       features.push({
@@ -407,7 +407,7 @@ export class AreasService {
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: {
           id,
-          name: locality ?? `Location ${id}`,
+          name: `Location ${id}`,
           observationCount: count,
           observationCountDisplay: count ? AbbreviateNumberHelper.format(count) : '',
           isPolygon: false,
