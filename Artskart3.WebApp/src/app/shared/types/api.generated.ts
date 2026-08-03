@@ -1119,6 +1119,7 @@ export interface components {
             institutionId?: string | null;
             institutionName?: string | null;
             locality?: string | null;
+            displayName?: string | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
