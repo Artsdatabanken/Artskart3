@@ -24,8 +24,8 @@ public class SearchService : ISearchService
 
         try
         {
-            var locations = _searchRepository.GetLocationsAsync(filter, cancellationToken);
-            return await GeoJsonConverter.LocationsToCompactJson(locations, filter.Epsg, cancellationToken);
+            var locations = await _searchRepository.GetLocationsAsync(filter, cancellationToken);
+            return GeoJsonConverter.LocationsToCompactJson(locations, filter.Epsg);
         }
         catch (ApplicationException)
         {

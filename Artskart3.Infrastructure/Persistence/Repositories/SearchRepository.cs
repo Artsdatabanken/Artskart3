@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
@@ -216,21 +215,10 @@ public class SearchRepository : ISearchRepository
 
 
     /// <summary>
-    /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
-    /// Aggregates observation counts by location, sorted by count descending.
-    /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
+    /// Henter observasjonslokasjoner filtrert etter taksongruppe, kategori, område m.m.
+    /// Aggregerer observasjonsantall per lokasjon, sortert synkende.
     /// </summary>
-    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var locationModels = await FetchLocationModelsAsync(filter, cancellationToken);
-
-        foreach (var model in locationModels)
-        {
-            yield return model;
-        }
-    }
-
-    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter, CancellationToken cancellationToken = default)
+    public async Task<List<LocationModel>> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {

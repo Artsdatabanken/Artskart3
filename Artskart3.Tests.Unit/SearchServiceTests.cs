@@ -72,11 +72,11 @@ public class SearchServiceTests
     public async Task GetLocationsAsync_ReturnsCompactJsonString()
     {
         _repositoryMock
-            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .Returns(AsyncEnumerable(new List<LocationModel>
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>
             {
-                new() { Id = 1, East = 262000, North = 6650000, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
-            }));
+                new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
+            });
 
         var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
@@ -89,21 +89,21 @@ public class SearchServiceTests
     public async Task GetLocationsAsync_WithNullFilter_UsesDefaults()
     {
         _repositoryMock
-            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .Returns(AsyncEnumerable(new List<LocationModel>()));
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>());
 
         var result = await _sut.GetLocationsAsync(null);
 
         result.Should().NotBeNull();
-        _repositoryMock.Verify(r => r.GetLocationsAsync(It.IsNotNull<LocationSearchFilterDto>()), Times.Once);
+        _repositoryMock.Verify(r => r.GetLocationsAsync(It.IsNotNull<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetLocationsAsync_WhenRepositoryThrows_WrapsInApplicationException()
     {
         _repositoryMock
-            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .Returns(ThrowingAsyncEnumerable<LocationModel>(new InvalidOperationException("DB down")));
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB down"));
 
         var act = () => _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
@@ -113,13 +113,10 @@ public class SearchServiceTests
     [Fact]
     public async Task GetLocationsAsync_WithLargeDataSet_100000Items_ReturnsValidCompactJson()
     {
-        // Arrange: Create 100,000 location items
         var largeDataSet = Enumerable.Range(1, 100000)
             .Select(i => new LocationModel
             {
                 Id = i,
-                East = 262000 + i,
-                North = 6650000 + i,
                 Latitude = 59.9 + (i * 0.0001),
                 Longitude = 10.7 + (i * 0.0001),
                 ObservationCount = i % 10 + 1
@@ -127,38 +124,14 @@ public class SearchServiceTests
             .ToList();
 
         _repositoryMock
-            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .Returns(AsyncEnumerable(largeDataSet));
+            .Setup(r => r.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(largeDataSet);
 
-        // Act
         var result = await _sut.GetLocationsAsync(new LocationSearchFilterDto());
 
-        // Assert
         result.Should().NotBeNullOrWhiteSpace();
         result.Should().Contain("\"locations\"");
         result.Should().Contain("\"epsg\"");
         result.Length.Should().BeGreaterThan(100000);
-    }
-
-    // -----------------------------------------------------------------------
-    // Hjelpemetoder
-    // -----------------------------------------------------------------------
-
-    private static async IAsyncEnumerable<T> AsyncEnumerable<T>(IEnumerable<T> items)
-    {
-        foreach (var item in items)
-        {
-            yield return item;
-            await Task.Yield();
-        }
-    }
-
-    private static async IAsyncEnumerable<T> ThrowingAsyncEnumerable<T>(Exception ex)
-    {
-        await Task.Yield();
-        throw ex;
-#pragma warning disable CS0162 // Unreachable code detected
-        yield break; // unreachable, but required by compiler
-#pragma warning restore CS0162 // Unreachable code detected
     }
 }

@@ -11,10 +11,9 @@ public static class GeoJsonConverter
     /// <summary>
     /// Serialiserer lokasjoner til kompakt JSON-format: { epsg, locations: [[id, lon, lat, count], ...] }
     /// </summary>
-    public static async Task<string> LocationsToCompactJson(
-        IAsyncEnumerable<LocationModel> locations,
-        int? targetEpsg = null,
-        CancellationToken cancellationToken = default)
+    public static string LocationsToCompactJson(
+        List<LocationModel> locations,
+        int? targetEpsg = null)
     {
         int epsgCode = targetEpsg ?? DefaultEpsg;
 
@@ -27,7 +26,7 @@ public static class GeoJsonConverter
         writer.WritePropertyName("locations");
         writer.WriteStartArray();
 
-        await foreach (var location in locations.WithCancellation(cancellationToken))
+        foreach (var location in locations)
         {
             writer.WriteStartArray();
             writer.WriteNumberValue(location.Id);
