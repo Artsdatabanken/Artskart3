@@ -14,8 +14,8 @@
       <adb-accordion-item [attr.heading]="group.groupKey + ' (' + group.observations.length + ')'">
         @for (observation of group.observations; track observation.id) {
           <adb-accordion>
-            <adb-accordion-item [attr.heading]="observation.preferredPopularName">
-              <div class="observation-details">{{observation.preferredPopularName || ""}} <div [innerHTML]="observation.scientificName"></div></div>
+            <adb-accordion-item [attr.heading]="observation.displayName">
+              <div class="observation-details">{{observation.preferredPopularName}} <i [innerHTML]="observation.scientificName"></i></div>
             </adb-accordion-item>
           </adb-accordion>
         }
