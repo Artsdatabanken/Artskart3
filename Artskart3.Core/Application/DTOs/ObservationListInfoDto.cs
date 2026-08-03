@@ -5,6 +5,7 @@ public class ObservationListInfoDto
     public int Id { get; set; }
     public string? PreferredPopularName { get; set; }
     public string? ScientificName { get; set; }
+    public string DisplayName { get; set; } = null!;
     public string? Author { get; set; }
     public int? TaxonGroupId { get; set; }
     public string? TaxonGroupName { get; set; }

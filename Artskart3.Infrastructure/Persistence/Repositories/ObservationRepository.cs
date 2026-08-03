@@ -41,6 +41,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                 .Include(o => o.Taxon)
                 .ThenInclude(t => t.TaxonGroup)
                 .Include(o => o.Category)
+                .Include(o => o.MatchedScientificName)
                 .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
                 .Take(2500)
                 .ToListAsync();
@@ -48,11 +49,12 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
             IEnumerable<ObservationListInfoDto> observationDtos = observations.Select(o => new ObservationListInfoDto
             {
                 Id = o.Id,
-                PreferredPopularName = o.Taxon.PreferredPopularName ?? string.Empty,
-                ScientificName = o.Taxon.ValidScientificName ?? string.Empty,
-                Author = o.Taxon.ValidScientificNameAuthorship ?? string.Empty,
+                PreferredPopularName = o.Taxon.PreferredPopularName,
+                ScientificName = o.Taxon.ValidScientificName,
+                DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName).Replace("<i>", "").Replace("</i>", ""), // we get <i></i> from db, remove in future
+                Author = o.Taxon.ValidScientificNameAuthorship,
                 TaxonGroupId = o.TaxonGroupId,
-                TaxonGroupName = o.Taxon.TaxonGroup.Name ?? string.Empty,
+                TaxonGroupName = o.Taxon.TaxonGroup.Name,
                 Locality = o.LocationId.ToString(),
                 CategoryId = o.CategoryId,
                 CategoryName = o.Category?.Name
