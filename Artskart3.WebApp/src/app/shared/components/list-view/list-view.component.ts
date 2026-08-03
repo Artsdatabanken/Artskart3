@@ -126,8 +126,8 @@ export class ListViewComponent {
 
   readonly totalVisiblePages = computed(() => {
     const response = this.observationsResource.value();
-    const lookahead = response?.lookaheadCount ?? 0;
-    return this.pageNumber() + lookahead;
+    if (!response) return this.pageNumber();
+    return (response.pageNumber ?? 1) + (response.lookaheadCount ?? 0);
   });
 
   readonly hasMorePages = computed(() => {

@@ -48,7 +48,7 @@
       <adb-pagination
         class="pagination"
         [attr.current-page]="pageNumber()"
-        [attr.visible-pages]="4"
+        [attr.total-pages]="totalVisiblePages()"
         [attr.has-more-pages]="hasMorePages() || null"
         [attr.page-size-options]="pageSizeOptions.join(',')"
         [attr.page-size]="resultsPerPage()"
