@@ -190,6 +190,10 @@ adb-checkbox::part(text-wrapper) {
   font-weight: 400;
   line-height: 150%;
 }
+:host-context([data-theme='dark']) .category-name
+ {
+  color: var(--adb-text-default, #fff);
+}
 
 /* Other find properties filter (Andre funnegenskaper) */
 .other-properties-filter {
