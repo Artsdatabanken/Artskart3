@@ -191,8 +191,7 @@
                 <a routerLink="/mittartskart" class="user-dropdown-item" role="menuitem" (click)="closeUserMenu()">
                   {{ 'mittArtskart.title' | translate }}
                 </a>
-                <div class="user-dropdown-divider" role="separator"></div>
-                <adb-button variant="secondary" size="sm" (click)="authService.logout(); closeUserMenu()" role="menuitem">
+                <adb-button variant="tertiary" size="sm" (click)="authService.logout(); closeUserMenu()" role="menuitem">
                   {{ 'header.logout' | translate }}
                 </adb-button>
               </div>
