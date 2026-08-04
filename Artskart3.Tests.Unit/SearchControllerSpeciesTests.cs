@@ -1,9 +1,11 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -14,7 +16,7 @@ public class SearchControllerSpeciesTests
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
-    private SearchController CreateSut() => new(_searchServiceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut() => new(_searchServiceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
     // -----------------------------------------------------------------------
     // Validering

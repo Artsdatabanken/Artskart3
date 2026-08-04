@@ -1,9 +1,11 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -17,7 +19,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSearchServiceIsNull()
     {
-        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object);
+        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("searchService");
@@ -26,7 +28,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSpeciesServiceIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object);
+        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("speciesService");
@@ -35,7 +37,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!);
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("logger");
@@ -88,5 +90,5 @@ public class SearchControllerAdditionalTests
             f.CoordinatePrecision.To == 100)), Times.Once);
     }
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 }
