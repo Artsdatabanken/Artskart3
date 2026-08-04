@@ -310,19 +310,16 @@
         }
       }
 
-      <h6 class="filter-section-subheading">{{ 'sidebar.registrering' | translate }}</h6>
-
+      <h6 class="area-section-heading">{{ 'sidebar.registrering' | translate }}</h6>
       <div class="radio-group">
         @for (option of registreringOptions; track option.id) {
           <adb-radio
             name="registrationStatus"
             [attr.checked]="isRegistrationStatusSelected(option.id) ? '' : null"
+            [attr.description]="option.descriptionKey ? (option.descriptionKey | translate) : null"
             (change)="onRegistrationStatusChange(option.id)"
           >
             {{ option.labelKey | translate }}
-            @if (option.descriptionKey) {
-              <span class="radio-description">{{ option.descriptionKey | translate }}</span>
-            }
           </adb-radio>
         }
       </div>
