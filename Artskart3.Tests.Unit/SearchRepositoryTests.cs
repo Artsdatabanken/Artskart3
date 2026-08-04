@@ -91,7 +91,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(null));
+        var result = await sut.GetLocationsAsync(null);
 
         result.Should().HaveCount(2);
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
@@ -113,7 +113,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1 } });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -135,7 +135,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = new[] { 10 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = new[] { 10 } });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -157,7 +157,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecordIds = new[] { 5 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { BasisOfRecordIds = new[] { 5 } });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -196,7 +196,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 1 }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 1 });
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 4]);
     }
@@ -221,7 +221,7 @@ public class SearchRepositoryTests
         SeedObservations(context, absentObservation, foundObservation);
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 2 }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 2 });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -247,7 +247,7 @@ public class SearchRepositoryTests
         SeedObservations(context, notRecoveredObservation, foundObservation);
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 3 }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { RegistrationStatusId = 3 });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -274,7 +274,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 50 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 50 } });
 
         result.Select(x => x.Id).Should().BeEquivalentTo([2, 3]);
     }
@@ -297,7 +297,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 50 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 50 } });
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -320,10 +320,10 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto
         {
             CoordinatePrecision = new CoordinatePrecisionDto { From = 25, To = 75 }
-        }));
+        });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(2);
@@ -350,7 +350,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 2 }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 2 });
 
         result.Should().HaveCount(2);
         result.Select(x => x.Id).Should().ContainInOrder(1, 2);
@@ -374,7 +374,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 });
 
         result.Should().HaveCount(1000);
     }
@@ -390,7 +390,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 99 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 99 } });
 
         result.Should().BeEmpty();
     }
@@ -413,7 +413,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1, 2 } }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = new[] { 1, 2 } });
 
         result.Select(x => x.Id).Should().BeEquivalentTo([1, 2]);
     }
@@ -434,7 +434,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = null }));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = null });
 
         result.Should().HaveCount(2);
     }
@@ -453,7 +453,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto());
 
         result.Should().ContainSingle();
         result[0].ObservationCount.Should().Be(3);
@@ -474,7 +474,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto());
 
         result.Should().ContainSingle();
         result[0].ObservationCount.Should().Be(4);
@@ -493,7 +493,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await ToListAsync(sut.GetLocationsAsync(new LocationSearchFilterDto()));
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto());
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
@@ -593,14 +593,4 @@ public class SearchRepositoryTests
             Centroid = null
         };
 
-    private static async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> source)
-    {
-        var list = new List<T>();
-        await foreach (var item in source)
-        {
-            list.Add(item);
-        }
-
-        return list;
-    }
 }
