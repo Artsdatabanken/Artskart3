@@ -1003,6 +1003,7 @@ export interface components {
             resultsPerPage?: number;
             /** Format: int32 */
             lookaheadCount?: number;
+            hasMorePages?: boolean;
         };
         PeriodDto: {
             /** Format: int32 */

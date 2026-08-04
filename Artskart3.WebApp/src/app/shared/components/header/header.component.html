@@ -3,8 +3,8 @@
     <div class="header-left">
       <div class="logo-and-service">
         <div class="logo">
-          <a href="https://artsdatabanken.no" aria-label="Lenke til artsdatabanken hjemmeside.">
-            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="-0.7041 -0.7036 50 50" fill="none" class="logo-icon">
+          <a href="https://artsdatabanken.no" [attr.aria-label]="'header.artsdatabankenLinkAriaLabel' | translate">
+            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="-0.7041 -0.7036 50 50" fill="none" class="logo-icon" role="img" [attr.aria-label]="'header.logoAriaLabel' | translate">
               <path
                 d="M24.2958 34.3063C18.7766 34.3063 14.2852 29.815 14.2852 24.296C14.2852 18.777 18.7766 14.2857 24.2958 14.2857C29.8151 14.2857 34.3065 18.777 34.3065 24.296H31.7806C31.7806 20.1705 28.4244 16.8144 24.2987 16.8144C20.1731 16.8144 16.8169 20.1705 16.8169 24.296C16.8169 28.4215 20.1731 31.7805 24.2987 31.7805V34.3063H24.2958Z"
                 fill="currentColor"
@@ -191,8 +191,7 @@
                 <a routerLink="/mittartskart" class="user-dropdown-item" role="menuitem" (click)="closeUserMenu()">
                   {{ 'mittArtskart.title' | translate }}
                 </a>
-                <div class="user-dropdown-divider" role="separator"></div>
-                <adb-button variant="secondary" size="sm" (click)="authService.logout(); closeUserMenu()" role="menuitem">
+                <adb-button variant="tertiary" size="sm" (click)="authService.logout(); closeUserMenu()" role="menuitem">
                   {{ 'header.logout' | translate }}
                 </adb-button>
               </div>

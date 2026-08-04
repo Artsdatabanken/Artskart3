@@ -72,10 +72,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_GroupsObservationsByLocation()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
-        }));
+        });
 
         result.Should().HaveCount(3);
         result.Should().Contain(model => model.Id == _locationOne.Id && model.ObservationCount == 3);
@@ -86,10 +86,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_OrdersByObservationCountDescending()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
-        }));
+        });
 
         result.Select(x => x.ObservationCount).Should().BeInDescendingOrder();
     }
@@ -97,10 +97,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByTaxonGroupId()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId }
-        }));
+        });
 
         // Should return only locations that have observations with TestObservationTaxonGroupOneId
         result.Should().NotBeEmpty();
@@ -114,10 +114,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByTaxonGroupIdOnly()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId }
-        }));
+        });
 
         result.Should().NotBeEmpty();
         result.Select(x => x.Id).Should().Contain(_locationOne.Id);
@@ -128,10 +128,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByCategory()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             CategoryIds = new[] { TestCategoryOneId }
-        }));
+        });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(_locationOne.Id);
@@ -140,10 +140,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByBasisOfRecord()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             BasisOfRecordIds = new[] { TestBasisOfRecordOneId }
-        }));
+        });
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationOne.Id, _locationThree.Id]);
     }
@@ -154,11 +154,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByCoordinatePrecisionFrom()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             CoordinatePrecision = new CoordinatePrecisionDto { From = 100 }
-        }));
+        });
 
         result.Select(location => location.Id).Should().BeEquivalentTo([_locationTwo.Id, _locationThree.Id]);
     }
@@ -166,11 +166,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_FiltersByCoordinatePrecisionTo()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             CoordinatePrecision = new CoordinatePrecisionDto { To = 50 }
-        }));
+        });
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(_locationOne.Id);
@@ -179,11 +179,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task GetLocationsAsync_LimitsToMaxResults()
     {
-        var result = await ToListAsync(_repository.GetLocationsAsync(new LocationSearchFilterDto
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
             MaxResults = 2
-        }));
+        });
 
         result.Should().HaveCount(2);
         result.Select(location => location.Id).Should().ContainInOrder(_locationOne.Id, _locationTwo.Id);
@@ -409,14 +409,4 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             WktPolygon = null
         };
 
-    private static async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> source)
-    {
-        var list = new List<T>();
-        await foreach (var item in source)
-        {
-            list.Add(item);
-        }
-
-        return list;
-    }
 }

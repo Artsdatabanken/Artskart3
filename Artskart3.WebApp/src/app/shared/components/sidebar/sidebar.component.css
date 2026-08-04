@@ -11,10 +11,10 @@
   flex-direction: column;
   height: 100%;
   margin-top: 1rem;
+}
 
-  .sidebar-heading {
-    margin-bottom: 0;
-  }
+.sidebar-heading {
+  margin-bottom: 0;
 }
 
 .search-field {
@@ -253,18 +253,13 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
 .other-properties-image-heading {
   font-size: var(--adb-font-size-sm, 0.875rem);
   font-weight: 600;
-.filter-section-subheading {
-  font-weight: 600;
-  font-size: var(--adb-font-size-sm, 0.875rem);
-  color: var(--adb-text-default, inherit);
-  margin: var(--adb-spacing-md, 16px) 0 var(--adb-spacing-2xsm, 8px) 0;
-  padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
 
 .radio-group {
   display: flex;
   flex-direction: column;
-  gap: var(--adb-spacing-2xsm, 8px);
+  gap: var(--adb-spacing-2xsm);
+  margin-top: var(--adb-spacing-2xsm);
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
   margin-right: 10px;
 }
@@ -274,12 +269,5 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   font-size: var(--adb-font-size-xs, 0.75rem);
   color: var(--adb-text-subtle, #666);
   margin-top: var(--adb-spacing-3xsm, 2px);
-}
-
-.period-months-heading {
-  font-weight: 600;
-  font-size: var(--adb-font-size-sm, 0.875rem);
-  margin: var(--adb-spacing-sm, 12px) 0 0 0;
-  padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
 }

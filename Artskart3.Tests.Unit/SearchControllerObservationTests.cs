@@ -1,9 +1,11 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -214,11 +216,34 @@ public class SearchControllerObservationTests
         pagedResult.LookaheadCount.Should().Be(expectedLookahead);
     }
 
+    [Theory]
+    [InlineData(40, 10, true)]   // nøyaktig fullt vindu (10 * 4) → kan finnes flere sider
+    [InlineData(39, 10, false)]  // ett under → alle resultater hentet, ingen flere sider
+    [InlineData(0, 10, false)]   // tomt resultat → ingen flere sider
+    [InlineData(100, 25, true)]  // 25 * 4 = 100, fullt vindu → kan finnes flere sider
+    [InlineData(99, 25, false)]  // ett under → ingen flere sider
+    public async Task GetObservations_WithPagination_CalculatesCorrectHasMorePages(
+        int totalItems, int resultsPerPage, bool expectedHasMore)
+    {
+        var sut = CreateSut();
+        var allItems = CreateObservations(totalItems);
+        _serviceMock
+            .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
+            .ReturnsAsync(allItems);
+
+        var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = resultsPerPage };
+        var result = await sut.GetObservations(filter);
+
+        var pagedResult = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeOfType<PagedObservationResponseDto>().Subject;
+        pagedResult.HasMorePages.Should().Be(expectedHasMore);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
     private static List<ObservationDto> CreateObservations(int count) =>
         CreateObservationsFromOffset(1, count);
