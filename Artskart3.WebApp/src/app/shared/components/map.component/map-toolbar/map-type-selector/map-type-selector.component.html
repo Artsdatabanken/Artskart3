@@ -14,8 +14,8 @@
   </adb-icon-button>
 
   @if (isMapTypesOpen) {
-    <div class="map-types-dropdown" role="menu">
-      <div class="map-types-header" role="heading" aria-level="2">{{ 'mapToolbar.mapTypeHeading' | translate }}</div>
+    <div class="map-types-dropdown" aria-labelledby="map-types-heading">
+      <div id="map-types-heading" class="map-types-header" role="heading" aria-level="2">{{ 'mapToolbar.mapTypeHeading' | translate }}</div>
       <adb-radio-group
         name="mapType"
         [attr.value]="selectedLayerId"
