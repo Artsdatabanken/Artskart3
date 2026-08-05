@@ -270,4 +270,4 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   color: var(--adb-text-subtle, #666);
   margin-top: var(--adb-spacing-3xsm, 2px);
 }
-}
+
