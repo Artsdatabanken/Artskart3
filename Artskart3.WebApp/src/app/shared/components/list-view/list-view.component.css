@@ -24,6 +24,7 @@
 .table-container {
   flex: 1;
   overflow: auto;
+  padding-bottom: calc(var(--adb-spacing-lg) * 3);
 }
 
 .observations-table {
