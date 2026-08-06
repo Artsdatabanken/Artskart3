@@ -28,15 +28,15 @@
         <tbody>
           @for (obs of observationsResource.value().items; track obs.id ?? $index) {
             <tr>
-              <td>{{ obs.preferredPopularName }}</td>
+              <td [attr.lang]="currentLang !== 'no' ? 'no' : null">{{ obs.preferredPopularName }}</td>
               <td [innerHTML]="obs.scientificName"></td>
               <td>{{ obs.author }}</td>
-              <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
-              <td>{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
+              <td [attr.lang]="currentLang !== 'no' ? 'no' : null">{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
+              <td [attr.lang]="currentLang !== 'no' ? 'no' : null">{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
               <td>{{ obs.institution }}</td>
-              <td>{{ obs.dateTimeCollected | localeDate:translate.currentLang }}</td>
-              <td>{{ obs.locality }}</td>
-              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit:translate.currentLang }}</td>
+              <td>{{ obs.dateTimeCollected | localeDate:currentLang }}</td>
+              <td [attr.lang]="currentLang !== 'no' ? 'no' : null">{{ obs.locality }}</td>
+              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit:currentLang }}</td>
               <td>{{ getAreaName(obs.municipalityId) }}</td>
             </tr>
           } @empty {
