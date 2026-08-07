@@ -198,9 +198,12 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   border-color: var(--adb-neutrals-ocean-80);
 }
 
+:host-context([data-theme='dark']) .other-properties-input:focus {
+  border: 4px solid var(--adb-border-accent, #005a71);
+}
+
 .other-properties-input:focus {
-  border-color: var(--adb-border-accent, #005a71);
-  box-shadow: 0 0 0 1px var(--adb-border-accent, #005a71);
+  border: 4px solid var(--adb-border-accent, #005a71);
   outline: none;
 }
 
