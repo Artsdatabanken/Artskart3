@@ -9,7 +9,6 @@
 
   @if (observationsResource.hasValue()) {
     <div class="table-container">
-      <div class="table-scroll">
       <table class="observations-table">
         <thead>
           <tr>
@@ -46,7 +45,6 @@
           }
         </tbody>
       </table>
-      </div>
       <adb-pagination
         class="pagination"
         [attr.current-page]="pageNumber()"
