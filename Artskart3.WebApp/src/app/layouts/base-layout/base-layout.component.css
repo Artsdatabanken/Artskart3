@@ -24,7 +24,7 @@
   background-color: var(--adb-background-default);
   overflow: hidden;
   border-right: 1px solid var(--adb-border-default);
-  height:100%;
+  height: 100%;
   z-index: 100;
 }
 
@@ -59,6 +59,34 @@
   flex: 1;
   height: 100%;
   overflow: auto;
+}
+
+.skip-link {
+  position: absolute !important;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  width: 1px;
+  height: 1px;
+  word-wrap: normal;
+  font-size: var(--adb-font-size-3);
+  line-height: 1.6em;
+}
+
+.skip-link:active,
+.skip-link:focus-within {
+  overflow: visible;
+  clip: auto;
+  width: auto;
+  height: auto;
+  top: 0.5rem;
+  left: 1rem;
+  z-index: 12;
+  outline: 4px solid var(--adb-focus-outer);
+  outline-offset: 0px;
+  border-radius: 1px;
+  background: #fff;
+  border: 2px solid #fff;
+  padding: 0 var(--adb-spacing-2xsm);
 }
 
 @media (max-width: 768px) {
