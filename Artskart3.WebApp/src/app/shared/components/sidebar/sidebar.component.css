@@ -17,10 +17,6 @@
   margin-bottom: 0;
 }
 
-.search-field {
-  display: none;
-}
-
 /* Remove default beige border from all accordions in sidebar */
 adb-accordion {
   --adb-border-default: transparent;
@@ -183,7 +179,8 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   width: 100%;
   min-width: 0;
   height: 2.5rem;
-  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px) calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-2xsm, 4px));
+  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px) var(--adb-spacing-xsm, 8px)
+    calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-2xsm, 4px));
   border: 2px solid var(--adb-neutrals-sand-100);
   background-color: var(--adb-surface-primary, #fff);
   color: var(--adb-text-default, inherit);
@@ -272,5 +269,4 @@ adb-checkbox[slot='heading']:not(:has([slot='counter'])) {
   font-size: var(--adb-font-size-xs, 0.75rem);
   color: var(--adb-text-subtle, #666);
   margin-top: var(--adb-spacing-3xsm, 2px);
-}
 }
