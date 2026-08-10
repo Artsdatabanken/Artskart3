@@ -91,7 +91,9 @@ if (app.Environment.IsDevelopment())
 app.MapHealthChecks("/health");
 
 // Registrer recurring jobs
-RegisterRecurringJobs(app.Services.GetRequiredService<IConfiguration>());
+RegisterRecurringJobs(
+    app.Services.GetRequiredService<IRecurringJobManager>(),
+    app.Services.GetRequiredService<IConfiguration>());
 
 logger.LogInformation("Artskart3.Workers - Started successfully");
 
@@ -114,20 +116,20 @@ async Task CheckBlobStorageConnectionAsync(IServiceProvider services, ILogger st
     }
 }
 
-void RegisterRecurringJobs(IConfiguration configuration)
+void RegisterRecurringJobs(IRecurringJobManager recurringJobManager, IConfiguration configuration)
 {
     var schedules = configuration.GetSection("Hangfire:ScheduleDefaults");
 
     // CSV-eksport — poller databasen for ventende jobber
     var csvExportCron = schedules["CsvExportPoll"] ?? "*/30 * * * * *";
-    RecurringJob.AddOrUpdate<CsvExportPollJob>(
+    recurringJobManager.AddOrUpdate<CsvExportPollJob>(
         "csv-export-poll",
         job => job.ExecuteAsync(CancellationToken.None),
         csvExportCron);
 
     // Opprydding av utløpte eksportjobber — kjører daglig kl. 03:00
     var cleanupCron = schedules["CsvExportCleanup"] ?? "0 3 * * *";
-    RecurringJob.AddOrUpdate<CsvExportCleanupJob>(
+    recurringJobManager.AddOrUpdate<CsvExportCleanupJob>(
         "csv-export-cleanup",
         job => job.ExecuteAsync(CancellationToken.None),
         cleanupCron);
