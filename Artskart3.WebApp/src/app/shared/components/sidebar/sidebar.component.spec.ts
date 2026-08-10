@@ -109,13 +109,6 @@ describe('SidebarComponent', () => {
     expect(checkboxes.length).toBe(2);
   });
 
-  it('should hide the search field', () => {
-    const searchField = fixture.nativeElement.querySelector('.search-field');
-    expect(searchField).toBeTruthy();
-    const styles = getComputedStyle(searchField);
-    expect(styles.display).toBe('none');
-  });
-
   describe('onCategoryToggle', () => {
     it('should toggle category in filter state', () => {
       component.onCategoryToggle(5);

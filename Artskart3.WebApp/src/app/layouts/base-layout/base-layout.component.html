@@ -1,10 +1,13 @@
-
 <div class="layout-wrapper">
+  <a href="#main-content" class="skip-link"> Hopp til hovedinnhold </a>
   <app-header></app-header>
   <app-alert></app-alert>
 
   <div class="layout-container">
     <main class="main-content">
+      <!-- eslint-disable @angular-eslint/template/elements-content -->
+      <a id="main-content" tabindex="-1"></a>
+      <!-- eslint-enable @angular-eslint/template/elements-content -->
       <router-outlet></router-outlet>
     </main>
   </div>
