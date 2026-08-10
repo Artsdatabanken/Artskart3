@@ -31,7 +31,8 @@ logger.LogInformation("Environment: {Environment}", builder.Environment.Environm
 
 // Database
 var dbConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex");
-var workerConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex_Worker") ?? dbConnectionString;
+var workerConnectionString = builder.Configuration.GetConnectionString("ArtskartIndex_Worker");
+workerConnectionString = string.IsNullOrEmpty(workerConnectionString) ? dbConnectionString : workerConnectionString;
 
 builder.Services.AddDbContext<ArtskartDbContext>(options =>
 {
