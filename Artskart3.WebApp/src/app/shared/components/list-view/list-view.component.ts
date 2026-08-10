@@ -158,10 +158,6 @@ export class ListViewComponent {
     return response.hasMorePages ?? false;
   });
 
-  protected get currentLang(): string {
-    return this.translate.getCurrentLang();
-  }
-
   onPageChange(page: number) {
     this.pageNumber.set(page);
   }
