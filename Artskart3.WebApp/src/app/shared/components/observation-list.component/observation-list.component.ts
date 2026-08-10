@@ -2,7 +2,7 @@ import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, input, signal} from
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
-type ObservationFilterKey = 'Lokasjon' | 'Artsgruppe' | 'Kategori';
+type ObservationFilterKey =  'Artsgruppe' | 'Kategori' | 'Lokasjon';
 
 type ObservationFilter = {
   groupKey: string;
@@ -19,10 +19,10 @@ type ObservationFilter = {
 export class ObservationListComponent {
   private localityNumbers = new Map<string, number>();
   observationList = input<ObservationListInfoDto[]>([]);
-  filterByInput = input<ObservationFilterKey>('Lokasjon');
+  filterByInput = input<ObservationFilterKey>('Artsgruppe');
 
-  filterBy = signal<ObservationFilterKey>('Lokasjon');
-  filterByOptions: ObservationFilterKey[] = ['Lokasjon', 'Artsgruppe', 'Kategori'];
+  filterBy = signal<ObservationFilterKey>('Artsgruppe');
+  filterByOptions: ObservationFilterKey[] = ['Artsgruppe', 'Lokasjon', 'Kategori'];
 
   constructor() {
     effect(() => {
