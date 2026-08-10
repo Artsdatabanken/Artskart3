@@ -37,29 +37,27 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
     {
         try
         {
-            IEnumerable<Observation> observations = await context.Set<Observation>()
-                .Include(o => o.Taxon)
-                .ThenInclude(t => t.TaxonGroup)
-                .Include(o => o.Category)
-                .Include(o => o.MatchedScientificName)
+            IEnumerable<ObservationListInfoDto> observationListInfoDtos = await context.Set<Observation>()
                 .Where(o => o.LocationId.HasValue && locationIds.ToList().Contains(o.LocationId.Value))
                 .Take(2500)
+                .Select(o => new ObservationListInfoDto
+                {
+                    Id = o.Id,
+                    PreferredPopularName = o.Taxon.PreferredPopularName,
+                    ScientificName = o.Taxon.ValidScientificName,
+                    DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName)
+                        .Replace("<i>", "").Replace("</i>", ""),
+                    Author = o.Taxon.ValidScientificNameAuthorship,
+                    TaxonGroupId = o.TaxonGroupId,
+                    TaxonGroupName = o.Taxon.TaxonGroup.Name,
+                    Locality = o.LocationId.ToString(),
+                    CategoryId = o.CategoryId,
+                    CategoryName = o.Category != null ? o.Category.Name : string.Empty,
+                    RegistrationType = o.Tags.Select(t => t.Name),
+                    IdentifiedBy = o.ObservationDetail != null ? o.ObservationDetail.IdentifiedBy : string.Empty,
+                })
                 .ToListAsync();
-
-            IEnumerable<ObservationListInfoDto> observationDtos = observations.Select(o => new ObservationListInfoDto
-            {
-                Id = o.Id,
-                PreferredPopularName = o.Taxon.PreferredPopularName,
-                ScientificName = o.Taxon.ValidScientificName,
-                DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName).Replace("<i>", "").Replace("</i>", ""), // we get <i></i> from db, remove in future
-                Author = o.Taxon.ValidScientificNameAuthorship,
-                TaxonGroupId = o.TaxonGroupId,
-                TaxonGroupName = o.Taxon.TaxonGroup.Name,
-                Locality = o.LocationId.ToString(),
-                CategoryId = o.CategoryId,
-                CategoryName = o.Category?.Name
-            });
-            return observationDtos;
+            return observationListInfoDtos;
         }
         catch (Exception e)
         {

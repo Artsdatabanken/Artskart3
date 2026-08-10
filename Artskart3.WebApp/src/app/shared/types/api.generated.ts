@@ -1437,6 +1437,7 @@ export interface components {
             id?: number;
             preferredPopularName?: string | null;
             scientificName?: string | null;
+            displayName?: string | null;
             author?: string | null;
             /** Format: int32 */
             taxonGroupId?: number | null;
@@ -1447,7 +1448,8 @@ export interface components {
             institutionId?: string | null;
             institutionName?: string | null;
             locality?: string | null;
-            displayName?: string | null;
+            registrationType?: string[] | null;
+            collector?: string | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
