@@ -1,4 +1,8 @@
 {
+  "pageTitle": {
+    "home": "Forside - Artskart",
+    "mittArtskart": "Mitt Artskart - Artskart"
+  },
   "header": {
     "projectName": "Artskart",
     "language": "Språk",
