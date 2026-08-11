@@ -122,14 +122,15 @@ public class SearchEndpointTests : IAsyncLifetime
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetObservationLocations_WithNoFilter_Returns200WithGeoJson()
+    public async Task GetObservationLocations_WithNoFilter_Returns200WithCompactJson()
     {
         var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
-        doc.RootElement.GetProperty("type").GetString().Should().Be("FeatureCollection");
+        doc.RootElement.GetProperty("epsg").GetInt32().Should().Be(25833);
+        doc.RootElement.GetProperty("locations").ValueKind.Should().Be(JsonValueKind.Array);
     }
 
     [Fact]
@@ -165,14 +166,14 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Features()
+    public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Locations()
     {
         var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 10 });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
-        doc.RootElement.GetProperty("features").GetArrayLength()
+        doc.RootElement.GetProperty("locations").GetArrayLength()
             .Should().BeLessThanOrEqualTo(10);
     }
 

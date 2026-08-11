@@ -1,5 +1,6 @@
 using Artskart3.Api.Filters;
 using Artskart3.Core.Application.Configuration;
+using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
@@ -64,7 +65,7 @@ public class SearchController : ControllerBase
     /// </summary>
     [HttpPost("Locations")]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -72,12 +73,15 @@ public class SearchController : ControllerBase
 
             if (!ValidateLocationSearchFilter(filter, out var validationError))
             {
-                // validationError skal aldri være null når en validering feiler
-                return validationError!;
+                await validationError!.ExecuteResultAsync(ControllerContext);
+                return;
             }
-            var result = await _searchService.GetLocationsAsync(filter, cancellationToken);
+
+            var locations = await _searchService.GetLocationsAsync(filter, cancellationToken);
             _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
-            return Content(result, "application/json");
+
+            Response.ContentType = "application/json";
+            await GeoJsonConverter.WriteLocationsToStreamAsync(Response.Body, locations, filter.Epsg);
         }
         catch (Exception ex)
         {
