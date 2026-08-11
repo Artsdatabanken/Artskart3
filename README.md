@@ -144,14 +144,12 @@ Standariserer navngiving av branches er `feature/navn-på-branch` som for eksemp
 ## Merging av endringer
 For å gjøre endringer i Artskart krever det at det lages en pull request som må godkjennes av en annen utvikler.
 
-## Oppsett av lokale DNS-oppslag
-Før vi setter opp DNS-oppslag og publiserer disse offentlig, så er det greit å sette opp lokale oppslag mot de URL-ene og IP-adressene vi benytter oss av.
+## Begrenset tilgjengelighet til miljøene
+Per juli 2026 er alle miljøene kun tilgjengelig dersom man er tilkoblet Artsdatabankens nettverk direkte eller via VPN.
 
-For de av oss som benytter Windows, er det følgende fil som gjelder: C:\Windows\System32\drivers\etc\hosts.
-Innslagene du bør legge til er følgende:
-* 20.251.135.164 artskart3.test.artsdatabanken.no
-* 20.251.135.164 artskart3-staging.test.artsdatabanken.no
-* 51.120.48.232 artskart3.artsdatabanken.no
+* Testing i teamet: artskart3.test.artsdatabanken.no (20.251.135.164)
+* Testing før release til produksjon: artskart3-staging.test.artsdatabanken.no (20.251.135.164)
+* Produksjon/Beta: artskart3.artsdatabanken.no (51.120.48.232)
 
 # Produksjonssetting
 * Opprett en PR som slår sammen develop-branchen inn i staging-branchen
@@ -159,3 +157,58 @@ Innslagene du bør legge til er følgende:
 * Opprett en PR som slår sammen staging-branchen inn i main-branchen
 * Når en reviewer har godkjent PR-en, velg merge. Main-branchen blir oppdatert og lukkes. 
 * Flytt issues fra "Accepted" til "Done" i projsktet-boardet. FERDIG.
+
+## Ytelsesoptimalisering
+
+### Database: Indekser
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Apr 2026 | Lagt til komposittindekser på søkefilterkolonner i Observation-tabellen (`LocationId`, `TaxonGroupId`, `CategoryId`, `YearCollected`, `MonthCollected` m.m.) |
+| Jun 2026 | Lagt til dekkende indeks på `Area(AreaTypeId, Fid, IsCurrent)`, `LocationAreas(AreaId, LocationId)` og `OrganizationRelation(OrganizationId, ObservationId)` for raskere joins |
+| Jun 2026 | Erstattet to separate indekser på `ObservationEntityIndex` med en dekkende komposittindeks `(EntityTypeId, EntityId, ObservationId)`, pluss indeks på `Observation.DateTimeCollected` og `Area(ZoomLevel, IsCurrent)` |
+
+### Database: Denormalisering
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Jun 2026 | Opprettet `ObservationEntityIndex`-tabell som flat projeksjon av observasjon-til-omrade-relasjoner — eliminerer dyre multi-tabell-joins for filtrering pa kommune, fylke, verneomrade, havomrade og institusjon |
+| Jun 2026 | Byttet fra `AreaFid` (string) til `EntityId` (int) i indekstabellen for raskere heltallssammenlikning |
+
+### Database: Sporringsoptimalisering
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Mai 2026 | Erstattet Include-basert eager loading med `.Select()`-projeksjon slik at databasen kun returnerer kolonner som faktisk brukes i DTO-en |
+| Jun 2026 | Omskrev kommune-/fylkesfiltre fra korrelerte subsporreringer (`Location.Areas.Any()`) til to-stegs oppslag via `ObservationEntityIndex` |
+| Aug 2026 | Slo sammen to databasesporreringer til en for lokasjonsendepunktet — GROUP BY med JOIN i stedet for aggregering + separat koordinatoppslag |
+| Aug 2026 | Flyttet envelope-filter fra `Observation.East/North` (ingen indeks) til `Location.East/North` (bruker `IX_EastNorth`) |
+
+### API: Payload-reduksjon
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Aug 2026 | Fjernet duplisert CRS per feature i GeoJSON (~5.5 MB spart ved 100k features) |
+| Aug 2026 | Erstattet GeoJSON med kompakt array-format `[id, lon, lat, count]` (~7x reduksjon) |
+| Aug 2026 | Fjernet `Locality` fra bulk-lokasjonsdata |
+| Aug 2026 | Forenklet `LocationModel` fra 15+ felt til 4, fjernet ubrukte felt fra DB-projeksjon |
+
+### API: Stromming og minnebruk
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Aug 2026 | Strommer JSON direkte til `HttpResponse.Body` via `Utf8JsonWriter` i stedet for a mellomlagre som streng |
+| Aug 2026 | Fjernet unodvendig `IAsyncEnumerable`-wrapping rundt ferdig materialisert liste |
+
+### Frontend
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Jun 2026 | Erstattet Angular pipe (`AreaNamePipe`) per rad i listevisning med forhandsberegnet `Map`-oppslag via computed signal — unngår lineart sok per rad per change detection |
+| Aug 2026 | Forenklet lokasjonsparsing fra fire metoder (regex-basert GeoJSON-parsing) til en enkel array-parser |
+
+### Infrastruktur
+
+| Dato | Beskrivelse |
+|------|-------------|
+| Jun 2026 | Lagt til `SlowQueryLog`-tabell og action filter som logger sporreringer over konfigurerbar terskel — muliggjor identifisering av trege endepunkter |

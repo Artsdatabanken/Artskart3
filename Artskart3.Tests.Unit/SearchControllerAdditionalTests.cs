@@ -1,9 +1,14 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.BusinessModels;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -17,7 +22,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSearchServiceIsNull()
     {
-        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object);
+        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("searchService");
@@ -26,7 +31,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSpeciesServiceIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object);
+        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("speciesService");
@@ -35,7 +40,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!);
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("logger");
@@ -59,16 +64,16 @@ public class SearchControllerAdditionalTests
     {
         var sut = CreateSut();
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>());
 
-        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10 } });
+        await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { From = 10 } });
 
-        result.Result.Should().BeOfType<ContentResult>();
+        sut.HttpContext.Response.ContentType.Should().Be("application/json");
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
             f.CoordinatePrecision != null &&
             f.CoordinatePrecision.From == 10 &&
-            f.CoordinatePrecision.To == null)), Times.Once);
+            f.CoordinatePrecision.To == null), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -76,17 +81,30 @@ public class SearchControllerAdditionalTests
     {
         var sut = CreateSut();
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync("{\"type\":\"FeatureCollection\",\"features\":[]}");
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>());
 
-        var result = await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } });
+        await sut.GetObservationLocations(new LocationSearchFilterDto { CoordinatePrecision = new CoordinatePrecisionDto { To = 100 } });
 
-        result.Result.Should().BeOfType<ContentResult>();
+        sut.HttpContext.Response.ContentType.Should().Be("application/json");
         _serviceMock.Verify(s => s.GetLocationsAsync(It.Is<LocationSearchFilterDto>(f =>
             f.CoordinatePrecision != null &&
             f.CoordinatePrecision.From == null &&
-            f.CoordinatePrecision.To == 100)), Times.Once);
+            f.CoordinatePrecision.To == 100), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object);
+    private SearchController CreateSut()
+    {
+        var controller = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var services = new ServiceCollection();
+        services.AddMvcCore();
+        services.AddLogging();
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        return controller;
+    }
 }

@@ -24,7 +24,7 @@
             <th>{{ 'listView.municipality' | translate }}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody lang="no">
           @for (obs of observationsResource.value().items; track obs.id ?? $index) {
             <tr>
               <td>{{ obs.preferredPopularName }}</td>
@@ -33,9 +33,9 @@
               <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
               <td>{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
               <td>{{ obs.institution }}</td>
-              <td>{{ obs.dateTimeCollected | localeDate }}</td>
+              <td>{{ obs.dateTimeCollected | localeDate:translate.currentLang }}</td>
               <td>{{ obs.locality }}</td>
-              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit }}</td>
+              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit:translate.currentLang }}</td>
               <td>{{ getAreaName(obs.municipalityId) }}</td>
             </tr>
           } @empty {
@@ -48,6 +48,7 @@
       <adb-pagination
         class="pagination"
         [attr.current-page]="pageNumber()"
+        [attr.total-pages]="!hasMorePages() ? totalVisiblePages() : null"
         [attr.visible-pages]="4"
         [attr.has-more-pages]="hasMorePages() || null"
         [attr.page-size-options]="pageSizeOptions.join(',')"

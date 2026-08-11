@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
@@ -12,6 +11,7 @@ using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -215,33 +215,53 @@ public class SearchRepository : ISearchRepository
 
 
     /// <summary>
-    /// Retrieves observation locations filtered by taxon group, collection, category, basis of record, and coordinate precision.
-    /// Aggregates observation counts by location, sorted by count descending.
-    /// Returns locations as an async enumerable with UTM Zone 33N coordinates (East/North) and metadata.
+    /// Henter observasjonslokasjoner filtrert etter taksongruppe, kategori, område m.m.
+    /// Aggregerer observasjonsantall per lokasjon, sortert synkende.
     /// </summary>
-    public async IAsyncEnumerable<LocationModel> GetLocationsAsync(LocationSearchFilterDto? filter = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var locationModels = await FetchLocationModelsAsync(filter, cancellationToken);
-
-        foreach (var model in locationModels)
-        {
-            yield return model;
-        }
-    }
-
-    private async Task<List<LocationModel>> FetchLocationModelsAsync(LocationSearchFilterDto? filter, CancellationToken cancellationToken = default)
+    public async Task<List<LocationModel>> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
             filter ??= new LocationSearchFilterDto();
 
-            var query = BuildLocationsQuery(filter);
-            var aggregatedData = await AggregateLocationObservations(query, filter.MaxResults, cancellationToken);
+            var query = _context.Set<Observation>().AsNoTracking();
+            query = ApplyCommonFilters(query, filter);
 
-            if (aggregatedData.Count == 0)
-                return [];
+            // Envelope-filter via Location-tabellen (bruker IX_EastNorth-indeksen)
+            if (filter.Envelope != null)
+            {
+                var minX = (int)filter.Envelope.MinX;
+                var maxX = (int)filter.Envelope.MaxX;
+                var minY = (int)filter.Envelope.MinY;
+                var maxY = (int)filter.Envelope.MaxY;
+                query = query.Where(o => o.Location != null &&
+                    o.Location.East >= minX && o.Location.East <= maxX &&
+                    o.Location.North >= minY && o.Location.North <= maxY);
+            }
 
-            var locationModels = await BuildLocationModels(aggregatedData, cancellationToken);
+            var maxResults = filter.MaxResults > 0 && filter.MaxResults <= SearchConstants.MaxLocationResults
+                ? filter.MaxResults
+                : SearchConstants.DefaultMaxLocations;
+
+            // Én spørring: gruppér på lokasjon, hent koordinater og tell observasjoner
+            var locationModels = await query
+                .Where(o => o.Location != null)
+                .GroupBy(o => new
+                {
+                    LocationId = o.LocationId!.Value,
+                    o.Location!.Latitude,
+                    o.Location!.Longitude
+                })
+                .Select(g => new LocationModel
+                {
+                    Id = g.Key.LocationId,
+                    Latitude = g.Key.Latitude ?? 0,
+                    Longitude = g.Key.Longitude ?? 0,
+                    ObservationCount = g.Count()
+                })
+                .OrderByDescending(x => x.ObservationCount)
+                .Take(maxResults)
+                .ToListAsync(cancellationToken);
 
             _logger.LogInformation("Location search completed successfully. Returned {LocationCount} locations", locationModels.Count);
 
@@ -322,6 +342,22 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
 
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            switch (filter.RegistrationStatusId.Value)
+            {
+                case 1:
+                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
+                    break;
+                case 2:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
+                    break;
+                case 3:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
+                    break;
+            }
+        }
+
         if (filter.CoordinatePrecision?.From.HasValue == true)
         {
             query = query.Where(o => o.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
@@ -344,94 +380,44 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.DateTimeCollected <= toDate);
         }
 
-        return query;
-    }
-
-    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
-    {
-        var query = _context.Set<Observation>().AsNoTracking();
-        query = ApplyCommonFilters(query, filter);
-
-        if (filter.Envelope != null)
+        if (filter.ProjectOrganizationId.HasValue)
         {
-            var minX = (int)filter.Envelope.MinX;
-            var maxX = (int)filter.Envelope.MaxX;
-            var minY = (int)filter.Envelope.MinY;
-            var maxY = (int)filter.Envelope.MaxY;
-            query = query.Where(o =>
-                o.East >= minX && o.East <= maxX &&
-                o.North >= minY && o.North <= maxY);
+            var projectOrganizationId = filter.ProjectOrganizationId.Value;
+            query = query.Where(o => o.OrganizationRelations.Any(r => r.OrganizationId == projectOrganizationId));
+        }
+        else if (!string.IsNullOrWhiteSpace(filter.ProjectName))
+        {
+            var projectNamePattern = SqlWildcard + filter.ProjectName.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.OrganizationRelations.Any(r => EF.Functions.Like(r.Organization.Name, projectNamePattern)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.CollectionCode))
+        {
+            var collectionCodePattern = SqlWildcard + filter.CollectionCode.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.CollectionCode != null && EF.Functions.Like(o.CollectionCode, collectionCodePattern));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.CatalogNumber))
+        {
+            var catalogNumberPattern = SqlWildcard + filter.CatalogNumber.Trim().EscapeSqlLikePattern() + SqlWildcard;
+            query = query.Where(o => o.CatalogNumber != null && EF.Functions.Like(o.CatalogNumber, catalogNumberPattern));
+        }
+
+        if (filter.WithImages.HasValue)
+        {
+            query = filter.WithImages.Value
+                ? query.Where(o => o.MediaFiles.Any())
+                : query.Where(o => !o.MediaFiles.Any());
+        }
+
+        if (filter.Period?.Months?.Any() == true)
+        {
+            var months = filter.Period.Months;
+            query = query.Where(o => o.DateTimeCollected.HasValue && months.Contains(o.DateTimeCollected.Value.Month));
         }
 
         return query;
     }
-
-    private async Task<List<AggregatedLocationData>> AggregateLocationObservations(
-        IQueryable<Observation> query,
-        int requestedMaxResults,
-        CancellationToken cancellationToken = default)
-    {
-        var maxResults = requestedMaxResults > 0 && requestedMaxResults <= SearchConstants.MaxLocationResults
-            ? requestedMaxResults
-            : SearchConstants.DefaultMaxLocations;
-
-        return await query
-            .Where(o => o.LocationId != null)
-            .GroupBy(o => o.LocationId!.Value)
-            .Select(g => new AggregatedLocationData
-            {
-                LocationId = g.Key,
-                ObservationCount = g.Count()
-            })
-            .OrderByDescending(x => x.ObservationCount)
-            .Take(maxResults)
-            .ToListAsync(cancellationToken);
-    }
-
-    private async Task<List<LocationModel>> BuildLocationModels(List<AggregatedLocationData> aggregatedData, CancellationToken cancellationToken = default)
-    {
-        var locationIds = aggregatedData.Select(x => x.LocationId).ToList();
-
-        var locationLookup = await _context.Set<Location>()
-            .Where(l => locationIds.Contains(l.Id))
-            .AsNoTracking()
-            .ToDictionaryAsync(l => l.Id, cancellationToken);
-
-        var locationModels = new List<LocationModel>(aggregatedData.Count);
-
-        foreach (var item in aggregatedData)
-        {
-            if (locationLookup.TryGetValue(item.LocationId, out var location))
-            {
-                locationModels.Add(MapLocationToModel(location, item));
-            }
-        }
-
-        return locationModels;
-    }
-    private static LocationModel MapLocationToModel(Location location, AggregatedLocationData aggregatedData)
-    {
-        return new LocationModel
-        {
-            Id = location.Id,
-            Locality = location.Locality ?? string.Empty,
-            Latitude = location.Latitude ?? 0,
-            Longitude = location.Longitude ?? 0,
-            East = location.East,
-            North = location.North,
-            CoordinatePrecision = location.CoordinatePrecision,
-            TaxonId = aggregatedData.TaxonId,
-            ObservationCount = aggregatedData.ObservationCount
-        };
-    }
-
-    private class AggregatedLocationData
-    {
-        public int LocationId { get; set; }
-        public int? TaxonId { get; set; }
-        public int ObservationCount { get; set; }
-    }
-
     /// <summary>
     /// Henter områdemarkører (fylker/kommuner) gruppert etter navn med observasjonsantall.
     /// Hybrid tilnærming: uten filtre brukes pre-beregnet antall fra Area-tabellen,

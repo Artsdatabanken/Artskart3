@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -17,6 +18,7 @@ export class LanguageService {
   private currentLanguage$ = new BehaviorSubject<SupportedLanguage>(this.DEFAULT_LANGUAGE);
 
   private readonly translate = inject(TranslateService);
+  private readonly document = inject(DOCUMENT);
   private readonly logger: LoggingService = inject(LoggingService);
 
   constructor() {
@@ -38,12 +40,17 @@ export class LanguageService {
 
     this.currentLanguage$.next(lang);
     this.saveLanguage(lang);
+    this.updateDocumentLanguage(lang);
 
     return this.translate.use(lang).pipe(
       catchError(() => {
         return of({});
       })
     );
+  }
+
+  private updateDocumentLanguage(lang: SupportedLanguage): void {
+    this.document.documentElement.lang = lang;
   }
 
   getLanguage(): SupportedLanguage {
