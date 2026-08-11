@@ -2,6 +2,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -88,7 +89,10 @@ public class LookupRepository : ILookupRepository
         try
         {
             return await _context.Set<Organization>()
-                .Where(o => !o.IsDeleted && o.OrganizationTypeId == InstitutionOrganizationTypeId)
+                .Where(o => !o.IsDeleted
+                    && o.OrganizationTypeId == InstitutionOrganizationTypeId
+                    && o.ObservationCount != null
+                    && o.ObservationCount > 0)
                 .OrderBy(o => o.Name)
                 .Select(o => new InstitutionDto
                 {
@@ -103,6 +107,35 @@ public class LookupRepository : ILookupRepository
         {
             _logger.LogError(ex, "Feil ved henting av institusjoner");
             throw new ApplicationException("Feil ved henting av institusjoner", ex);
+        }
+    }
+
+    public async Task<IEnumerable<OrganizationDto>> SearchOrganizationsAsync(string name, int maxCount, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return Enumerable.Empty<OrganizationDto>();
+            }
+
+            var searchPattern = "%" + name.Trim().EscapeSqlLikePattern() + "%";
+
+            return await _context.Set<Organization>()
+                .Where(o => !o.IsDeleted && EF.Functions.Like(o.Name, searchPattern))
+                .OrderBy(o => o.Name)
+                .Take(maxCount)
+                .Select(o => new OrganizationDto
+                {
+                    Id = o.Id,
+                    Name = o.Name
+                })
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved søk etter organisasjoner med navn: {Name}", name);
+            throw new ApplicationException("Feil ved søk etter organisasjoner", ex);
         }
     }
 

@@ -274,6 +274,7 @@ export interface LocationSearchFilter {
   organizationIds?: number[];
   behaviorIds?: number[];
   basisOfRecordIds?: number[];
+  registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
@@ -283,6 +284,12 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  projectName?: string;
+  projectOrganizationId?: number | null;
+  collectionCode?: string;
+  catalogNumber?: string;
+  withImages?: boolean | null;
+  periodMonths?: number[] | null;
 }
 
 @Injectable({
@@ -323,8 +330,8 @@ export class AreasService {
   }
 
   /**
-   * Fetches locations as a serialized GeoJSON FeatureCollection string
-   * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
+   * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
+   * med per-feature `nbic:style` for direkte bruk med `updateGeoJSONLayer`.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
    */
@@ -333,8 +340,8 @@ export class AreasService {
 
     return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
-        const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
-        const features = this.mapLocationsToGeoJson(parsed);
+        const parsed = this.apiClientService.parseJsonResponse<{ locations: unknown[] }>(responseText, AreasService.SERVICE_NAME);
+        const features = this.mapCompactLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
         return JSON.stringify({ type: 'FeatureCollection', features });
       })
@@ -349,6 +356,7 @@ export class AreasService {
       if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
       if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
       if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
@@ -357,9 +365,18 @@ export class AreasService {
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }
-      if (filter.periodFrom != null || filter.periodTo != null) {
-        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      if (filter.periodFrom != null || filter.periodTo != null || filter.periodMonths?.length) {
+        body['period'] = {
+          from: filter.periodFrom,
+          to: filter.periodTo,
+          months: filter.periodMonths?.length ? filter.periodMonths : undefined,
+        };
       }
+      if (filter.projectName) body['projectName'] = filter.projectName;
+      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
+      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
+      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 
     if (extent) {
@@ -371,80 +388,34 @@ export class AreasService {
   }
 
   /**
-   * Maps API location response to GeoJSON features
+   * Mapper kompakt lokasjon-respons [id, lon, lat, count] til GeoJSON-features.
    */
-  private mapLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
-    const locations = this.normalizeLocationResponse(response);
-    if (!Array.isArray(locations) || locations.length === 0) {
-      return [];
-    }
+  private mapCompactLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
+    if (typeof response !== 'object' || response === null) return [];
+    const locations = (response as { locations?: unknown[] }).locations;
+    if (!Array.isArray(locations)) return [];
 
-    return locations
-      .map(location => this.createLocationFeature(location))
-      .filter((f): f is AreaMarkerFeature => f !== null);
-  }
+    const features: AreaMarkerFeature[] = [];
+    for (const loc of locations) {
+      if (!Array.isArray(loc) || loc.length < 4) continue;
+      const [id, lon, lat, count] = loc as [number, number, number, number];
+      if (isNaN(lon) || isNaN(lat)) continue;
 
-  private normalizeLocationResponse(response: unknown): Record<string, unknown>[] {
-    if (Array.isArray(response)) {
-      return response as Record<string, unknown>[];
-    }
-
-    if (typeof response === 'object' && response !== null) {
-      const obj = response as Record<string, unknown>;
-      if (Array.isArray(obj['features'])) return obj['features'] as Record<string, unknown>[];
-      if (Array.isArray(obj['value'])) return obj['value'] as Record<string, unknown>[];
-      if (Array.isArray(obj['data'])) return obj['data'] as Record<string, unknown>[];
-    }
-
-    return [];
-  }
-
-  private createLocationFeature(location: Record<string, unknown>): AreaMarkerFeature | null {
-    try {
-      const [lon, lat] = this.extractCoordinates(location);
-      if (lon === null || lat === null) return null;
-
-      const props = (location['properties'] as Record<string, unknown>) || location;
-      const observationCount = (props['ObservationCount'] ?? props['observationCount'] ?? 0) as number;
-      const id = Number(location['id'] ?? props['TaxonId'] ?? props['taxonId']) || 0;
-      const name = (props['Locality'] ?? props['locality'] ?? props['name'] ?? `Location ${location['id']}`) as string;
-      const taxonId = (props['TaxonId'] ?? props['taxonId']) as number | undefined;
-
-      return {
+      features.push({
         type: 'Feature',
         id,
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: {
           id,
-          name,
-          observationCount,
-          observationCountDisplay: observationCount ? AbbreviateNumberHelper.format(observationCount) : '',
+          name: `Location ${id}`,
+          observationCount: count,
+          observationCountDisplay: count ? AbbreviateNumberHelper.format(count) : '',
           isPolygon: false,
-          ...(taxonId && { taxonId }),
           ...NBIC_LOCATION_STYLE
         }
-      };
-    } catch {
-      return null;
+      });
     }
-  }
-
-  private extractCoordinates(location: Record<string, unknown>): [number | null, number | null] {
-    const geometry = location['geometry'] as { type?: string; coordinates?: number[] } | undefined;
-    if (geometry?.type === 'Point' && geometry.coordinates?.length === 2) {
-      const [lon, lat] = geometry.coordinates;
-      if (!isNaN(lon) && !isNaN(lat)) {
-        return [lon, lat];
-      }
-    }
-
-    const lat = (location['latitude'] ?? location['lat']) as number | null;
-    const lon = (location['longitude'] ?? location['lon']) as number | null;
-    if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      return [lon, lat];
-    }
-
-    return [null, null];
+    return features;
   }
 
   /**

@@ -9,4 +9,6 @@ public class PagedObservationResponseDto
     public int ResultsPerPage { get; set; }
 
     public int LookaheadCount { get; set; }
+
+    public bool HasMorePages { get; set; }
 }

@@ -1,11 +1,11 @@
 import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
@@ -20,6 +20,7 @@ import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
   styleUrl: './list-view.component.css',
 })
 export class ListViewComponent {
+  protected readonly translate = inject(TranslateService);
   private readonly observationService = inject(ObservationService);
   private readonly areaService = inject(AreaService);
   private readonly categoryService = inject(CategoryService);
@@ -77,11 +78,18 @@ export class ListViewComponent {
     this.filterState.selectedInstitutionIds();
     this.filterState.selectedBehaviorIds();
     this.filterState.selectedBasisOfRecordIds();
+    this.filterState.selectedRegistrationStatusId();
     this.filterState.selectedTaxonGroupIds();
     this.filterState.coordinatePrecisionFrom();
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
+    this.filterState.projectName();
+    this.filterState.projectOrganizationId();
+    this.filterState.collectionCode();
+    this.filterState.catalogNumber();
+    this.filterState.imageFilter();
+    this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {
         this.pageNumber.set(1);
@@ -98,8 +106,14 @@ export class ListViewComponent {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
+      const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-      const hasPeriod = periodFrom != null || periodTo != null;
+      const projectName = this.filterState.projectName().trim();
+      const projectOrganizationId = this.filterState.projectOrganizationId();
+      const collectionCode = this.filterState.collectionCode().trim();
+      const catalogNumber = this.filterState.catalogNumber().trim();
+      const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
       return {
         pageNumber: this.pageNumber(),
@@ -108,12 +122,20 @@ export class ListViewComponent {
         organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
         behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
+        registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        period: hasPeriod ? { from: periodFrom, to: periodTo } : undefined,
+        projectName: projectName ? projectName : undefined,
+        projectOrganizationId: projectOrganizationId ?? undefined,
+        collectionCode: collectionCode ? collectionCode : undefined,
+        catalogNumber: catalogNumber ? catalogNumber : undefined,
+        withImages: withImages,
+        period: hasPeriod
+          ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
+          : undefined,
       };
     },
     { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
@@ -133,7 +155,7 @@ export class ListViewComponent {
   readonly hasMorePages = computed(() => {
     const response = this.observationsResource.value();
     if (!response) return false;
-    return (response.lookaheadCount ?? 0) > 0;
+    return response.hasMorePages ?? false;
   });
 
   onPageChange(page: number) {

@@ -1,5 +1,6 @@
 import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -15,10 +16,10 @@ export interface MenuItem {
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './header.component.html',
-  styleUrls: ['./header.component.css']
+  styleUrl: './header.component.css',
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   @Input() projectName = 'Artskart';
@@ -26,13 +27,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
-  isDarkMode = false;
+  isUserMenuOpen = false;
   currentLanguage: SupportedLanguage = 'no';
   supportedLanguages: SupportedLanguage[] = [];
 
   languageNames: Record<SupportedLanguage, string> = {
     en: 'English',
-    no: 'Norsk'
+    no: 'Norsk',
   };
 
   private destroy$ = new Subject<void>();
@@ -41,21 +42,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
   readonly authService = inject(AuthService);
 
   ngOnInit(): void {
-    this.languageService.getLanguage$()
+    this.languageService
+      .getLanguage$()
       .pipe(takeUntil(this.destroy$))
-      .subscribe(lang => {
+      .subscribe((lang) => {
         this.currentLanguage = lang;
         this.isLanguageMenuOpen = false;
       });
 
     this.supportedLanguages = this.languageService.getSupportedLanguages();
-
-    const stored = localStorage.getItem('theme');
-    const prefersDark =
-      stored === 'dark' ||
-      (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    this.isDarkMode = prefersDark;
-    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
   }
 
   ngOnDestroy(): void {
@@ -82,36 +77,36 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   toggleLanguageMenu(): void {
     this.isLanguageMenuOpen = !this.isLanguageMenuOpen;
+    if (this.isLanguageMenuOpen) {
+      this.isUserMenuOpen = false;
+    }
   }
 
   closeLanguageMenu(): void {
     this.isLanguageMenuOpen = false;
   }
 
+  toggleUserMenu(): void {
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+    if (this.isUserMenuOpen) {
+      this.isLanguageMenuOpen = false;
+    }
+  }
+
+  closeUserMenu(): void {
+    this.isUserMenuOpen = false;
+  }
+
   changeLanguage(lang: SupportedLanguage): void {
-    this.languageService.setLanguage(lang)
+    this.languageService
+      .setLanguage(lang)
       .pipe(takeUntil(this.destroy$))
-      .subscribe(
-        () => {
-          this.closeLanguageMenu();
-        }
-      );
+      .subscribe(() => {
+        this.closeLanguageMenu();
+      });
   }
 
   getLanguageName(lang: SupportedLanguage): string {
     return this.languageNames[lang] || lang;
   }
-
-  toggleDarkMode(): void {
-    this.isDarkMode = !this.isDarkMode;
-    if (this.isDarkMode) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('theme', 'light');
-    }
-  }
 }
-
-
