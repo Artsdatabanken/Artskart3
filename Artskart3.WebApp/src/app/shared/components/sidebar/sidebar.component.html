@@ -45,11 +45,8 @@
                     @if (category.id !== undefined) {
                       <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                         <span class="category-content">
-                          <span class="category-code"
-                                [style.background-color]="getCategoryColor(category)"
-                                [style.color]="getCategoryTextColor(category)"
-                                [style.border]="getCategoryBorder(category)">
-                            <span class="category-code-text">{{ category.code }}</span>
+                          <span class="risk-category-circle-small" [class]="category.code">
+                            <span class="risk-category-tag-label-small">{{ category.code }}</span>
                           </span>
                           <span class="category-name">{{ category.name }}</span>
                         </span>

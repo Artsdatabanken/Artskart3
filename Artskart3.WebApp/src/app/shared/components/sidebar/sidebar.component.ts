@@ -19,7 +19,7 @@ import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-re
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
-import { CATEGORY_COLORS, CATEGORY_ORDER } from '@shared/constants/category-colors.const';
+import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
@@ -142,18 +142,6 @@ export class SidebarComponent {
 
   onCategoryToggle(id: number): void {
     this.filterState.toggleCategory(id);
-  }
-      getCategoryColor(category: CategoryDto): string {
-      return CATEGORY_COLORS[category.code ?? ''] ?? '#FFF';
-    }
-    getCategoryTextColor(category: CategoryDto): string {
-    return this.getCategoryColor(category).toUpperCase() === '#FFF'
-      ? '#262F31' : '#FFFFFF';
-  }
-
-  getCategoryBorder(category: CategoryDto): string {
-    return this.getCategoryColor(category).toUpperCase() === '#FFF'
-      ? '1px solid #768083' : 'none';
   }
 
   getSortedCategories(categories: CategoryDto[] | null | undefined): CategoryDto[] {
