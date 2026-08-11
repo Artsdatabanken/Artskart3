@@ -5,9 +5,14 @@ import { DesignComponent } from './shared/components/design.component/design.com
 import { authGuard } from './shared/guards/auth.guard';
 
 const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'design', component: DesignComponent },
-  { path: 'mittartskart', canActivate: [authGuard], loadComponent: () => import('./pages/mitt-artskart/mitt-artskart.component').then(m => m.MittArtskartComponent) },
+  { path: '', component: HomeComponent, title: 'pageTitle.home' },
+  { path: 'design', component: DesignComponent},
+  {
+    path: 'mittartskart',
+    canActivate: [authGuard],
+    title: 'pageTitle.mittArtskart',
+    loadComponent: () => import('./pages/mitt-artskart/mitt-artskart.component').then(m => m.MittArtskartComponent)
+  },
 ];
 
 @NgModule({
