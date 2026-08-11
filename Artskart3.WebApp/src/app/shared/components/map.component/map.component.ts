@@ -252,6 +252,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { type: 'memory' },
       pickable: true,
       zIndex: 50,
+      zIndexPinned: true,
       maxZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
     });
 
@@ -261,6 +262,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { type: 'memory' },
       pickable: true,
       zIndex: 50,
+      zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
       maxZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
     });
@@ -271,6 +273,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { type: 'memory' },
       pickable: true,
       zIndex: 100,
+      zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
       cluster: {
         enabled: true,
@@ -293,6 +296,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { type: 'memory' },
       pickable: true,
       zIndex: 90,
+      zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
     });
   }
