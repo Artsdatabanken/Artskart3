@@ -626,6 +626,39 @@ public class SearchRepository : ISearchRepository
         ).ToList();
     }
 
+    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    {
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, filter);
+
+        if (filter.Envelope != null)
+        {
+            var minX = (int)filter.Envelope.MinX;
+            var maxX = (int)filter.Envelope.MaxX;
+            var minY = (int)filter.Envelope.MinY;
+            var maxY = (int)filter.Envelope.MaxY;
+            query = query.Where(o => o.Location != null &&
+                o.Location.East >= minX && o.Location.East <= maxX &&
+                o.Location.North >= minY && o.Location.North <= maxY);
+        }
+
+        return query;
+    }
+
+    private async Task<List<(int LocationId, int ObservationCount)>> AggregateLocationObservations(
+        IQueryable<Observation> query, int maxResults, CancellationToken cancellationToken)
+    {
+        var results = await query
+            .Where(o => o.LocationId != null)
+            .GroupBy(o => o.LocationId!.Value)
+            .Select(g => new { LocationId = g.Key, ObservationCount = g.Count() })
+            .OrderByDescending(x => x.ObservationCount)
+            .Take(maxResults)
+            .ToListAsync(cancellationToken);
+
+        return results.Select(x => (x.LocationId, x.ObservationCount)).ToList();
+    }
+
     /// <summary>
     /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
     /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort.
