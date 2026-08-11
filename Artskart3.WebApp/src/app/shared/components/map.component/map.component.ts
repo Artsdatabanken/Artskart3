@@ -177,9 +177,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private adoptMapControls(): void {
-    this.adoptZoomControl();
-    this.adoptFullscreenControl();
     this.adoptGeolocationControl();
+    this.adoptFullscreenControl();
+    this.adoptZoomControl();
     // TODO: Polygon draw controls should be adopted here using nbic-map-component's draw API
     // (map.startDrawing, map.stopDrawing, map.undoLastPoint, map.finishCurrent, etc.)
     // See Artsobservasjoner3's shared-map.component.ts for reference implementation.

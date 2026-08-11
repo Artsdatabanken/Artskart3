@@ -1,4 +1,8 @@
 {
+  "pageTitle": {
+    "home": "Home - Artskart",
+    "mittArtskart": "My Artskart - Artskart"
+  },
   "header": {
     "projectName": "Artskart",
     "language": "Language",
@@ -15,7 +19,9 @@
     "selectLanguageAriaLabel": "Select language",
     "selectLanguageOptionAriaLabel": "Select {{language}} language",
     "switchToLightModeAriaLabel": "Switch to light mode",
-    "switchToDarkModeAriaLabel": "Switch to dark mode"
+    "switchToDarkModeAriaLabel": "Switch to dark mode",
+    "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
+    "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head"
   },
   "navigation": {
     "menuItem1": "Menu Item 1",
