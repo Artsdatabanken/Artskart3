@@ -92,11 +92,11 @@ export class ExportService {
     return this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`);
   }
 
-  getDownloadUrl(jobId: number): Observable<{ url: string }> {
-    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download`);
+  getDownloadUrl(jobId: number): string {
+    return `${this.baseUrl}/${jobId}/download`;
   }
 
-  getExcelDownloadUrl(jobId: number): Observable<{ url: string }> {
-    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download/excel`);
+  getExcelDownloadUrl(jobId: number): string {
+    return `${this.baseUrl}/${jobId}/download/excel`;
   }
 }

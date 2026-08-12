@@ -2,7 +2,6 @@ import { Component, ChangeDetectionStrategy, inject, CUSTOM_ELEMENTS_SCHEMA, eff
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ExportService } from '../../shared/services/export/export.service';
-import { AlertService } from '../../shared/services/alert/alert.service';
 import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types';
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
@@ -18,7 +17,6 @@ import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 export class MittArtskartComponent implements OnDestroy {
   private readonly exportService = inject(ExportService);
   protected readonly translate = inject(TranslateService);
-  private readonly alertService = inject(AlertService);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly historyResource = rxResource<CsvExportJobDto[], void>({
@@ -78,18 +76,12 @@ export class MittArtskartComponent implements OnDestroy {
 
   onDownload(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.exportService.getDownloadUrl(job.id).subscribe({
-      next: (response) => this.triggerDownload(response.url),
-      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
-    });
+    this.triggerDownload(this.exportService.getDownloadUrl(job.id));
   }
 
   onDownloadExcel(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.exportService.getExcelDownloadUrl(job.id).subscribe({
-      next: (response) => this.triggerDownload(response.url),
-      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
-    });
+    this.triggerDownload(this.exportService.getExcelDownloadUrl(job.id));
   }
 
   private triggerDownload(url: string): void {
