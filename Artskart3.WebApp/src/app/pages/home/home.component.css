@@ -55,7 +55,7 @@
     width: 100%;
     z-index: 200;
     border-right: none;
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--adb-border-radius-xl, 16px) var(--adb-border-radius-xl, 16px) 0 0;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
     transition: transform 0.25s ease;
     touch-action: none;
@@ -70,9 +70,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--adb-spacing-2xsm, 4px);
     flex-shrink: 0;
-    padding: 8px 16px 12px;
+    padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-md, 16px) var(--adb-spacing-sm, 12px);
     cursor: grab;
     background-color: var(--adb-background-default);
     border-radius: 16px 16px 0 0;
@@ -86,7 +86,7 @@
   .sheet-handle-bar {
     width: 40px;
     height: 4px;
-    border-radius: 2px;
+    border-radius: var(--adb-border-radius-sm, 2px);
     background: var(--adb-border-default, #ccc);
   }
 
