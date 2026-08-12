@@ -102,6 +102,7 @@
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
+    "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species Categories",
       "Rødliste": "Red List Categories"
