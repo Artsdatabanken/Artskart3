@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, CUSTOM_ELEMENTS_SCHEMA, eff
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ExportService } from '../../shared/services/export/export.service';
+import { AlertService } from '../../shared/services/alert/alert.service';
 import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types';
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
@@ -17,6 +18,7 @@ import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 export class MittArtskartComponent implements OnDestroy {
   private readonly exportService = inject(ExportService);
   protected readonly translate = inject(TranslateService);
+  private readonly alertService = inject(AlertService);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly historyResource = rxResource<CsvExportJobDto[], void>({
@@ -76,20 +78,28 @@ export class MittArtskartComponent implements OnDestroy {
 
   onDownload(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.triggerDownload(this.exportService.getDownloadUrl(job.id));
+    this.exportService.downloadFile(job.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, this.getFileName(job, 'csv')),
+      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
+    });
   }
 
   onDownloadExcel(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.triggerDownload(this.exportService.getExcelDownloadUrl(job.id));
+    this.exportService.downloadExcelFile(job.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, this.getFileName(job, 'xlsx')),
+      error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
+    });
   }
 
-  private triggerDownload(url: string): void {
+  private triggerDownload(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.rel = 'noopener noreferrer';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }
