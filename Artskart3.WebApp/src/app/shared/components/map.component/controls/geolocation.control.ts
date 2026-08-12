@@ -63,7 +63,7 @@ export class GeolocationMapControl extends Control {
 
   setDenied(denied: boolean): void {
     this.denied = denied;
-    this.button.disabled = denied;
+    this.button.ariaDisabled = denied.toString();
     this.tooltip.classList.toggle('artskart-geolocation-tooltip--visible', denied);
     if (denied) {
       this.button.setAttribute('aria-describedby', this.tooltipId);

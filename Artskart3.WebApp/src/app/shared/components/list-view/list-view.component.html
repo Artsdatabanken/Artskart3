@@ -24,7 +24,7 @@
             <th>{{ 'listView.municipality' | translate }}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody lang="no">
           @for (obs of observationsResource.value().items; track obs.id ?? $index) {
             <tr>
               <td>{{ obs.preferredPopularName }}</td>

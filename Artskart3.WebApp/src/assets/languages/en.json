@@ -1,4 +1,8 @@
 {
+  "pageTitle": {
+    "home": "Home - Artskart",
+    "mittArtskart": "My Artskart - Artskart"
+  },
   "header": {
     "projectName": "Artskart",
     "language": "Language",
