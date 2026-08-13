@@ -388,7 +388,7 @@ export class AreasService {
         observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count) : '',
         isPolygon: true,
         'nbic:style': {
-          fillColor: 'rgba(0, 90, 113, 0.25)',
+          fillColor: 'rgba(0, 90, 113, 0.06)',
           strokeColor: '#005A71',
           strokeWidth: 1.5,
         },
