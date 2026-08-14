@@ -20,7 +20,6 @@ import { TaxonGroupService } from '../../services/taxon-group/taxon-group.servic
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
-
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
 import type { components } from '../../types/api.generated';
