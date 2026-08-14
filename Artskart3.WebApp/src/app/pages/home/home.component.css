@@ -83,6 +83,11 @@
     cursor: grabbing;
   }
 
+  .sidebar app-resizable-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
   .sheet-handle-bar {
     width: 40px;
     height: 4px;

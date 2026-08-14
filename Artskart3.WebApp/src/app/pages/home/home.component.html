@@ -21,8 +21,8 @@
   </div>
   <app-resizable-panel
     [initialWidth]="filterPanelWidth()"
-    [minWidth]="300"
-    [maxWidth]="500"
+    [minWidth]="minWidth"
+    [maxWidth]="maxWidth"
     [isDraggable]="true"
     (widthChanged)="onFilterPanelResize($event)"
   >

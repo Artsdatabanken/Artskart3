@@ -40,9 +40,9 @@ export class HomeComponent {
   readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
   readonly filterPanelWidth = signal(this.minWidth);
 
-  private readonly HEADER_HEIGHT = 80;
-  private readonly HANDLE_HEIGHT = 56;
-  private readonly MOBILE_BREAKPOINT = 768;
+  private readonly HEADER_HEIGHT = this.getCSSVar('--home-header-height', 80);
+  private readonly HANDLE_HEIGHT = this.getCSSVar('--home-handle-height', 56);
+  private readonly MOBILE_BREAKPOINT = this.getCSSVar('--home-mobile-breakpoint', 768);
   readonly isFilterOpen = signal(false);
   readonly isDragging = signal(false);
   private readonly dragTranslatePx = signal<number | null>(null);
@@ -272,6 +272,8 @@ export class HomeComponent {
     const value = this.document.documentElement
       ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
       : '';
-    return parseInt(value) || fallback;
+
+    const parsedValue = Number.parseFloat(value);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
   }
 }
