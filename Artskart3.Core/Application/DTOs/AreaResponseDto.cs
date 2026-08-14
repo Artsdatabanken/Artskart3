@@ -2,16 +2,10 @@ namespace Artskart3.Core.Application.DTOs;
 
 public class AreaResponseDto
 {
-    public CountyDto? Counties { get; set; }
+    public AreaTypeDto? Counties { get; set; }
     public AreaTypeDto? Municipalities { get; set; }
     public AreaTypeDto? RestrictedAreas { get; set; }
     public AreaTypeDto? OceanAreas { get; set; }
+    public AreaTypeDto? SvalbardBjørnøyaAndJanMayen { get; set; }
 
-}
-
-public class CountyDto
-{
-    public AreaDto[]? FastlandsNorge { get; set; }
-    public AreaDto? JanMayen { get; set; }
-    public AreaDto? Svalbard { get; set; }
 }

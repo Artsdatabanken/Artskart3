@@ -782,10 +782,11 @@ export interface components {
             centroid?: components["schemas"]["CentroidDto"];
         };
         AreaResponseDto: {
-            counties?: components["schemas"]["CountyDto"];
+            counties?: components["schemas"]["AreaTypeDto"];
             municipalities?: components["schemas"]["AreaTypeDto"];
             restrictedAreas?: components["schemas"]["AreaTypeDto"];
             oceanAreas?: components["schemas"]["AreaTypeDto"];
+            svalbardBjørnøyaAndJanMayen?: components["schemas"]["AreaTypeDto"];
         };
         AreaTypeDto: {
             /** Format: int32 */
@@ -836,11 +837,6 @@ export interface components {
             from?: number | null;
             /** Format: int32 */
             to?: number | null;
-        };
-        CountyDto: {
-            fastlandsNorge?: components["schemas"]["AreaDto"][] | null;
-            janMayen?: components["schemas"]["AreaDto"];
-            svalbard?: components["schemas"]["AreaDto"];
         };
         CsvExportJobDto: {
             /** Format: int32 */

@@ -423,96 +423,133 @@ public class SearchRepository : ISearchRepository
     /// Hybrid tilnærming: uten filtre brukes pre-beregnet antall fra Area-tabellen,
     /// med filtre beregnes antall dynamisk via ObservationEntityIndex.
     /// </summary>
+    /// <summary>
+    /// Laster områder for et gitt zoomnivå, inkludert havområder og Svalbard/Bjørnøya/Jan Mayen
+    /// når de er i filteret eller vi laster zoomnivå 1 uten filtre (for prefetch av geometrier).
+    /// </summary>
+    private async Task<List<Area>> LoadAreasForZoomLevel(int zoomLevel, LocationSearchFilterDto? filter, CancellationToken cancellationToken)
+    {
+        var hasFilters = filter?.HasActiveFilters == true;
+
+        // For ufiltrert zoomnivå 1: last også havområder og Svalbard/Bjørnøya/Jan Mayen
+        // slik at frontend kan prefetche alle geometrier i én forespørsel
+        if (!hasFilters && zoomLevel == 1)
+        {
+            return await _context.Set<Area>()
+                .Where(a => a.IsCurrent == true && (
+                    a.ZoomLevel == zoomLevel ||
+                    a.AreaTypeId == (int)Artskart3.Core.Domain.Enums.AreaType.OceanArea ||
+                    a.AreaTypeId == (int)Artskart3.Core.Domain.Enums.AreaType.SvalbardBjørnøyaAndJanMayen
+                ))
+                .ToListAsync(cancellationToken);
+        }
+
+        var areas = await _context.Set<Area>()
+            .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
+            .ToListAsync(cancellationToken);
+
+        // Havområder kan ha et annet zoomnivå — last inn separat når de er i filteret
+        if (filter?.OceanAreaIds?.Any() == true)
+        {
+            var loadedFids = areas.Select(a => a.Fid).ToHashSet();
+            var missingOceanFids = filter.OceanAreaIds.Where(fid => !loadedFids.Contains(fid)).ToArray();
+            if (missingOceanFids.Length > 0)
+            {
+                var oceanAreas = await _context.Set<Area>()
+                    .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid))
+                    .ToListAsync(cancellationToken);
+                areas.AddRange(oceanAreas);
+            }
+        }
+
+        return areas;
+    }
+
+    /// <summary>
+    /// Filtrerer områder og beregner observasjonsantall basert på aktive filtre.
+    /// Returnerer den filtrerte områdelisten og en funksjon for å slå opp antall per Fid.
+    /// </summary>
+    private async Task<(List<Area> areas, Func<IGrouping<string, Area>, int> countResolver)> FilterAndComputeCounts(
+        List<Area> areas, LocationSearchFilterDto? filter, CancellationToken cancellationToken)
+    {
+        var hasFilters = filter?.HasActiveFilters == true;
+        var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
+        Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
+        Dictionary<string, int>? municipalityCountsByCounty = null;
+
+        // Steg 1: Filtrer hvilke områder som vises
+        var hasAreaSelection = hasFilters && (
+            filter!.CountyIds?.Length > 0 ||
+            filter.MunicipalityIds?.Length > 0 ||
+            filter.OceanAreaIds?.Length > 0);
+
+        if (hasAreaSelection)
+        {
+            var filtered = FilterAreasBySelection(areas, filter!);
+            if (filtered.Count > 0)
+            {
+                areas = filtered;
+            }
+            else if (!needsDynamicCounts)
+            {
+                areas = filtered;
+            }
+        }
+
+        // Steg 2: Bestem tellemåte
+        if (needsDynamicCounts)
+        {
+            dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
+        }
+        else if (hasAreaSelection)
+        {
+            var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
+            var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+
+            if (hasMunicipalityFilter && areasAreCounties)
+            {
+                municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
+                    filter.MunicipalityIds!, cancellationToken);
+            }
+        }
+
+        int CountResolver(IGrouping<string, Area> g)
+        {
+            if (needsDynamicCounts)
+            {
+                return g.Sum(a =>
+                {
+                    var entityId = _areaHierarchy.FidToEntityId(a.Fid);
+                    return entityId.HasValue
+                        ? dynamicCounts!.GetValueOrDefault((a.AreaTypeId, entityId.Value), 0)
+                        : 0;
+                });
+            }
+
+            if (municipalityCountsByCounty != null)
+            {
+                return g.Sum(a => municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0));
+            }
+
+            return g.Sum(a => a.ObservationCount ?? 0);
+        }
+
+        return (areas, CountResolver);
+    }
+
     public async Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            var areas = await _context.Set<Area>()
-                    .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
-                    .ToListAsync(cancellationToken);
+            var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken);
+            var (filteredAreas, countResolver) = await FilterAndComputeCounts(areas, filter, cancellationToken);
 
-            // Havområder kan ha et annet zoomnivå — last inn separat når de er i filteret
-            if (filter?.OceanAreaIds?.Any() == true)
-            {
-                var loadedFids = areas.Select(a => a.Fid).ToHashSet();
-                var missingOceanFids = filter.OceanAreaIds.Where(fid => !loadedFids.Contains(fid)).ToArray();
-                if (missingOceanFids.Length > 0)
-                {
-                    var oceanAreas = await _context.Set<Area>()
-                        .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid))
-                        .ToListAsync(cancellationToken);
-                    areas.AddRange(oceanAreas);
-                }
-            }
-
-            var hasFilters = filter?.HasActiveFilters == true;
-            var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
-            Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
-            Dictionary<string, int>? municipalityCountsByCounty = null;
-
-            // Steg 1: Filtrer hvilke områder som vises (uavhengig av tellemåte)
-            var hasAreaSelection = hasFilters && (
-                filter!.CountyIds?.Length > 0 ||
-                filter.MunicipalityIds?.Length > 0 ||
-                filter.OceanAreaIds?.Length > 0);
-
-            if (hasAreaSelection)
-            {
-                var filtered = FilterAreasBySelection(areas, filter!);
-                if (filtered.Count > 0)
-                {
-                    areas = filtered;
-                }
-                else if (!needsDynamicCounts)
-                {
-                    // Ingen områder matcher og ingen observasjonsfiltre — ingen markører å vise
-                    areas = filtered;
-                }
-            }
-
-            // Steg 2: Bestem tellemåte
-            if (needsDynamicCounts)
-            {
-                dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
-            }
-            else if (hasAreaSelection)
-            {
-                // Sjekk om kommune-filter på fylkesnivå krever aggregering
-                var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
-                var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
-
-                if (hasMunicipalityFilter && areasAreCounties)
-                {
-                    municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
-                        filter.MunicipalityIds!, cancellationToken);
-                }
-            }
-
-            return areas
+            return filteredAreas
                 .GroupBy(a => a.Name)
                 .Select(g =>
                 {
                     var firstArea = g.FirstOrDefault(a => a.WktPolygon != null) ?? g.First();
-
-                    int count;
-                    if (needsDynamicCounts)
-                    {
-                        count = g.Sum(a =>
-                        {
-                            var entityId = _areaHierarchy.FidToEntityId(a.Fid);
-                            return entityId.HasValue
-                                ? dynamicCounts!.GetValueOrDefault((a.AreaTypeId, entityId.Value), 0)
-                                : 0;
-                        });
-                    }
-                    else if (municipalityCountsByCounty != null)
-                    {
-                        count = g.Sum(a => municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0));
-                    }
-                    else
-                    {
-                        count = g.Sum(a => a.ObservationCount ?? 0);
-                    }
+                    var count = countResolver(g);
 
                     return new AreaMarkerDto
                     {
@@ -534,9 +571,38 @@ public class SearchRepository : ISearchRepository
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Error retrieving areas for zoom level: {ZoomLevel}", zoomLevel);
+            _logger.LogError(ex, "Feil ved henting av områder for zoomnivå: {ZoomLevel}", zoomLevel);
             throw new ApplicationException(
-                "An error occurred while retrieving areas. Please try again later.", ex);
+                "En feil oppstod ved henting av områder. Prøv igjen senere.", ex);
+        }
+    }
+
+    public async Task<IEnumerable<AreaCountDto>> GetAreaCountsAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken);
+            var (filteredAreas, countResolver) = await FilterAndComputeCounts(areas, filter, cancellationToken);
+
+            return filteredAreas
+                .GroupBy(a => a.Fid)
+                .Select(g =>
+                {
+                    var count = countResolver(g);
+                    return new AreaCountDto
+                    {
+                        Fid = g.Key,
+                        ObservationCount = count
+                    };
+                })
+                .Where(a => a.ObservationCount > 0)
+                .ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av områdeantall for zoomnivå: {ZoomLevel}", zoomLevel);
+            throw new ApplicationException(
+                "En feil oppstod ved henting av områdeantall. Prøv igjen senere.", ex);
         }
     }
 

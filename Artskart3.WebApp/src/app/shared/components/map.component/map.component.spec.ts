@@ -79,16 +79,19 @@ describe('MapComponent', () => {
     });
   });
 
-  describe('setupAreaDataPipeline error resilience', () => {
+  describe('counts fetch pipeline error resilience', () => {
     let areasService: AreasService;
     let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;
-    let fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>;
+    let fetchCounts$: Subject<{ dataZoomLevel: number; apiZoomLevel: number; extent: [number, number, number, number] }>;
+    let locationsFetch$: Subject<{ extent: [number, number, number, number]; filter: unknown }>;
 
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
-        fetchAreaData$: Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>;
-        setupAreaDataPipeline: () => void;
-        areaDataCacheByApiZoom: Map<number, unknown[]>;
+        fetchCounts$: Subject<{ dataZoomLevel: number; apiZoomLevel: number; extent: [number, number, number, number] }>;
+        locationsFetch$: Subject<{ extent: [number, number, number, number]; filter: unknown }>;
+        setupCountsFetchPipeline: () => void;
+        geometryCacheByApiZoom: Map<number, unknown[]>;
+        countsCacheByApiZoom: Map<number, unknown>;
       };
 
     beforeEach(() => {
@@ -97,23 +100,25 @@ describe('MapComponent', () => {
       component.map = { updateGeoJSONLayer: updateGeoJSONLayerSpy } as unknown as NbicMapComponent;
 
       const priv = accessPrivate(component);
-      fetchAreaData$ = priv.fetchAreaData$;
-      priv.areaDataCacheByApiZoom.clear();
-      priv.setupAreaDataPipeline();
+      fetchCounts$ = priv.fetchCounts$;
+      locationsFetch$ = priv.locationsFetch$;
+      priv.geometryCacheByApiZoom.clear();
+      priv.countsCacheByApiZoom.clear();
+      priv.setupCountsFetchPipeline();
     });
 
-    it('should continue processing zoom changes after a service error', () => {
+    it('should continue processing after a service error', () => {
       vi.useFakeTimers();
       const geojson = '{"type":"FeatureCollection","features":[]}';
 
       const testExtent: [number, number, number, number] = [0, 0, 1000000, 1000000];
 
-      // First call fails
+      // First call fails (counts fetch with no cached geometries → falls back to getAreaMarkers)
       vi.spyOn(areasService, 'getAreaMarkers').mockReturnValueOnce(
         throwError(() => new Error('503 Service Unavailable'))
       );
 
-      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.Municipalities, olZoom: 10, extent: testExtent });
+      fetchCounts$.next({ dataZoomLevel: ApiZoomLevel.Municipalities, apiZoomLevel: ApiZoomLevel.Municipalities, extent: testExtent });
       vi.advanceTimersByTime(300);
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
@@ -121,7 +126,7 @@ describe('MapComponent', () => {
       // Second call succeeds — pipeline should still be alive
       vi.spyOn(areasService, 'getLocationsAsGeoJsonString').mockReturnValueOnce(of(geojson));
 
-      fetchAreaData$.next({ apiZoomLevel: ApiZoomLevel.LocationPoints, olZoom: 13, extent: testExtent });
+      locationsFetch$.next({ extent: testExtent, filter: {} });
       vi.advanceTimersByTime(300);
 
       expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(

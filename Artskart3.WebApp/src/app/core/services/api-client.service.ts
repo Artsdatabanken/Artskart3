@@ -4,9 +4,9 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError, retry } from 'rxjs/operators';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map, retry } from 'rxjs/operators';
 import { ApiMessages, RetryConfig } from '@core/constants/api-messages';
 import { LoggingService } from '@shared/logging.service';
 
@@ -49,6 +49,39 @@ export class ApiClientService {
         count: RetryConfig.MaxAttempts - 1
       }),
       catchError(error => this.handleError(error, `Failed to post ${endpoint}`))
+    );
+  }
+
+  postJsonWithETag<T>(
+    endpoint: string,
+    body: unknown,
+    etag?: string,
+  ): Observable<{ body: T | null; etag: string | null; notModified: boolean }> {
+    let headers = new HttpHeaders();
+    if (etag) {
+      headers = headers.set('If-None-Match', etag);
+    }
+
+    return this.http.post<T>(endpoint, body, { headers, observe: 'response' }).pipe(
+      retry({
+        delay: RetryConfig.InitialDelayMs,
+        count: RetryConfig.MaxAttempts - 1,
+      }),
+      map(response => ({
+        body: response.body,
+        etag: response.headers.get('ETag'),
+        notModified: false,
+      })),
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 304) {
+          return of({
+            body: null as T | null,
+            etag: etag ?? null,
+            notModified: true,
+          });
+        }
+        return this.handleError(error, `Failed to post ${endpoint}`);
+      }),
     );
   }
 
