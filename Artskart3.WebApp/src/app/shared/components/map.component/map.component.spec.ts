@@ -8,6 +8,7 @@ import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
 import { AreasService } from '@core/services/areas/areas.service';
+import { FilterStateService } from '@shared/services/filter-state/filter-state.service';
 
 describe('MapComponent', () => {
   let component: MapComponent;
@@ -138,6 +139,186 @@ describe('MapComponent', () => {
       );
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('geometry and counts caching', () => {
+    const AREA_TYPE_COUNTY = 2;
+    const AREA_TYPE_MUNICIPALITY = 1;
+    const AREA_TYPE_OCEAN = 4;
+
+    const area = (fid: string, areaTypeId: number, observationCount = 0) => ({
+      id: Number(fid.replace(/\D/g, '')) || 1,
+      documentId: fid,
+      fid,
+      name: `Area ${fid}`,
+      areaTypeId,
+      parentFid: '',
+      syncDateTime: '',
+      timeStamp: '',
+      isCurrent: true,
+      observationCount,
+      wktsPolygon: 'POLYGON((0 0, 0 10, 10 10, 10 0, 0 0))',
+    });
+
+    const accessPrivate = (c: MapComponent) =>
+      c as unknown as {
+        geometryCacheByApiZoom: Map<number, ReturnType<typeof area>[]>;
+        countsCacheByApiZoom: Map<number, { counts: Map<string, number>; etag: string | null; selectionKey: string }>;
+        seedCountsFromGeometries: (apiZoomLevel: number, areas: ReturnType<typeof area>[]) => void;
+        rebuildAreaLayer: (
+          apiZoomLevel: number,
+          filter: Record<string, unknown>,
+          extent: [number, number, number, number],
+          pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[],
+        ) => void;
+        areaSelectionKey: (filter: Record<string, unknown>) => string;
+      };
+
+    beforeEach(() => {
+      component.map = { updateGeoJSONLayer: vi.fn() } as unknown as NbicMapComponent;
+      const priv = accessPrivate(component);
+      priv.geometryCacheByApiZoom.clear();
+      priv.countsCacheByApiZoom.clear();
+    });
+
+    it('should make ocean areas available in the municipalities geometry cache', () => {
+      const priv = accessPrivate(component);
+      priv.seedCountsFromGeometries(ApiZoomLevel.Counties, [
+        area('03', AREA_TYPE_COUNTY, 100),
+        area('91', AREA_TYPE_OCEAN, 50),
+      ]);
+
+      priv.seedCountsFromGeometries(ApiZoomLevel.Municipalities, [area('0301', AREA_TYPE_MUNICIPALITY, 100)]);
+
+      const municipalityGeometries = priv.geometryCacheByApiZoom.get(ApiZoomLevel.Municipalities) ?? [];
+      expect(municipalityGeometries.map(a => a.fid)).toEqual(['0301', '91']);
+    });
+
+    it('should not duplicate ocean areas already present at the municipality level', () => {
+      const priv = accessPrivate(component);
+      priv.seedCountsFromGeometries(ApiZoomLevel.Counties, [area('91', AREA_TYPE_OCEAN, 50)]);
+
+      priv.seedCountsFromGeometries(ApiZoomLevel.Municipalities, [
+        area('0301', AREA_TYPE_MUNICIPALITY, 100),
+        area('91', AREA_TYPE_OCEAN, 50),
+      ]);
+
+      const fids = (priv.geometryCacheByApiZoom.get(ApiZoomLevel.Municipalities) ?? []).map(a => a.fid);
+      expect(fids).toEqual(['0301', '91']);
+    });
+
+    it('should render selected areas with zero counts from cache without refetching', () => {
+      const priv = accessPrivate(component);
+      const filterState = TestBed.inject(FilterStateService);
+      filterState.selectedCategoryIds.set([1]);
+
+      const filter = { oceanAreaIds: ['91'], municipalityIds: ['0301'] };
+      priv.geometryCacheByApiZoom.set(ApiZoomLevel.Municipalities, [
+        area('0301', AREA_TYPE_MUNICIPALITY),
+        area('91', AREA_TYPE_OCEAN),
+      ]);
+      // Backend utelater områder uten treff — '91' mangler bevisst
+      priv.countsCacheByApiZoom.set(ApiZoomLevel.Municipalities, {
+        counts: new Map([['0301', 5]]),
+        etag: null,
+        selectionKey: priv.areaSelectionKey(filter),
+      });
+
+      const pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[] = [];
+      priv.rebuildAreaLayer(ApiZoomLevel.Municipalities, filter, [0, 0, 1000000, 1000000], pendingFetches);
+
+      expect(pendingFetches).toEqual([]);
+      filterState.selectedCategoryIds.set([]);
+    });
+
+    it('should refetch counts when the area selection changes', () => {
+      const priv = accessPrivate(component);
+      const filterState = TestBed.inject(FilterStateService);
+      filterState.selectedCategoryIds.set([1]);
+
+      priv.geometryCacheByApiZoom.set(ApiZoomLevel.Municipalities, [area('0301', AREA_TYPE_MUNICIPALITY)]);
+      priv.countsCacheByApiZoom.set(ApiZoomLevel.Municipalities, {
+        counts: new Map([['0301', 5]]),
+        etag: null,
+        selectionKey: priv.areaSelectionKey({ municipalityIds: ['0301'] }),
+      });
+
+      const pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[] = [];
+      priv.rebuildAreaLayer(ApiZoomLevel.Municipalities, { municipalityIds: ['0302'] }, [0, 0, 1000000, 1000000], pendingFetches);
+
+      expect(pendingFetches).toEqual([
+        { dataZoomLevel: ApiZoomLevel.Municipalities, apiZoomLevel: ApiZoomLevel.Municipalities },
+      ]);
+      filterState.selectedCategoryIds.set([]);
+    });
+  });
+
+  describe('zero-count area rendering', () => {
+    const AREA_TYPE_MUNICIPALITY = 1;
+
+    const area = (fid: string, observationCount = 0, parentFid = '') => ({
+      id: 1,
+      documentId: fid,
+      fid,
+      name: `Area ${fid}`,
+      areaTypeId: AREA_TYPE_MUNICIPALITY,
+      parentFid,
+      syncDateTime: '',
+      timeStamp: '',
+      isCurrent: true,
+      observationCount,
+      wktsPolygon: 'POLYGON((0 0, 0 10, 10 10, 10 0, 0 0))',
+    });
+
+    const mergeCountsIntoAreas = (
+      c: MapComponent,
+      areas: ReturnType<typeof area>[],
+      counts: Map<string, number>,
+      filter: Record<string, unknown>,
+    ) =>
+      (c as unknown as {
+        mergeCountsIntoAreas: (
+          a: ReturnType<typeof area>[],
+          counts: Map<string, number>,
+          f: Record<string, unknown>,
+        ) => ReturnType<typeof area>[];
+      }).mergeCountsIntoAreas(areas, counts, filter);
+
+    it('should hide unselected areas without observations', () => {
+      const result = mergeCountsIntoAreas(
+        component,
+        [area('0301'), area('0302')],
+        new Map([['0301', 7]]),
+        {},
+      );
+
+      expect(result.map(a => a.fid)).toEqual(['0301']);
+    });
+
+    it('should keep explicitly selected areas with zero observations', () => {
+      const result = mergeCountsIntoAreas(
+        component,
+        [area('0301'), area('91')],
+        new Map([['0301', 7]]),
+        { municipalityIds: ['0301'], oceanAreaIds: ['91'] },
+      );
+
+      expect(result.map(a => ({ fid: a.fid, count: a.observationCount }))).toEqual([
+        { fid: '0301', count: 7 },
+        { fid: '91', count: 0 },
+      ]);
+    });
+
+    it('should hide zero-count children of a selected county', () => {
+      const result = mergeCountsIntoAreas(
+        component,
+        [area('0301', 0, '03'), area('0302', 0, '03')],
+        new Map([['0302', 4]]),
+        { countyIds: ['03'] },
+      );
+
+      expect(result.map(a => a.fid)).toEqual(['0302']);
     });
   });
 });

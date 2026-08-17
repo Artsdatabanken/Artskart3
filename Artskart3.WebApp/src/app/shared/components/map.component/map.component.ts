@@ -20,7 +20,7 @@ import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
-import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto, AreaTypeId } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -34,6 +34,14 @@ import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
+
+/**
+ * Områdetyper som ikke tilhører et bestemt zoomnivå og derfor skal vises i begge områdelag.
+ */
+const CROSS_LEVEL_AREA_TYPES = new Set<number>([
+  AreaTypeId.OceanArea,
+  AreaTypeId.SvalbardBjørnøyaAndJanMayen,
+]);
 
 @Component({
   selector: 'app-map',
@@ -60,11 +68,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   // Geometri-cache: persistent for hele sesjonen, tømmes aldri ved filterendring
   private geometryCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
-  // Antall-cache: inneholder antall per fid, ETag og om cachen er ufiltrert
+  // Antall-cache: antall per fid, ETag og hvilket områdevalg antallene gjelder for
   private countsCacheByApiZoom = new Map<number, {
     counts: Map<string, number>;
     etag: string | null;
-    unrestricted: boolean;
+    selectionKey: string;
   }>();
   private mapReady = false;
   // Sporer forrige attributtfilter for å oppdage endringer som krever refetch
@@ -423,23 +431,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     if (!this.hasActiveAttributeFilters()) {
-      const filtered = this.filterCachedAreasBySelection(cachedGeometries, filter);
-      const geojson = this.areasService.buildAreaGeoJson(filtered, extent);
+      const merged = this.mergeCountsIntoAreas(cachedGeometries, this.countsFromAreas(cachedGeometries), filter);
+      const geojson = this.areasService.buildAreaGeoJson(merged, extent);
       this.applyGeoJsonToLayer(apiZoomLevel, geojson);
       return;
     }
 
     const cached = this.countsCacheByApiZoom.get(dataZoomLevel);
-    if (cached) {
-      const needed = this.filterCachedAreasBySelection(cachedGeometries, filter);
-      const allCovered = cached.unrestricted || needed.every(a => cached.counts.has(a.fid));
-
-      if (allCovered) {
-        const merged = this.mergeCountsIntoAreas(cachedGeometries, cached.counts, filter);
-        const geojson = this.areasService.buildAreaGeoJson(merged, extent);
-        this.applyGeoJsonToLayer(apiZoomLevel, geojson);
-        return;
-      }
+    if (cached && cached.selectionKey === this.areaSelectionKey(filter)) {
+      const merged = this.mergeCountsIntoAreas(cachedGeometries, cached.counts, filter);
+      const geojson = this.areasService.buildAreaGeoJson(merged, extent);
+      this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+      return;
     }
 
     this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
@@ -457,11 +460,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       debounceTime(300),
       switchMap(({ requests, extent }) => {
         const filter = this.locationFilter();
-        const hasAreaSelection = !!(filter.countyIds?.length || filter.municipalityIds?.length || filter.oceanAreaIds?.length);
 
         // Hent antall for alle forespurte zoomnivåer sekvensielt
         const fetches = requests.map(({ dataZoomLevel, apiZoomLevel }) =>
-          this.fetchCountsForZoomLevel(dataZoomLevel, apiZoomLevel, extent, filter, hasAreaSelection),
+          this.fetchCountsForZoomLevel(dataZoomLevel, apiZoomLevel, extent, filter),
         );
 
         return rxConcat(...fetches);
@@ -475,9 +477,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     apiZoomLevel: number,
     extent: [number, number, number, number],
     filter: LocationSearchFilter,
-    hasAreaSelection: boolean,
   ): Observable<void> {
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
+    const selectionKey = this.areaSelectionKey(filter);
 
     if (cachedGeometries) {
       const existingCache = this.countsCacheByApiZoom.get(dataZoomLevel);
@@ -489,10 +491,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             this.countsCacheByApiZoom.set(dataZoomLevel, {
               counts: countsMap,
               etag: response.etag,
-              unrestricted: !hasAreaSelection,
+              selectionKey,
             });
-          } else if (response.etag && existingCache) {
-            existingCache.etag = response.etag;
+          } else if (existingCache) {
+            existingCache.selectionKey = selectionKey;
+            if (response.etag) existingCache.etag = response.etag;
           }
           const counts = this.countsCacheByApiZoom.get(dataZoomLevel)?.counts ?? new Map();
           const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
@@ -514,14 +517,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     return this.areasService.getAreaMarkers(olZoom, filter).pipe(
       tap(areas => {
-        this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
-        const countsMap = new Map(areas.map(a => [a.fid, a.observationCount ?? 0]));
+        // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
+        if (selectionKey === this.EMPTY_SELECTION_KEY && !this.hasActiveAttributeFilters()) {
+          this.geometryCacheByApiZoom.set(dataZoomLevel, this.withCrossLevelAreas(dataZoomLevel, areas));
+        }
+        const countsMap = this.countsFromAreas(areas);
         this.countsCacheByApiZoom.set(dataZoomLevel, {
           counts: countsMap,
           etag: null,
-          unrestricted: !hasAreaSelection,
+          selectionKey,
         });
-        const geojson = this.areasService.buildAreaGeoJson(areas, extent);
+        const merged = this.mergeCountsIntoAreas(areas, countsMap, filter);
+        const geojson = this.areasService.buildAreaGeoJson(merged, extent);
         this.applyGeoJsonToLayer(apiZoomLevel, geojson);
       }),
       rxMap(() => undefined as void),
@@ -568,23 +575,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private prefetchAreaGeometries(): void {
     this.areasService.getAreaMarkers(ZoomConfig.DEFAULT_ZOOM_LEVEL).pipe(
       tap(areas => {
-        this.geometryCacheByApiZoom.set(ApiZoomLevel.Counties, areas);
-        this.countsCacheByApiZoom.set(ApiZoomLevel.Counties, {
-          counts: new Map(areas.map(a => [a.fid, a.observationCount ?? 0])),
-          etag: null,
-          unrestricted: true,
-        });
+        this.seedCountsFromGeometries(ApiZoomLevel.Counties, areas);
         this.rebuildAllLayers();
       }),
       switchMap(() =>
         this.areasService.getAreaMarkers(ZoomConfig.ZOOM_COUNTIES_THRESHOLD).pipe(
           tap(areas => {
-            this.geometryCacheByApiZoom.set(ApiZoomLevel.Municipalities, areas);
-            this.countsCacheByApiZoom.set(ApiZoomLevel.Municipalities, {
-              counts: new Map(areas.map(a => [a.fid, a.observationCount ?? 0])),
-              etag: null,
-              unrestricted: true,
-            });
+            this.seedCountsFromGeometries(ApiZoomLevel.Municipalities, areas);
             this.rebuildAllLayers();
           }),
         ),
@@ -597,7 +594,53 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     ).subscribe();
   }
 
+  /**
+   * Lagrer prefetchede geometrier, og antallene som følger med dem.
+   * Antallene fra prefetch er ufiltrerte, så de brukes kun når ingen attributtfiltre
+   * er aktive i det svaret kommer inn — ellers hentes riktige antall via fetchCounts$.
+   */
+  private seedCountsFromGeometries(apiZoomLevel: number, areas: AreaMarkerDto[]): void {
+    const all = this.withCrossLevelAreas(apiZoomLevel, areas);
+    this.geometryCacheByApiZoom.set(apiZoomLevel, all);
+
+    if (this.hasActiveAttributeFilters()) return;
+
+    this.countsCacheByApiZoom.set(apiZoomLevel, {
+      counts: this.countsFromAreas(all),
+      etag: null,
+      selectionKey: this.EMPTY_SELECTION_KEY,
+    });
+  }
+
+  /**
+   * Havområder og Svalbard/Bjørnøya/Jan Mayen leveres kun med zoomnivå 1, men hører ikke
+   * til et bestemt zoomnivå og må derfor være tilgjengelige i begge områdelag.
+   */
+  private withCrossLevelAreas(apiZoomLevel: number, areas: AreaMarkerDto[]): AreaMarkerDto[] {
+    if (apiZoomLevel === ApiZoomLevel.Counties) return areas;
+
+    const existingFids = new Set(areas.map(a => a.fid));
+    const crossLevel = (this.geometryCacheByApiZoom.get(ApiZoomLevel.Counties) ?? [])
+      .filter(a => CROSS_LEVEL_AREA_TYPES.has(a.areaTypeId) && !existingFids.has(a.fid));
+
+    return crossLevel.length ? [...areas, ...crossLevel] : areas;
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────
+
+  private readonly EMPTY_SELECTION_KEY = JSON.stringify([[], [], []]);
+
+  /**
+   * Nøkkel som identifiserer hvilket områdevalg et sett med antall gjelder for.
+   * Brukes til å avgjøre om cachede antall fortsatt er gyldige.
+   */
+  private areaSelectionKey(filter: LocationSearchFilter): string {
+    return JSON.stringify([
+      [...(filter.countyIds ?? [])].sort(),
+      [...(filter.municipalityIds ?? [])].sort(),
+      [...(filter.oceanAreaIds ?? [])].sort(),
+    ]);
+  }
 
   private filterCachedAreasBySelection(areas: AreaMarkerDto[], filter: LocationSearchFilter): AreaMarkerDto[] {
     const countyFids = new Set(filter.countyIds ?? []);
@@ -616,14 +659,29 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     );
   }
 
+  /**
+   * Slår sammen geometrier og antall, og avgjør hvilke områder som skal tegnes.
+   *
+   * Regel: et område vises når det har treff, eller når det er eksplisitt valgt av brukeren.
+   * Valgte områder uten treff vises med "0" slik at brukeren ser at valget ga null resultater.
+   */
   private mergeCountsIntoAreas(areas: AreaMarkerDto[], counts: Map<string, number>, filter: LocationSearchFilter): AreaMarkerDto[] {
-    const filtered = this.filterCachedAreasBySelection(areas, filter);
-    const hasAreaSelection = !!(filter.countyIds?.length || filter.municipalityIds?.length || filter.oceanAreaIds?.length);
-    const merged = filtered.map(a => ({
-      ...a,
-      observationCount: counts.get(a.fid) ?? 0,
-    }));
-    return hasAreaSelection ? merged : merged.filter(a => (a.observationCount ?? 0) > 0);
+    const selectedFids = new Set([
+      ...(filter.countyIds ?? []),
+      ...(filter.municipalityIds ?? []),
+      ...(filter.oceanAreaIds ?? []),
+    ]);
+
+    return this.filterCachedAreasBySelection(areas, filter)
+      .map(a => ({ ...a, observationCount: counts.get(a.fid) ?? 0 }))
+      .filter(a => (a.observationCount ?? 0) > 0 || selectedFids.has(a.fid));
+  }
+
+  /**
+   * Bruker de forhåndsberegnede antallene som følger med geometriene.
+   */
+  private countsFromAreas(areas: AreaMarkerDto[]): Map<string, number> {
+    return new Map(areas.map(a => [a.fid, a.observationCount ?? 0]));
   }
 
   private updateSelectedAreaOverlays(): void {

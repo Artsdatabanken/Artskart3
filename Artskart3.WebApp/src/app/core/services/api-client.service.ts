@@ -4,11 +4,18 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map, retry } from 'rxjs/operators';
 import { ApiMessages, RetryConfig } from '@core/constants/api-messages';
 import { LoggingService } from '@shared/logging.service';
+
+const HTTP_STATUS_NOT_MODIFIED = 304;
+
+/**
+ * Markerer en 304-respons internt, slik at den ikke behandles som en feil av retry.
+ */
+const NOT_MODIFIED = Symbol('NotModified');
 
 @Injectable({
   providedIn: 'root'
@@ -63,25 +70,30 @@ export class ApiClientService {
     }
 
     return this.http.post<T>(endpoint, body, { headers, observe: 'response' }).pipe(
+      // 304 er et gyldig svar, ikke en feil — håndteres før retry så den ikke prøves på nytt
+      catchError((error: HttpErrorResponse) =>
+        error.status === HTTP_STATUS_NOT_MODIFIED
+          ? of({ marker: NOT_MODIFIED, etag: error.headers.get('ETag') } as const)
+          : throwError(() => error),
+      ),
       retry({
         delay: RetryConfig.InitialDelayMs,
         count: RetryConfig.MaxAttempts - 1,
       }),
-      map(response => ({
-        body: response.body,
-        etag: response.headers.get('ETag'),
-        notModified: false,
-      })),
-      catchError((error: HttpErrorResponse) => {
-        if (error.status === 304) {
-          return of({
-            body: null as T | null,
-            etag: etag ?? null,
-            notModified: true,
-          });
-        }
-        return this.handleError(error, `Failed to post ${endpoint}`);
-      }),
+      map(response =>
+        response instanceof HttpResponse
+          ? {
+              body: response.body,
+              etag: response.headers.get('ETag'),
+              notModified: false,
+            }
+          : {
+              body: null as T | null,
+              etag: response.etag ?? etag ?? null,
+              notModified: true,
+            },
+      ),
+      catchError((error: HttpErrorResponse) => this.handleError(error, `Failed to post ${endpoint}`)),
     );
   }
 

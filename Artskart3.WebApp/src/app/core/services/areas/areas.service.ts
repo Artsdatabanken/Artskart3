@@ -542,7 +542,7 @@ export class AreasService {
       if (!this.bboxOverlaps(bbox, extent)) continue;
 
       const count = area.observationCount ?? 0;
-      const formattedCount = count > 0 ? AbbreviateNumberHelper.format(count) : '0';
+      const formattedCount = AbbreviateNumberHelper.format(count);
 
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1]

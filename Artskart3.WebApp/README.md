@@ -67,10 +67,14 @@ Kartkomponenten bruker en flernivå caching-strategi for å minimere nettverkstr
 
 ### Antall-cache (`countsCacheByApiZoom`)
 
-- Lagrer `{ counts: Map<fid, antall>, etag: string | null, unrestricted: boolean }` per zoomnivå.
-- `unrestricted`-flagget indikerer om antallene dekker alle områder (`true`) eller kun et utvalg (`false`).
+- Lagrer `{ counts: Map<fid, antall>, etag: string | null, selectionKey: string }` per zoomnivå.
+- `selectionKey` identifiserer hvilket områdevalg (fylker, kommuner, havområder) antallene ble hentet for.
 - **Tømmes når attributtfiltre endres** (taksongruppe, kategori, periode, etc.) fordi disse påvirker antall per område.
-- **Beholdes ved områdevalg-endringer** — bruker `unrestricted`-flagget for å avgjøre om cachede verdier dekker de nødvendige områdene.
+- **Beholdes ved områdevalg-endringer** — cachede verdier brukes kun når `selectionKey` er uendret. Områder som mangler i responsen tolkes som 0 (backend utelater områder uten treff).
+
+### Havområder og Svalbard/Bjørnøya/Jan Mayen
+
+Disse områdene hører ikke til et bestemt zoomnivå og leveres kun med zoomnivå 1. De kopieres derfor inn i geometri-cachen for zoomnivå 2 (`withCrossLevelAreas`), slik at de vises i begge områdelag — også når kommunevalg gjør at fylkeslaget tegnes fra kommunedata.
 
 ### ETag-støtte
 
@@ -78,8 +82,11 @@ Kartkomponenten bruker en flernivå caching-strategi for å minimere nettverkstr
 - Frontend sender `If-None-Match` ved etterfølgende forespørsler. Ved treff returnerer backend `304 Not Modified` uten data.
 - Backend cacher resultater (antall + ETag) i `IMemoryCache` med en nøkkel basert på SHA256-hash av filteret. TTL er 5 minutter. Dette betyr at gjentatte forespørsler med samme filter hopper over databasespørringen helt.
 
-### Enhetlig oppdatering (`rebuildAllLayers`)
+### Hvilke områder vises (`mergeCountsIntoAreas`)
 
+Alle kartlag bruker samme regel: et område tegnes når det har treff, eller når det er eksplisitt valgt av brukeren. Valgte områder uten treff vises med «0», slik at brukeren ser at valget ga null resultater. Områder som kun er med fordi de ligger i et valgt fylke, skjules når de har 0 treff.
+
+### Enhetlig oppdatering (`rebuildAllLayers`)
 All oppdatering av kartlag skjer gjennom én funksjon: `rebuildAllLayers()`. Den kalles ved:
 - Filterendringer (via `_onFilterChange`-effekten)
 - Kamerabevegelser (debounced med 150ms via `cameraChanged$`)
