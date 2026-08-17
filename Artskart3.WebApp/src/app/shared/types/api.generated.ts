@@ -1447,9 +1447,10 @@ export interface components {
             categoryName?: string | null;
             institutionId?: string | null;
             institutionName?: string | null;
-            locality?: string | null;
+            /** Format: int32 */
+            locationId?: number | null;
             registrationType?: string[] | null;
-            collector?: string | null;
+            identifiedBy?: string | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */

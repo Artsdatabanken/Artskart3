@@ -2,12 +2,26 @@ import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, input, signal} from
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
-type ObservationFilterKey =  'Artsgruppe' | 'Kategori' | 'Lokasjon';
-
-type ObservationFilter = {
-  groupKey: string;
-  observations: ObservationListInfoDto[];
+enum Filters {
+  TaxonGroup = "TaxonGroup",
+  Category = "Category",
+  Location= "Location"
 }
+
+type TopLevelFilter = {
+  groupKeyId: number,
+  registrationTypes: RegistrationTypeGroup[]
+};
+
+type RegistrationTypeGroup = {
+  groupKey: string,
+  species: SpeciesGroup[]
+};
+
+type SpeciesGroup = {
+  groupKey: string,
+  registrations: string[]
+};
 
 @Component({
   selector: 'app-observation-list',
@@ -17,57 +31,66 @@ type ObservationFilter = {
   styleUrl: './observation-list.component.css',
 })
 export class ObservationListComponent {
-  private localityNumbers = new Map<string, number>();
   observationList = input<ObservationListInfoDto[]>([]);
-  filterByInput = input<ObservationFilterKey>('Artsgruppe');
+  currentFilter: Filters = Filters.TaxonGroup;
+  topLevelFilter = signal<TopLevelFilter[]>([]);
 
-  filterBy = signal<ObservationFilterKey>('Artsgruppe');
-  filterByOptions: ObservationFilterKey[] = ['Artsgruppe', 'Lokasjon', 'Kategori'];
-
-  constructor() {
-    effect(() => {
-      this.filterBy.set(this.filterByInput());
-    });
+  ngOnInit() {
+    this.topLevelFilter.set(this.getTopLevelGroups(this.observationList()));
   }
 
-  public setFilter(filter: ObservationFilterKey) {
-    this.filterBy.set(filter);
+  public getTopLevelGroups(observationList: ObservationListInfoDto[]) {
+    const topLevelMap = new Map<number, Map<string, Map<string, string[]>>>();
+
+    for (const obs of observationList) {
+      const topKey = this.getFilterKey(obs);
+      const regType = (obs.registrationType ?? 'Ukjent');
+      const speciesName = (obs.displayName ?? 'Ukjent');
+      const registration = obs.identifiedBy ?? '';
+
+      let regTypeMap = topLevelMap.get(topKey);
+      if(!regTypeMap) {
+        regTypeMap = new Map<string, Map<string,string[]>>();
+        topLevelMap.set(topKey, regTypeMap);
+      }
+
+      // @ts-ignore
+      let speciesMap = regTypeMap.get(regType);
+      if(!speciesMap) {
+        speciesMap = new Map<string, string[]>();
+        // @ts-ignore
+        regTypeMap.set(regType, speciesMap);
+      }
+
+      const regs = speciesMap.get(speciesName) ?? [];
+      regs.push(registration);
+      speciesMap.set(speciesName, regs);
+    }
+
+    const result: TopLevelFilter[] = Array.from(topLevelMap.entries()).map(([groupKeyId, regTypeMap]) => ({
+      groupKeyId,
+      registrationTypes: Array.from(regTypeMap.entries()).map(([groupKey, speciesMap]) => ({
+        groupKey,
+        species: Array.from(speciesMap.entries()).map(([groupKey, registrations]) => ({
+          groupKey,
+          registrations: registrations.map(r => String(r))
+        }))
+      }))
+    }))
+    return result;
   }
 
-  private groupValue(observation: ObservationListInfoDto): string {
-    switch (this.filterBy()) {
-      case "Kategori":
-        return observation.categoryName ?? 'Ukjent'
-      case "Lokasjon":
-        const locality = observation.locality ?? 'Ukjent';
-        const localityIndex = this.localityNumbers.get(locality);
-        if (localityIndex !== undefined) {
-          return `location ${localityIndex}`;
-        }
-
-        const nextIndex = this.localityNumbers.size + 1;
-        this.localityNumbers.set(locality, nextIndex);
-        return `location ${nextIndex}`;
-      case "Artsgruppe":
-        return observation.taxonGroupName ?? 'Ukjent'
+  private getFilterKey(observation: ObservationListInfoDto): number {
+    if (!observation) return -1;
+    switch (this.currentFilter) {
+      case Filters.TaxonGroup:
+        return observation.taxonGroupId ?? -1;
+      case Filters.Category:
+        return observation.categoryId ?? -1;
+      case Filters.Location:
+        return observation.locationId ?? -1;
       default:
-        return observation.locality ?? 'Ukjent';
+        return -1;
     }
   }
-
-  groupedObservations = computed<ObservationFilter[]>(() => {
-    const observationGroups = new Map<string, ObservationListInfoDto[]>();
-    this.localityNumbers = new Map<string, number>();
-    for (const observation of this.observationList()) {
-      const groupKey = this.groupValue(observation);
-      const groupList = observationGroups.get(groupKey) ?? [];
-      groupList.push(observation);
-      observationGroups.set(groupKey, groupList);
-    }
-
-    return Array.from(observationGroups.entries()).map(([groupKey, observations]) => ({
-      groupKey,
-      observations
-    }));
-  });
 }
