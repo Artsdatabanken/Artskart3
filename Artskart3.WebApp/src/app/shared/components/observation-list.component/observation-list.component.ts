@@ -14,12 +14,12 @@ type TopLevelFilter = {
 };
 
 type RegistrationTypeGroup = {
-  groupKey: string,
+  registrationKeyId: string,
   species: SpeciesGroup[]
 };
 
 type SpeciesGroup = {
-  groupKey: string,
+  speciesKeyId: string,
   registrations: string[]
 };
 
@@ -44,7 +44,7 @@ export class ObservationListComponent {
 
     for (const obs of observationList) {
       const topKey = this.getFilterKey(obs);
-      const regType = (obs.registrationType ?? 'Ukjent');
+      const regType = (obs.registrationType?.[0] ?? 'Ukjent');
       const speciesName = (obs.displayName ?? 'Ukjent');
       const registration = obs.identifiedBy ?? '';
 
@@ -54,11 +54,9 @@ export class ObservationListComponent {
         topLevelMap.set(topKey, regTypeMap);
       }
 
-      // @ts-ignore
       let speciesMap = regTypeMap.get(regType);
       if(!speciesMap) {
         speciesMap = new Map<string, string[]>();
-        // @ts-ignore
         regTypeMap.set(regType, speciesMap);
       }
 
@@ -69,14 +67,15 @@ export class ObservationListComponent {
 
     const result: TopLevelFilter[] = Array.from(topLevelMap.entries()).map(([groupKeyId, regTypeMap]) => ({
       groupKeyId,
-      registrationTypes: Array.from(regTypeMap.entries()).map(([groupKey, speciesMap]) => ({
-        groupKey,
-        species: Array.from(speciesMap.entries()).map(([groupKey, registrations]) => ({
-          groupKey,
+      registrationTypes: Array.from(regTypeMap.entries()).map(([registrationKeyId, speciesMap]) => ({
+        registrationKeyId,
+        species: Array.from(speciesMap.entries()).map(([speciesKeyId, registrations]) => ({
+          speciesKeyId,
           registrations: registrations.map(r => String(r))
         }))
       }))
-    }))
+    }));
+    console.log(result);
     return result;
   }
 

@@ -14,12 +14,12 @@
   @for (topLevelGroup of topLevelFilter(); track topLevelGroup.groupKeyId) {
     <adb-accordion>
       <adb-accordion-item [attr.heading]="topLevelGroup.groupKeyId">
-        @for (registrationType of topLevelGroup.registrationTypes; track registrationType.groupKey) {
+        @for (registrationType of topLevelGroup.registrationTypes; track registrationType.registrationKeyId) {
           <adb-acordion>
-            <adb-accordion-item [attr.heading]="registrationType.groupKey">
-              @for (species of registrationType.species; track species.groupKey) {
+            <adb-accordion-item [attr.heading]="registrationType.registrationKeyId">
+              @for (species of registrationType.species; track species.speciesKeyId) {
                 <adb-accordion>
-                  <adb-accordion-item [attr.heading]="species.groupKey">
+                  <adb-accordion-item [attr.heading]="species.speciesKeyId">
                     @for (registration of species.registrations; track $index) {
                       <div>
                         {{registration}}
