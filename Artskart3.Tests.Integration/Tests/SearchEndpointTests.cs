@@ -211,4 +211,30 @@ public class SearchEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/LocationPolygons
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetLocationPolygons_WithNoFilter_Returns200WithJsonArray()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetLocationPolygons_WithInvertedPrecisionRange_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons",
+            new { coordinatePrecision = new { from = 1000, to = 100 } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

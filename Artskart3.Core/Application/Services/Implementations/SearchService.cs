@@ -54,4 +54,9 @@ public class SearchService : ISearchService
 
         return await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
     }
+
+    public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        return await _searchRepository.GetLocationPolygonsAsync(filter, cancellationToken);
+    }
 }

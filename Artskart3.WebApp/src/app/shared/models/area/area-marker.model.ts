@@ -69,3 +69,10 @@ export function getAreaTypeName(areaTypeId: number): string {
 export function getAreaTypeColor(areaTypeId: number): string {
   return AREA_TYPE_CONFIG[areaTypeId]?.color ?? '#005A71';
 }
+
+export interface LocationPolygonDto {
+  locationId: number;
+  locality?: string;
+  wktPolygon: string;
+  observationCount: number;
+}
