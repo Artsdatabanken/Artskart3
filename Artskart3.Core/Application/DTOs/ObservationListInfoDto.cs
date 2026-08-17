@@ -13,7 +13,7 @@ public class ObservationListInfoDto
     public string? CategoryName { get; set; }
     public string? InstitutionId { get; set; }
     public string? InstitutionName { get; set; }
-    public string? Locality { get; set; }
+    public int? LocationId { get; set; }
     public IEnumerable<string>? RegistrationType { get; set; }
     public string? IdentifiedBy { get; set; }
 }

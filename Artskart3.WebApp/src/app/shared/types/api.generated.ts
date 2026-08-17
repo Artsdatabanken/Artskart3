@@ -409,6 +409,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/TaxonGroups": {
         parameters: {
             query?: never;
@@ -697,9 +735,7 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": string;
-                    };
+                    content?: never;
                 };
             };
         };
@@ -1050,16 +1086,18 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
-            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
             restrictedAreaIds?: string[] | null;
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
+            /** Format: int32 */
+            registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             projectName?: string | null;
+            /** Format: int32 */
             projectOrganizationId?: number | null;
             collectionCode?: string | null;
             catalogNumber?: string | null;
@@ -1119,9 +1157,10 @@ export interface components {
             categoryName?: string | null;
             institutionId?: string | null;
             institutionName?: string | null;
-            locality?: string | null;
+            /** Format: int32 */
+            locationId?: number | null;
             registrationType?: string[] | null;
-            collector?: string | null;
+            identifiedBy?: string | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
@@ -1141,10 +1180,12 @@ export interface components {
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            /** Format: int32 */
             registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             projectName?: string | null;
+            /** Format: int32 */
             projectOrganizationId?: number | null;
             collectionCode?: string | null;
             catalogNumber?: string | null;
