@@ -41,17 +41,22 @@
                 {{ 'sidebar.categoryType.' + type.name | translate }}
               </adb-checkbox>
               <div class="category-children">
-                @for (category of type.categories ?? []; track category.id ?? $index) {
-                  @if (category.id !== undefined) {
-                    <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
-                      {{ category.name }} {{ category.code }}
-                      @if (category.observationCount !== null && category.observationCount !== undefined) {
-                        <span slot="counter">{{ category.observationCount | formatNumber:translate.currentLang }}</span>
-                      }
-                    </adb-checkbox>
+                  @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
+                    @if (category.id !== undefined) {
+                      <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
+                        <span class="category-content">
+                          <span class="risk-category-circle-small" [class]="category.code">
+                            <span class="risk-category-tag-label-small">{{ category.code }}</span>
+                          </span>
+                          <span class="category-name">{{ category.name }}</span>
+                        </span>
+                        @if (category.observationCount !== null && category.observationCount !== undefined) {
+                          <span slot="counter">{{ category.observationCount | formatNumber:translate.currentLang }}</span>
+                        }
+                      </adb-checkbox>
+                    }
                   }
-                }
-              </div>
+                </div>
             </adb-accordion-item>
           }
         </adb-accordion>
