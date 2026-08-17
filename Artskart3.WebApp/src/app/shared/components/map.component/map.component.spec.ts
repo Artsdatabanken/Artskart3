@@ -82,14 +82,15 @@ describe('MapComponent', () => {
   describe('counts fetch pipeline error resilience', () => {
     let areasService: AreasService;
     let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;
-    let fetchCounts$: Subject<{ dataZoomLevel: number; apiZoomLevel: number; extent: [number, number, number, number] }>;
+    let fetchCounts$: Subject<{ requests: { dataZoomLevel: number; apiZoomLevel: number }[]; extent: [number, number, number, number] }>;
     let locationsFetch$: Subject<{ extent: [number, number, number, number]; filter: unknown }>;
 
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
-        fetchCounts$: Subject<{ dataZoomLevel: number; apiZoomLevel: number; extent: [number, number, number, number] }>;
+        fetchCounts$: Subject<{ requests: { dataZoomLevel: number; apiZoomLevel: number }[]; extent: [number, number, number, number] }>;
         locationsFetch$: Subject<{ extent: [number, number, number, number]; filter: unknown }>;
         setupCountsFetchPipeline: () => void;
+        setupLocationsFetchPipeline: () => void;
         geometryCacheByApiZoom: Map<number, unknown[]>;
         countsCacheByApiZoom: Map<number, unknown>;
       };
@@ -105,6 +106,7 @@ describe('MapComponent', () => {
       priv.geometryCacheByApiZoom.clear();
       priv.countsCacheByApiZoom.clear();
       priv.setupCountsFetchPipeline();
+      priv.setupLocationsFetchPipeline();
     });
 
     it('should continue processing after a service error', () => {
@@ -118,7 +120,7 @@ describe('MapComponent', () => {
         throwError(() => new Error('503 Service Unavailable'))
       );
 
-      fetchCounts$.next({ dataZoomLevel: ApiZoomLevel.Municipalities, apiZoomLevel: ApiZoomLevel.Municipalities, extent: testExtent });
+      fetchCounts$.next({ requests: [{ dataZoomLevel: ApiZoomLevel.Municipalities, apiZoomLevel: ApiZoomLevel.Municipalities }], extent: testExtent });
       vi.advanceTimersByTime(300);
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();

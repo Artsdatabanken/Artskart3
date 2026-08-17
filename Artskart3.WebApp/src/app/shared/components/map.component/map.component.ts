@@ -17,8 +17,8 @@ import {
   effect,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
-import { Subject, EMPTY, merge } from 'rxjs';
-import { catchError, debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
+import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -72,7 +72,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
-  private fetchCounts$ = new Subject<{ dataZoomLevel: number; apiZoomLevel: number; extent: [number, number, number, number] }>();
+  private fetchCounts$ = new Subject<{ requests: { dataZoomLevel: number; apiZoomLevel: number }[]; extent: [number, number, number, number] }>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
@@ -278,6 +278,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.activateHoverInfo();
     this.setupAreaMarkerLayers();
     this.setupCountsFetchPipeline();
+    this.setupLocationsFetchPipeline();
     this.setupCameraChangePipeline();
     this.prefetchAreaGeometries();
     this.rebuildAllLayers();
@@ -385,18 +386,31 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // Oppdater begge områdelag
-    this.rebuildAreaLayer(ApiZoomLevel.Counties, filter, extent);
-    this.rebuildAreaLayer(ApiZoomLevel.Municipalities, filter, extent);
+    // Oppdater begge områdelag — synkront fra cache der mulig
+    const pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[] = [];
+    this.rebuildAreaLayer(ApiZoomLevel.Counties, filter, extent, pendingFetches);
+    this.rebuildAreaLayer(ApiZoomLevel.Municipalities, filter, extent, pendingFetches);
+
+    if (pendingFetches.length > 0) {
+      // Prioriter synlig lag først, hent det andre i bakgrunnen etterpå
+      const currentLayer = apiZoomLevel === ApiZoomLevel.Municipalities
+        ? ApiZoomLevel.Municipalities : ApiZoomLevel.Counties;
+      const sorted = [
+        ...pendingFetches.filter(f => f.apiZoomLevel === currentLayer),
+        ...pendingFetches.filter(f => f.apiZoomLevel !== currentLayer),
+      ];
+      this.fetchCounts$.next({ requests: sorted, extent });
+    }
   }
 
   /**
-   * Bygger et enkelt områdelag fra cache, eller trigger async fetch for antall.
+   * Bygger et enkelt områdelag fra cache, eller legger til i pendingFetches.
    */
   private rebuildAreaLayer(
     apiZoomLevel: number,
     filter: LocationSearchFilter,
     extent: [number, number, number, number],
+    pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[],
   ): void {
     const dataZoomLevel = apiZoomLevel === ApiZoomLevel.Counties && filter.municipalityIds?.length
       ? ApiZoomLevel.Municipalities
@@ -404,12 +418,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
 
     if (!cachedGeometries) {
-      // Geometrier ikke lastet ennå (prefetch pågår) — vis tomt lag
       this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
       return;
     }
 
-    // Ingen attributtfiltre — ufiltrerte antall fra geometri-cachen er korrekte
     if (!this.hasActiveAttributeFilters()) {
       const filtered = this.filterCachedAreasBySelection(cachedGeometries, filter);
       const geojson = this.areasService.buildAreaGeoJson(filtered, extent);
@@ -417,7 +429,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // Attributtfiltre aktive — sjekk om cachede antall dekker behovet
     const cached = this.countsCacheByApiZoom.get(dataZoomLevel);
     if (cached) {
       const needed = this.filterCachedAreasBySelection(cachedGeometries, filter);
@@ -431,9 +442,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       }
     }
 
-    // Antall mangler — tøm lag og hent via debounced pipeline
     this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
-    this.fetchCounts$.next({ dataZoomLevel, apiZoomLevel, extent });
+    pendingFetches.push({ dataZoomLevel, apiZoomLevel });
   }
 
   // ─── Async pipelines ───────────────────────────────────────────────
@@ -445,94 +455,102 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private setupCountsFetchPipeline(): void {
     this.fetchCounts$.pipe(
       debounceTime(300),
-      switchMap(({ dataZoomLevel, apiZoomLevel, extent }) => {
-        const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
-
-        if (cachedGeometries) {
-          const filter = this.locationFilter();
-          const hasAreaSelection = !!(filter.countyIds?.length || filter.municipalityIds?.length || filter.oceanAreaIds?.length);
-          const existingCache = this.countsCacheByApiZoom.get(dataZoomLevel);
-
-          return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
-            tap(response => {
-              if (!response.notModified && response.counts) {
-                const countsMap = new Map(response.counts.map(c => [c.fid, c.observationCount]));
-                this.countsCacheByApiZoom.set(dataZoomLevel, {
-                  counts: countsMap,
-                  etag: response.etag,
-                  unrestricted: !hasAreaSelection,
-                });
-              } else if (response.etag && existingCache) {
-                existingCache.etag = response.etag;
-              }
-              const counts = this.countsCacheByApiZoom.get(dataZoomLevel)?.counts ?? new Map();
-              const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
-              const geojson = this.areasService.buildAreaGeoJson(merged, extent);
-              this.applyGeoJsonToLayer(apiZoomLevel, geojson);
-            }),
-            catchError((err: unknown) => {
-              this.logger.error(`Failed to load area counts for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
-              return EMPTY;
-            }),
-          );
-        }
-
-        // Fallback: geometrier ikke i cache — hent alt
+      switchMap(({ requests, extent }) => {
         const filter = this.locationFilter();
-<<<<<<< HEAD
-        return merge(
-          this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap(locations => this.applyGeoJsonToLayer(apiZoomLevel, locations)),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location points:', 'MapComponent', err);
-              return EMPTY;
-            })
-          ),
-          this.areasService.getLocationPolygons(extent, filter).pipe(
-            tap(polygons => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, polygons, { mode: 'replace' })),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location polygons:', 'MapComponent', err);
-              return EMPTY;
-            })
-          )
-=======
         const hasAreaSelection = !!(filter.countyIds?.length || filter.municipalityIds?.length || filter.oceanAreaIds?.length);
-        const olZoom = dataZoomLevel === ApiZoomLevel.Municipalities
-          ? ZoomConfig.ZOOM_COUNTIES_THRESHOLD
-          : ZoomConfig.DEFAULT_ZOOM_LEVEL;
 
-        return this.areasService.getAreaMarkers(olZoom, filter).pipe(
-          tap(areas => {
-            this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
-            const countsMap = new Map(areas.map(a => [a.fid, a.observationCount ?? 0]));
-            this.countsCacheByApiZoom.set(dataZoomLevel, {
-              counts: countsMap,
-              etag: null,
-              unrestricted: !hasAreaSelection,
-            });
-            const geojson = this.areasService.buildAreaGeoJson(areas, extent);
-            this.applyGeoJsonToLayer(apiZoomLevel, geojson);
-          }),
-          catchError((err: unknown) => {
-            this.logger.error(`Failed to load area markers for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
-            return EMPTY;
-          }),
->>>>>>> aeb7971 (nye områdeinndeling og cache av data)
+        // Hent antall for alle forespurte zoomnivåer sekvensielt
+        const fetches = requests.map(({ dataZoomLevel, apiZoomLevel }) =>
+          this.fetchCountsForZoomLevel(dataZoomLevel, apiZoomLevel, extent, filter, hasAreaSelection),
         );
+
+        return rxConcat(...fetches);
       }),
       takeUntil(this.destroy$),
     ).subscribe();
+  }
 
-    // Separat pipeline for lokasjoner
+  private fetchCountsForZoomLevel(
+    dataZoomLevel: number,
+    apiZoomLevel: number,
+    extent: [number, number, number, number],
+    filter: LocationSearchFilter,
+    hasAreaSelection: boolean,
+  ): Observable<void> {
+    const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
+
+    if (cachedGeometries) {
+      const existingCache = this.countsCacheByApiZoom.get(dataZoomLevel);
+
+      return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
+        tap(response => {
+          if (!response.notModified && response.counts) {
+            const countsMap = new Map(response.counts.map(c => [c.fid, c.observationCount]));
+            this.countsCacheByApiZoom.set(dataZoomLevel, {
+              counts: countsMap,
+              etag: response.etag,
+              unrestricted: !hasAreaSelection,
+            });
+          } else if (response.etag && existingCache) {
+            existingCache.etag = response.etag;
+          }
+          const counts = this.countsCacheByApiZoom.get(dataZoomLevel)?.counts ?? new Map();
+          const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
+          const geojson = this.areasService.buildAreaGeoJson(merged, extent);
+          this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+        }),
+        rxMap(() => undefined as void),
+        catchError((err: unknown) => {
+          this.logger.error(`Failed to load area counts for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
+          return EMPTY;
+        }),
+      );
+    }
+
+    // Fallback: geometrier ikke i cache — hent alt
+    const olZoom = dataZoomLevel === ApiZoomLevel.Municipalities
+      ? ZoomConfig.ZOOM_COUNTIES_THRESHOLD
+      : ZoomConfig.DEFAULT_ZOOM_LEVEL;
+
+    return this.areasService.getAreaMarkers(olZoom, filter).pipe(
+      tap(areas => {
+        this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
+        const countsMap = new Map(areas.map(a => [a.fid, a.observationCount ?? 0]));
+        this.countsCacheByApiZoom.set(dataZoomLevel, {
+          counts: countsMap,
+          etag: null,
+          unrestricted: !hasAreaSelection,
+        });
+        const geojson = this.areasService.buildAreaGeoJson(areas, extent);
+        this.applyGeoJsonToLayer(apiZoomLevel, geojson);
+      }),
+      rxMap(() => undefined as void),
+      catchError((err: unknown) => {
+        this.logger.error(`Failed to load area markers for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
+        return EMPTY;
+      }),
+    );
+  }
+
+  private setupLocationsFetchPipeline(): void {
     this.locationsFetch$.pipe(
       debounceTime(300),
       switchMap(({ extent, filter }) =>
-        this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-          tap(geojson => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
-          catchError((err: unknown) => {
-            this.logger.error('Failed to load location points:', 'MapComponent', err);
-            return EMPTY;
-          }),
+        merge(
+          this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
+            tap(geojson => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
+            catchError((err: unknown) => {
+              this.logger.error('Failed to load location points:', 'MapComponent', err);
+              return EMPTY;
+            }),
+          ),
+          this.areasService.getLocationPolygons(extent, filter).pipe(
+            tap(geojson => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
+            catchError((err: unknown) => {
+              this.logger.error('Failed to load location polygons:', 'MapComponent', err);
+              return EMPTY;
+            }),
+          ),
         ),
       ),
       takeUntil(this.destroy$),

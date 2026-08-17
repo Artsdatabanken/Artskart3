@@ -637,12 +637,13 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// Beregner filtrerte observasjonsantall per område via ObservationEntityIndex.
+    /// Bruker denormaliserte kolonner (TaxonGroupId, CategoryId, etc.) direkte på indekstabellen
+    /// for å unngå tung subquery mot Observation-tabellen.
+    /// Faller tilbake til subquery for filtre som ikke er denormalisert (atferd, prosjekt, etc.).
     /// </summary>
     private async Task<Dictionary<(int entityTypeId, int entityId), int>> ComputeFilteredAreaCounts(
         List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
     {
-        var filteredQuery = ApplyCommonFilters(_context.Set<Observation>().AsNoTracking(), filter);
-
         var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
         var entityIds = areas
             .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
@@ -651,9 +652,104 @@ public class SearchRepository : ISearchRepository
             .Distinct()
             .ToArray();
 
-        var counts = await _context.Set<ObservationEntityIndex>()
-            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId) && entityIds.Contains(idx.EntityId))
-            .Where(idx => filteredQuery.Select(o => o.Id).Contains(idx.ObservationId))
+        var query = _context.Set<ObservationEntityIndex>()
+            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId) && entityIds.Contains(idx.EntityId));
+
+        // Denormaliserte filtre — anvendes direkte på indekstabellen
+        if (filter.TaxonGroupIds?.Any() == true)
+        {
+            var ids = filter.TaxonGroupIds.ToList();
+            query = query.Where(idx => ids.Contains(idx.TaxonGroupId));
+        }
+
+        if (filter.CategoryIds?.Any() == true)
+        {
+            var ids = filter.CategoryIds.ToList();
+            query = query.Where(idx => idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value));
+        }
+
+        if (filter.BasisOfRecordIds?.Any() == true)
+        {
+            var ids = filter.BasisOfRecordIds.ToList();
+            query = query.Where(idx => ids.Contains(idx.BasisOfRecordId));
+        }
+
+        if (filter.CoordinatePrecision?.From.HasValue == true)
+            query = query.Where(idx => idx.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
+
+        if (filter.CoordinatePrecision?.To.HasValue == true)
+            query = query.Where(idx => idx.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(idx => idx.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(idx => idx.DateTimeCollected <= toDate);
+        }
+
+        if (filter.Period?.Months?.Any() == true)
+        {
+            var months = filter.Period.Months;
+            query = query.Where(idx => idx.DateTimeCollected.HasValue && months.Contains(idx.DateTimeCollected.Value.Month));
+        }
+
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            var statusId = (byte)filter.RegistrationStatusId.Value;
+            query = query.Where(idx => idx.RegistrationStatusId == statusId);
+        }
+
+        if (filter.WithImages.HasValue)
+        {
+            query = filter.WithImages.Value
+                ? query.Where(idx => idx.HasMediaFiles)
+                : query.Where(idx => !idx.HasMediaFiles);
+        }
+
+        // Filtre som ikke er denormalisert — krever subquery mot Observation-tabellen
+        var needsObservationSubquery =
+            filter.OrganizationIds?.Any() == true ||
+            filter.BehaviorIds?.Any() == true ||
+            !string.IsNullOrWhiteSpace(filter.ProjectName) ||
+            filter.ProjectOrganizationId.HasValue ||
+            !string.IsNullOrWhiteSpace(filter.CollectionCode) ||
+            !string.IsNullOrWhiteSpace(filter.CatalogNumber);
+
+        if (needsObservationSubquery)
+        {
+            var filteredObservations = ApplyCommonFilters(_context.Set<Observation>().AsNoTracking(), filter);
+            query = query.Where(idx => filteredObservations.Select(o => o.Id).Contains(idx.ObservationId));
+        }
+
+        // Geografiske filtre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
+        {
+            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+            query = query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
+                geo.ObservationId == idx.ObservationId && (
+                    (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
+                    (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
+                    (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(geo.EntityId)) ||
+                    (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
+                    (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId))
+                )));
+        }
+
+        var counts = await query
             .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
             .ToListAsync(cancellationToken);
