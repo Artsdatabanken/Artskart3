@@ -626,4 +626,123 @@ public class SearchRepository : ISearchRepository
         ).ToList();
     }
 
+    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    {
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, filter);
+
+        if (filter.Envelope != null)
+        {
+            var minX = (int)filter.Envelope.MinX;
+            var maxX = (int)filter.Envelope.MaxX;
+            var minY = (int)filter.Envelope.MinY;
+            var maxY = (int)filter.Envelope.MaxY;
+            query = query.Where(o => o.Location != null &&
+                o.Location.East >= minX && o.Location.East <= maxX &&
+                o.Location.North >= minY && o.Location.North <= maxY);
+        }
+
+        return query;
+    }
+
+    private async Task<List<(int LocationId, int ObservationCount)>> AggregateLocationObservations(
+        IQueryable<Observation> query, int maxResults, CancellationToken cancellationToken)
+    {
+        var results = await query
+            .Where(o => o.LocationId != null)
+            .GroupBy(o => o.LocationId!.Value)
+            .Select(g => new { LocationId = g.Key, ObservationCount = g.Count() })
+            .OrderByDescending(x => x.ObservationCount)
+            .Take(maxResults)
+            .ToListAsync(cancellationToken);
+
+        return results.Select(x => (x.LocationId, x.ObservationCount)).ToList();
+    }
+
+    /// <summary>
+    /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
+    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort.
+    /// </summary>
+    public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            var query = BuildLocationsQuery(filter);
+            var polygonMaxResults = filter.MaxResults > 0
+                ? Math.Min(filter.MaxResults, SearchConstants.MaxPolygonResults)
+                : SearchConstants.DefaultMaxPolygons;
+            var aggregated = await AggregateLocationObservations(query, polygonMaxResults, cancellationToken);
+
+            if (aggregated.Count == 0) return [];
+
+            var locationIds = aggregated.Select(x => x.LocationId).ToList();
+
+            var locations = await _context.Set<Location>()
+                .AsNoTracking()
+                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && (l.Geometry.GeometryType == "Polygon" || l.Geometry.GeometryType == "MultiPolygon"))
+                .Select(l => new { l.Id, l.Locality, l.Geometry })
+                .ToListAsync(cancellationToken);
+
+            if (locations.Count == 0) return [];
+
+            var countLookup = aggregated.ToDictionary(x => x.LocationId, x => x.ObservationCount);
+
+            var result = new List<LocationPolygonDto>();
+
+            foreach (var location in locations)
+            {
+                var geo = location.Geometry!;
+                var wkt = geo.AsText();
+                if (IsRectangularPolygon(wkt)) continue;
+
+                // Skip polygons whose bounding box doesn't intersect the visible map extent
+                if (filter.Envelope != null)
+                {
+                    var env = geo.EnvelopeInternal;
+                    if (env.MaxX < filter.Envelope.MinX || env.MinX > filter.Envelope.MaxX ||
+                        env.MaxY < filter.Envelope.MinY || env.MinY > filter.Envelope.MaxY)
+                        continue;
+                }
+
+                result.Add(new LocationPolygonDto
+                {
+                    LocationId = location.Id,
+                    Locality = location.Locality,
+                    WktPolygon = wkt,
+                    ObservationCount = countLookup.GetValueOrDefault(location.Id)
+                });
+            }
+
+            _logger.LogInformation("Location polygon search completed. Returned {Count} polygons", result.Count);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonspolygoner");
+            throw new ApplicationException("An error occurred while retrieving location polygons. Please try again later.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the WKT string represents a rectangular polygon (exactly 5 coordinate pairs in the exterior ring).
+    /// </summary>
+    private static bool IsRectangularPolygon(string? wkt)
+    {
+        if (string.IsNullOrEmpty(wkt)) return false;
+        var ringStart = wkt.IndexOf('(', wkt.IndexOf('(') + 1);
+        var ringEnd = wkt.IndexOf(')', ringStart);
+        if (ringStart < 0 || ringEnd < 0) return false;
+
+        var ring = wkt.AsSpan(ringStart + 1, ringEnd - ringStart - 1);
+        var commaCount = 0;
+        foreach (var ch in ring)
+        {
+            if (ch == ',') commaCount++;
+        }
+
+        return commaCount == 4;
+    }
+
 }
