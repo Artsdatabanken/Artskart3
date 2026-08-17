@@ -50,7 +50,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                     Author = o.Taxon.ValidScientificNameAuthorship,
                     TaxonGroupId = o.TaxonGroupId,
                     TaxonGroupName = o.Taxon.TaxonGroup.Name,
-                    Locality = o.LocationId.ToString(),
+                    LocationId = o.LocationId,
                     CategoryId = o.CategoryId,
                     CategoryName = o.Category != null ? o.Category.Name : string.Empty,
                     RegistrationType = o.Tags.Select(t => t.Name),
