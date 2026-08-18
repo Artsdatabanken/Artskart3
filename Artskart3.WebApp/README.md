@@ -73,7 +73,7 @@ Kartkomponenten bruker en flernivå caching-strategi for å minimere nettverkstr
 
 ### Havområder og Svalbard/Bjørnøya/Jan Mayen
 
-Disse områdene hører ikke til et bestemt zoomnivå og leveres kun med zoomnivå 1. De kopieres derfor inn i geometri-cachen for zoomnivå 2 (`withCrossLevelAreas`), slik at de vises i begge områdelag — også når kommunevalg gjør at fylkeslaget tegnes fra kommunedata.
+Disse områdene hører ikke til et bestemt zoomnivå. Backend leverer dem nå på begge zoomnivåer, så frontend trenger ingen egen håndtering av dem.
 
 ### ETag-støtte
 
