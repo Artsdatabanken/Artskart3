@@ -9,7 +9,7 @@ enum Filters {
 }
 
 type TopLevelFilter = {
-  groupKeyId: number,
+  groupKeyId: string,
   registrationTypes: RegistrationTypeGroup[]
 };
 
@@ -40,7 +40,7 @@ export class ObservationListComponent {
   }
 
   public getTopLevelGroups(observationList: ObservationListInfoDto[]) {
-    const topLevelMap = new Map<number, Map<string, Map<string, string[]>>>();
+    const topLevelMap = new Map<string, Map<string, Map<string, string[]>>>();
 
     for (const obs of observationList) {
       const topKey = this.getFilterKey(obs);
@@ -75,32 +75,31 @@ export class ObservationListComponent {
         }))
       }))
     }));
-    console.log(result);
     return result;
   }
 
   private getRegistrationType(observation: ObservationListInfoDto): string {
     switch (observation.registrationType) {
       case observation.registrationType?.includes("Absent"):
-        return "Absent";
+        return "Ikke funnet";
       case observation.registrationType?.includes("NotRecovered"):
-        return "NotRecovered";
+        return "Ikke gjenfunnet";
       default:
-        return "Found";
+        return "Funnet";
     }
   }
 
-  private getFilterKey(observation: ObservationListInfoDto): number {
-    if (!observation) return -1;
+  private getFilterKey(observation: ObservationListInfoDto): string {
+    if (!observation) return "-1";
     switch (this.currentFilter) {
       case Filters.TaxonGroup:
-        return observation.taxonGroupId ?? -1;
+        return observation.taxonGroupName ? observation.taxonGroupName : "Ukjent artsgruppe";
       case Filters.Category:
-        return observation.categoryId ?? -1;
+        return observation.categoryName ? observation.categoryName : "Ukjent kategori";
       case Filters.Location:
-        return observation.locationId ?? -1;
+        return observation.locationId ? observation.locationId.toString() : "Ukjent Lokasjon";
       default:
-        return -1;
+        return "-1";
     }
   }
 }
