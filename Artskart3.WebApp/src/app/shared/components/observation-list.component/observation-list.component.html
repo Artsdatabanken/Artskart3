@@ -1,11 +1,11 @@
 <div class="observation-list">
   <h2>Coordinates/municipality for location</h2>
-<!--  <adb-dropdown class="filter-dropdown" variant="tertiary" icon="sort" label={{filterBy()}}>-->
-<!--    @for (group of filterByOptions; track group)-->
-<!--    {-->
-<!--      <adb-dropdown-item value="group" (click)="setFilter(group)" selected>{{ group }}</adb-dropdown-item>-->
-<!--    }-->
-<!--  </adb-dropdown>-->
+  <adb-dropdown class="filter-dropdown" variant="tertiary" icon="sort" label={{filterBy()}}>
+    @for (filter of filters; track filter)
+    {
+      <adb-dropdown-item value="group" (click)="setFilter(filter)" selected>{{ filter }}</adb-dropdown-item>
+    }
+  </adb-dropdown>
   @if(this.topLevelFilter().length === 0) {
     <div>
       No observations found
