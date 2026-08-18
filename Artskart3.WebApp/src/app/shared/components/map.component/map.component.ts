@@ -68,14 +68,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   // Geometri-cache: persistent for hele sesjonen, tømmes aldri ved filterendring
   private geometryCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
-  // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}` slik at hvert områdevalg beholder sin ETag
+  // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}_${attrHash}` slik at hver
+  // kombinasjon av områdevalg og attributtfiltre beholder sin ETag
   private countsCache = new Map<string, {
     counts: Map<string, number>;
     etag: string | null;
   }>();
   private mapReady = false;
-  // Sporer forrige attributtfilter for å oppdage endringer som krever refetch
-  private lastAttributeFilterJson = '';
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
@@ -377,13 +376,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
 
-    // Sjekk om attributtfiltre har endret seg siden sist
-    const attrJson = JSON.stringify(this.attributeFilter());
-    if (attrJson !== this.lastAttributeFilterJson) {
-      this.countsCache.clear();
-      this.lastAttributeFilterJson = attrJson;
-    }
-
     // Oppdater overlay
     this.updateSelectedAreaOverlays();
 
@@ -640,7 +632,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private countsCacheKey(zoomLevel: number, selectionKey: string): string {
-    return `${zoomLevel}_${selectionKey}`;
+    return `${zoomLevel}_${selectionKey}_${JSON.stringify(this.attributeFilter())}`;
   }
 
   private filterCachedAreasBySelection(areas: AreaMarkerDto[], filter: LocationSearchFilter): AreaMarkerDto[] {
