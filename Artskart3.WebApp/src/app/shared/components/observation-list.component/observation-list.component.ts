@@ -31,13 +31,25 @@ type SpeciesGroup = {
   styleUrl: './observation-list.component.css',
 })
 export class ObservationListComponent {
+  filters = Object.values(Filters);
   observationList = input<ObservationListInfoDto[]>([]);
-  currentFilter: Filters = Filters.TaxonGroup;
-  topLevelFilter = signal<TopLevelFilter[]>([]);
+  currentFilter = signal(Filters.TaxonGroup);
+  topLevelFilter = computed(() => this.getTopLevelGroups(this.observationList()));
 
-  ngOnInit() {
-    this.topLevelFilter.set(this.getTopLevelGroups(this.observationList()));
+  setFilter(filter: Filters): void {
+    this.currentFilter.set(filter);
   }
+
+  filterBy = computed(() => {
+    switch (this.currentFilter()) {
+      case Filters.TaxonGroup:
+        return "Artsgruppe";
+      case Filters.Category:
+        return "Kategori";
+      case Filters.Location:
+        return "Lokasjon";
+    }
+  })
 
   public getTopLevelGroups(observationList: ObservationListInfoDto[]) {
     const topLevelMap = new Map<string, Map<string, Map<string, string[]>>>();
@@ -91,7 +103,7 @@ export class ObservationListComponent {
 
   private getFilterKey(observation: ObservationListInfoDto): string {
     if (!observation) return "-1";
-    switch (this.currentFilter) {
+    switch (this.currentFilter()) {
       case Filters.TaxonGroup:
         return observation.taxonGroupName ? observation.taxonGroupName : "Ukjent artsgruppe";
       case Filters.Category:
