@@ -65,12 +65,12 @@ Kartkomponenten bruker en flernivå caching-strategi for å minimere nettverkstr
 - **Tømmes aldri** under sesjonen — geometrier endres svært sjelden.
 - Zoomnivå 1 inkluderer også havområder og Svalbard/Bjørnøya/Jan Mayen-geometrier.
 
-### Antall-cache (`countsCacheByApiZoom`)
+### Antall-cache (`countsCache`)
 
-- Lagrer `{ counts: Map<fid, antall>, etag: string | null, selectionKey: string }` per zoomnivå.
-- `selectionKey` identifiserer hvilket områdevalg (fylker, kommuner, havområder) antallene ble hentet for.
+- Lagrer `{ counts: Map<fid, antall>, etag: string | null }` per kombinasjon av zoomnivå og områdevalg.
+- Nøkkelen er `${zoomLevel}_${selectionKey}`, slik at hvert områdevalg beholder sin egen ETag og sine egne antall.
 - **Tømmes når attributtfiltre endres** (taksongruppe, kategori, periode, etc.) fordi disse påvirker antall per område.
-- **Beholdes ved områdevalg-endringer** — cachede verdier brukes kun når `selectionKey` er uendret. Områder som mangler i responsen tolkes som 0 (backend utelater områder uten treff).
+- **Beholdes ved områdevalg-endringer** — når brukeren bytter tilbake til et tidligere områdevalg gjenbrukes cached ETag, slik at backend kan svare med 304 i stedet for å sende dataene på nytt.
 
 ### Havområder og Svalbard/Bjørnøya/Jan Mayen
 
