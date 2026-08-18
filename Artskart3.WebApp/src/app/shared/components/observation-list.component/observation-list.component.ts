@@ -44,8 +44,8 @@ export class ObservationListComponent {
 
     for (const obs of observationList) {
       const topKey = this.getFilterKey(obs);
-      const regType = (obs.registrationType?.[0] ?? 'Ukjent');
-      const speciesName = (obs.displayName ?? 'Ukjent');
+      const regType = this.getRegistrationType(obs);
+      const speciesName = (obs.displayName ?? "Ukjent");
       const registration = obs.identifiedBy ?? '';
 
       let regTypeMap = topLevelMap.get(topKey);
@@ -77,6 +77,17 @@ export class ObservationListComponent {
     }));
     console.log(result);
     return result;
+  }
+
+  private getRegistrationType(observation: ObservationListInfoDto): string {
+    switch (observation.registrationType) {
+      case observation.registrationType?.includes("Absent"):
+        return "Absent";
+      case observation.registrationType?.includes("NotRecovered"):
+        return "NotRecovered";
+      default:
+        return "Found";
+    }
   }
 
   private getFilterKey(observation: ObservationListInfoDto): number {
