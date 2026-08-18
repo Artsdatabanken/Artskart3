@@ -93,7 +93,7 @@ describe('MapComponent', () => {
         setupCountsFetchPipeline: () => void;
         setupLocationsFetchPipeline: () => void;
         geometryCacheByApiZoom: Map<number, unknown[]>;
-        countsCacheByApiZoom: Map<number, unknown>;
+        countsCache: Map<string, unknown>;
       };
 
     beforeEach(() => {
@@ -105,7 +105,7 @@ describe('MapComponent', () => {
       fetchCounts$ = priv.fetchCounts$;
       locationsFetch$ = priv.locationsFetch$;
       priv.geometryCacheByApiZoom.clear();
-      priv.countsCacheByApiZoom.clear();
+      priv.countsCache.clear();
       priv.setupCountsFetchPipeline();
       priv.setupLocationsFetchPipeline();
     });
@@ -164,7 +164,7 @@ describe('MapComponent', () => {
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
         geometryCacheByApiZoom: Map<number, ReturnType<typeof area>[]>;
-        countsCacheByApiZoom: Map<number, { counts: Map<string, number>; etag: string | null; selectionKey: string }>;
+        countsCache: Map<string, { counts: Map<string, number>; etag: string | null }>;
         seedCountsFromGeometries: (apiZoomLevel: number, areas: ReturnType<typeof area>[]) => void;
         rebuildAreaLayer: (
           apiZoomLevel: number,
@@ -173,13 +173,14 @@ describe('MapComponent', () => {
           pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[],
         ) => void;
         areaSelectionKey: (filter: Record<string, unknown>) => string;
+        countsCacheKey: (zoomLevel: number, selectionKey: string) => string;
       };
 
     beforeEach(() => {
       component.map = { updateGeoJSONLayer: vi.fn() } as unknown as NbicMapComponent;
       const priv = accessPrivate(component);
       priv.geometryCacheByApiZoom.clear();
-      priv.countsCacheByApiZoom.clear();
+      priv.countsCache.clear();
     });
 
     it('should make ocean areas available in the municipalities geometry cache', () => {
@@ -219,10 +220,9 @@ describe('MapComponent', () => {
         area('91', AREA_TYPE_OCEAN),
       ]);
       // Backend utelater områder uten treff — '91' mangler bevisst
-      priv.countsCacheByApiZoom.set(ApiZoomLevel.Municipalities, {
+      priv.countsCache.set(priv.countsCacheKey(ApiZoomLevel.Municipalities, priv.areaSelectionKey(filter)), {
         counts: new Map([['0301', 5]]),
         etag: null,
-        selectionKey: priv.areaSelectionKey(filter),
       });
 
       const pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[] = [];
@@ -238,10 +238,9 @@ describe('MapComponent', () => {
       filterState.selectedCategoryIds.set([1]);
 
       priv.geometryCacheByApiZoom.set(ApiZoomLevel.Municipalities, [area('0301', AREA_TYPE_MUNICIPALITY)]);
-      priv.countsCacheByApiZoom.set(ApiZoomLevel.Municipalities, {
+      priv.countsCache.set(priv.countsCacheKey(ApiZoomLevel.Municipalities, priv.areaSelectionKey({ municipalityIds: ['0301'] })), {
         counts: new Map([['0301', 5]]),
         etag: null,
-        selectionKey: priv.areaSelectionKey({ municipalityIds: ['0301'] }),
       });
 
       const pendingFetches: { dataZoomLevel: number; apiZoomLevel: number }[] = [];

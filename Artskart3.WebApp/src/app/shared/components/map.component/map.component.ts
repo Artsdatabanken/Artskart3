@@ -68,11 +68,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   // Geometri-cache: persistent for hele sesjonen, tømmes aldri ved filterendring
   private geometryCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
-  // Antall-cache: antall per fid, ETag og hvilket områdevalg antallene gjelder for
-  private countsCacheByApiZoom = new Map<number, {
+  // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}` slik at hvert områdevalg beholder sin ETag
+  private countsCache = new Map<string, {
     counts: Map<string, number>;
     etag: string | null;
-    selectionKey: string;
   }>();
   private mapReady = false;
   // Sporer forrige attributtfilter for å oppdage endringer som krever refetch
@@ -381,7 +380,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // Sjekk om attributtfiltre har endret seg siden sist
     const attrJson = JSON.stringify(this.attributeFilter());
     if (attrJson !== this.lastAttributeFilterJson) {
-      this.countsCacheByApiZoom.clear();
+      this.countsCache.clear();
       this.lastAttributeFilterJson = attrJson;
     }
 
@@ -437,8 +436,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const cached = this.countsCacheByApiZoom.get(dataZoomLevel);
-    if (cached && cached.selectionKey === this.areaSelectionKey(filter)) {
+    const cacheKey = this.countsCacheKey(dataZoomLevel, this.areaSelectionKey(filter));
+    const cached = this.countsCache.get(cacheKey);
+    if (cached) {
       const merged = this.mergeCountsIntoAreas(cachedGeometries, cached.counts, filter);
       const geojson = this.areasService.buildAreaGeoJson(merged, extent);
       this.applyGeoJsonToLayer(apiZoomLevel, geojson);
@@ -482,22 +482,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const selectionKey = this.areaSelectionKey(filter);
 
     if (cachedGeometries) {
-      const existingCache = this.countsCacheByApiZoom.get(dataZoomLevel);
+      const cacheKey = this.countsCacheKey(dataZoomLevel, selectionKey);
+      const existingCache = this.countsCache.get(cacheKey);
 
       return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
         tap(response => {
           if (!response.notModified && response.counts) {
             const countsMap = new Map(response.counts.map(c => [c.fid, c.observationCount]));
-            this.countsCacheByApiZoom.set(dataZoomLevel, {
+            this.countsCache.set(cacheKey, {
               counts: countsMap,
               etag: response.etag,
-              selectionKey,
             });
-          } else if (existingCache) {
-            existingCache.selectionKey = selectionKey;
-            if (response.etag) existingCache.etag = response.etag;
+          } else if (existingCache && response.etag) {
+            existingCache.etag = response.etag;
           }
-          const counts = this.countsCacheByApiZoom.get(dataZoomLevel)?.counts ?? new Map();
+          const counts = this.countsCache.get(cacheKey)?.counts ?? new Map();
           const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
           const geojson = this.areasService.buildAreaGeoJson(merged, extent);
           this.applyGeoJsonToLayer(apiZoomLevel, geojson);
@@ -522,10 +521,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.geometryCacheByApiZoom.set(dataZoomLevel, this.withCrossLevelAreas(dataZoomLevel, areas));
         }
         const countsMap = this.countsFromAreas(areas);
-        this.countsCacheByApiZoom.set(dataZoomLevel, {
+        this.countsCache.set(this.countsCacheKey(dataZoomLevel, selectionKey), {
           counts: countsMap,
           etag: null,
-          selectionKey,
         });
         const merged = this.mergeCountsIntoAreas(areas, countsMap, filter);
         const geojson = this.areasService.buildAreaGeoJson(merged, extent);
@@ -605,10 +603,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     if (this.hasActiveAttributeFilters()) return;
 
-    this.countsCacheByApiZoom.set(apiZoomLevel, {
+    this.countsCache.set(this.countsCacheKey(apiZoomLevel, this.EMPTY_SELECTION_KEY), {
       counts: this.countsFromAreas(all),
       etag: null,
-      selectionKey: this.EMPTY_SELECTION_KEY,
     });
   }
 
@@ -640,6 +637,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       [...(filter.municipalityIds ?? [])].sort(),
       [...(filter.oceanAreaIds ?? [])].sort(),
     ]);
+  }
+
+  private countsCacheKey(zoomLevel: number, selectionKey: string): string {
+    return `${zoomLevel}_${selectionKey}`;
   }
 
   private filterCachedAreasBySelection(areas: AreaMarkerDto[], filter: LocationSearchFilter): AreaMarkerDto[] {
@@ -742,7 +743,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.complete();
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
-    this.countsCacheByApiZoom.clear();
+    this.countsCache.clear();
     this.map?.destroy?.();
   }
 
