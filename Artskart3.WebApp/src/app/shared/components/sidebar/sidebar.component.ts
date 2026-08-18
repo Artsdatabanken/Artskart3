@@ -117,8 +117,7 @@ export class SidebarComponent {
   });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
-  readonly janMayenGroup = this.areaService.janMayenGroup;
-  readonly svalbardGroup = this.areaService.svalbardGroup;
+  readonly svalbardBjornoyaAndJanMayenAreas = this.areaService.svalbardBjornoyaAndJanMayenAreas;
   readonly oceanAreaGroup = this.areaService.oceanAreaGroup;
 
   isCategorySelected(id: number): boolean {

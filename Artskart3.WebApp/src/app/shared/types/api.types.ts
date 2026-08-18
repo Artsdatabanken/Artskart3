@@ -6,7 +6,6 @@ export type CategoryTypeDto = components['schemas']['CategoryTypeDto'];
 export type CategoryDto = components['schemas']['CategoryDto'];
 export type AreaResponseDto = components['schemas']['AreaResponseDto'];
 export type AreaTypeDto = components['schemas']['AreaTypeDto'];
-export type CountyDto = components['schemas']['CountyDto'];
 export type AreaDto = components['schemas']['AreaDto'];
 export type CoordinatePrecisionDto = components['schemas']['CoordinatePrecisionDto'];
 export type InstitutionDto = components['schemas']['InstitutionDto'];

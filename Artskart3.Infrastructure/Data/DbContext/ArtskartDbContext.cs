@@ -1029,7 +1029,9 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasKey(e => new { e.ObservationId, e.EntityTypeId, e.EntityId });
             entity.ToTable("ObservationEntityIndex");
 
-            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.ObservationId }).HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
+            // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
+                .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
         });
 
         OnModelCreatingPartial(modelBuilder);
