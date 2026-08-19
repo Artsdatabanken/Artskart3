@@ -6,5 +6,8 @@
     (adb-close)="alertService.dismiss(alert.id)"
   >
     {{ alert.message }}
+    @if (alert.startDisplayDate || alert.endDisplayDate) {
+      <div class="alert-date-range">{{ alert.startDisplayDate }} &ndash; {{ alert.endDisplayDate }}</div>
+    }
   </adb-alert>
 }
