@@ -20,7 +20,7 @@ import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
-import { AreaMarkerDto, AreaTypeId } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -34,14 +34,6 @@ import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
-
-/**
- * Områdetyper som ikke tilhører et bestemt zoomnivå og derfor skal vises i begge områdelag.
- */
-const CROSS_LEVEL_AREA_TYPES = new Set<number>([
-  AreaTypeId.OceanArea,
-  AreaTypeId.SvalbardBjørnøyaAndJanMayen,
-]);
 
 @Component({
   selector: 'app-map',
@@ -68,14 +60,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   // Geometri-cache: persistent for hele sesjonen, tømmes aldri ved filterendring
   private geometryCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
-  // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}` slik at hvert områdevalg beholder sin ETag
+  // Antall-cache: nøkkel = `${zoomLevel}_${selectionKey}_${attrHash}` slik at hver
+  // kombinasjon av områdevalg og attributtfiltre beholder sin ETag
   private countsCache = new Map<string, {
     counts: Map<string, number>;
     etag: string | null;
   }>();
   private mapReady = false;
-  // Sporer forrige attributtfilter for å oppdage endringer som krever refetch
-  private lastAttributeFilterJson = '';
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
@@ -377,13 +368,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
 
-    // Sjekk om attributtfiltre har endret seg siden sist
-    const attrJson = JSON.stringify(this.attributeFilter());
-    if (attrJson !== this.lastAttributeFilterJson) {
-      this.countsCache.clear();
-      this.lastAttributeFilterJson = attrJson;
-    }
-
     // Oppdater overlay
     this.updateSelectedAreaOverlays();
 
@@ -518,7 +502,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       tap(areas => {
         // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
         if (selectionKey === this.EMPTY_SELECTION_KEY && !this.hasActiveAttributeFilters()) {
-          this.geometryCacheByApiZoom.set(dataZoomLevel, this.withCrossLevelAreas(dataZoomLevel, areas));
+          this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
         }
         const countsMap = this.countsFromAreas(areas);
         this.countsCache.set(this.countsCacheKey(dataZoomLevel, selectionKey), {
@@ -598,29 +582,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
    * er aktive i det svaret kommer inn — ellers hentes riktige antall via fetchCounts$.
    */
   private seedCountsFromGeometries(apiZoomLevel: number, areas: AreaMarkerDto[]): void {
-    const all = this.withCrossLevelAreas(apiZoomLevel, areas);
-    this.geometryCacheByApiZoom.set(apiZoomLevel, all);
+    this.geometryCacheByApiZoom.set(apiZoomLevel, areas);
 
     if (this.hasActiveAttributeFilters()) return;
 
     this.countsCache.set(this.countsCacheKey(apiZoomLevel, this.EMPTY_SELECTION_KEY), {
-      counts: this.countsFromAreas(all),
+      counts: this.countsFromAreas(areas),
       etag: null,
     });
-  }
-
-  /**
-   * Havområder og Svalbard/Bjørnøya/Jan Mayen leveres kun med zoomnivå 1, men hører ikke
-   * til et bestemt zoomnivå og må derfor være tilgjengelige i begge områdelag.
-   */
-  private withCrossLevelAreas(apiZoomLevel: number, areas: AreaMarkerDto[]): AreaMarkerDto[] {
-    if (apiZoomLevel === ApiZoomLevel.Counties) return areas;
-
-    const existingFids = new Set(areas.map(a => a.fid));
-    const crossLevel = (this.geometryCacheByApiZoom.get(ApiZoomLevel.Counties) ?? [])
-      .filter(a => CROSS_LEVEL_AREA_TYPES.has(a.areaTypeId) && !existingFids.has(a.fid));
-
-    return crossLevel.length ? [...areas, ...crossLevel] : areas;
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────
@@ -640,7 +609,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private countsCacheKey(zoomLevel: number, selectionKey: string): string {
-    return `${zoomLevel}_${selectionKey}`;
+    return `${zoomLevel}_${selectionKey}_${JSON.stringify(this.attributeFilter())}`;
   }
 
   private filterCachedAreasBySelection(areas: AreaMarkerDto[], filter: LocationSearchFilter): AreaMarkerDto[] {

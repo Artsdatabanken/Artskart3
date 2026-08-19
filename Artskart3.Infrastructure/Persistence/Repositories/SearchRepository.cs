@@ -432,9 +432,9 @@ public class SearchRepository : ISearchRepository
     {
         var hasFilters = filter?.HasActiveFilters == true;
 
-        // For ufiltrert zoomnivå 1: last også havområder og Svalbard/Bjørnøya/Jan Mayen
-        // slik at frontend kan prefetche alle geometrier i én forespørsel
-        if (!hasFilters && zoomLevel == 1)
+        // Havområder og Svalbard/Bjørnøya/Jan Mayen finnes kun med zoomnivå 1 i databasen,
+        // men skal vises på både zoomnivå 1 og 2 (cross-level areas)
+        if (zoomLevel is 1 or 2)
         {
             return await _context.Set<Area>()
                 .Where(a => a.IsCurrent == true && (

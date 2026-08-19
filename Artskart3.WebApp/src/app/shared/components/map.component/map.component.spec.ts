@@ -143,7 +143,6 @@ describe('MapComponent', () => {
   });
 
   describe('geometry and counts caching', () => {
-    const AREA_TYPE_COUNTY = 2;
     const AREA_TYPE_MUNICIPALITY = 1;
     const AREA_TYPE_OCEAN = 4;
 
@@ -183,22 +182,8 @@ describe('MapComponent', () => {
       priv.countsCache.clear();
     });
 
-    it('should make ocean areas available in the municipalities geometry cache', () => {
+    it('should keep ocean areas delivered by the backend at the municipality level', () => {
       const priv = accessPrivate(component);
-      priv.seedCountsFromGeometries(ApiZoomLevel.Counties, [
-        area('03', AREA_TYPE_COUNTY, 100),
-        area('91', AREA_TYPE_OCEAN, 50),
-      ]);
-
-      priv.seedCountsFromGeometries(ApiZoomLevel.Municipalities, [area('0301', AREA_TYPE_MUNICIPALITY, 100)]);
-
-      const municipalityGeometries = priv.geometryCacheByApiZoom.get(ApiZoomLevel.Municipalities) ?? [];
-      expect(municipalityGeometries.map(a => a.fid)).toEqual(['0301', '91']);
-    });
-
-    it('should not duplicate ocean areas already present at the municipality level', () => {
-      const priv = accessPrivate(component);
-      priv.seedCountsFromGeometries(ApiZoomLevel.Counties, [area('91', AREA_TYPE_OCEAN, 50)]);
 
       priv.seedCountsFromGeometries(ApiZoomLevel.Municipalities, [
         area('0301', AREA_TYPE_MUNICIPALITY, 100),

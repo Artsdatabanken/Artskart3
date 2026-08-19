@@ -67,14 +67,13 @@ Kartkomponenten bruker en flernivå caching-strategi for å minimere nettverkstr
 
 ### Antall-cache (`countsCache`)
 
-- Lagrer `{ counts: Map<fid, antall>, etag: string | null }` per kombinasjon av zoomnivå og områdevalg.
-- Nøkkelen er `${zoomLevel}_${selectionKey}`, slik at hvert områdevalg beholder sin egen ETag og sine egne antall.
-- **Tømmes når attributtfiltre endres** (taksongruppe, kategori, periode, etc.) fordi disse påvirker antall per område.
-- **Beholdes ved områdevalg-endringer** — når brukeren bytter tilbake til et tidligere områdevalg gjenbrukes cached ETag, slik at backend kan svare med 304 i stedet for å sende dataene på nytt.
+- Lagrer `{ counts: Map<fid, antall>, etag: string | null }` per kombinasjon av zoomnivå, områdevalg og attributtfiltre.
+- Nøkkelen er `${zoomLevel}_${selectionKey}_${attributeFilterJson}`, slik at hver unike filterkombinasjon beholder sin egen ETag og sine egne antall.
+- **Tømmes aldri ved filterendringer** — når brukeren bytter tilbake til en tidligere filterkombinasjon (områdevalg, taksongruppe, kategori, etc.) gjenbrukes cached ETag, slik at backend kan svare med 304 i stedet for å sende dataene på nytt.
 
 ### Havområder og Svalbard/Bjørnøya/Jan Mayen
 
-Disse områdene hører ikke til et bestemt zoomnivå og leveres kun med zoomnivå 1. De kopieres derfor inn i geometri-cachen for zoomnivå 2 (`withCrossLevelAreas`), slik at de vises i begge områdelag — også når kommunevalg gjør at fylkeslaget tegnes fra kommunedata.
+Disse områdene hører ikke til et bestemt zoomnivå. Backend leverer dem nå på begge zoomnivåer, så frontend trenger ingen egen håndtering av dem.
 
 ### ETag-støtte
 
