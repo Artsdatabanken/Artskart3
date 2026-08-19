@@ -8,6 +8,9 @@
     @if (alert.message) {
       {{ alert.message }}
     }
+    @if (alert.startDisplayDate || alert.endDisplayDate) {
+      <div class="alert-date-range">{{ alert.startDisplayDate }} &ndash; {{ alert.endDisplayDate }}</div>
+    }
     @if (alert.link) {
       <a
         [href]="alert.link.route"
