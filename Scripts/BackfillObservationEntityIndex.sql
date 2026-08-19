@@ -13,6 +13,11 @@
 --
 -- TaxonGroupId = 0 brukes som markør for uoppdaterte rader.
 -- Skriptet kan trygt kjøres flere ganger — det plukker opp der det slapp.
+--
+-- Bruker ID-range-basert batching i stedet for UPDATE TOP for jevn ytelse.
+-- UPDATE TOP krever full tabellskanning for å finne uoppdaterte rader, som
+-- blir tregere og tregere etter hvert som flere rader oppdateres.
+-- ID-range gjør et index seek til riktig vindu hver gang.
 -- ============================================================================
 
 SET NOCOUNT ON;
@@ -29,23 +34,27 @@ RAISERROR('Indeks deaktivert.', 0, 1) WITH NOWAIT;
 RAISERROR('---', 0, 1) WITH NOWAIT;
 
 DECLARE @BatchSize INT = 500000;
-DECLARE @RowsUpdated INT = 1;
+DECLARE @LastObsId INT = 0;
+DECLARE @MaxObsId INT;
+DECLARE @RowsUpdated INT;
 DECLARE @TotalUpdated BIGINT = 0;
 DECLARE @StartTime DATETIME2 = SYSUTCDATETIME();
 DECLARE @Msg NVARCHAR(500);
+
+SELECT @MaxObsId = MAX(ObservationId) FROM dbo.ObservationEntityIndex;
 
 -- Sjekk hvor mange rader som gjenstår
 DECLARE @Remaining BIGINT;
 SELECT @Remaining = COUNT(*) FROM ObservationEntityIndex WITH (NOLOCK) WHERE TaxonGroupId = 0;
 SET @Msg = CONCAT('Rader som gjenstaar: ', FORMAT(@Remaining, 'N0'));
 RAISERROR(@Msg, 0, 1) WITH NOWAIT;
-SET @Msg = CONCAT('Estimerte batcher: ', CEILING(CAST(@Remaining AS FLOAT) / @BatchSize));
+SET @Msg = CONCAT('Max ObservationId: ', FORMAT(@MaxObsId, 'N0'), ' | Estimerte batcher: ', CEILING(CAST(@MaxObsId AS FLOAT) / @BatchSize));
 RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 RAISERROR('---', 0, 1) WITH NOWAIT;
 
-WHILE @RowsUpdated > 0
+WHILE @LastObsId < @MaxObsId
 BEGIN
-    UPDATE TOP (@BatchSize) idx
+    UPDATE idx
     SET idx.TaxonGroupId = o.TaxonGroupId,
         idx.CategoryId = o.CategoryId,
         idx.BasisOfRecordId = o.BasisOfRecordId,
@@ -61,21 +70,22 @@ BEGIN
         END
     FROM dbo.ObservationEntityIndex idx
     INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
-    WHERE idx.TaxonGroupId = 0;
+    WHERE idx.ObservationId > @LastObsId
+      AND idx.ObservationId <= @LastObsId + @BatchSize
+      AND idx.TaxonGroupId = 0;
 
     SET @RowsUpdated = @@ROWCOUNT;
-    SET @TotalUpdated = @TotalUpdated + @RowsUpdated;
+    SET @TotalUpdated += @RowsUpdated;
+    SET @LastObsId += @BatchSize;
 
-    IF @RowsUpdated > 0
-    BEGIN
-        SET @Msg = CONCAT(
-            FORMAT(SYSUTCDATETIME(), 'HH:mm:ss'), ' | ',
-            'Batch ferdig: ', FORMAT(@RowsUpdated, 'N0'), ' rader | ',
-            'Totalt: ', FORMAT(@TotalUpdated, 'N0'), ' rader | ',
-            'Tid: ', DATEDIFF(SECOND, @StartTime, SYSUTCDATETIME()), 's'
-        );
-        RAISERROR(@Msg, 0, 1) WITH NOWAIT;
-    END
+    SET @Msg = CONCAT(
+        FORMAT(SYSUTCDATETIME(), 'HH:mm:ss'), ' | ',
+        'Batch ferdig: ', FORMAT(@RowsUpdated, 'N0'), ' rader | ',
+        'Totalt: ', FORMAT(@TotalUpdated, 'N0'), ' | ',
+        'Fremdrift: ', FORMAT(CAST(@LastObsId AS FLOAT) / @MaxObsId * 100, 'N1'), '%%', ' | ',
+        'Tid: ', DATEDIFF(SECOND, @StartTime, SYSUTCDATETIME()), 's'
+    );
+    RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 END
 
 RAISERROR('---', 0, 1) WITH NOWAIT;
