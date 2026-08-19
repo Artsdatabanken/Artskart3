@@ -8,7 +8,7 @@
           (click)="$event.stopPropagation()"
           (change)="onTaxonToggle(node.id)"
         >
-          {{ node.preferredPopularName ?? node.validScientificName }}
+          <span [innerHTML]="node.preferredPopularName ?? node.validScientificName"></span>
           @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
             <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
           }
@@ -24,7 +24,7 @@
         [attr.checked]="isTaxonSelected(node.id) ? '' : null"
         (change)="onTaxonToggle(node.id)"
       >
-        {{ node.preferredPopularName ?? node.validScientificName }}
+        <span [innerHTML]="node.preferredPopularName ?? node.validScientificName"></span>
         @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
           <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
         }

@@ -725,6 +725,8 @@ public class SearchRepository : ISearchRepository
         {
             var ids = filter.BasisOfRecordIds.ToList();
             query = query.Where(idx => ids.Contains(idx.BasisOfRecordId));
+        }
+
         if (filter.CoordinatePrecision?.From.HasValue == true)
             query = query.Where(idx => idx.CoordinatePrecisionInMeters >= filter.CoordinatePrecision.From.Value);
 
@@ -805,7 +807,7 @@ public class SearchRepository : ISearchRepository
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
             .ToListAsync(cancellationToken);
 
-        return fullCounts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
+        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
     }
 
     /// <summary>

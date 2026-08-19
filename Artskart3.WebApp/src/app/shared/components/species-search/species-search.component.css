@@ -1,5 +1,5 @@
 .search-field {
-  padding: 0 var(--adb-spacing-sm, 12px);
+  padding: var(--adb-spacing-sm) var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-sm, 12px);
 }
 
 /* Autocomplete dropdown */
