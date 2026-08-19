@@ -1,11 +1,11 @@
-import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, input, signal} from '@angular/core';
+import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angular/core';
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
 enum Filters {
-  TaxonGroup = "TaxonGroup",
-  Category = "Category",
-  Location= "Location"
+  TaxonGroup = "Artsgruppe",
+  Category = "Kategori",
+  Location= "Lokasjon"
 }
 
 type TopLevelFilter = {
