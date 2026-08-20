@@ -7,7 +7,7 @@
   >
     {{ alert.message }}
     @if (alert.startDisplayDate || alert.endDisplayDate) {
-      <div class="alert-date-range">{{ alert.startDisplayDate }} &ndash; {{ alert.endDisplayDate }}</div>
+      <div class="alert-date-range">{{ formatDateRange(alert.startDisplayDate, alert.endDisplayDate) }}</div>
     }
   </adb-alert>
 }
