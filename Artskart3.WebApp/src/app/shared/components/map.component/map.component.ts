@@ -1,21 +1,5 @@
-import {
-  createMap,
-  MapEvents,
-  NbicMapComponent,
-  nbicMapPresets,
-} from '@artsdatabanken/nbic-map-component';
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  Output,
-  EventEmitter,
-  ViewChild,
-  OnDestroy,
-  inject,
-  computed,
-  effect,
-} from '@angular/core';
+import { createMap, MapEventPayload, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject, computed, effect } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -26,14 +10,15 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
-import { ImageTile } from 'ol';
-import { ApiZoomLevel } from './map.types';
+import { Feature, ImageTile } from 'ol';
+import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateService } from '@ngx-translate/core';
+import Point from 'ol/geom/Point';
 
 @Component({
   selector: 'app-map',
@@ -180,9 +165,36 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.adoptMapControls();
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
+
+      this.map.on(MapEvents.PointerClick, (payload) => {
+        console.log('MapEvents.PointerClick', payload);
+        this.handlePointerClick(payload);
+      });
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
+  }
+
+  private handlePointerClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
+    console.log('handlePointerClick', payload);
+
+    if (!payload.features) return;
+
+    // layerId/featureId are emitted at runtime but not yet declared in MapEventMap
+    const features = payload.features as PointerClickFeature[];
+
+    // Cluster members when clustering is enabled, otherwise the feature itself
+    const locationIds = features
+      .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
+      .flatMap(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature])
+      .map((member) => (member.getProperties() as LocationFeatureProperties).id);
+
+    // Polygon layer is not clustered — the clicked feature is the location feature itself
+    const polygonLocationIds = features
+      .filter(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
+
+    console.log('locationIds', locationIds, 'polygonLocationIds', polygonLocationIds);
   }
 
   private setupBaseMapLayers(): void {
