@@ -19,4 +19,12 @@ export class AlertComponent {
     this.alertService.dismiss(alertId);
     this.router.navigateByUrl(route);
   }
+
+  protected formatDateRange(startDate?: string, endDate?: string): string {
+    if (startDate && endDate && startDate === endDate) return startDate;
+    if (startDate && endDate) return `${startDate} - ${endDate}`;
+    if (startDate) return `From ${startDate}`;
+    if (endDate) return `Until ${endDate}`;
+    return '';
+  }
 }
