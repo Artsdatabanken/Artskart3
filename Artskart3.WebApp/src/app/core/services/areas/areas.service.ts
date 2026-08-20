@@ -270,6 +270,11 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   return ensureInsideRing([largest.cx, largest.cy], largest.ring);
 }
 
+export interface AreaCountDto {
+  fid: string;
+  observationCount: number;
+}
+
 export interface LocationSearchFilter {
   categoryIds?: number[];
   organizationIds?: number[];
@@ -304,6 +309,7 @@ export class AreasService {
   private readonly validationService: ValidationService = inject(ValidationService);
 
   private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
+  private readonly areaCountsEndpoint = '/api/Search/AreaCounts';
   private readonly locationsEndpoint = '/api/Search/Locations';
   private readonly locationPolygonsEndpoint = '/api/Search/LocationPolygons';
 
@@ -396,6 +402,60 @@ export class AreasService {
     };
   }
 
+  /**
+   * Henter observasjonsantall per område uten geometri, med ETag-støtte.
+   */
+  getAreaCounts(
+    apiZoomLevel: number,
+    filter?: LocationSearchFilter,
+    etag?: string,
+  ): Observable<{ counts: AreaCountDto[] | null; etag: string | null; notModified: boolean }> {
+    const body = this.buildFilterBody(filter);
+
+    return this.apiClientService
+      .postJsonWithETag<AreaCountDto[]>(`${this.areaCountsEndpoint}?zoomLevel=${apiZoomLevel}`, body, etag)
+      .pipe(
+        map(response => ({
+          counts: response.body ?? null,
+          etag: response.etag,
+          notModified: response.notModified,
+        })),
+      );
+  }
+
+  /**
+   * Bygger GeoJSON-features med kun polygon-omriss for valgte områder (ingen centroid-markører).
+   */
+  buildOverlayFeatures(areas: AreaMarkerDto[], selectedFids: string[]): unknown[] {
+    if (!selectedFids.length || !areas.length) return [];
+
+    const fidSet = new Set(selectedFids);
+    const features: unknown[] = [];
+
+    for (const area of areas) {
+      if (!fidSet.has(area.fid)) continue;
+      const parsed = parseWkt(area.wktsPolygon);
+      if (!parsed) continue;
+
+      features.push({
+        type: 'Feature',
+        geometry: { type: parsed.type, coordinates: parsed.coordinates },
+        properties: {
+          id: area.id,
+          name: area.name,
+          fid: area.fid,
+          'nbic:style': {
+            strokeColor: 'rgba(10, 109, 188, 0.6)',
+            strokeWidth: 1.5,
+            fillColor: 'rgba(0, 0, 0, 0)',
+          },
+        },
+      });
+    }
+
+    return features;
+  }
+
   private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
     const body: Record<string, unknown> = {};
 
@@ -482,7 +542,7 @@ export class AreasService {
       if (!this.bboxOverlaps(bbox, extent)) continue;
 
       const count = area.observationCount ?? 0;
-      const formattedCount = count > 0 ? AbbreviateNumberHelper.format(count) : '';
+      const formattedCount = AbbreviateNumberHelper.format(count);
 
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1]

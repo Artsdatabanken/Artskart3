@@ -19,7 +19,7 @@ describe('SidebarComponent', () => {
 
   const mockAreaResponse = {
     counties: {
-      fastlandsNorge: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
+      areas: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
     },
     municipalities: {
       id: 2,

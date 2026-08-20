@@ -198,4 +198,61 @@ public class SearchControllerTests
         await act.Should().ThrowAsync<Exception>();
     }
 
+    // -----------------------------------------------------------------------
+    // GetAreaCounts
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreaCounts_WithInvalidZoomLevel_ReturnsBadRequest()
+    {
+        var result = await _sut.GetAreaCounts(zoomLevel: 3);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_ReturnsCountsWithETag()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        (okResult.Value as AreaCountDto[]).Should().HaveCount(1);
+        _sut.HttpContext.Response.Headers.ETag.ToString().Should().Be("\"abc123\"");
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithMatchingETag_Returns304()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        _sut.HttpContext.Request.Headers["If-None-Match"] = "\"abc123\"";
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        var statusResult = result.Should().BeOfType<StatusCodeResult>().Subject;
+        statusResult.StatusCode.Should().Be(304);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithNonMatchingETag_Returns200()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        _sut.HttpContext.Request.Headers["If-None-Match"] = "\"old-etag\"";
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
 }

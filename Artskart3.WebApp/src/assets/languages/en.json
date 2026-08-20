@@ -173,8 +173,7 @@
     },
     "areaSection": {
       "fastlandsNorge": "Mainland Norway",
-      "janMayen": "Jan Mayen",
-      "svalbard": "Svalbard",
+      "svalbardBjørnøyaAndJanMayen": "Svalbard, Bjørnøya and Jan Mayen",
       "oceanAreas": "Ocean Areas"
     },
     "taxonGroups": "Taxon Groups",
