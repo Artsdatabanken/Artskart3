@@ -15,10 +15,11 @@ import {
   inject,
   computed,
   effect,
+  signal,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Subject, EMPTY, merge } from 'rxjs';
-import { catchError, debounceTime, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { catchError, debounceTime, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -33,12 +34,13 @@ import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, MapToolbarComponent],
+  imports: [CommonModule, MapToolbarComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -58,6 +60,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private geolocationControl?: GeolocationMapControl;
   private areaDataCacheByApiZoom = new Map<number, AreaMarkerDto[]>();
   private mapReady = false;
+
+  private readonly pendingAreaDataRequests = signal(0);
+  readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
   private destroy$ = new Subject<void>();
   private fetchAreaData$ = new Subject<{ apiZoomLevel: number; olZoom: number; extent: [number, number, number, number] }>();
@@ -312,6 +317,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.fetchAreaData$.next({ apiZoomLevel, olZoom: currentZoom, extent });
   }
 
+  private loadFetchStart(): void {
+    this.pendingAreaDataRequests.update(count => count + 1);
+  }
+
+  private loadFetchEnd(): void {
+    this.pendingAreaDataRequests.update(count => Math.max(0, count - 1));
+  }
+
   private setupAreaDataPipeline(): void {
     this.fetchAreaData$.pipe(
       debounceTime(300),
@@ -328,6 +341,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           }
 
           const filter = this.locationFilter();
+          this.loadFetchStart();
           return this.areasService.getAreaMarkers(olZoom, filter).pipe(
             tap(areas => {
               this.areaDataCacheByApiZoom.set(apiZoomLevel, areas);
@@ -337,27 +351,33 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             catchError((err: unknown) => {
               this.logger.error(`Failed to load area markers for API zoom level ${apiZoomLevel}:`, 'MapComponent', err);
               return EMPTY;
-            })
+            }),
+            finalize(() => this.loadFetchEnd()),
           );
         }
 
         const filter = this.locationFilter();
-        return merge(
-          this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap(locations => this.applyGeoJsonToLayer(apiZoomLevel, locations)),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location points:', 'MapComponent', err);
-              return EMPTY;
-            })
-          ),
-          this.areasService.getLocationPolygons(extent, filter).pipe(
-            tap(polygons => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, polygons, { mode: 'replace' })),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location polygons:', 'MapComponent', err);
-              return EMPTY;
-            })
-          )
+        this.loadFetchStart();
+        const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
+          tap(locations => this.applyGeoJsonToLayer(apiZoomLevel, locations)),
+          catchError((err: unknown) => {
+            this.logger.error('Failed to load location points:', 'MapComponent', err);
+            return EMPTY;
+          }),
+          finalize(() => this.loadFetchEnd()),
         );
+
+        this.loadFetchStart();
+        const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
+          tap(polygons => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, polygons, { mode: 'replace' })),
+          catchError((err: unknown) => {
+            this.logger.error('Failed to load location polygons:', 'MapComponent', err);
+            return EMPTY;
+          }),
+          finalize(() => this.loadFetchEnd()),
+        );
+
+        return merge(locations$, polygons$);
       }),
       takeUntil(this.destroy$),
     ).subscribe();
