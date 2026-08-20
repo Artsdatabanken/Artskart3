@@ -17,16 +17,11 @@ import { InstitutionService } from '../../services/institution/institution.servi
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
+import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
+import { FormatNumberPipe } from '../../pipes/format-number.pipe';
+import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
-import {
-  BehaviorDto,
-  BasisOfRecordDto,
-  CategoryTypeDto,
-  InstitutionDto,
-  TaxonGroupDto,
-} from '../../types/api.types';
-import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 2;
@@ -122,8 +117,7 @@ export class SidebarComponent {
   });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
-  readonly janMayenGroup = this.areaService.janMayenGroup;
-  readonly svalbardGroup = this.areaService.svalbardGroup;
+  readonly svalbardBjornoyaAndJanMayenAreas = this.areaService.svalbardBjornoyaAndJanMayenAreas;
   readonly oceanAreaGroup = this.areaService.oceanAreaGroup;
 
   isCategorySelected(id: number): boolean {
@@ -146,6 +140,15 @@ export class SidebarComponent {
 
   onCategoryToggle(id: number): void {
     this.filterState.toggleCategory(id);
+  }
+
+  getSortedCategories(categories: CategoryDto[] | null | undefined): CategoryDto[] {
+    if (!categories) return [];
+    return [...categories].sort((a, b) => {
+      const indexA = a.code ? CATEGORY_ORDER.indexOf(a.code) : -1;
+      const indexB = b.code ? CATEGORY_ORDER.indexOf(b.code) : -1;
+      return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+    });
   }
 
   onClearFilter(): void {

@@ -10,4 +10,13 @@ public class ObservationEntityIndex
     public int ObservationId { get; set; }
     public int EntityTypeId { get; set; }
     public int EntityId { get; set; }
+
+    // Denormaliserte observasjonsattributter for rask filtrert telling
+    public int TaxonGroupId { get; set; }
+    public int? CategoryId { get; set; }
+    public int BasisOfRecordId { get; set; }
+    public int? CoordinatePrecisionInMeters { get; set; }
+    public DateTime? DateTimeCollected { get; set; }
+    public byte RegistrationStatusId { get; set; }
+    public bool HasMediaFiles { get; set; }
 }

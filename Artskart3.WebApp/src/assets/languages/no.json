@@ -106,6 +106,7 @@
     "areas": "Område",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
+    "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartskategorier",
       "Rødliste": "Rødlistekategorier"
@@ -172,8 +173,7 @@
     },
     "areaSection": {
       "fastlandsNorge": "Fastlands-Norge",
-      "janMayen": "Jan Mayen",
-      "svalbard": "Svalbard",
+      "svalbardBjørnøyaAndJanMayen": "Svalbard, Bjørnøya og Jan Mayen",
       "oceanAreas": "Havområder"
     },
     "taxonGroups": "Artsgrupper",

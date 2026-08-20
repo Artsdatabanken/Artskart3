@@ -106,6 +106,7 @@
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
+    "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species Categories",
       "Rødliste": "Red List Categories"
@@ -172,8 +173,7 @@
     },
     "areaSection": {
       "fastlandsNorge": "Mainland Norway",
-      "janMayen": "Jan Mayen",
-      "svalbard": "Svalbard",
+      "svalbardBjørnøyaAndJanMayen": "Svalbard, Bjørnøya and Jan Mayen",
       "oceanAreas": "Ocean Areas"
     },
     "taxonGroups": "Taxon Groups",

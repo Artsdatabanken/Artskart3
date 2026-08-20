@@ -78,26 +78,28 @@ export class MittArtskartComponent implements OnDestroy {
 
   onDownload(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.exportService.getDownloadUrl(job.id).subscribe({
-      next: (response) => this.triggerDownload(response.url),
+    this.exportService.downloadFile(job.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, this.getFileName(job, 'csv')),
       error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
     });
   }
 
   onDownloadExcel(job: CsvExportJobDto): void {
     if (!job.id) return;
-    this.exportService.getExcelDownloadUrl(job.id).subscribe({
-      next: (response) => this.triggerDownload(response.url),
+    this.exportService.downloadExcelFile(job.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, this.getFileName(job, 'xlsx')),
       error: () => this.alertService.showError(this.translate.instant('mittArtskart.downloadFailed')),
     });
   }
 
-  private triggerDownload(url: string): void {
+  private triggerDownload(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.rel = 'noopener noreferrer';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, DestroyRef } from '@angular/core';
+import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, HostListener } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -39,6 +39,28 @@ export class HomeComponent {
   readonly minWidth = this.getCSSVar('--panel-min-width', 300);
   readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
   readonly filterPanelWidth = signal(this.minWidth);
+
+  private readonly HEADER_HEIGHT = this.getCSSVar('--home-header-height', 80);
+  private readonly HANDLE_HEIGHT = this.getCSSVar('--home-handle-height', 56);
+  private readonly MOBILE_BREAKPOINT = this.getCSSVar('--home-mobile-breakpoint', 768);
+  readonly isFilterOpen = signal(false);
+  readonly isDragging = signal(false);
+  private readonly dragTranslatePx = signal<number | null>(null);
+  private readonly viewportTick = signal(0);
+  private dragStartY = 0;
+  private dragStartTranslate = 0;
+
+  readonly sheetTransform = computed(() => {
+    this.viewportTick();
+    if (!this.isMobileViewport()) {
+      return 'none';
+    }
+    const dragValue = this.dragTranslatePx();
+    if (dragValue !== null) {
+      return `translateY(${dragValue}px)`;
+    }
+    return `translateY(${this.isFilterOpen() ? 0 : this.getCollapsedTranslateY()}px)`;
+  });
 
   activeTab = signal(0);
   exporting = signal(false);
@@ -126,6 +148,59 @@ export class HomeComponent {
     this.filterPanelWidth.set(validatedWidth);
   }
 
+  toggleFilter(): void {
+    this.isFilterOpen.update((open) => !open);
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.viewportTick.update((tick) => tick + 1);
+  }
+
+  onHandlePointerDown(event: PointerEvent): void {
+    this.isDragging.set(true);
+    this.dragStartY = event.clientY;
+    this.dragStartTranslate = this.isFilterOpen() ? 0 : this.getCollapsedTranslateY();
+    this.dragTranslatePx.set(this.dragStartTranslate);
+
+    const handle = event.currentTarget as Element | null;
+    handle?.setPointerCapture(event.pointerId);
+  }
+
+  onHandlePointerMove(event: PointerEvent): void {
+    if (!this.isDragging()) return;
+    const collapsedTranslateY = this.getCollapsedTranslateY();
+    const deltaY = event.clientY - this.dragStartY;
+    const nextTranslateY = Math.min(Math.max(this.dragStartTranslate + deltaY, 0), collapsedTranslateY);
+    this.dragTranslatePx.set(nextTranslateY);
+  }
+
+  onHandlePointerUp(event: PointerEvent): void {
+    if (!this.isDragging()) return;
+    this.isDragging.set(false);
+    const collapsedTranslateY = this.getCollapsedTranslateY();
+    const currentTranslateY = this.dragTranslatePx() ?? this.dragStartTranslate;
+    const movedDistance = Math.abs(currentTranslateY - this.dragStartTranslate);
+
+    if (movedDistance < 5) {
+      this.toggleFilter();
+    } else {
+      this.isFilterOpen.set(currentTranslateY < collapsedTranslateY / 2);
+    }
+    this.dragTranslatePx.set(null);
+    const handle = event.currentTarget as Element | null;
+    handle?.releasePointerCapture(event.pointerId);
+  }
+
+  private getCollapsedTranslateY(): number {
+    const viewportHeight = this.document.defaultView?.innerHeight ?? 0;
+    return Math.max(viewportHeight - this.HEADER_HEIGHT - this.HANDLE_HEIGHT, 0);
+  }
+
+  private isMobileViewport(): boolean {
+    return (this.document.defaultView?.innerWidth ?? 0) <= this.MOBILE_BREAKPOINT;
+  }
+
   private startExportWithName(filter: ObservationSearchFilter, name: string): void {
     this.exportService.startExport(filter, name).subscribe({
       next: (response) => {
@@ -182,7 +257,7 @@ export class HomeComponent {
       coordinatePrecision: hasCoordinatePrecision
         ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
         : undefined,
-     
+
       projectName: projectName ? projectName : undefined,
       collectionCode: collectionCode ? collectionCode : undefined,
       catalogNumber: catalogNumber ? catalogNumber : undefined,
@@ -197,6 +272,8 @@ export class HomeComponent {
     const value = this.document.documentElement
       ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
       : '';
-    return parseInt(value) || fallback;
+
+    const parsedValue = Number.parseFloat(value);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
   }
 }

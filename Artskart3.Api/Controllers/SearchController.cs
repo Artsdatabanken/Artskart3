@@ -173,6 +173,49 @@ public class SearchController : ControllerBase
     }
 
     /// <summary>
+    /// Returns observation counts per area (FID) without geometry data.
+    /// Supports ETag-based caching — returns 304 Not Modified when counts haven't changed.
+    /// </summary>
+    [HttpPost("AreaCounts")]
+    [Produces("application/json")]
+    public async Task<IActionResult> GetAreaCounts(
+        [FromQuery] int zoomLevel = 1,
+        [FromBody] LocationSearchFilterDto? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (zoomLevel < 1 || zoomLevel > 2)
+            {
+                return BadRequest(new { error = "zoomLevel must be 1 (counties) or 2 (municipalities)." });
+            }
+
+            if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
+            {
+                return validationError!;
+            }
+
+            var result = await _searchService.GetAreaCountsAsync(zoomLevel, filter, cancellationToken);
+
+            var ifNoneMatch = Request.Headers.IfNoneMatch.ToString();
+            if (!string.IsNullOrEmpty(ifNoneMatch) && ifNoneMatch == result.Etag)
+            {
+                Response.Headers.ETag = result.Etag;
+                return StatusCode(304);
+            }
+
+            Response.Headers.ETag = result.Etag;
+            _logger.LogInformation("Retrieved {Count} area counts for zoom level {ZoomLevel}", result.Counts.Length, zoomLevel);
+            return Ok(result.Counts);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av områdeantall");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Søker etter arter via NorTaxa-API.
     /// Hvis input er et heltall, slås det opp direkte på taxonId.
     /// Ellers utføres et navnesøk med maks 20 resultater.
@@ -392,4 +435,37 @@ public class SearchController : ControllerBase
     /// </summary>
     private object CreateRangeErrorMessage(int min, int max)
         => new { error = $"Value must be between {min} and {max}." };
+
+    /// <summary>
+    /// Retrieves polygon geometries from the Location table for observations matching the filter.
+    /// Only Polygon and MultiPolygon geometry types are returned.
+    /// Rectangular/square polygons (grid-cell precision squares) are excluded automatically.
+    /// </summary>
+    [HttpPost("LocationPolygons")]
+    [Produces("application/json")]
+    [ProducesResponseType(typeof(IEnumerable<LocationPolygonDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IEnumerable<LocationPolygonDto>>> GetLocationPolygons(
+        [FromBody] LocationSearchFilterDto? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        filter ??= new LocationSearchFilterDto();
+
+        if (!ValidateLocationSearchFilter(filter, out var validationError))
+        {
+            return validationError!;
+        }
+
+        try
+        {
+            var polygons = await _searchService.GetLocationPolygonsAsync(filter, cancellationToken);
+            _logger.LogInformation("Retrieved {Count} location polygons", polygons.Count());
+            return Ok(polygons);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonspolygoner");
+            throw;
+        }
+    }
 }

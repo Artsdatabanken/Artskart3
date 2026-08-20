@@ -2,6 +2,8 @@
 @import 'ol/ol.css';
 @import '@artsdatabanken/tokens';
 @import '@artsdatabanken/tokens/link';
+@import './styles/risk-category.css';
+@import './styles/risk-category-badge.css';
 
 /* ============================================================================
    APP-SPECIFIC VARIABLES (no design-system equivalent)
@@ -10,6 +12,9 @@
 :root {
   --panel-min-width: 300px;
   --panel-max-width: 500px;
+  --home-header-height: 80px;
+  --home-handle-height: 56px;
+  --home-mobile-breakpoint: 768px;
 }
 
 /* ============================================================================
