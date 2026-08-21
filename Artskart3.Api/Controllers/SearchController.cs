@@ -330,6 +330,7 @@ public class SearchController : ControllerBase
         ReadOnlySpan<(string name, int? length)> arrays =
         [
             (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
             (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
             (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
             (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
@@ -396,6 +397,7 @@ public class SearchController : ControllerBase
         ReadOnlySpan<(string name, int? length)> arrays =
         [
             (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
             (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
             (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
             (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),

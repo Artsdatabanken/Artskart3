@@ -409,6 +409,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/TaxonGroups": {
         parameters: {
             query?: never;
@@ -502,6 +540,43 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["BasisOfRecordDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/TaxonTree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    parentTaxonId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxonTreeNodeDto"][];
                     };
                 };
             };
@@ -616,9 +691,7 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": string;
-                    };
+                    content?: never;
                 };
             };
         };
@@ -702,6 +775,157 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["AreaMarkerDto"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Search/AreaCounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: {
+                    zoomLevel?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LocationSearchFilterDto"];
+                    "text/json": components["schemas"]["LocationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["LocationSearchFilterDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Search/Species": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpeciesDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Search/LocationPolygons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LocationSearchFilterDto"];
+                    "text/json": components["schemas"]["LocationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["LocationSearchFilterDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationPolygonDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -842,7 +1066,7 @@ export interface components {
             /** Format: int32 */
             id?: number;
             name?: string | null;
-            fileName?: string;
+            fileName?: string | null;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
@@ -901,20 +1125,31 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
         };
+        LocationPolygonDto: {
+            /** Format: int32 */
+            locationId?: number;
+            locality?: string | null;
+            wktPolygon?: string | null;
+            /** Format: int32 */
+            observationCount?: number;
+        };
         LocationSearchFilterDto: {
             taxonGroupIds?: number[] | null;
+            taxonIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
-            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
             restrictedAreaIds?: string[] | null;
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
+            /** Format: int32 */
+            registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             projectName?: string | null;
+            /** Format: int32 */
             projectOrganizationId?: number | null;
             collectionCode?: string | null;
             catalogNumber?: string | null;
@@ -969,6 +1204,7 @@ export interface components {
             scientificName?: string | null;
             author?: string | null;
             taxonGroupIds?: number[] | null;
+            taxonIds?: number[] | null;
             categoryIds?: number[] | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
@@ -977,10 +1213,12 @@ export interface components {
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            /** Format: int32 */
             registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             projectName?: string | null;
+            /** Format: int32 */
             projectOrganizationId?: number | null;
             collectionCode?: string | null;
             catalogNumber?: string | null;
@@ -1007,6 +1245,33 @@ export interface components {
             /** Format: int32 */
             to?: number | null;
             months?: number[] | null;
+        };
+        ProblemDetails: {
+            type?: string | null;
+            title?: string | null;
+            /** Format: int32 */
+            status?: number | null;
+            detail?: string | null;
+            instance?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        ScientificNameSynonymDto: {
+            name?: string | null;
+            nameFormatted?: string | null;
+            author?: string | null;
+            rank?: string | null;
+        };
+        SpeciesDto: {
+            /** Format: int32 */
+            taxonId?: number;
+            scientificName?: string | null;
+            scientificNameFormatted?: string | null;
+            author?: string | null;
+            rank?: string | null;
+            preferredVernacularNames?: components["schemas"]["VernacularNameDto"][] | null;
+            vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][] | null;
+            scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][] | null;
         };
         StartExportRequestDto: {
             name?: string | null;
@@ -1036,9 +1301,28 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
         };
+        TaxonTreeNodeDto: {
+            /** Format: int32 */
+            id?: number;
+            validScientificName?: string | null;
+            preferredPopularName?: string | null;
+            /** Format: int32 */
+            taxonRankId?: number;
+            /** Format: int32 */
+            taxonGroupId?: number;
+            /** Format: int32 */
+            cumulativeObservationCount?: number | null;
+            existsInCountry?: boolean;
+            hasChildren?: boolean;
+            children?: components["schemas"]["TaxonTreeNodeDto"][] | null;
+        };
         UserDto: {
             name?: string | null;
             email?: string | null;
+        };
+        VernacularNameDto: {
+            name?: string | null;
+            language?: string | null;
         };
     };
     responses: never;

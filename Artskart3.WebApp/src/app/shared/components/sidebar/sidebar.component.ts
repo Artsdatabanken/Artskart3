@@ -1,12 +1,4 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  CUSTOM_ELEMENTS_SCHEMA,
-  DestroyRef,
-  inject,
-  signal,
-  computed,
-} from '@angular/core';
+import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, signal, computed } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -22,6 +14,9 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
+import { SpeciesSearchComponent } from '../species-search/species-search.component';
+import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 2;
@@ -34,7 +29,7 @@ interface RegistreringOption {
 
 @Component({
   selector: 'app-sidebar',
-  imports: [TranslateModule, FormatNumberPipe],
+  imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',
@@ -66,9 +61,9 @@ export class SidebarComponent {
           if (trimmed.length < MinProjectNameSearchLength) {
             return of<components['schemas']['OrganizationDto'][]>([]);
           }
-          return this.organizationService.searchOrganizations(trimmed).pipe(
-            catchError(() => of<components['schemas']['OrganizationDto'][]>([])),
-          );
+          return this.organizationService
+            .searchOrganizations(trimmed)
+            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -267,6 +262,13 @@ export class SidebarComponent {
 
   onTaxonGroupToggle(id: number): void {
     this.filterState.toggleTaxonGroup(id);
+  }
+
+  // Taxon tree lazy load
+  readonly taxonTreeOpened = signal(false);
+
+  onTaxonTreeToggle(): void {
+    this.taxonTreeOpened.set(true);
   }
 
   // Coordinate precision filter

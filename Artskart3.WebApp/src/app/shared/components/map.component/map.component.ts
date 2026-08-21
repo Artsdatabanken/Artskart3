@@ -1,21 +1,5 @@
-import {
-  createMap,
-  MapEvents,
-  NbicMapComponent,
-  nbicMapPresets,
-} from '@artsdatabanken/nbic-map-component';
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  Output,
-  EventEmitter,
-  ViewChild,
-  OnDestroy,
-  inject,
-  computed,
-  effect,
-} from '@angular/core';
+import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import { AfterViewInit, Component, ElementRef, Output, EventEmitter, ViewChild, OnDestroy, inject, computed, effect } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -102,6 +86,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+        taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
         coordinatePrecisionFrom,
         coordinatePrecisionTo,
         periodFrom,
@@ -407,7 +392,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ? ApiZoomLevel.Municipalities
       : apiZoomLevel;
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
-
     if (!cachedGeometries) {
       this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
       return;
@@ -441,7 +425,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
    */
   private setupCountsFetchPipeline(): void {
     this.fetchCounts$.pipe(
-      debounceTime(300),
       switchMap(({ requests, extent }) => {
         const filter = this.locationFilter();
 
