@@ -212,6 +212,10 @@ adb-checkbox::part(text-wrapper) {
   pointer-events: none;
 }
 
+:host-context([data-theme='dark']) .search-input-icon {
+  color: var(--adb-text-border-base-border-default, #fff);
+}
+
 .other-properties-input {
   width: 100%;
   min-width: 0;
