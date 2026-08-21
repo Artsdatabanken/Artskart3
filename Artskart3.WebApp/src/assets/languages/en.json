@@ -196,6 +196,7 @@
     "zoomOutAriaLabel": "Zoom out",
     "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
     "mapTypeHeading": "Background map",
+    "loadingObservationsLabel": "Fetching observations...",
     "mapTypes": {
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",

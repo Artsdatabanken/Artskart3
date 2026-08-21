@@ -15,10 +15,11 @@ import {
   inject,
   computed,
   effect,
+  signal,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat } from 'rxjs';
-import { catchError, debounceTime, map as rxMap, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -33,12 +34,13 @@ import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, MapToolbarComponent],
+  imports: [CommonModule, MapToolbarComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -67,6 +69,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     etag: string | null;
   }>();
   private mapReady = false;
+
+  private readonly pendingAreaDataRequests = signal(0);
+  readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
@@ -394,6 +399,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private loadFetchStart(): void {
+    this.pendingAreaDataRequests.update(count => count + 1);
+  }
+
+  private loadFetchEnd(): void {
+    this.pendingAreaDataRequests.update(count => Math.max(0, count - 1));
+  }
+
   /**
    * Bygger et enkelt områdelag fra cache, eller legger til i pendingFetches.
    */
@@ -469,6 +482,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const cacheKey = this.countsCacheKey(dataZoomLevel, selectionKey);
       const existingCache = this.countsCache.get(cacheKey);
 
+      this.loadFetchStart();
       return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
         tap(response => {
           if (!response.notModified && response.counts) {
@@ -490,6 +504,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.logger.error(`Failed to load area counts for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
           return EMPTY;
         }),
+        finalize(() => this.loadFetchEnd()),
       );
     }
 
@@ -498,6 +513,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ? ZoomConfig.ZOOM_COUNTIES_THRESHOLD
       : ZoomConfig.DEFAULT_ZOOM_LEVEL;
 
+    this.loadFetchStart();
     return this.areasService.getAreaMarkers(olZoom, filter).pipe(
       tap(areas => {
         // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
@@ -518,30 +534,36 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.logger.error(`Failed to load area markers for zoom level ${dataZoomLevel}:`, 'MapComponent', err);
         return EMPTY;
       }),
+      finalize(() => this.loadFetchEnd()),
     );
   }
 
   private setupLocationsFetchPipeline(): void {
     this.locationsFetch$.pipe(
       debounceTime(300),
-      switchMap(({ extent, filter }) =>
-        merge(
-          this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap(geojson => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location points:', 'MapComponent', err);
-              return EMPTY;
-            }),
-          ),
-          this.areasService.getLocationPolygons(extent, filter).pipe(
-            tap(geojson => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
-            catchError((err: unknown) => {
-              this.logger.error('Failed to load location polygons:', 'MapComponent', err);
-              return EMPTY;
-            }),
-          ),
-        ),
-      ),
+      switchMap(({ extent, filter }) => {
+        this.loadFetchStart();
+        const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
+          tap(geojson => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
+          catchError((err: unknown) => {
+            this.logger.error('Failed to load location points:', 'MapComponent', err);
+            return EMPTY;
+          }),
+          finalize(() => this.loadFetchEnd()),
+        );
+
+        this.loadFetchStart();
+        const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
+          tap(geojson => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
+          catchError((err: unknown) => {
+            this.logger.error('Failed to load location polygons:', 'MapComponent', err);
+            return EMPTY;
+          }),
+          finalize(() => this.loadFetchEnd()),
+        );
+
+        return merge(locations$, polygons$);
+      }),
       takeUntil(this.destroy$),
     ).subscribe();
   }
