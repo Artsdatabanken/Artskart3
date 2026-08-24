@@ -144,6 +144,9 @@ Standariserer navngiving av branches er `feature/navn-på-branch` som for eksemp
 ## Merging av endringer
 For å gjøre endringer i Artskart krever det at det lages en pull request som må godkjennes av en annen utvikler.
 
+## Varsler (notifications)
+Driftsmeldinger og andre varsler som vises i portalen styres via en JSON-fil som redigeres manuelt av en superbruker. Se [`Artskart3.Infrastructure/Data/JsonDb/README.md`](Artskart3.Infrastructure/Data/JsonDb/README.md) for feltbeskrivelse og fremgangsmåte for å legge til nye varsler.
+
 ## Oppsett av lokale DNS-oppslag
 Før vi setter opp DNS-oppslag og publiserer disse offentlig, så er det greit å sette opp lokale oppslag mot de URL-ene og IP-adressene vi benytter oss av.
 
