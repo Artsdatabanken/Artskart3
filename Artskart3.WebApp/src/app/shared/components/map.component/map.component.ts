@@ -1,4 +1,10 @@
-import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import {
+  createMap,
+  MapEvents,
+  MapEventPayload,
+  NbicMapComponent,
+  nbicMapPresets,
+} from '@artsdatabanken/nbic-map-component';
 import {
   AfterViewInit,
   Component,
@@ -22,8 +28,9 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
-import { ImageTile } from 'ol';
-import { ApiZoomLevel } from './map.types';
+import { Feature, ImageTile } from 'ol';
+import Point from 'ol/geom/Point';
+import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
@@ -35,6 +42,7 @@ import {ObservationListComponent} from '@shared/components/observation-list.comp
 import {HttpClient} from '@angular/common/http';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
+
 
 @Component({
   selector: 'app-map',
@@ -194,33 +202,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.adoptMapControls();
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
-      this.map.on('pointer:click', (payload) => {
-        console.log("showObservationList: ", this.showObservationList);
-        if(payload.features) {
-            // @ts-ignore
-          var ids = payload.features.map(p => p.properties?.features || [])
-            .flat().map(f => f.values_?.id)
-            .filter(id => typeof id === 'number');
-            // @ts-ignore
-            if (payload.features.find(p => p.layerId === 'area-markers-locations') && (Array.isArray(ids) && ids.every(i => typeof i === 'number'))) {
-              this.observationService.getObservationByLocation(ids)
-                .pipe(
-                  tap(observations => {
-                    this.observationList.set(observations);
-                    this.showObservationList.set(true);
-                  }),
-                  catchError((err: unknown) => {
-                    this.logger.error("failed to fetch observations", ids?.toString(), err);
-                    return EMPTY;
-                  }),
-                  takeUntil(this.destroy$)
-                )
-                .subscribe();
-            }
-          }
-          else {
-            this.showObservationList.set(false);
-          }
+      this.map.on(MapEvents.PointerClick, (payload) => {
+        this.handlePointerClick(payload);
       })
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
@@ -541,6 +524,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
     pendingFetches.push({ dataZoomLevel, apiZoomLevel });
   }
+
+  private handlePointerClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
+    const features = payload.features as PointerClickFeature[];
+    if(!features) {
+      this.showObservationList.set(false);
+      return;
+    }
+
+    const hasRelevantFeature = features.some(
+      ({ layerId }) =>
+        layerId === this.LOCATIONS_LAYER_ID ||
+        layerId === this.LOCATION_POLYGONS_LAYER_ID
+    );
+
+    if(!hasRelevantFeature) {
+      this.showObservationList.set(false);
+      return;
+    }
+
+    const locationIds = features
+      .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
+      .flatMap(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature])
+      .map(( member ) => ( member.getProperties() as LocationFeatureProperties).id);
+
+    const polygonLocationIds = features
+      .filter(( { layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
+
+    const ids = [...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined);
+
+    this.observationService.getObservationByLocation(ids)
+      .pipe(
+        tap(observations => {
+          this.observationList.set(observations);
+          this.showObservationList.set(true);
+        }),
+        catchError((err: unknown) => {
+          this.logger.error("failed to fetch observations", ids?.toString(), err);
+          return EMPTY;
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe();
+  }
+
 
   // ─── Async pipelines ───────────────────────────────────────────────
 
