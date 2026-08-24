@@ -236,9 +236,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private adoptFullscreenControl(): void {
     if (!this.map) return;
-    this.fullscreenControl = new ArtskartFullscreenControl({
-      tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-    });
+    // Fullscreen the container wrapping the map so the toolbar (map type selector etc.) stays visible
+    const fullscreenSource = this.mapEl.nativeElement.parentElement ?? undefined;
+    this.fullscreenControl = new ArtskartFullscreenControl(
+      {
+        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+      },
+      fullscreenSource,
+    );
     this.map.adoptControl(this.fullscreenControl, 'fullscreen');
   }
 
