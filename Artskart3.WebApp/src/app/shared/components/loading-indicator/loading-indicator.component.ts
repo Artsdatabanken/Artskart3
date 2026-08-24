@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, 
 
 @Component({
   selector: 'app-loading-indicator',
-  standalone: true,
   templateUrl: './loading-indicator.component.html',
   styleUrl: './loading-indicator.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

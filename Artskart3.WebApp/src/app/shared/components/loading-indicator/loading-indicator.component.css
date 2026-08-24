@@ -51,3 +51,9 @@
     transform: rotate(360deg);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-indicator__spinner {
+    animation: none;
+  }
+}

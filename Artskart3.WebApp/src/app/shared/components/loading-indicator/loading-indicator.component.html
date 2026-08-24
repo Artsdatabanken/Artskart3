@@ -1,11 +1,14 @@
+<div class="sr-only" role="status" [attr.aria-live]="ariaLive()">
+  @if (visible() && label()) {
+    {{ label() }}
+  }
+</div>
 @if (visible()) {
   <div
     class="loading-indicator"
     [class.loading-indicator--inline]="variant() === 'inline'"
     [class.loading-indicator--overlay]="variant() === 'overlay'"
-    role="status"
-    [attr.aria-live]="ariaLive()"
-    [attr.aria-label]="label()"
+    aria-hidden="true"
   >
     <svg
       class="loading-indicator__spinner"
