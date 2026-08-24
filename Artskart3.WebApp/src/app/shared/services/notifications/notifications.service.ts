@@ -4,13 +4,12 @@ import { Observable } from 'rxjs';
 import { NotificationModel } from '../../types/api.types';
 import { AlertService, AlertVariant } from '../alert/alert.service';
 
-// Assumed AlertType ordering (0-4) from the backend enum; confirm against the C# AlertType enum and adjust if it differs.
 const ALERT_TYPE_VARIANT: Record<number, AlertVariant> = {
-  0: 'info',
-  1: 'success',
-  2: 'warning',
-  3: 'danger',
-  4: 'danger',
+  0: 'danger',
+  1: 'warning',
+  2: 'info',
+  3: 'success',
+  4: 'info',
 };
 
 @Injectable({
