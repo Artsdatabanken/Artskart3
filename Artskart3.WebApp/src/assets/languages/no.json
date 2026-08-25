@@ -196,6 +196,7 @@
     "zoomOutAriaLabel": "Zoom ut",
     "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
+    "loadingObservationsLabel": "Henter registreringer...",
     "mapTypes": {
       "topografisk": "Landkart (standard)",
       "topo4graatone": "Gråtonekart",
