@@ -67,6 +67,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   >();
   private mapReady = false;
+  private lastValidExtent: [number, number, number, number] | null = null;
+  private mapVisible = true;
+  private visibilityObserver?: ResizeObserver;
 
   private readonly pendingAreaDataRequests = signal(0);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
@@ -286,6 +289,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupCountsFetchPipeline();
     this.setupLocationsFetchPipeline();
     this.setupCameraChangePipeline();
+    this.setupVisibilityObserver();
     this.prefetchAreaGeometries();
     this.rebuildAllLayers();
   }
@@ -364,12 +368,73 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   /**
    * Eneste inngangspunkt for å oppdatere kartlag.
    * Kalles ved filterendring, zoomendring og kamerabevegelse.
+   *
+   * When the map is in the DOM but not visible (0×0), getExtent() is not
+   * reliable (OpenLayers falls back to a default viewport size). In that case
+   * data is fetched against the last known extent so the cache is warm when
+   * the map becomes visible again, while rendering is deferred (see applyGeoJsonToLayer).
    */
   private rebuildAllLayers(): void {
     if (!this.map) return;
 
     const filter = this.locationFilter();
-    const extent = this.map.getExtent() as [number, number, number, number];
+
+    if (!this.mapVisible) {
+      // Location points are not cached locally — defer fetching them until the map is visible.
+      // Zoom is independent of container size and safe to read.
+      const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
+      if (ZoomConfig.getApiZoomLevel(olZoom) !== ApiZoomLevel.LocationPoints && this.lastValidExtent) {
+        this.rebuildWithExtent(filter, this.lastValidExtent);
+      }
+      return;
+    }
+
+    const extent = this.readValidExtent();
+    if (!extent) return;
+    this.lastValidExtent = extent;
+    this.rebuildWithExtent(filter, extent);
+  }
+
+  private readValidExtent(): [number, number, number, number] | null {
+    // A 0×0 container means getExtent() falls back to a default viewport size
+    // and returns a bogus extent. Checked here (not only via mapVisible) so the
+    // initial rebuild is also guarded before the first ResizeObserver callback.
+    const rect = this.mapEl?.nativeElement.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return null;
+
+    const extent = this.map.getExtent() as number[] | undefined;
+    if (!extent || extent.length < 4 || !extent.every(Number.isFinite)) return null;
+    if (extent[0] === extent[2] || extent[1] === extent[3]) return null;
+    return extent as unknown as [number, number, number, number];
+  }
+
+  /**
+   * Observes the map container's size. When the map transitions from hidden
+   * (0×0) to visible, a rebuild is triggered — deferred to the next frame so
+   * OpenLayers' own ResizeObserver has run updateSize() before the extent is read.
+   *
+   * mapVisible is only updated from observer callbacks: a real ResizeObserver
+   * reports the initial size immediately upon observe(), so no synchronous
+   * initialization is needed (and it keeps tests deterministic, where
+   * ResizeObserver is stubbed).
+   */
+  private setupVisibilityObserver(): void {
+    const el = this.mapEl?.nativeElement;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    this.visibilityObserver = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      const visible = width > 0 && height > 0;
+      if (visible === this.mapVisible) return;
+      this.mapVisible = visible;
+      if (visible) {
+        requestAnimationFrame(() => this.cameraChanged$.next());
+      }
+    });
+    this.visibilityObserver.observe(el);
+  }
+
+  private rebuildWithExtent(filter: LocationSearchFilter, extent: [number, number, number, number]): void {
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
 
@@ -561,7 +626,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
           this.loadFetchStart();
           const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
-            tap((geojson) => this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' })),
+            tap((geojson) => {
+              if (this.mapVisible) {
+                this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+              }
+            }),
             catchError((err: unknown) => {
               this.logger.error('Failed to load location polygons:', 'MapComponent', err);
               return EMPTY;
@@ -682,7 +751,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private updateSelectedAreaOverlays(): void {
-    if (!this.map) return;
+    if (!this.map || !this.mapVisible) return;
 
     const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
     const selectedOceanAreaFids = this.filterState.selectedOceanAreaIds();
@@ -707,7 +776,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private applyGeoJsonToLayer(apiZoomLevel: number, geojson: string): void {
-    if (!this.map) return;
+    // Don't render while the map is hidden — layers are rebuilt from cache
+    // when the map becomes visible again (see setupVisibilityObserver).
+    if (!this.map || !this.mapVisible) return;
 
     const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
     const layerId = isLocationPoints
@@ -734,6 +805,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private cleanup(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.visibilityObserver?.disconnect();
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
