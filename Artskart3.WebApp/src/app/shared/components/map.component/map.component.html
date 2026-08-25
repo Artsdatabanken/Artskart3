@@ -1,4 +1,8 @@
 <div class="map-container">
+  <app-map-toolbar (iconClick)="onIconClick($event)"></app-map-toolbar>
   <div #mapEl class="map"></div>
-  <app-map-toolbar [map]="map!" (iconClick)="onIconClick($event)"></app-map-toolbar>
+  <app-loading-indicator
+    [active]="isLoadingAreaData()"
+    [label]="'mapToolbar.loadingObservationsLabel' | translate"
+  ></app-loading-indicator>
 </div>

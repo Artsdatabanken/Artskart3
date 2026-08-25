@@ -73,21 +73,6 @@ describe('MittArtskartComponent', () => {
     expect(component.getExportName(job)).toBe('Eksport #7');
   });
 
-  it('should format file size in kB', () => {
-    const job = { fileSize: 597504 } as CsvExportJobDto;
-    expect(component.getFileSize(job)).toBe('583,5 kB');
-  });
-
-  it('should format file size in MB for large files', () => {
-    const job = { fileSize: 10485760 } as CsvExportJobDto;
-    expect(component.getFileSize(job)).toBe('10 MB');
-  });
-
-  it('should return "-" for missing file size', () => {
-    const job = { fileSize: 0 } as CsvExportJobDto;
-    expect(component.getFileSize(job)).toBe('-');
-  });
-
   it('should mark complete jobs as downloadable', () => {
     const job = { status: CSV_EXPORT_STATUS.Complete } as CsvExportJobDto;
     expect(component.isDownloadable(job)).toBe(true);

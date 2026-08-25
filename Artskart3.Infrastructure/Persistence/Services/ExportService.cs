@@ -42,9 +42,13 @@ public class ExportService : IExportService
         var softLimit = _configuration.GetValue("CsvExport:Limits:SoftRowLimit", 50_000);
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
 
-        // Estimert filstørrelse: ~200 bytes per rad * antall valgte kolonner / totalt mulige kolonner
-        var columnRatio = Math.Max(columns.Count, 1) / 50.0;
-        var estimatedSize = (long)(count * 200 * columnRatio);
+        // Estimert filstørrelse: ~500 bytes per rad skalert etter andel valgte kolonner,
+        // pluss CSV-overhead (skilletegn, linjeskift, header-rad og sep-hint)
+        var totalColumns = _columnRegistry.GetAllColumns().Count;
+        var selectedCount = columns.Count > 0 ? columns.Count : _columnRegistry.GetDefaultColumnNames().Count;
+        var columnRatio = (double)selectedCount / totalColumns;
+        var csvOverheadPerRow = selectedCount + 1; // semikolon mellom kolonner + \r\n
+        var estimatedSize = (long)(count * (500 * columnRatio + csvOverheadPerRow));
 
         return new ExportSummaryDto
         {
@@ -75,7 +79,10 @@ public class ExportService : IExportService
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
         var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
 
-        // Sjekk antall samtidige jobber for bruker
+        // Sjekk antall samtidige jobber for bruker.
+        // Merk: dette er en TOCTOU-sjekk (les-så-skriv uten serializable transaksjon),
+        // men med forventet lavt volum er race condition ikke et reelt problem.
+        // Revurder hvis volumet øker vesentlig.
         var activeJobCount = await _context.Set<CsvExportJob>()
             .CountAsync(j => j.UserId == userId &&
                 (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing), cancellationToken);
@@ -118,20 +125,16 @@ public class ExportService : IExportService
 
     public async Task<bool> CancelExportAsync(int jobId, string userId, CancellationToken cancellationToken)
     {
-        var job = await _context.Set<CsvExportJob>()
-            .FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId, cancellationToken);
+        // Atomisk oppdatering — unngår at workeren overskriver Complete med Cancelled
+        var updated = await _context.Set<CsvExportJob>()
+            .Where(j => j.Id == jobId && j.UserId == userId &&
+                   (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.Status, CsvExportStatus.Cancelled)
+                .SetProperty(j => j.CompletedAt, DateTime.UtcNow),
+                cancellationToken);
 
-        if (job == null)
-            return false;
-
-        if (job.Status != CsvExportStatus.Pending && job.Status != CsvExportStatus.Processing)
-            return false;
-
-        job.Status = CsvExportStatus.Cancelled;
-        job.CompletedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return true;
+        return updated > 0;
     }
 
     public async Task<string?> GetCsvBlobPathAsync(int jobId, string userId, CancellationToken cancellationToken)
@@ -186,6 +189,7 @@ public class ExportService : IExportService
     {
         Id = job.Id,
         Name = job.Name,
+        FileName = $"{job.Id}-{SanitizeExportName(job.Name)}",
         Status = job.Status,
         TotalRows = job.TotalRows,
         RowsProcessed = job.RowsProcessed,

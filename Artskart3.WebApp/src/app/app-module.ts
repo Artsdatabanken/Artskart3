@@ -15,6 +15,8 @@ import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
 import { AreasService } from './core/services/areas/areas.service';
+import { TitleStrategy } from '@angular/router';
+import { TranslatedTitleStrategy } from './shared/router/translated-title.strategy';
 
 class CustomTranslateLoader implements TranslateLoader {
   private http: HttpClient;
@@ -61,6 +63,10 @@ export function initializeLanguageFactory(languageService: LanguageService) {
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(withInterceptors([languageInterceptor, csrfInterceptor])),
     AreasService,
+    {
+      provide: TitleStrategy,
+      useClass: TranslatedTitleStrategy
+    },
     {
       provide: APP_INITIALIZER,
       useFactory: initializeLanguageFactory,

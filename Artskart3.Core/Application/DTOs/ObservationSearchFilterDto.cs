@@ -26,7 +26,19 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public int[]? BasisOfRecordIds { get; set; }
 
+    public int? RegistrationStatusId { get; set; }
+
     public CoordinatePrecisionDto? CoordinatePrecision { get; set; }
 
     public PeriodDto? Period { get; set; }
+
+    public string? ProjectName { get; set; }
+
+    public int? ProjectOrganizationId { get; set; }
+
+    public string? CollectionCode { get; set; }
+
+    public string? CatalogNumber { get; set; }
+
+    public bool? WithImages { get; set; }
 }

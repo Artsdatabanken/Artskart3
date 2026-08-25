@@ -2,6 +2,7 @@ using Artskart3.Api.Configuration;
 using Artskart3.Api.Filters;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
@@ -177,13 +178,23 @@ try
         options.UseSqlServer(dbConnectionString, x =>
         {
             x.UseNetTopologySuite();
-            x.CommandTimeout(600);
+            x.CommandTimeout(1800);
         });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 
     builder.Services.AddRepositories();
     builder.Services.AddApplicationServices();
+
+    var norTaxaSection = builder.Configuration.GetSection(NorTaxaOptions.SectionName);
+    builder.Services.Configure<NorTaxaOptions>(norTaxaSection);
+    var norTaxaOptions = norTaxaSection.Get<NorTaxaOptions>() ?? new NorTaxaOptions();
+
+    builder.Services.AddHttpClient<ISpeciesService, SpeciesService>(client =>
+    {
+        client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
+    });
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

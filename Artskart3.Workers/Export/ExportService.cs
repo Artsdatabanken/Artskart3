@@ -44,6 +44,8 @@ public class ExportService
 
     public async Task ProcessJobAsync(CsvExportJob job, CancellationToken cancellationToken)
     {
+        await EnsureBlobStorageConnectionAsync(cancellationToken);
+
         var columns = JsonSerializer.Deserialize<List<string>>(job.SelectedColumns) ?? [];
         var filter = JsonSerializer.Deserialize<ObservationSearchFilterDto>(job.FilterJson)
                      ?? new ObservationSearchFilterDto();
@@ -60,6 +62,14 @@ public class ExportService
 
         var query = BuildQuery(filter, needsDetail);
 
+        // Tell totalt antall rader og lagre på jobben med én gang
+        var totalRows = await query.CountAsync(cancellationToken);
+        await _context.Set<CsvExportJob>()
+            .Where(j => j.Id == job.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.TotalRows, totalRows),
+                cancellationToken);
+
         var fileSlug = SanitizeBlobName(job.Name);
         var csvBlobPath = $"exports/{job.Id}-{fileSlug}.csv";
         var excelBlobPath = $"exports/{job.Id}-{fileSlug}.xlsx";
@@ -68,7 +78,10 @@ public class ExportService
         var columnMap = _columnRegistry.GetAllColumns().ToDictionary(c => c.Name, c => c.DisplayName);
         var displayNames = columns.Select(c => columnMap.GetValueOrDefault(c, c)).ToList();
 
-        // TODO: Bytt til OpenWriteStreamAsync (streaming direkte til blob) når Azurite-bug er fikset.
+        // OBS: Hele CSV-en og Excel-arbeidsboken bygges i minnet før opplasting.
+        // Ved 500k rader kan dette bruke 1+ GB RAM (ClosedXML er spesielt tungt).
+        // Når Azurite-bug er fikset: bruk BlobClient.OpenWriteAsync for å streame CSV
+        // direkte til blob storage, og begrens Excel til maks ~50k rader (eller bruk MiniExcel).
         using var csvStream = new MemoryStream();
         await using var writer = new StreamWriter(csvStream, new UTF8Encoding(true), bufferSize: 8192, leaveOpen: true);
 
@@ -227,5 +240,35 @@ public class ExportService
             .ToArray());
 
         return string.IsNullOrEmpty(sanitized) ? "eksport" : sanitized;
+    }
+
+    private async Task EnsureBlobStorageConnectionAsync(CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(1));
+                await _blobStorage.CheckConnectionAsync(timeoutCts.Token);
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Blob storage tilkoblingsforsøk {Attempt}/{MaxAttempts} feilet", attempt, maxAttempts);
+
+                if (attempt == maxAttempts)
+                    throw new InvalidOperationException(
+                        $"Kunne ikke koble til blob storage etter {maxAttempts} forsøk. Eksportjobben avbrytes.", ex);
+
+                await Task.Delay(1000, cancellationToken);
+            }
+        }
     }
 }

@@ -23,28 +23,24 @@ public class LookupService : ILookupService
     {
         var areaTypes = await _lookupRepository.GetAreasAsync(cancellationToken);
 
-        // TODO HACK for å skille fastlandsnorge og svalbard, jan mayen, vi bør fikse dette ordentlig når vi setter opp ny import
-        // Fid "22" (Jan Mayen) og "21" (Svalbard) er fiktive fylkesnummer
-        // Svalbard har også et fiktivt fylkenummer 99 som ikke er med i denne omgang, har laget en egen task på dette for å undersøke hvordan det skal fungere
-        var countyAreaType = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.County);
-
         return new AreaResponseDto
         {
-            Counties = new CountyDto
-            {
-                FastlandsNorge = countyAreaType?.Areas.Where(a => a.Fid != "21" && a.Fid != "22").ToArray(),
-                JanMayen = countyAreaType?.Areas.FirstOrDefault(a => a.Fid == "22"),
-                Svalbard = countyAreaType?.Areas.FirstOrDefault(a => a.Fid == "21")
-            },
+            Counties = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.County),
             Municipalities = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.Municipality),
             RestrictedAreas = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.RestrictedArea),
             OceanAreas = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.OceanArea),
+            SvalbardBjørnøyaAndJanMayen = areaTypes.FirstOrDefault(at => at.Id == (int)AreaType.SvalbardBjørnøyaAndJanMayen)
         };
     }
 
     public Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default)
     {
         return _lookupRepository.GetInstitutionsAsync(cancellationToken);
+    }
+
+    public Task<IEnumerable<OrganizationDto>> SearchOrganizationsAsync(string name, int maxCount, CancellationToken cancellationToken = default)
+    {
+        return _lookupRepository.SearchOrganizationsAsync(name, maxCount, cancellationToken);
     }
 
     public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)

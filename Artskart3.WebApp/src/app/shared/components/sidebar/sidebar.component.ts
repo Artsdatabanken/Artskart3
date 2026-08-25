@@ -2,10 +2,14 @@ import {
   Component,
   ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
   inject,
   signal,
+  computed,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
 import { AreaService, CountyGroup } from '../../services/area/area.service';
@@ -13,9 +17,20 @@ import { InstitutionService } from '../../services/institution/institution.servi
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
-import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto } from '../../types/api.types';
+import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
+import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
+import { OrganizationService } from '../../services/organization/organization.service';
+import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import type { components } from '../../types/api.generated';
+
+const MinProjectNameSearchLength = 2;
+
+interface RegistreringOption {
+  id: number | null;
+  labelKey: string;
+  descriptionKey?: string;
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -32,8 +47,42 @@ export class SidebarComponent {
   private readonly behaviorService = inject(BehaviorService);
   private readonly basisOfRecordService = inject(BasisOfRecordService);
   private readonly taxonGroupService = inject(TaxonGroupService);
+  private readonly organizationService = inject(OrganizationService);
   private readonly filterState = inject(FilterStateService);
-  private readonly translate = inject(TranslateService);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly translate = inject(TranslateService);
+
+  private readonly projectNameSearch$ = new Subject<string>();
+  readonly projectNameSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
+  readonly showProjectNameSuggestions = signal<boolean>(false);
+
+  constructor() {
+    this.projectNameSearch$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const trimmed = term.trim();
+          if (trimmed.length < MinProjectNameSearchLength) {
+            return of<components['schemas']['OrganizationDto'][]>([]);
+          }
+          return this.organizationService.searchOrganizations(trimmed).pipe(
+            catchError(() => of<components['schemas']['OrganizationDto'][]>([])),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((organizations) => {
+        this.projectNameSuggestions.set(organizations);
+        this.showProjectNameSuggestions.set(organizations.length > 0);
+      });
+  }
+  readonly registreringOptions: RegistreringOption[] = [
+    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
+    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
+    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
+    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
+  ];
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -58,11 +107,17 @@ export class SidebarComponent {
   readonly categoryTypes = this.categoriesResource.value;
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
-  readonly basisOfRecords = this.basisOfRecordsResource.value;
+  readonly basisOfRecords = computed(() => {
+    const list = this.basisOfRecordsResource.value() ?? [];
+    return [...list].sort((a, b) => {
+      const nameA = this.getBasisOfRecordDisplayName(a).toLowerCase();
+      const nameB = this.getBasisOfRecordDisplayName(b).toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+  });
   readonly taxonGroups = this.taxonGroupsResource.value;
   readonly countyGroups = this.areaService.countyGroups;
-  readonly janMayenGroup = this.areaService.janMayenGroup;
-  readonly svalbardGroup = this.areaService.svalbardGroup;
+  readonly svalbardBjornoyaAndJanMayenAreas = this.areaService.svalbardBjornoyaAndJanMayenAreas;
   readonly oceanAreaGroup = this.areaService.oceanAreaGroup;
 
   isCategorySelected(id: number): boolean {
@@ -85,6 +140,15 @@ export class SidebarComponent {
 
   onCategoryToggle(id: number): void {
     this.filterState.toggleCategory(id);
+  }
+
+  getSortedCategories(categories: CategoryDto[] | null | undefined): CategoryDto[] {
+    if (!categories) return [];
+    return [...categories].sort((a, b) => {
+      const indexA = a.code ? CATEGORY_ORDER.indexOf(a.code) : -1;
+      const indexB = b.code ? CATEGORY_ORDER.indexOf(b.code) : -1;
+      return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+    });
   }
 
   onClearFilter(): void {
@@ -182,6 +246,14 @@ export class SidebarComponent {
     this.filterState.toggleBasisOfRecord(id);
   }
 
+  isRegistrationStatusSelected(id: number | null): boolean {
+    return this.filterState.selectedRegistrationStatusId() === id;
+  }
+
+  onRegistrationStatusChange(id: number | null): void {
+    this.filterState.setRegistrationStatus(id);
+  }
+
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
     if (!basisOfRecord.name) return basisOfRecord.description ?? '';
     const key = 'sidebar.basisOfRecordName.' + basisOfRecord.name;
@@ -269,5 +341,76 @@ export class SidebarComponent {
     }
 
     this.filterState.setPeriod(from, to);
+  }
+
+  readonly projectName = this.filterState.projectName;
+  readonly collectionCode = this.filterState.collectionCode;
+  readonly catalogNumber = this.filterState.catalogNumber;
+  readonly imageFilter = this.filterState.imageFilter;
+
+  onProjectNameChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setProjectName(input.value);
+    // Manual typing invalidates any previously selected exact match.
+    this.filterState.setProjectOrganizationId(null);
+    this.projectNameSearch$.next(input.value);
+  }
+
+  onProjectNameFocus(): void {
+    if (this.projectNameSuggestions().length > 0) {
+      this.showProjectNameSuggestions.set(true);
+    }
+  }
+
+  onProjectNameBlur(): void {
+    // Delay hiding so a (mousedown) selection on a suggestion registers first.
+    setTimeout(() => this.showProjectNameSuggestions.set(false), 150);
+  }
+
+  selectProjectNameSuggestion(organization: components['schemas']['OrganizationDto']): void {
+    this.filterState.setProjectName(organization.name ?? '');
+    this.filterState.setProjectOrganizationId(organization.id ?? null);
+    this.projectNameSuggestions.set([]);
+    this.showProjectNameSuggestions.set(false);
+  }
+
+  onCollectionCodeChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setCollectionCode(input.value);
+  }
+
+  onCatalogNumberChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setCatalogNumber(input.value);
+  }
+
+  onImageFilterChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setImageFilter(target.value as ImageFilterOption);
+    }
+  }
+
+  readonly months = [
+    { value: 1, labelKey: 'sidebar.months.january' },
+    { value: 2, labelKey: 'sidebar.months.february' },
+    { value: 3, labelKey: 'sidebar.months.march' },
+    { value: 4, labelKey: 'sidebar.months.april' },
+    { value: 5, labelKey: 'sidebar.months.may' },
+    { value: 6, labelKey: 'sidebar.months.june' },
+    { value: 7, labelKey: 'sidebar.months.july' },
+    { value: 8, labelKey: 'sidebar.months.august' },
+    { value: 9, labelKey: 'sidebar.months.september' },
+    { value: 10, labelKey: 'sidebar.months.october' },
+    { value: 11, labelKey: 'sidebar.months.november' },
+    { value: 12, labelKey: 'sidebar.months.december' },
+  ];
+
+  isMonthSelected(month: number): boolean {
+    return this.filterState.selectedMonths().includes(month);
+  }
+
+  onMonthToggle(month: number): void {
+    this.filterState.toggleMonth(month);
   }
 }

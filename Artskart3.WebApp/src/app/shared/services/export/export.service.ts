@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, Subscription, timer, switchMap, takeWhile, last } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
-import { CsvExportJobDto, CSV_EXPORT_STATUS, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
+import { CsvExportJobDto, CSV_EXPORT_STATUS, ExportSummaryDto, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
 
 @Injectable({
@@ -18,8 +18,18 @@ export class ExportService {
   /** Incremented when an export completes — use as a dependency to trigger refetch. */
   readonly historyVersion = signal(0);
 
-  startExport(filter: ObservationSearchFilter): Observable<{ jobId: number }> {
+  getSummary(filter: ObservationSearchFilter, name: string): Observable<ExportSummaryDto> {
     const request: StartExportRequestDto = {
+      name,
+      filter,
+      selectedColumns: [],
+    };
+    return this.http.post<ExportSummaryDto>(`${this.baseUrl}/summary`, request);
+  }
+
+  startExport(filter: ObservationSearchFilter, name: string): Observable<{ jobId: number }> {
+    const request: StartExportRequestDto = {
+      name,
       filter,
       selectedColumns: [],
     };
@@ -56,7 +66,14 @@ export class ExportService {
       next: (job) => {
         this.activePolls.delete(jobId);
         if (job.status === CSV_EXPORT_STATUS.Complete) {
-          this.alertService.showSuccess(this.translate.instant('export.complete'), { autoDismissMs: 10000 });
+          this.alertService.showSuccess('', {
+            heading: this.translate.instant('export.complete'),
+            autoDismissMs: 10000,
+            link: {
+              text: this.translate.instant('export.goToExport'),
+              route: '/mittartskart',
+            },
+          });
         } else {
           this.alertService.showError(this.translate.instant('export.failed'));
         }
@@ -75,11 +92,11 @@ export class ExportService {
     return this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`);
   }
 
-  getDownloadUrl(jobId: number): Observable<{ url: string }> {
-    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download`);
+  downloadFile(jobId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${jobId}/download`, { responseType: 'blob' });
   }
 
-  getExcelDownloadUrl(jobId: number): Observable<{ url: string }> {
-    return this.http.get<{ url: string }>(`${this.baseUrl}/${jobId}/download/excel`);
+  downloadExcelFile(jobId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${jobId}/download/excel`, { responseType: 'blob' });
   }
 }

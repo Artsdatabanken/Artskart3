@@ -782,10 +782,11 @@ export interface components {
             centroid?: components["schemas"]["CentroidDto"];
         };
         AreaResponseDto: {
-            counties?: components["schemas"]["CountyDto"];
+            counties?: components["schemas"]["AreaTypeDto"];
             municipalities?: components["schemas"]["AreaTypeDto"];
             restrictedAreas?: components["schemas"]["AreaTypeDto"];
             oceanAreas?: components["schemas"]["AreaTypeDto"];
+            svalbardBjørnøyaAndJanMayen?: components["schemas"]["AreaTypeDto"];
         };
         AreaTypeDto: {
             /** Format: int32 */
@@ -837,15 +838,11 @@ export interface components {
             /** Format: int32 */
             to?: number | null;
         };
-        CountyDto: {
-            fastlandsNorge?: components["schemas"]["AreaDto"][] | null;
-            janMayen?: components["schemas"]["AreaDto"];
-            svalbard?: components["schemas"]["AreaDto"];
-        };
         CsvExportJobDto: {
             /** Format: int32 */
             id?: number;
             name?: string | null;
+            fileName?: string;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
@@ -892,6 +889,9 @@ export interface components {
             estimatedFileSizeBytes?: number;
             exceedsSoftLimit?: boolean;
             exceedsHardLimit?: boolean;
+            exportName?: string | null;
+            /** Format: int32 */
+            hardLimit?: number;
         };
         InstitutionDto: {
             /** Format: int32 */
@@ -905,6 +905,7 @@ export interface components {
             taxonGroupIds?: number[] | null;
             categoryIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             organizationIds?: number[] | null;
             municipalityIds?: string[] | null;
             countyIds?: string[] | null;
@@ -913,6 +914,11 @@ export interface components {
             behaviorIds?: number[] | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -971,8 +977,19 @@ export interface components {
             oceanAreaIds?: string[] | null;
             behaviorIds?: number[] | null;
             basisOfRecordIds?: number[] | null;
+            registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
+            projectName?: string | null;
+            projectOrganizationId?: number | null;
+            collectionCode?: string | null;
+            catalogNumber?: string | null;
+            withImages?: boolean | null;
+        };
+        OrganizationDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string | null;
         };
         PagedObservationResponseDto: {
             items?: components["schemas"]["ObservationDto"][] | null;
@@ -982,12 +999,14 @@ export interface components {
             resultsPerPage?: number;
             /** Format: int32 */
             lookaheadCount?: number;
+            hasMorePages?: boolean;
         };
         PeriodDto: {
             /** Format: int32 */
             from?: number | null;
             /** Format: int32 */
             to?: number | null;
+            months?: number[] | null;
         };
         StartExportRequestDto: {
             name?: string | null;

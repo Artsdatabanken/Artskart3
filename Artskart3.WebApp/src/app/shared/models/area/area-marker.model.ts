@@ -45,6 +45,18 @@ export interface AreaMarkerFeature {
   };
 }
 
+/**
+ * Speiler Artskart3.Core/Domain/Enums/AreaType.cs
+ */
+export enum AreaTypeId {
+  Municipality = 1,
+  County = 2,
+  RestrictedArea = 3,
+  OceanArea = 4,
+  NorwaysMarineAreas = 5,
+  SvalbardBjørnøyaAndJanMayen = 6,
+}
+
 export const AREA_TYPE_CONFIG: Record<number, {
   id: number;
   name: string;
@@ -68,4 +80,11 @@ export function getAreaTypeName(areaTypeId: number): string {
 
 export function getAreaTypeColor(areaTypeId: number): string {
   return AREA_TYPE_CONFIG[areaTypeId]?.color ?? '#005A71';
+}
+
+export interface LocationPolygonDto {
+  locationId: number;
+  locality?: string;
+  wktPolygon: string;
+  observationCount: number;
 }

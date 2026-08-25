@@ -19,7 +19,7 @@ describe('SidebarComponent', () => {
 
   const mockAreaResponse = {
     counties: {
-      fastlandsNorge: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
+      areas: [{ id: 1, fid: '03', name: 'Oslo', isCurrent: true }],
     },
     municipalities: {
       id: 2,
@@ -107,13 +107,6 @@ describe('SidebarComponent', () => {
       'adb-accordion-item > adb-checkbox[slot="heading"]',
     );
     expect(checkboxes.length).toBe(2);
-  });
-
-  it('should hide the search field', () => {
-    const searchField = fixture.nativeElement.querySelector('.search-field');
-    expect(searchField).toBeTruthy();
-    const styles = getComputedStyle(searchField);
-    expect(styles.display).toBe('none');
   });
 
   describe('onCategoryToggle', () => {

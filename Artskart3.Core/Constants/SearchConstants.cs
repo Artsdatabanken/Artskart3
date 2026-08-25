@@ -6,11 +6,17 @@ public static class SearchConstants
     public const int DefaultMaxTaxonCount = 20;
     public const int MaxTaxonCount = 1000;
     public const int MinTaxonResults = 1;
+    public const int DefaultMaxOrganizationCount = 10;
+    public const int MaxOrganizationCount = 50;
 
     // Location search constants
     public const int DefaultMaxLocations = 100000;
     public const int MaxLocationResults = 100000;
     public const int MinLocationResults = 1;
+
+    // Polygon search constants (geometry is expensive to transfer and render)
+    public const int DefaultMaxPolygons = 2000;
+    public const int MaxPolygonResults = 5000;
 
     // Observation search constants
     public const int DefaultMaxObservations = 20;

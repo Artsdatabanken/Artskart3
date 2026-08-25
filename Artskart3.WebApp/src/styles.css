@@ -2,6 +2,8 @@
 @import 'ol/ol.css';
 @import '@artsdatabanken/tokens';
 @import '@artsdatabanken/tokens/link';
+@import './styles/risk-category.css';
+@import './styles/risk-category-badge.css';
 
 /* ============================================================================
    APP-SPECIFIC VARIABLES (no design-system equivalent)
@@ -10,6 +12,9 @@
 :root {
   --panel-min-width: 300px;
   --panel-max-width: 500px;
+  --home-header-height: 80px;
+  --home-handle-height: 56px;
+  --home-mobile-breakpoint: 768px;
 }
 
 /* ============================================================================
@@ -35,7 +40,12 @@ body {
   background-color: var(--adb-background-default);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: var(--adb-font-weight-bold);
   line-height: 1.2;
   margin-bottom: var(--adb-spacing-md);
@@ -79,7 +89,10 @@ a:hover {
   text-decoration: underline;
 }
 
-button, input, textarea, select {
+button,
+input,
+textarea,
+select {
   font-family: var(--adb-font-family-primary);
   font-size: var(--adb-font-size-base);
 }
@@ -88,13 +101,17 @@ button {
   cursor: pointer;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   border: 1px solid var(--adb-border-subtle);
   border-radius: var(--adb-border-radius);
   padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--adb-border-accent);
 }
@@ -134,7 +151,9 @@ a:focus-visible {
     font-weight: var(--adb-font-weight-medium);
   }
 
-   input, textarea, select {
+  input,
+  textarea,
+  select {
     border-width: 2px;
   }
 }
@@ -149,118 +168,6 @@ a:focus-visible {
   white-space: nowrap;
 }
 
-/* ============================================================================
-   LANGUAGE DROPDOWN MENU
-   ============================================================================ */
-
-.language-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: var(--adb-background-default);
-  min-width: 100px;
-  margin-top: 1px;
-  z-index: 1001;
-  overflow: hidden;
-  padding: var(--adb-spacing-xsm);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--adb-spacing-2xsm);
-  border: 1px solid var(--adb-border-default);
-  border-radius: var(--adb-border-radius-sm);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.language-dropdown adb-button {
-  width: 100%;
-}
-
-.language-dropdown adb-button::part(base) {
-  width: 100%;
-  justify-content: center;
-}
-
-.mobile-language-dropdown {
-  top: 100%;
-  left: var(--adb-spacing-md);
-  right: auto;
-  transform: none;
-  margin-top: 4px;
-  z-index: 2000 !important;
-  position: absolute;
-  min-width: auto;
-  width: auto;
-}
-
-.mobile-user-dropdown {
-  top: 100%;
-  left: 0;
-  right: auto;
-  transform: none;
-  margin-top: 4px;
-  z-index: 2000 !important;
-  position: absolute;
-  min-width: 160px;
-}
-
-.user-control {
-  display: flex;
-  align-items: center;
-  position: relative;
-  overflow: visible;
-  z-index: 1002;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: var(--adb-background-default);
-  min-width: 160px;
-  margin-top: 1px;
-  z-index: 1001;
-  overflow: hidden;
-  padding: var(--adb-spacing-xsm);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--adb-spacing-2xsm);
-  border: 1px solid var(--adb-border-default);
-  border-radius: var(--adb-border-radius-sm);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.user-dropdown-item {
-  display: block;
-  padding: var(--adb-spacing-sm) var(--adb-spacing-md);
-  color: var(--adb-text-primary);
-  text-decoration: none;
-  font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-3);
-  border-radius: var(--adb-border-radius-sm);
-}
-
-.user-dropdown-item:hover {
-  background: var(--adb-background-subtle);
-  color: var(--adb-text-hover);
-}
-
-.user-dropdown-item:focus-visible {
-  outline: 4px solid var(--adb-focus-outer);
-  outline-offset: 2px;
-}
-
-.user-dropdown-divider {
-  height: 1px;
-  background-color: var(--adb-border-default);
-  margin: var(--adb-spacing-2xsm) 0;
-}
-
-.user-dropdown adb-button {
-  width: 100%;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -273,18 +180,18 @@ a:focus-visible {
   border-width: 0;
 }
 
-
 /* Full screen map styles */
-html, body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: clip;
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: clip;
 }
 
 app-root {
-    display: block;
-    width: 100%;
-    height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
 }

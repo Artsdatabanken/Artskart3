@@ -29,5 +29,14 @@ public enum BasisOfRecord
     MaterialSample = 13,
 
     [Description("Human Observasjon")]
-    HumanObservasjon = 14
+    HumanObservasjon = 14,
+
+    [Description("DNA")]
+    DNA = 16,
+
+    [Description("eDNA")]
+    EDNA = 17,
+
+    [Description("eDNA Barcoding")]
+    EDNABarcoding = 18
 }

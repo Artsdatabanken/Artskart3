@@ -139,7 +139,7 @@
   padding: var(--adb-spacing-2xsm) 0;
   color: var(--adb-text-accent);
   font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-2);
+  font-size: var(--adb-font-size-3);
   font-weight: var(--adb-font-weight-regular);
   line-height: 1;
   cursor: pointer;
@@ -264,6 +264,106 @@
   overflow: visible;
 }
 
+.language-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--adb-background-default);
+  min-width: 100px;
+  margin-top: 1px;
+  z-index: 1001;
+  overflow: hidden;
+  padding: var(--adb-spacing-xsm);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--adb-spacing-2xsm);
+  border: 1px solid var(--adb-border-default);
+  border-radius: var(--adb-border-radius-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.language-dropdown adb-button {
+  width: 100%;
+}
+
+.language-dropdown adb-button::part(base) {
+  width: 100%;
+  justify-content: center;
+}
+
+.mobile-language-dropdown {
+  top: 100%;
+  left: var(--adb-spacing-md);
+  right: auto;
+  transform: none;
+  margin-top: 4px;
+  z-index: 2000 !important;
+  position: absolute;
+  min-width: auto;
+  width: auto;
+}
+
+.mobile-user-dropdown {
+  top: 100%;
+  left: 0;
+  right: auto;
+  transform: none;
+  margin-top: 4px;
+  z-index: 2000 !important;
+  position: absolute;
+  min-width: 160px;
+}
+
+.user-control {
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: visible;
+  z-index: 1002;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--adb-background-default);
+  min-width: 160px;
+  margin-top: 1px;
+  z-index: 1001;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--adb-spacing-2xsm);
+  border: 1px solid var(--adb-border-default);
+  border-radius: var(--adb-border-radius-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.user-dropdown-item {
+  display: block;
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
+  border-bottom: 1px solid var(--adb-border-default);
+  text-decoration: none;
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-3);
+}
+
+.user-dropdown-item:hover {
+  text-decoration: none;
+  background: var(--adb-surface-subtle);
+  color: var(--adb-text-accent);
+}
+
+.user-dropdown-item:focus-visible {
+  outline: 4px solid var(--adb-focus-outer);
+  outline-offset: 2px;
+}
+
+.user-dropdown adb-button {
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+}
 
 /* ============================================================================
    RESPONSIVE DESIGN
@@ -296,6 +396,9 @@
   .header-right .icon-btn,
   .header-right .user-control,
   .header-right > button.header-btn:not(.burger-menu-btn):not(.close-btn) {
+    display: none !important;
+  }
+  .header-right > adb-dark-mode-toggle {
     display: none !important;
   }
 

@@ -85,9 +85,11 @@ public class LookupControllerTests
     {
         var areaResponse = new AreaResponseDto
         {
-            Counties = new CountyDto
+            Counties = new AreaTypeDto
             {
-                FastlandsNorge = [new AreaDto { Id = 1, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
+                Id = 1,
+                Name = "Fylke",
+                Areas = [new AreaDto { Id = 1, Fid = "03", Name = "Oslo", IsCurrent = true, ObservationCount = 500 }]
             },
             Municipalities = new AreaTypeDto
             {

@@ -6,6 +6,7 @@ public class CsvExportJobDto
 {
     public int Id { get; set; }
     public string? Name { get; set; }
+    public string FileName { get; set; } = null!;
     public CsvExportStatus Status { get; set; }
     public int TotalRows { get; set; }
     public int RowsProcessed { get; set; }

@@ -1,9 +1,14 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.BusinessModels;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -11,14 +16,26 @@ namespace Artskart3.Tests.Unit;
 public class SearchControllerTests
 {
     private readonly Mock<ISearchService> _serviceMock;
+    private readonly Mock<ISpeciesService> _speciesServiceMock;
     private readonly Mock<ILogger<SearchController>> _loggerMock;
     private readonly SearchController _sut;
 
     public SearchControllerTests()
     {
         _serviceMock = new Mock<ISearchService>();
+        _speciesServiceMock = new Mock<ISpeciesService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
-        _sut = new SearchController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+
+        var services = new ServiceCollection();
+        services.AddMvcCore();
+        services.AddLogging();
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+            Response = { Body = new MemoryStream() }
+        };
+        _sut.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
 
     // -----------------------------------------------------------------------
@@ -96,60 +113,72 @@ public class SearchControllerTests
     [InlineData(0)]
     [InlineData(100001)]
     [InlineData(-1)]
-    public async Task GetObservationLocations_WithInvalidMaxResults_ReturnsBadRequest(int maxResults)
+    public async Task GetObservationLocations_WithInvalidMaxResults_Returns400(int maxResults)
     {
         var filter = new LocationSearchFilterDto { MaxResults = maxResults };
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(filter);
+        await _sut.GetObservationLocations(filter);
 
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _sut.HttpContext.Response.StatusCode.Should().Be(400);
     }
 
     [Fact]
-    public async Task GetObservationLocations_WhenPrecisionFromExceedsPrecisionTo_ReturnsBadRequest()
+    public async Task GetObservationLocations_WhenPrecisionFromExceedsPrecisionTo_Returns400()
     {
         var filter = new LocationSearchFilterDto
         {
             CoordinatePrecision = new CoordinatePrecisionDto { From = 500, To = 100 }
         };
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(filter);
+        await _sut.GetObservationLocations(filter);
 
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _sut.HttpContext.Response.StatusCode.Should().Be(400);
     }
 
     [Fact]
-    public async Task GetObservationLocations_WithValidFilter_ReturnsContentResult()
+    public async Task GetObservationLocations_WithValidFilter_WritesJsonToResponseBody()
     {
-        var geoJson = """{"type":"FeatureCollection","features":[]}""";
+        var locations = new List<LocationModel>
+        {
+            new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
+        };
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync(geoJson);
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(locations);
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(new LocationSearchFilterDto());
+        await _sut.GetObservationLocations(new LocationSearchFilterDto());
 
-        result.Result.Should().BeOfType<ContentResult>()
-            .Which.ContentType.Should().Be("application/json");
+        _sut.HttpContext.Response.ContentType.Should().Be("application/json");
+        _sut.HttpContext.Response.Body.Position = 0;
+        var body = await new StreamReader(_sut.HttpContext.Response.Body).ReadToEndAsync();
+        body.Should().Contain("\"locations\"");
+        body.Should().Contain("\"epsg\"");
     }
 
     [Fact]
     public async Task GetObservationLocations_WithNullFilter_UsesDefaultsAndSucceeds()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
-            .ReturnsAsync("""{"type":"FeatureCollection","features":[]}""");
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LocationModel>());
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
-        var result = await _sut.GetObservationLocations(null);
+        await _sut.GetObservationLocations(null);
 
-        result.Result.Should().BeOfType<ContentResult>();
+        _sut.HttpContext.Response.ContentType.Should().Be("application/json");
+        _serviceMock.Verify(s => s.GetLocationsAsync(It.IsNotNull<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetObservationLocations_WhenServiceThrowsApplicationException_Throws()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ApplicationException("DB error"));
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
         var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 
@@ -160,12 +189,70 @@ public class SearchControllerTests
     public async Task GetObservationLocations_WhenServiceThrowsUnexpectedException_Throws()
     {
         _serviceMock
-            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>()))
+            .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Unexpected"));
+        _sut.HttpContext.Response.Body = new MemoryStream();
 
         var act = () => _sut.GetObservationLocations(new LocationSearchFilterDto());
 
         await act.Should().ThrowAsync<Exception>();
     }
 
+    // -----------------------------------------------------------------------
+    // GetAreaCounts
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreaCounts_WithInvalidZoomLevel_ReturnsBadRequest()
+    {
+        var result = await _sut.GetAreaCounts(zoomLevel: 3);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_ReturnsCountsWithETag()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        (okResult.Value as AreaCountDto[]).Should().HaveCount(1);
+        _sut.HttpContext.Response.Headers.ETag.ToString().Should().Be("\"abc123\"");
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithMatchingETag_Returns304()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        _sut.HttpContext.Request.Headers["If-None-Match"] = "\"abc123\"";
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        var statusResult = result.Should().BeOfType<StatusCodeResult>().Subject;
+        statusResult.StatusCode.Should().Be(304);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithNonMatchingETag_Returns200()
+    {
+        var counts = new[] { new AreaCountDto { Fid = "03", ObservationCount = 100 } };
+        _serviceMock
+            .Setup(s => s.GetAreaCountsAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AreaCountsResultDto(counts, "\"abc123\""));
+
+        _sut.HttpContext.Request.Headers["If-None-Match"] = "\"old-etag\"";
+
+        var result = await _sut.GetAreaCounts(zoomLevel: 1);
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
 }

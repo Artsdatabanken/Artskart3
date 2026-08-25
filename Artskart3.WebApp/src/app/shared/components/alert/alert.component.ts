@@ -1,5 +1,6 @@
 import '@artsdatabanken/components';
 import { ChangeDetectionStrategy, Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { AlertService } from '../../services/alert/alert.service';
 
 @Component({
@@ -11,6 +12,7 @@ import { AlertService } from '../../services/alert/alert.service';
 })
 export class AlertComponent {
   protected readonly alertService = inject(AlertService);
+  private readonly router = inject(Router);
 
   protected formatDateRange(startDate?: string, endDate?: string): string {
     if (startDate && endDate && startDate === endDate) return startDate;
@@ -18,5 +20,11 @@ export class AlertComponent {
     if (startDate) return `From ${startDate}`;
     if (endDate) return `Until ${endDate}`;
     return '';
+  }
+
+  onLinkClick(event: Event, route: string, alertId: number): void {
+    event.preventDefault();
+    this.alertService.dismiss(alertId);
+    this.router.navigateByUrl(route);
   }
 }

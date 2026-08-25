@@ -4,9 +4,10 @@ Bakgrunnstjeneste for Artskart3 som kjører planlagte jobber via **Hangfire**. D
 
 ## Jobber
 
-| Jobb | Status | Beskrivelse |
-|------|--------|-------------|
-| CSV-eksport | Implementert | Poller databasen for ventende eksportjobber, streamer CSV til Azure Blob Storage |
+| Jobb | Frekvens | Beskrivelse |
+|------|----------|-------------|
+| CSV-eksport (poll) | Hvert sekund | Poller databasen for ventende eksportjobber, genererer CSV og Excel, laster opp til Azure Blob Storage |
+| CSV-eksport (opprydding) | Daglig kl. 03:00 | Sletter utløpte eksportjobber og tilhørende blob-filer |
 | Harvest | Placeholder | Henter data fra eksterne datakilder (GBIF, Artsobservasjoner m.fl.) |
 | Import | Placeholder | Prosesserer data fra cache til index-databasen |
 | Vedlikehold | Placeholder | Taksonomi-sync, områdeoppdateringer |
@@ -86,15 +87,16 @@ Viktige innstillinger i `appsettings.json`:
 
 | Innstilling | Standardverdi | Beskrivelse |
 |-------------|---------------|-------------|
-| `CsvExport:Limits:SoftRowLimit` | 50 000 | Advarsel til bruker (eksport tillatt) |
-| `CsvExport:Limits:HardRowLimit` | 100 000 | Blokkerer eksport |
+| `CsvExport:Limits:SoftRowLimit` | 300 000 | Advarsel til bruker (eksport tillatt) |
+| `CsvExport:Limits:HardRowLimit` | 500 000 | Blokkerer eksport |
 | `CsvExport:Limits:MaxConcurrentPerUser` | 3 | Maks samtidige jobber per bruker |
 | `CsvExport:Worker:BatchSize` | 5 000 | Rader per database-batch |
 | `CsvExport:Worker:InterBatchDelayMs` | 100 | Pause mellom batcher (ms) |
+| `CsvExport:Worker:ExpiresAtDays` | 180 | Dager før ferdige eksporter slettes. Det er ikke avklart om eksporter skal utløpe eller beholdes permanent — dette må tas stilling til i prosjektet. |
+| `CsvExport:Worker:StuckJobTimeoutMinutes` | 10 | Minutter før en Processing-jobb anses som hengt og tilbakestilles |
 | `CsvExport:BlobStorage:ConnectionString` | `UseDevelopmentStorage=true` | Azurite lokalt, ekte connection string i prod |
 
 ## Hangfire
 
 - **Storage:** `Hangfire`-schema i eksisterende index-database (opprettes automatisk)
-- **Dashboard:** `/hangfire` (ingen autentisering foreløpig)
-- **CSV-eksport poll:** Kjører hvert 30. sekund
+- **Dashboard:** `/hangfire` (kun tilgjengelig i Development, ingen autentisering foreløpig). For å åpne i andre miljøer: implementer `IDashboardAuthorizationFilter` med rolle-sjekk og fjern `IsDevelopment()`-guard i `Program.cs`.

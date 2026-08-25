@@ -12,7 +12,7 @@ describe('AreaService', () => {
 
   const mockAreaResponse: AreaResponseDto = {
     counties: {
-      fastlandsNorge: [
+      areas: [
         { id: 1, fid: '03', name: 'Oslo', isCurrent: true, observationCount: 100 },
         { id: 2, fid: '11', name: 'Rogaland', isCurrent: true, observationCount: 200 },
       ],
@@ -94,7 +94,7 @@ describe('AreaService', () => {
   it('should group municipalities correctly when fids are not zero-padded', () => {
     const unpadded: AreaResponseDto = {
       counties: {
-        fastlandsNorge: [
+        areas: [
           { id: 1, fid: '3', name: 'Oslo', isCurrent: true, observationCount: 100 },
           { id: 2, fid: '11', name: 'Rogaland', isCurrent: true, observationCount: 200 },
         ],

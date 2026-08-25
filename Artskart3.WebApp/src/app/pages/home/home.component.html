@@ -1,8 +1,28 @@
-<aside class="sidebar">
+<aside
+  class="sidebar"
+  [class.dragging]="isDragging()"
+  [style.transform]="sheetTransform()"
+>
+  <div
+    class="sheet-handle"
+    role="button"
+    tabindex="0"
+    [attr.aria-expanded]="isFilterOpen()"
+    [attr.aria-label]="'sidebar.searchAndFilter' | translate"
+    (pointerdown)="onHandlePointerDown($event)"
+    (pointermove)="onHandlePointerMove($event)"
+    (pointerup)="onHandlePointerUp($event)"
+    (pointercancel)="onHandlePointerUp($event)"
+    (keydown.enter)="toggleFilter()"
+    (keydown.space)="toggleFilter()"
+  >
+    <span class="sheet-handle-bar"></span>
+    <span class="sheet-handle-label">{{ 'sidebar.searchAndFilter' | translate }}</span>
+  </div>
   <app-resizable-panel
     [initialWidth]="filterPanelWidth()"
-    [minWidth]="300"
-    [maxWidth]="500"
+    [minWidth]="minWidth"
+    [maxWidth]="maxWidth"
     [isDraggable]="true"
     (widthChanged)="onFilterPanelResize($event)"
   >
@@ -13,6 +33,7 @@
 <div class="home-content">
   <div>
     <adb-tabs
+      role="tablist"
       [attr.aria-label]="'tabs.ariaLabel' | translate"
       (tab-change)="onTabChange($event)"
       class="tabs"
@@ -85,3 +106,62 @@
     </div>
   </div>
 </div>
+
+<!-- Export name prompt modal -->
+<app-modal
+  [open]="showNameModal()"
+  [title]="'export.modalTitle' | translate"
+  variant="prompt"
+  [confirmLabel]="summaryLoading() ? ('export.loadingButton' | translate) : ('export.startButton' | translate)"
+  [cancelLabel]="'export.cancelButton' | translate"
+  [confirmDisabled]="!exportName().trim() || summaryLoading()"
+  [loading]="summaryLoading()"
+  (modalConfirm)="onNameModalConfirm()"
+  (modalCancel)="onNameModalCancel()"
+>
+  <label class="export-name-label" for="export-name-input">
+    <span class="export-name-label-text">{{ 'export.nameLabel' | translate }}</span>
+    <span class="export-name-required">{{ 'export.nameRequired' | translate }}</span>
+  </label>
+  <input
+    id="export-name-input"
+    type="text"
+    class="export-name-input"
+    [value]="exportName()"
+    (input)="exportName.set($any($event.target).value)"
+    (keydown.enter)="onNameModalConfirm()"
+  />
+</app-modal>
+
+<!-- Export started info modal -->
+<app-modal
+  [open]="showInfoModal()"
+  [title]="'export.startedTitle' | translate"
+  variant="info"
+  [confirmLabel]="'export.closeButton' | translate"
+  (modalConfirm)="onInfoModalClose()"
+  (modalCancel)="onInfoModalClose()"
+>
+  <p class="export-info-message">{{ 'export.startedMessage' | translate }}</p>
+  <p class="export-info-size">{{ 'export.estimatedSize' | translate: { size: (estimatedFileSizeBytes() | formatFileSize:translate.currentLang) } }}</p>
+  <label class="export-dont-show-label">
+    <input
+      type="checkbox"
+      [checked]="dontShowAgain()"
+      (change)="dontShowAgain.set($any($event.target).checked)"
+    />
+    {{ 'export.dontShowAgain' | translate }}
+  </label>
+</app-modal>
+
+<!-- Export exceeds limit modal -->
+<app-modal
+  [open]="showLimitModal()"
+  [title]="'export.exceedsLimitTitle' | translate"
+  variant="info"
+  [confirmLabel]="'export.closeButton' | translate"
+  (modalConfirm)="onLimitModalClose()"
+  (modalCancel)="onLimitModalClose()"
+>
+  <p>{{ 'export.exceedsLimitMessage' | translate: { totalRows: (limitTotalRows() | formatNumber:translate.currentLang), hardLimit: (limitHardLimit() | formatNumber:translate.currentLang) } }}</p>
+</app-modal>

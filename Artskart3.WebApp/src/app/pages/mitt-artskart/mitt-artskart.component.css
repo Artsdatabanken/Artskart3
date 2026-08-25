@@ -88,3 +88,13 @@ h2 {
   color: var(--adb-text-secondary);
   padding: var(--adb-spacing-lg);
 }
+
+.export-row-failed td {
+  background-color: var(--adb-alert-danger-surface-subtle) !important;
+  color: var(--adb-alert-danger-text);
+}
+
+.export-failed-label {
+  font-weight: var(--adb-font-weight-semibold, 600);
+  margin-right: var(--adb-spacing-xs, 4px);
+}

@@ -14,6 +14,7 @@ import { map } from 'rxjs/operators';
 import {
   AreaMarkerDto,
   AreaMarkerFeature,
+  LocationPolygonDto,
 } from '@shared/models/area/area-marker.model';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -269,11 +270,17 @@ function calculateClippedCentroid(parsed: ParsedGeometry, extent: [number, numbe
   return ensureInsideRing([largest.cx, largest.cy], largest.ring);
 }
 
+export interface AreaCountDto {
+  fid: string;
+  observationCount: number;
+}
+
 export interface LocationSearchFilter {
   categoryIds?: number[];
   organizationIds?: number[];
   behaviorIds?: number[];
   basisOfRecordIds?: number[];
+  registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   countyIds?: string[];
   municipalityIds?: string[];
@@ -283,6 +290,12 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
+  projectName?: string;
+  projectOrganizationId?: number | null;
+  collectionCode?: string;
+  catalogNumber?: string;
+  withImages?: boolean | null;
+  periodMonths?: number[] | null;
 }
 
 @Injectable({
@@ -296,7 +309,9 @@ export class AreasService {
   private readonly validationService: ValidationService = inject(ValidationService);
 
   private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
+  private readonly areaCountsEndpoint = '/api/Search/AreaCounts';
   private readonly locationsEndpoint = '/api/Search/Locations';
+  private readonly locationPolygonsEndpoint = '/api/Search/LocationPolygons';
 
   /**
    * Henter områdemarkører fra API for gitt zoomnivå.
@@ -323,8 +338,8 @@ export class AreasService {
   }
 
   /**
-   * Fetches locations as a serialized GeoJSON FeatureCollection string
-   * with per-feature `nbic:style` for direct use with `updateGeoJSONLayer`.
+   * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
+   * med per-feature `nbic:style` for direkte bruk med `updateGeoJSONLayer`.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
    */
@@ -333,12 +348,112 @@ export class AreasService {
 
     return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
-        const parsed = this.apiClientService.parseJsonResponse<unknown>(responseText, AreasService.SERVICE_NAME);
-        const features = this.mapLocationsToGeoJson(parsed);
+        const parsed = this.apiClientService.parseJsonResponse<{ locations: unknown[] }>(responseText, AreasService.SERVICE_NAME);
+        const features = this.mapCompactLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
         return JSON.stringify({ type: 'FeatureCollection', features });
       })
     );
+  }
+
+  /**
+   * Fetches location polygon geometries and returns as a GeoJSON FeatureCollection string.
+   */
+  getLocationPolygons(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+    const body = this.buildFilterBody(filter, extent);
+
+    return this.apiClientService.postJson<LocationPolygonDto[]>(this.locationPolygonsEndpoint, body).pipe(
+      map(polygons => {
+        if (!Array.isArray(polygons)) {
+          return JSON.stringify({ type: 'FeatureCollection', features: [] });
+        }
+
+        const features = polygons
+          .map(p => this.createPolygonFeature(p))
+          .filter((f): f is AreaMarkerFeature => f !== null);
+
+        this.loggerService.info(`Retrieved ${features.length} location polygon features`, AreasService.SERVICE_NAME);
+        return JSON.stringify({ type: 'FeatureCollection', features });
+      })
+    );
+  }
+
+  private createPolygonFeature(dto: LocationPolygonDto): AreaMarkerFeature | null {
+    const parsed = parseWkt(dto.wktPolygon);
+    if (!parsed) return null;
+
+    const count = dto.observationCount ?? 0;
+    return {
+      type: 'Feature',
+      id: dto.locationId,
+      geometry: { type: parsed.type, coordinates: parsed.coordinates },
+      properties: {
+        id: dto.locationId,
+        name: dto.locality ?? `Location ${dto.locationId}`,
+        observationCount: count,
+        observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count) : '',
+        isPolygon: true,
+        'nbic:style': {
+          fillColor: 'rgba(0, 90, 113, 0.06)',
+          strokeColor: '#005A71',
+          strokeWidth: 1.5,
+        },
+      },
+    };
+  }
+
+  /**
+   * Henter observasjonsantall per område uten geometri, med ETag-støtte.
+   */
+  getAreaCounts(
+    apiZoomLevel: number,
+    filter?: LocationSearchFilter,
+    etag?: string,
+  ): Observable<{ counts: AreaCountDto[] | null; etag: string | null; notModified: boolean }> {
+    const body = this.buildFilterBody(filter);
+
+    return this.apiClientService
+      .postJsonWithETag<AreaCountDto[]>(`${this.areaCountsEndpoint}?zoomLevel=${apiZoomLevel}`, body, etag)
+      .pipe(
+        map(response => ({
+          counts: response.body ?? null,
+          etag: response.etag,
+          notModified: response.notModified,
+        })),
+      );
+  }
+
+  /**
+   * Bygger GeoJSON-features med kun polygon-omriss for valgte områder (ingen centroid-markører).
+   */
+  buildOverlayFeatures(areas: AreaMarkerDto[], selectedFids: string[]): unknown[] {
+    if (!selectedFids.length || !areas.length) return [];
+
+    const fidSet = new Set(selectedFids);
+    const features: unknown[] = [];
+
+    for (const area of areas) {
+      if (!fidSet.has(area.fid)) continue;
+      const parsed = parseWkt(area.wktsPolygon);
+      if (!parsed) continue;
+
+      features.push({
+        type: 'Feature',
+        geometry: { type: parsed.type, coordinates: parsed.coordinates },
+        properties: {
+          id: area.id,
+          name: area.name,
+          fid: area.fid,
+          'nbic:style': {
+            strokeColor: 'rgba(10, 109, 188, 0.6)',
+            strokeWidth: 1.5,
+            fillColor: 'rgba(0, 0, 0, 0)',
+          },
+        },
+      });
+    }
+
+    return features;
   }
 
   private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
@@ -349,6 +464,7 @@ export class AreasService {
       if (filter.organizationIds?.length) body['organizationIds'] = filter.organizationIds;
       if (filter.behaviorIds?.length) body['behaviorIds'] = filter.behaviorIds;
       if (filter.basisOfRecordIds?.length) body['basisOfRecordIds'] = filter.basisOfRecordIds;
+      if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
@@ -357,9 +473,18 @@ export class AreasService {
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }
-      if (filter.periodFrom != null || filter.periodTo != null) {
-        body['period'] = { from: filter.periodFrom, to: filter.periodTo };
+      if (filter.periodFrom != null || filter.periodTo != null || filter.periodMonths?.length) {
+        body['period'] = {
+          from: filter.periodFrom,
+          to: filter.periodTo,
+          months: filter.periodMonths?.length ? filter.periodMonths : undefined,
+        };
       }
+      if (filter.projectName) body['projectName'] = filter.projectName;
+      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
+      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
+      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 
     if (extent) {
@@ -371,80 +496,34 @@ export class AreasService {
   }
 
   /**
-   * Maps API location response to GeoJSON features
+   * Mapper kompakt lokasjon-respons [id, lon, lat, count] til GeoJSON-features.
    */
-  private mapLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
-    const locations = this.normalizeLocationResponse(response);
-    if (!Array.isArray(locations) || locations.length === 0) {
-      return [];
-    }
+  private mapCompactLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
+    if (typeof response !== 'object' || response === null) return [];
+    const locations = (response as { locations?: unknown[] }).locations;
+    if (!Array.isArray(locations)) return [];
 
-    return locations
-      .map(location => this.createLocationFeature(location))
-      .filter((f): f is AreaMarkerFeature => f !== null);
-  }
+    const features: AreaMarkerFeature[] = [];
+    for (const loc of locations) {
+      if (!Array.isArray(loc) || loc.length < 4) continue;
+      const [id, lon, lat, count] = loc as [number, number, number, number];
+      if (isNaN(lon) || isNaN(lat)) continue;
 
-  private normalizeLocationResponse(response: unknown): Record<string, unknown>[] {
-    if (Array.isArray(response)) {
-      return response as Record<string, unknown>[];
-    }
-
-    if (typeof response === 'object' && response !== null) {
-      const obj = response as Record<string, unknown>;
-      if (Array.isArray(obj['features'])) return obj['features'] as Record<string, unknown>[];
-      if (Array.isArray(obj['value'])) return obj['value'] as Record<string, unknown>[];
-      if (Array.isArray(obj['data'])) return obj['data'] as Record<string, unknown>[];
-    }
-
-    return [];
-  }
-
-  private createLocationFeature(location: Record<string, unknown>): AreaMarkerFeature | null {
-    try {
-      const [lon, lat] = this.extractCoordinates(location);
-      if (lon === null || lat === null) return null;
-
-      const props = (location['properties'] as Record<string, unknown>) || location;
-      const observationCount = (props['ObservationCount'] ?? props['observationCount'] ?? 0) as number;
-      const id = Number(location['id'] ?? props['TaxonId'] ?? props['taxonId']) || 0;
-      const name = (props['Locality'] ?? props['locality'] ?? props['name'] ?? `Location ${location['id']}`) as string;
-      const taxonId = (props['TaxonId'] ?? props['taxonId']) as number | undefined;
-
-      return {
+      features.push({
         type: 'Feature',
         id,
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: {
           id,
-          name,
-          observationCount,
-          observationCountDisplay: observationCount ? AbbreviateNumberHelper.format(observationCount) : '',
+          name: `Location ${id}`,
+          observationCount: count,
+          observationCountDisplay: count ? AbbreviateNumberHelper.format(count) : '',
           isPolygon: false,
-          ...(taxonId && { taxonId }),
           ...NBIC_LOCATION_STYLE
         }
-      };
-    } catch {
-      return null;
+      });
     }
-  }
-
-  private extractCoordinates(location: Record<string, unknown>): [number | null, number | null] {
-    const geometry = location['geometry'] as { type?: string; coordinates?: number[] } | undefined;
-    if (geometry?.type === 'Point' && geometry.coordinates?.length === 2) {
-      const [lon, lat] = geometry.coordinates;
-      if (!isNaN(lon) && !isNaN(lat)) {
-        return [lon, lat];
-      }
-    }
-
-    const lat = (location['latitude'] ?? location['lat']) as number | null;
-    const lon = (location['longitude'] ?? location['lon']) as number | null;
-    if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      return [lon, lat];
-    }
-
-    return [null, null];
+    return features;
   }
 
   /**
@@ -463,7 +542,7 @@ export class AreasService {
       if (!this.bboxOverlaps(bbox, extent)) continue;
 
       const count = area.observationCount ?? 0;
-      const formattedCount = count > 0 ? AbbreviateNumberHelper.format(count) : '';
+      const formattedCount = AbbreviateNumberHelper.format(count);
 
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1]

@@ -1,9 +1,12 @@
 using Artskart3.Api.Filters;
+using Artskart3.Core.Application.Configuration;
+using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Artskart3.Api.Controllers;
 
@@ -13,12 +16,16 @@ namespace Artskart3.Api.Controllers;
 public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
+    private readonly ISpeciesService _speciesService;
     private readonly ILogger<SearchController> _logger;
+    private readonly PaginationOptions _paginationOptions;
 
-    public SearchController(ISearchService searchService, ILogger<SearchController> logger)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
+        _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _paginationOptions = paginationOptions?.Value ?? throw new ArgumentNullException(nameof(paginationOptions));
     }
 
     /// <summary>
@@ -58,7 +65,7 @@ public class SearchController : ControllerBase
     /// </summary>
     [HttpPost("Locations")]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    public async Task GetObservationLocations([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -66,12 +73,15 @@ public class SearchController : ControllerBase
 
             if (!ValidateLocationSearchFilter(filter, out var validationError))
             {
-                // validationError skal aldri være null når en validering feiler
-                return validationError!;
+                await validationError!.ExecuteResultAsync(ControllerContext);
+                return;
             }
-            var result = await _searchService.GetLocationsAsync(filter, cancellationToken);
+
+            var locations = await _searchService.GetLocationsAsync(filter, cancellationToken);
             _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
-            return Content(result, "application/json");
+
+            Response.ContentType = "application/json";
+            await GeoJsonConverter.WriteLocationsToStreamAsync(Response.Body, locations, filter.Epsg);
         }
         catch (Exception ex)
         {
@@ -107,12 +117,14 @@ public class SearchController : ControllerBase
                 var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
                 var pageNumber = filter.PageNumber!.Value;
+                var lookaheadLimit = resultsPerPage * _paginationOptions.LookaheadMultiplier;
                 var pagedResult = new PagedObservationResponseDto
                 {
                     Items = allItems.Take(resultsPerPage),
                     PageNumber = pageNumber,
                     ResultsPerPage = resultsPerPage,
-                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1)
+                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1),
+                    HasMorePages = allItems.Count >= lookaheadLimit
                 };
 
                 return Ok(pagedResult);
@@ -156,6 +168,92 @@ public class SearchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Feil ved henting av områder");
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
+    /// Returns observation counts per area (FID) without geometry data.
+    /// Supports ETag-based caching — returns 304 Not Modified when counts haven't changed.
+    /// </summary>
+    [HttpPost("AreaCounts")]
+    [Produces("application/json")]
+    public async Task<IActionResult> GetAreaCounts(
+        [FromQuery] int zoomLevel = 1,
+        [FromBody] LocationSearchFilterDto? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (zoomLevel < 1 || zoomLevel > 2)
+            {
+                return BadRequest(new { error = "zoomLevel must be 1 (counties) or 2 (municipalities)." });
+            }
+
+            if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
+            {
+                return validationError!;
+            }
+
+            var result = await _searchService.GetAreaCountsAsync(zoomLevel, filter, cancellationToken);
+
+            var ifNoneMatch = Request.Headers.IfNoneMatch.ToString();
+            if (!string.IsNullOrEmpty(ifNoneMatch) && ifNoneMatch == result.Etag)
+            {
+                Response.Headers.ETag = result.Etag;
+                return StatusCode(304);
+            }
+
+            Response.Headers.ETag = result.Etag;
+            _logger.LogInformation("Retrieved {Count} area counts for zoom level {ZoomLevel}", result.Counts.Length, zoomLevel);
+            return Ok(result.Counts);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av områdeantall");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Søker etter arter via NorTaxa-API.
+    /// Hvis input er et heltall, slås det opp direkte på taxonId.
+    /// Ellers utføres et navnesøk med maks 20 resultater.
+    /// </summary>
+    [HttpGet("Species")]
+    [Produces("application/json")]
+    [ProducesResponseType(typeof(List<SpeciesDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+    public async Task<ActionResult<List<SpeciesDto>>> SearchSpecies(
+        [FromQuery] string search,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return BadRequest(new { error = "Search parameter is required." });
+        }
+
+        try
+        {
+            var results = await _speciesService.SearchSpeciesAsync(search, cancellationToken);
+            _logger.LogInformation("Species-søk for '{Search}' returnerte {Count} resultater", search, results.Count);
+            return Ok(results);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogWarning("NorTaxa API timeout ved søk: {Search}", search);
+            return StatusCode(504, new { error = "NorTaxa API did not respond within the timeout period." });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "NorTaxa API utilgjengelig ved søk: {Search}", search);
+            return StatusCode(502, new { error = "Unable to contact NorTaxa API." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved artssøk med søkestreng: {Search}", search);
             throw; // håndteres av global filter
         }
     }
@@ -337,4 +435,37 @@ public class SearchController : ControllerBase
     /// </summary>
     private object CreateRangeErrorMessage(int min, int max)
         => new { error = $"Value must be between {min} and {max}." };
+
+    /// <summary>
+    /// Retrieves polygon geometries from the Location table for observations matching the filter.
+    /// Only Polygon and MultiPolygon geometry types are returned.
+    /// Rectangular/square polygons (grid-cell precision squares) are excluded automatically.
+    /// </summary>
+    [HttpPost("LocationPolygons")]
+    [Produces("application/json")]
+    [ProducesResponseType(typeof(IEnumerable<LocationPolygonDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IEnumerable<LocationPolygonDto>>> GetLocationPolygons(
+        [FromBody] LocationSearchFilterDto? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        filter ??= new LocationSearchFilterDto();
+
+        if (!ValidateLocationSearchFilter(filter, out var validationError))
+        {
+            return validationError!;
+        }
+
+        try
+        {
+            var polygons = await _searchService.GetLocationPolygonsAsync(filter, cancellationToken);
+            _logger.LogInformation("Retrieved {Count} location polygons", polygons.Count());
+            return Ok(polygons);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonspolygoner");
+            throw;
+        }
+    }
 }

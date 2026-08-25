@@ -2,6 +2,11 @@ import { Injectable, signal, computed } from '@angular/core';
 
 export type AlertVariant = 'danger' | 'warning' | 'success' | 'info';
 
+export interface AlertLink {
+  text: string;
+  route: string;
+}
+
 export interface AlertOptions {
   heading?: string;
   closable?: boolean;
@@ -10,6 +15,8 @@ export interface AlertOptions {
   /** Optional display-only validity period, e.g. from a scheduled notification. */
   startDisplayDate?: string;
   endDisplayDate?: string;
+  /** Optional link rendered below the message, navigates via Angular Router. */
+  link?: AlertLink;
 }
 
 export interface AlertItem {
@@ -21,6 +28,7 @@ export interface AlertItem {
   autoDismissMs: number;
   startDisplayDate?: string;
   endDisplayDate?: string;
+  link?: AlertLink;
 }
 
 const DEFAULT_AUTO_DISMISS_MS = 5000;
@@ -48,9 +56,10 @@ export class AlertService {
       heading: options?.heading,
       closable: options?.closable ?? true,
       autoDismissMs,
-      startDisplayDate: options?.startDisplayDate,
-      endDisplayDate: options?.endDisplayDate,
-    };
+  startDisplayDate: options?.startDisplayDate,
+  endDisplayDate: options?.endDisplayDate,
+  link: options?.link,
+};
 
     this.items.update(list => [...list, item]);
 

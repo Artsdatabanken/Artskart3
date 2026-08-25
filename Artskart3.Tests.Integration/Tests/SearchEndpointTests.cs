@@ -88,18 +88,49 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // GET /api/Search/Species
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task SearchSpecies_WithEmptySearch_Returns400()
+    {
+        var response = await _client.GetAsync("/api/Search/Species?search=");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SearchSpecies_WithValidSearch_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Search/Species?search=test");
+
+        // Enten 200 med resultater fra NorTaxa, eller 502 hvis NorTaxa er utilgjengelig.
+        // Begge er gyldige i integrasjonstestmiljø.
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.BadGateway);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+            var json = await response.Content.ReadAsStringAsync();
+            var doc = JsonDocument.Parse(json);
+            doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // POST /api/Search/Locations (GetObservationLocations action)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetObservationLocations_WithNoFilter_Returns200WithGeoJson()
+    public async Task GetObservationLocations_WithNoFilter_Returns200WithCompactJson()
     {
         var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
-        doc.RootElement.GetProperty("type").GetString().Should().Be("FeatureCollection");
+        doc.RootElement.GetProperty("epsg").GetInt32().Should().Be(25833);
+        doc.RootElement.GetProperty("locations").ValueKind.Should().Be(JsonValueKind.Array);
     }
 
     [Fact]
@@ -135,14 +166,14 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Features()
+    public async Task GetObservationLocations_WithMaxResults10_ReturnsAtMost10Locations()
     {
         var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 10 });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
-        doc.RootElement.GetProperty("features").GetArrayLength()
+        doc.RootElement.GetProperty("locations").GetArrayLength()
             .Should().BeLessThanOrEqualTo(10);
     }
 
@@ -179,5 +210,75 @@ public class SearchEndpointTests : IAsyncLifetime
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/LocationPolygons
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetLocationPolygons_WithNoFilter_Returns200WithJsonArray()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetLocationPolygons_WithInvertedPrecisionRange_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons",
+            new { coordinatePrecision = new { from = 1000, to = 100 } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/AreaCounts
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreaCounts_WithZoomLevel1_Returns200WithJsonArrayAndETag()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=1", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        response.Headers.ETag.Should().NotBeNull();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithInvalidZoomLevel_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=3", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithMatchingETag_Returns304()
+    {
+        var first = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=1", new { });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var etag = first.Headers.ETag?.Tag;
+        etag.Should().NotBeNullOrEmpty();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/Search/AreaCounts?zoomLevel=1")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        request.Headers.TryAddWithoutValidation("If-None-Match", etag!);
+
+        var second = await _client.SendAsync(request);
+        second.StatusCode.Should().Be(HttpStatusCode.NotModified);
     }
 }

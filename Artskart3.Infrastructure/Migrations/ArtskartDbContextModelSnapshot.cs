@@ -1409,10 +1409,34 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
+                    b.Property<int>("BasisOfRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CoordinatePrecisionInMeters")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DateTimeCollected")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("HasMediaFiles")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("RegistrationStatusId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("TaxonGroupId")
+                        .HasColumnType("int");
+
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
                     b.HasIndex("EntityTypeId", "EntityId", "ObservationId")
                         .HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
+
+                    b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
+                        .HasDatabaseName("IX_ObservationEntityIndex_AreaFilter");
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });
