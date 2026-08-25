@@ -1,11 +1,14 @@
 <div class="observation-list">
-  <div class="click-coordinates">UTM33 {{ clickCoordinates().join(", ") }}</div>
-  <adb-dropdown class="filter-dropdown" variant="tertiary" icon="sort" label={{filterBy()}}>
-    @for (filter of filters; track filter)
-    {
-      <adb-dropdown-item value="group" (click)="setFilter(filter)" selected>{{ filter }}</adb-dropdown-item>
-    }
-  </adb-dropdown>
+  <div class="header">
+    <div class="click-coordinates">UTM33 {{ clickCoordinates().join(", ") }}</div>
+    <div class="observation-count">{{ observationList().length }} registreringer</div>
+    <adb-dropdown class="filter" variant="tertiary" icon="sort" label={{filterBy()}}>
+      @for (filter of filters; track filter)
+      {
+        <adb-dropdown-item value="group" (click)="setFilter(filter)" selected>{{ filter }}</adb-dropdown-item>
+      }
+    </adb-dropdown>
+  </div>
   @if(this.topLevelFilter().length === 0) {
     <div>
       No observations found

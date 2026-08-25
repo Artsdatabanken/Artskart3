@@ -3,14 +3,19 @@
   flex-direction: column;
   position: absolute;
   margin: 1rem;
-  padding: 1rem;
   width: 20rem;
   border-radius: 1rem;
   height: 1037px;
   overflow: auto;
-  background-color: var(--adb-surface-primary, #fff);
+  background-color: var(--adb-background-default, #fff);
   top: 0;
   left: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
 }
 
 .observation-details {
@@ -26,17 +31,13 @@ adb-accordion-item adb-accordion adb-accordion-item {
   --adb-border-accent: transparent;
 }
 
-.filter-dropdown {
-  display: inline-flex;
-  padding: var(--spacing-spacing-2xsm, 4px) var(--spacing-spacing-xsm, 8px);
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--spacing-spacing-3xsm, 2px);
-  border-bottom: var(--spacing-spacing-3xsm, 2px) solid var(--border-base-border-subtle, #D2DDE0);
+.filter {
+  margin-left: auto;
 }
 
 adb-accordion {
   --adb-border-default: transparent;
+  --adb-border-accent: transparent;
 }
 
 adb-accordion-item adb-accordion {
@@ -52,4 +53,11 @@ adb-accordion-item adb-accordion {
   font-style: normal;
   font-weight: 400;
   line-height: 160%; /* 20.8px */
+}
+
+.observation-count {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  align-self: stretch;
 }
