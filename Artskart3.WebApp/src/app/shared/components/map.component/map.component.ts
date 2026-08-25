@@ -172,6 +172,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   public showObservationList = signal(false);
   public observationList= signal<ObservationListInfoDto[]>([]);
+  public clickCoordinates = signal<number[]>([]);
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
@@ -542,6 +543,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.showObservationList.set(false);
       return;
     }
+
+    this.clickCoordinates.set(payload.clickCoordinate.map(coordinate => Math.round(coordinate)));
 
     const locationIds = features
       .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)

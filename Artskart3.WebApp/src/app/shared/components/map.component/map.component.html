@@ -2,7 +2,7 @@
   <app-map-toolbar (iconClick)="onIconClick($event)"></app-map-toolbar>
   <div #mapEl class="map"></div>
   @if (showObservationList()) {
-    <app-observation-list [observationList]="observationList()"/>
+    <app-observation-list [observationList]="observationList()" [clickCoordinates]="clickCoordinates()"/>
   }
   <app-loading-indicator
     [active]="isLoadingAreaData()"

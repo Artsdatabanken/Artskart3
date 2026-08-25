@@ -1,5 +1,5 @@
 <div class="observation-list">
-  <h2>Coordinates/municipality for location</h2>
+  <div class="click-coordinates">UTM33 {{ clickCoordinates().join(", ") }}</div>
   <adb-dropdown class="filter-dropdown" variant="tertiary" icon="sort" label={{filterBy()}}>
     @for (filter of filters; track filter)
     {

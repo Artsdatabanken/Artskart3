@@ -35,6 +35,7 @@ export class ObservationListComponent {
   observationList = input<ObservationListInfoDto[]>([]);
   currentFilter = signal(Filters.TaxonGroup);
   topLevelFilter = computed(() => this.getTopLevelGroups(this.observationList()));
+  clickCoordinates = input<number[]>([]);
 
   setFilter(filter: Filters): void {
     this.currentFilter.set(filter);
