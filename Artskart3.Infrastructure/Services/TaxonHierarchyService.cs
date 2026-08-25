@@ -172,6 +172,55 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
         return result.OrderBy(t => t.ValidScientificName).ToList();
     }
 
+    public List<int> GetDescendantSpeciesIds(int taxonId)
+    {
+        EnsureInitialized();
+        var result = new List<int>();
+        CollectDescendantSpecies(taxonId, result);
+        return result;
+    }
+
+    public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId)
+    {
+        EnsureInitialized();
+        var result = new List<int>();
+        CollectDescendantsAtRank(taxonId, targetRankId, result);
+        return result;
+    }
+
+    private void CollectDescendantSpecies(int taxonId, List<int> result)
+    {
+        if (_taxons.TryGetValue(taxonId, out var taxon) && taxon.TaxonRankId == 22)
+        {
+            result.Add(taxonId);
+        }
+
+        if (_childrenByParent.TryGetValue(taxonId, out var childIds))
+        {
+            foreach (var childId in childIds)
+            {
+                CollectDescendantSpecies(childId, result);
+            }
+        }
+    }
+
+    private void CollectDescendantsAtRank(int taxonId, int targetRankId, List<int> result)
+    {
+        if (_taxons.TryGetValue(taxonId, out var taxon) && taxon.TaxonRankId == targetRankId)
+        {
+            result.Add(taxonId);
+            return; // Ikke gå dypere — vi har funnet riktig nivå
+        }
+
+        if (_childrenByParent.TryGetValue(taxonId, out var childIds))
+        {
+            foreach (var childId in childIds)
+            {
+                CollectDescendantsAtRank(childId, targetRankId, result);
+            }
+        }
+    }
+
     private void EnsureInitialized()
     {
         if (!_initialized)

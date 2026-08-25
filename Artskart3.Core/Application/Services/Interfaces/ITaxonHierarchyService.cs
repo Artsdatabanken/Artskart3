@@ -20,4 +20,16 @@ public interface ITaxonHierarchyService
     /// Filtrerer til kun taxoner med observasjoner eller som finnes i landet.
     /// </summary>
     List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId);
+
+    /// <summary>
+    /// Returnerer alle etterkommere på art-nivå (rang 22) for et gitt taxonId.
+    /// Brukes for å konvertere høyere-rangs filter til SpeciesTaxonId-oppslag.
+    /// </summary>
+    List<int> GetDescendantSpeciesIds(int taxonId);
+
+    /// <summary>
+    /// Returnerer alle etterkommere på et gitt rangnivå for et taxonId.
+    /// Brukes for å konvertere f.eks. klasse til underliggende ordener.
+    /// </summary>
+    List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId);
 }

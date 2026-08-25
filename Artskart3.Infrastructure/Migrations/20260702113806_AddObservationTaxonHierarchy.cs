@@ -203,6 +203,20 @@ public partial class AddObservationTaxonHierarchy : Migration
                 column: "VarietyTaxonId",
                 filter: "[VarietyTaxonId] IS NOT NULL");
 
+            // Slå på sidekomprimering FØR tabellen fylles.
+            //
+            // EF Core støtter ikke DATA_COMPRESSION, så CreateTable/CreateIndex over
+            // gir ukomprimerte strukturer. Målt på ferdig fylt tabell utgjorde det
+            // ~21 GB (klyngeindeks + 25 rangindekser) mot ~10 GB komprimert.
+            //
+            // Her er tabellen fortsatt tom, så denne rebuilden er momentan — og
+            // INSERT-en under skriver da rett inn i komprimerte sider. Gjøres dette
+            // etterpå i stedet, koster det 15-30 minutter.
+            migrationBuilder.Sql(@"
+ALTER INDEX ALL ON dbo.ObservationTaxonHierarchy
+    REBUILD WITH (DATA_COMPRESSION = PAGE);
+");
+
             // Populer hierarkitabellen fra Taxon.TaxonIdHiarchy
             migrationBuilder.Sql(@"
 INSERT INTO dbo.ObservationTaxonHierarchy (

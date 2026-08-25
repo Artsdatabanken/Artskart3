@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820140154_AddSpeciesTaxonIdToObservationEntityIndex")]
+    partial class AddSpeciesTaxonIdToObservationEntityIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1247,8 +1250,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "DateTimeCollected" }, "IX_Observation_DateTimeCollected");
 
-                    b.HasIndex(new[] { "TaxonId" }, "IX_Observation_TaxonId");
-
                     b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
 
                     b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
@@ -1430,15 +1431,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("tinyint");
 
                     b.Property<int?>("SpeciesTaxonId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("GenusTaxonId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("FamilyTaxonId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("OrderTaxonId")
                         .HasColumnType("int");
 
                     b.Property<int>("TaxonGroupId")

@@ -1032,6 +1032,12 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+            // Taksonkolonnene (SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId)
+            // har bevisst ingen rowstore-indekser — de betjenes av columnstore-indeksen
+            // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
+            // gjorde spørringene tregere. Columnstore-indeksen opprettes i
+            // migrasjon 20260820140154 (EF Core modellerer ikke columnstore).
         });
 
         modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>

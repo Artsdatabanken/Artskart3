@@ -12,4 +12,8 @@ internal sealed class StubTaxonHierarchyService : ITaxonHierarchyService
     public int? GetTaxonRankId(int taxonId) => 22;
 
     public List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId) => [];
+
+    public List<int> GetDescendantSpeciesIds(int taxonId) => [];
+
+    public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];
 }
