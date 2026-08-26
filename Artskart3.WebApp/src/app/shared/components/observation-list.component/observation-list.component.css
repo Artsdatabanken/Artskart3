@@ -61,3 +61,10 @@ adb-accordion-item adb-accordion {
   gap: 10px;
   align-self: stretch;
 }
+
+.registration-text {
+  display: flex;
+  padding-left: var(--spacing-spacing-lg, 24px);
+  align-items: center;
+  gap: var(--spacing-spacing-15-sm, 6px);
+}

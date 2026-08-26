@@ -1,6 +1,13 @@
 import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angular/core';
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
+import {CATEGORY_ORDER} from '@shared/constants/category-order.const';
+
+enum SortMethods {
+  Alphabetically,
+  Date,
+  RiskCategory
+}
 
 enum Filters {
   TaxonGroup = "Artsgruppe",
@@ -78,16 +85,20 @@ export class ObservationListComponent {
       speciesMap.set(speciesName, regs);
     }
 
-    const result: TopLevelFilter[] = Array.from(topLevelMap.entries()).map(([groupKeyId, regTypeMap]) => ({
-      groupKeyId,
-      registrationTypes: Array.from(regTypeMap.entries()).map(([registrationKeyId, speciesMap]) => ({
-        registrationKeyId,
-        species: Array.from(speciesMap.entries()).map(([speciesKeyId, registrations]) => ({
-          speciesKeyId,
-          registrations: registrations.map(r => String(r))
+    const result: TopLevelFilter[] = Array.from(topLevelMap.entries()).sort(([a], [b]) => a.localeCompare(b))
+      .map(([groupKeyId, regTypeMap]) => ({
+        groupKeyId,
+        registrationTypes: Array.from(regTypeMap.entries()).sort(([a], [b]) => a.localeCompare(b))
+        .map(([registrationKeyId, speciesMap]) => ({
+          registrationKeyId,
+          species: Array.from(speciesMap.entries()).sort(([a], [b]) => a.localeCompare(b))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([speciesKeyId, registrations]) => ({
+            speciesKeyId,
+            registrations: registrations.map(String).sort((a, b) => a.localeCompare(b))
+          }))
         }))
-      }))
-    }));
+      }));
     return result;
   }
 
