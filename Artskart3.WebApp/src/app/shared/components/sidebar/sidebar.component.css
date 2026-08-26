@@ -148,6 +148,13 @@ adb-checkbox::part(control) {
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
 
+.category-section-heading {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  margin: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
+  padding-inline-start: var(--adb-spacing-3xsm, 4px);
+}
+
 .category-content {
   display: inline-flex;
   align-items: center;
