@@ -1314,6 +1314,7 @@ export interface components {
             cumulativeObservationCount?: number | null;
             existsInCountry?: boolean;
             hasChildren?: boolean;
+            parents?: components["schemas"]["TaxonTreeNodeDto"][] | null;
             children?: components["schemas"]["TaxonTreeNodeDto"][] | null;
         };
         UserDto: {

@@ -18,6 +18,7 @@ public interface ITaxonHierarchyService
     /// Returnerer direkte barn av en gitt taxon som trenoder.
     /// Hvis parentTaxonId er null, returneres rotnodene (kingdom-nivå).
     /// Filtrerer til kun taxoner med observasjoner eller som finnes i landet.
+    /// Hver node får hele forelderkjeden sin i Parents, sortert fra rotnivå til nærmeste forelder.
     /// </summary>
     List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId);
 

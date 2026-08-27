@@ -40,6 +40,8 @@ export interface TaxonTreeNodeDto {
   cumulativeObservationCount?: number | null;
   existsInCountry: boolean;
   hasChildren: boolean;
+  /** Hele forelderkjeden, sortert fra rotnivå til nærmeste forelder. Tom for rotnoder. */
+  parents: TaxonTreeNodeDto[];
   children: TaxonTreeNodeDto[];
 }
 

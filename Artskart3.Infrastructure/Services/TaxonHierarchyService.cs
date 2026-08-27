@@ -148,6 +148,9 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
             return [];
         }
 
+        // Alle barna deler samme forelderkjede — bygg den én gang per forespørsel
+        var parentChain = BuildParentChain(parentId);
+
         var result = new List<TaxonTreeNodeDto>(childIds.Count);
         foreach (var childId in childIds)
         {
@@ -156,21 +159,50 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
             // Filtrer: kun taxoner med observasjoner eller som finnes i landet
             if (taxon.CumulativeObservationCount is null or 0 && !taxon.ExistsInCountry) continue;
 
-            result.Add(new TaxonTreeNodeDto
-            {
-                Id = taxon.Id,
-                ValidScientificName = taxon.ValidScientificName,
-                PreferredPopularName = taxon.PreferredPopularName,
-                TaxonRankId = taxon.TaxonRankId,
-                TaxonGroupId = taxon.TaxonGroupId,
-                CumulativeObservationCount = taxon.CumulativeObservationCount,
-                ExistsInCountry = taxon.ExistsInCountry,
-                HasChildren = _childrenByParent.ContainsKey(taxon.Id)
-            });
+            var node = ToDto(taxon);
+            // Egen liste per node slik at kallere ikke deler samme instans
+            node.Parents = [.. parentChain];
+            result.Add(node);
         }
 
         return result.OrderBy(t => t.ValidScientificName).ToList();
     }
+
+    /// <summary>
+    /// Bygger hele forelderkjeden for et taxonId, sortert fra rotnivå til og med taxonet selv.
+    /// Returnerer tom liste for rotnivå (taxonId 0) eller ukjent taxonId.
+    /// Foreldre filtreres ikke på observasjonsantall — hierarkiet skal alltid være komplett.
+    /// </summary>
+    private List<TaxonTreeNodeDto> BuildParentChain(int taxonId)
+    {
+        if (taxonId == 0) return [];
+
+        var chain = new List<TaxonTreeNodeDto>();
+        var visited = new HashSet<int>();
+        var currentId = taxonId;
+
+        // visited beskytter mot sykluser dersom ParentTaxonId-dataene er korrupte
+        while (currentId != 0 && visited.Add(currentId) && _taxons.TryGetValue(currentId, out var taxon))
+        {
+            chain.Add(ToDto(taxon));
+            currentId = taxon.ParentTaxonId;
+        }
+
+        chain.Reverse();
+        return chain;
+    }
+
+    private TaxonTreeNodeDto ToDto(TaxonData taxon) => new()
+    {
+        Id = taxon.Id,
+        ValidScientificName = taxon.ValidScientificName,
+        PreferredPopularName = taxon.PreferredPopularName,
+        TaxonRankId = taxon.TaxonRankId,
+        TaxonGroupId = taxon.TaxonGroupId,
+        CumulativeObservationCount = taxon.CumulativeObservationCount,
+        ExistsInCountry = taxon.ExistsInCountry,
+        HasChildren = _childrenByParent.ContainsKey(taxon.Id)
+    };
 
     public List<int> GetDescendantSpeciesIds(int taxonId)
     {

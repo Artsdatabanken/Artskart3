@@ -113,6 +113,7 @@ public class LookupController : ControllerBase
     /// <summary>
     /// Returnerer direkte barn i taksonomien for en gitt forelder-taxon.
     /// Uten parentTaxonId returneres rotnodene (kingdom-nivå).
+    /// Hver node inneholder hele forelderkjeden sin i Parents, sortert fra rotnivå til nærmeste forelder.
     /// Data hentes fra minne — ingen databasekall per request.
     /// </summary>
     [HttpGet("TaxonTree")]
