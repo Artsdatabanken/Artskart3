@@ -108,8 +108,8 @@
     "clearFilter": "Tøm filter",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
-      "Fremmedart": "Fremmedartskategorier",
-      "Rødliste": "Rødlistekategorier"
+      "Fremmedart": "Fremmedartslista",
+      "Rødliste": "Rødlista"
     },
     "coordinatePrecision": "Koordinatpresisjon",
     "coordinatePrecisionFrom": "Fra",
