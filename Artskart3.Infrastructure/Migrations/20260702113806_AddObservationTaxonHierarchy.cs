@@ -210,57 +210,24 @@ public partial class AddObservationTaxonHierarchy : Migration
             // ~21 GB (klyngeindeks + 25 rangindekser) mot ~10 GB komprimert.
             //
             // Her er tabellen fortsatt tom, så denne rebuilden er momentan — og
-            // INSERT-en under skriver da rett inn i komprimerte sider. Gjøres dette
+            // backfillen skriver da rett inn i komprimerte sider. Gjøres dette
             // etterpå i stedet, koster det 15-30 minutter.
             migrationBuilder.Sql(@"
 ALTER INDEX ALL ON dbo.ObservationTaxonHierarchy
     REBUILD WITH (DATA_COMPRESSION = PAGE);
 ");
 
-            // Populer hierarkitabellen fra Taxon.TaxonIdHiarchy
-            migrationBuilder.Sql(@"
-INSERT INTO dbo.ObservationTaxonHierarchy (
-    ObservationId, KingdomTaxonId, SubkingdomTaxonId, PhylumTaxonId, SubphylumTaxonId,
-    SuperclassTaxonId, ClassTaxonId, SubclassTaxonId, InfraclassTaxonId, CohortTaxonId,
-    SuperorderTaxonId, OrderTaxonId, SuborderTaxonId, InfraorderTaxonId, SuperfamilyTaxonId,
-    FamilyTaxonId, SubfamilyTaxonId, TribeTaxonId, SubtribeTaxonId, GenusTaxonId,
-    SubgenusTaxonId, SectionTaxonId, SpeciesTaxonId, SubspeciesTaxonId, VarietyTaxonId,
-    FormTaxonId, NotSetTaxonId)
-SELECT
-    o.Id,
-    MAX(CASE WHEN ancestor.TaxonRankId = 1 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 2 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 3 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 4 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 5 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 6 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 7 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 8 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 9 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 10 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 11 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 12 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 13 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 14 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 15 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 16 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 17 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 18 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 19 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 20 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 21 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 22 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 23 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 24 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 25 THEN ancestor.Id END),
-    MAX(CASE WHEN ancestor.TaxonRankId = 26 THEN ancestor.Id END)
-FROM dbo.Observation o
-JOIN dbo.Taxon t ON o.TaxonId = t.Id
-CROSS APPLY STRING_SPLIT(t.TaxonIdHiarchy, ',') AS s
-JOIN dbo.Taxon ancestor ON ancestor.Id = TRY_CAST(s.value AS INT)
-WHERE o.IsDeleted = 0
-GROUP BY o.Id;
-");
+            // Datafyllingen ligger i Scripts/BackfillObservationTaxonHierarchy.sql
+            // og kjøres manuelt etter deploy. Den lå opprinnelig her som én INSERT
+            // over ~60M rader: ~7 minutter lokalt, men over 30 minutter på Azure SQL,
+            // der den traff både CommandTimeout(1800) og oppstartsgrensen til App
+            // Service (migrasjonene kjøres av Database.Migrate() ved oppstart).
+            //
+            // Flaskehalsen er loggskriving, ikke CPU. Azure SQL har hardt tak på
+            // loggrate per servicenivå, og hele migrasjonen kjører i én transaksjon,
+            // så loggen kunne aldri avkortes underveis — og en feil ville gitt en
+            // like lang rollback. Skriptet kjører batchvis utenfor transaksjon, med
+            // rangindeksene deaktivert under innlastingen.
         }
 
     /// <inheritdoc />
