@@ -10,6 +10,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public int[]? TaxonGroupIds { get; set; }
 
+    public int[]? TaxonIds { get; set; }
+
     public int[]? CategoryIds { get; set; }
 
     public int[]? OrganizationIds { get; set; }

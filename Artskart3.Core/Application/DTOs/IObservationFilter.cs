@@ -7,6 +7,7 @@ namespace Artskart3.Core.Application.DTOs;
 public interface IObservationFilter
 {
     int[]? TaxonGroupIds { get; }
+    int[]? TaxonIds { get; }
     int[]? CategoryIds { get; }
     int[]? OrganizationIds { get; }
     string[]? MunicipalityIds { get; }

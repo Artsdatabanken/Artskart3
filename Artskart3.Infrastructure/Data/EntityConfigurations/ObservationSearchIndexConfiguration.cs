@@ -26,6 +26,7 @@ public class ObservationSearchIndexConfiguration : IEntityTypeConfiguration<Obse
         builder.HasIndex(o => o.CoordinatePrecisionInMeters, "IX_Observation_CoordinatePrecisionInMeters");
         builder.HasIndex(o => o.DateTimeCollected, "IX_Observation_DateTimeCollected");
         builder.HasIndex(o => o.DateLastModified, "IX_Observation_DateLastModified");
+        builder.HasIndex(o => o.TaxonId, "IX_Observation_TaxonId");
 
         // Composite indexes for common filter combinations
         builder.HasIndex(o => new { o.LocationId, o.HasErrors, o.HasAnnotations }, "IX_Observation_LocationId_HasErrors_HasAnnotations");

@@ -12,10 +12,12 @@ namespace Artskart3.Api.Controllers;
 public class LookupController : ControllerBase
 {
     private readonly ILookupService _lookupService;
+    private readonly ITaxonHierarchyService _taxonHierarchy;
 
-    public LookupController(ILookupService lookupService)
+    public LookupController(ILookupService lookupService, ITaxonHierarchyService taxonHierarchy)
     {
         _lookupService = lookupService ?? throw new ArgumentNullException(nameof(lookupService));
+        _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
     }
 
     /// <summary>
@@ -106,5 +108,18 @@ public class LookupController : ControllerBase
     {
         var basisOfRecords = await _lookupService.GetBasisOfRecordsAsync(cancellationToken);
         return Ok(basisOfRecords);
+    }
+
+    /// <summary>
+    /// Returnerer direkte barn i taksonomien for en gitt forelder-taxon.
+    /// Uten parentTaxonId returneres rotnodene (kingdom-nivå).
+    /// Data hentes fra minne — ingen databasekall per request.
+    /// </summary>
+    [HttpGet("TaxonTree")]
+    [Produces("application/json")]
+    public ActionResult<List<TaxonTreeNodeDto>> GetTaxonTree([FromQuery] int? parentTaxonId = null, CancellationToken cancellationToken = default)
+    {
+        var children = _taxonHierarchy.GetChildren(parentTaxonId);
+        return Ok(children);
     }
 }

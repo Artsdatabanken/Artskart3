@@ -109,6 +109,13 @@ describe('SidebarComponent', () => {
     expect(checkboxes.length).toBe(2);
   });
 
+  it('should show the search field', () => {
+    const searchField = fixture.nativeElement.querySelector('.search-field');
+    expect(searchField).toBeTruthy();
+    const searchEl = searchField.querySelector('adb-search');
+    expect(searchEl).toBeTruthy();
+  });
+
   describe('onCategoryToggle', () => {
     it('should toggle category in filter state', () => {
       component.onCategoryToggle(5);

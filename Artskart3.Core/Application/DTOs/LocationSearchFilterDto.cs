@@ -4,6 +4,8 @@ public class LocationSearchFilterDto : IObservationFilter
 {
     public int[]? TaxonGroupIds { get; set; }
 
+    public int[]? TaxonIds { get; set; }
+
     public int[]? CategoryIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }
@@ -41,6 +43,7 @@ public class LocationSearchFilterDto : IObservationFilter
     /// </summary>
     public bool HasActiveFilters =>
         TaxonGroupIds?.Length > 0 ||
+        TaxonIds?.Length > 0 ||
         CategoryIds?.Length > 0 ||
         BasisOfRecordIds?.Length > 0 ||
         RegistrationStatusId.HasValue ||
@@ -68,6 +71,7 @@ public class LocationSearchFilterDto : IObservationFilter
     /// </summary>
     public bool HasObservationAttributeFilters =>
         TaxonGroupIds?.Length > 0 ||
+        TaxonIds?.Length > 0 ||
         CategoryIds?.Length > 0 ||
         BasisOfRecordIds?.Length > 0 ||
         RegistrationStatusId.HasValue ||

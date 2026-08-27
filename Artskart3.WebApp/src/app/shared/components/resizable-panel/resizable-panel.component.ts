@@ -1,12 +1,4 @@
-import {
-  Component,
-  Input,
-  Output,
-  EventEmitter,
-  HostListener,
-  signal,
-  OnInit,
-} from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 
@@ -18,7 +10,7 @@ import { TranslateModule } from '@ngx-translate/core';
   styleUrl: './resizable-panel.component.css',
 })
 export class ResizablePanelComponent implements OnInit {
-  @Input() initialWidth = 300;
+  @Input() initialWidth = 358;
   @Input() minWidth = 200;
   @Input() maxWidth = 500;
   @Input() isDraggable = true;

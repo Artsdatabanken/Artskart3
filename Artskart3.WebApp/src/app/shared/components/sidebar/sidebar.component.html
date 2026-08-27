@@ -1,8 +1,11 @@
 <div class="sidebar-content">
+  <app-species-search />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
   </div>
+
+  <app-filter-chips />
 
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
@@ -21,6 +24,14 @@
             }
           </div>
         }
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
+      @if (taxonTreeOpened()) {
+        <app-taxon-tree />
       }
     </adb-accordion-item>
   </adb-accordion>
