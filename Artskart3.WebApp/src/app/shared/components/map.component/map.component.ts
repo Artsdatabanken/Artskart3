@@ -281,11 +281,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         });
         this.rebuildAllLayers();
       });
-      this.geolocationControl?.updateLabels({
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-      });
-    });
   }
 
   private onMapReady(): void {
