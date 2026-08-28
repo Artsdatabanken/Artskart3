@@ -1,18 +1,12 @@
 import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angular/core';
 import {ObservationListInfoDto} from '@shared/types/api.types';
-import {TranslateModule} from '@ngx-translate/core';
-import {CATEGORY_ORDER} from '@shared/constants/category-order.const';
-
-enum SortMethods {
-  Alphabetically,
-  Date,
-  RiskCategory
-}
+import {TranslateModule, TranslateService} from '@ngx-translate/core';
+import {FormatFileSizePipe} from '@shared/pipes/format-file-size.pipe';
 
 enum Filters {
-  TaxonGroup = "Artsgruppe",
-  Category = "Kategori",
-  Location= "Lokasjon"
+  TaxonGroup = "taxonGroup",
+  Category = "category",
+  Location= "location"
 }
 
 type TopLevelFilter = {
@@ -51,11 +45,11 @@ export class ObservationListComponent {
   filterBy = computed(() => {
     switch (this.currentFilter()) {
       case Filters.TaxonGroup:
-        return "Artsgruppe";
+        return "taxonGroup";
       case Filters.Category:
-        return "Kategori";
+        return "category";
       case Filters.Location:
-        return "Lokasjon";
+        return "location";
     }
   })
 
