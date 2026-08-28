@@ -5,11 +5,11 @@
     [attr.closable]="alert.closable ? '' : null"
     (adb-close)="alertService.dismiss(alert.id)"
   >
+      @if (alert.startDisplayDate || alert.endDisplayDate) {
+      <div class="alert-date-range">{{ formatDateRange(alert.startDisplayDate, alert.endDisplayDate) }}</div>
+    }
     @if (alert.message) {
       {{ alert.message }}
-    }
-    @if (alert.startDisplayDate || alert.endDisplayDate) {
-      <div class="alert-date-range">{{ formatDateRange(alert.startDisplayDate, alert.endDisplayDate) }}</div>
     }
     @if (alert.link) {
       <a
