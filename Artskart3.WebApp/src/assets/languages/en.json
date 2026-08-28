@@ -353,6 +353,9 @@
     "icons": "Icons"
   },
   "observationList": {
-    "location": "Observation"
+    "registrations": "{{number}} registrations",
+    "taxonGroup": "Taxon Groups",
+    "category": "Categories",
+    "location": "Locations"
   }
 }

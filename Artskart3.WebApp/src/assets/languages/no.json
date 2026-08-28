@@ -353,6 +353,9 @@
     "icons": "Ikoner"
   },
   "observationList": {
-    "location": "Observasjon"
+    "registrations": "{{number}} registreringer",
+    "taxonGroup": "Artsgrupper",
+    "category": "Kategorier",
+    "location": "Lokaliteter"
   }
 }

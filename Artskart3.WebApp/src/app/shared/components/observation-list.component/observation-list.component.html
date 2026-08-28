@@ -1,11 +1,11 @@
 <div class="observation-list">
   <div class="header">
     <div class="click-coordinates">UTM33 {{ clickCoordinates().join(", ") }}</div>
-    <div class="observation-count">{{ observationList().length }} registreringer</div>
-    <adb-dropdown class="filter" variant="tertiary" icon="sort" label={{filterBy()}}>
+    <div class="observation-count">{{ 'observationList.registrations' | translate: {number: observationList().length} }} </div>
+    <adb-dropdown class="filter" variant="tertiary" icon="sort" label="{{ 'observationList.' + filterBy() | translate }}">
       @for (filter of filters; track filter)
       {
-        <adb-dropdown-item value="group" (click)="setFilter(filter)" selected>{{ filter }}</adb-dropdown-item>
+        <adb-dropdown-item value="group" (click)="setFilter(filter)" selected>{{ 'observationList.' + filter | translate}}</adb-dropdown-item>
       }
     </adb-dropdown>
   </div>
@@ -38,4 +38,3 @@
     </adb-accordion>
   }
 </div>
-
