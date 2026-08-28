@@ -21,10 +21,19 @@ export class AlertComponent {
   }
 
   protected formatDateRange(startDate?: string, endDate?: string): string {
-    if (startDate && endDate && startDate === endDate) return startDate;
-    if (startDate && endDate) return `${startDate} - ${endDate}`;
-    if (startDate) return `From ${startDate}`;
-    if (endDate) return `Until ${endDate}`;
-    return '';
+  if (!startDate && !endDate) return '';
+
+  const options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: 'long',        // Full month name: "juli" instead of "07"
+    year: 'numeric'
+  };
+
+  const norwegianFormatter = new Intl.DateTimeFormat('no-NO', options);
+
+  const start = startDate ? norwegianFormatter.format(new Date(startDate)) : '';
+  const end = endDate ? norwegianFormatter.format(new Date(endDate)) : '';
+
+  return start && end ? `${start} – ${end}` : (start || end || '');
   }
 }
