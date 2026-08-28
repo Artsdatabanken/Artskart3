@@ -92,21 +92,27 @@ describe('SidebarComponent', () => {
     expect(categoriesItem).toBeTruthy();
   });
 
-  it('should render nested accordions for category types', async () => {
+  it('should render flat category sections with headings for each type', async () => {
     await flushAll();
     const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
     const categoriesItem = Array.from(accordionItems).find(
       (el) => (el as Element).getAttribute('heading') === 'sidebar.categories',
     ) as Element;
     expect(categoriesItem).toBeTruthy();
-    const nestedAccordion = categoriesItem.querySelector('adb-accordion')!;
-    expect(nestedAccordion).toBeTruthy();
-    const nestedItems = nestedAccordion.querySelectorAll('adb-accordion-item');
-    expect(nestedItems.length).toBe(2);
-    const checkboxes = nestedAccordion.querySelectorAll(
-      'adb-accordion-item > adb-checkbox[slot="heading"]',
-    );
+    expect(categoriesItem.querySelector('adb-accordion')).toBeFalsy();
+    const headings = categoriesItem.querySelectorAll('h6.category-section-heading');
+    expect(headings.length).toBe(2);
+    const flatLists = categoriesItem.querySelectorAll('.category-flat');
+    expect(flatLists.length).toBe(2);
+    const checkboxes = categoriesItem.querySelectorAll('.category-flat adb-checkbox');
     expect(checkboxes.length).toBe(2);
+  });
+
+  it('should show the search field', () => {
+    const searchField = fixture.nativeElement.querySelector('.search-field');
+    expect(searchField).toBeTruthy();
+    const searchEl = searchField.querySelector('adb-search');
+    expect(searchEl).toBeTruthy();
   });
 
   describe('onCategoryToggle', () => {

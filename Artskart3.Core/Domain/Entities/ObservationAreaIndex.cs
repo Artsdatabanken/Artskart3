@@ -19,4 +19,8 @@ public class ObservationEntityIndex
     public DateTime? DateTimeCollected { get; set; }
     public byte RegistrationStatusId { get; set; }
     public bool HasMediaFiles { get; set; }
+    public int? SpeciesTaxonId { get; set; }
+    public int? GenusTaxonId { get; set; }
+    public int? FamilyTaxonId { get; set; }
+    public int? OrderTaxonId { get; set; }
 }

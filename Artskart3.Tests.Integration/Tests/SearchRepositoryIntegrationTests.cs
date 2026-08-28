@@ -59,7 +59,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         await SeedTestDataAsync();
     }

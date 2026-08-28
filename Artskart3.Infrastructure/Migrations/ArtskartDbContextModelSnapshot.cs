@@ -1247,6 +1247,8 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "DateTimeCollected" }, "IX_Observation_DateTimeCollected");
 
+                    b.HasIndex(new[] { "TaxonId" }, "IX_Observation_TaxonId");
+
                     b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
 
                     b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
@@ -1427,16 +1429,25 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<byte>("RegistrationStatusId")
                         .HasColumnType("tinyint");
 
+                    b.Property<int?>("SpeciesTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GenusTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OrderTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TaxonGroupId")
                         .HasColumnType("int");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
-                    b.HasIndex("EntityTypeId", "EntityId", "ObservationId")
-                        .HasDatabaseName("IX_ObservationEntityIndex_EntityType_EntityId_ObsId");
-
                     b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
-                        .HasDatabaseName("IX_ObservationEntityIndex_AreaFilter");
+                        .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });
@@ -1552,6 +1563,198 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.ObservationQualityType");
 
                     b.ToTable("ObservationQualityType", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.ObservationTaxonHierarchy", b =>
+                {
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ClassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CohortTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FormTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GenusTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InfraclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InfraorderTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("KingdomTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NotSetTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OrderTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PhylumTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SectionTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SpeciesTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubfamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubgenusTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubkingdomTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuborderTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubphylumTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubspeciesTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubtribeTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperfamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperorderTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TribeTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("VarietyTaxonId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ObservationId");
+
+                    b.HasIndex("ClassTaxonId")
+                        .HasDatabaseName("IX_OTH_Class")
+                        .HasFilter("[ClassTaxonId] IS NOT NULL");
+
+                    b.HasIndex("CohortTaxonId")
+                        .HasDatabaseName("IX_OTH_Cohort")
+                        .HasFilter("[CohortTaxonId] IS NOT NULL");
+
+                    b.HasIndex("FamilyTaxonId")
+                        .HasDatabaseName("IX_OTH_Family")
+                        .HasFilter("[FamilyTaxonId] IS NOT NULL");
+
+                    b.HasIndex("FormTaxonId")
+                        .HasDatabaseName("IX_OTH_Form")
+                        .HasFilter("[FormTaxonId] IS NOT NULL");
+
+                    b.HasIndex("GenusTaxonId")
+                        .HasDatabaseName("IX_OTH_Genus")
+                        .HasFilter("[GenusTaxonId] IS NOT NULL");
+
+                    b.HasIndex("InfraclassTaxonId")
+                        .HasDatabaseName("IX_OTH_Infraclass")
+                        .HasFilter("[InfraclassTaxonId] IS NOT NULL");
+
+                    b.HasIndex("InfraorderTaxonId")
+                        .HasDatabaseName("IX_OTH_Infraorder")
+                        .HasFilter("[InfraorderTaxonId] IS NOT NULL");
+
+                    b.HasIndex("KingdomTaxonId")
+                        .HasDatabaseName("IX_OTH_Kingdom")
+                        .HasFilter("[KingdomTaxonId] IS NOT NULL");
+
+                    b.HasIndex("NotSetTaxonId")
+                        .HasDatabaseName("IX_OTH_NotSet")
+                        .HasFilter("[NotSetTaxonId] IS NOT NULL");
+
+                    b.HasIndex("OrderTaxonId")
+                        .HasDatabaseName("IX_OTH_Order")
+                        .HasFilter("[OrderTaxonId] IS NOT NULL");
+
+                    b.HasIndex("PhylumTaxonId")
+                        .HasDatabaseName("IX_OTH_Phylum")
+                        .HasFilter("[PhylumTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SectionTaxonId")
+                        .HasDatabaseName("IX_OTH_Section")
+                        .HasFilter("[SectionTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SpeciesTaxonId")
+                        .HasDatabaseName("IX_OTH_Species")
+                        .HasFilter("[SpeciesTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubclassTaxonId")
+                        .HasDatabaseName("IX_OTH_Subclass")
+                        .HasFilter("[SubclassTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubfamilyTaxonId")
+                        .HasDatabaseName("IX_OTH_Subfamily")
+                        .HasFilter("[SubfamilyTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubgenusTaxonId")
+                        .HasDatabaseName("IX_OTH_Subgenus")
+                        .HasFilter("[SubgenusTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubkingdomTaxonId")
+                        .HasDatabaseName("IX_OTH_Subkingdom")
+                        .HasFilter("[SubkingdomTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SuborderTaxonId")
+                        .HasDatabaseName("IX_OTH_Suborder")
+                        .HasFilter("[SuborderTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubphylumTaxonId")
+                        .HasDatabaseName("IX_OTH_Subphylum")
+                        .HasFilter("[SubphylumTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubspeciesTaxonId")
+                        .HasDatabaseName("IX_OTH_Subspecies")
+                        .HasFilter("[SubspeciesTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SubtribeTaxonId")
+                        .HasDatabaseName("IX_OTH_Subtribe")
+                        .HasFilter("[SubtribeTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SuperclassTaxonId")
+                        .HasDatabaseName("IX_OTH_Superclass")
+                        .HasFilter("[SuperclassTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SuperfamilyTaxonId")
+                        .HasDatabaseName("IX_OTH_Superfamily")
+                        .HasFilter("[SuperfamilyTaxonId] IS NOT NULL");
+
+                    b.HasIndex("SuperorderTaxonId")
+                        .HasDatabaseName("IX_OTH_Superorder")
+                        .HasFilter("[SuperorderTaxonId] IS NOT NULL");
+
+                    b.HasIndex("TribeTaxonId")
+                        .HasDatabaseName("IX_OTH_Tribe")
+                        .HasFilter("[TribeTaxonId] IS NOT NULL");
+
+                    b.HasIndex("VarietyTaxonId")
+                        .HasDatabaseName("IX_OTH_Variety")
+                        .HasFilter("[VarietyTaxonId] IS NOT NULL");
+
+                    b.ToTable("ObservationTaxonHierarchy", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Organization", b =>
