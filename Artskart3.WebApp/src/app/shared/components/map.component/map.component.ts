@@ -276,6 +276,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
           deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
         });
+        this.rebuildAllLayers();
       });
   }
 
