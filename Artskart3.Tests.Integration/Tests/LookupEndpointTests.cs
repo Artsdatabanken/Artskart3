@@ -166,4 +166,39 @@ public class LookupEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/TaxonAncestry
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetTaxonAncestry_WithoutIds_Returns200WithEmptyArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/TaxonAncestry");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        doc.RootElement.GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetTaxonAncestry_WithIds_Returns200WithOneEntryPerDistinctId()
+    {
+        var response = await _client.GetAsync("/api/Lookup/TaxonAncestry?taxonIds=1&taxonIds=2&taxonIds=1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        doc.RootElement.GetArrayLength().Should().Be(2);
+
+        foreach (var entry in doc.RootElement.EnumerateArray())
+        {
+            entry.TryGetProperty("id", out _).Should().BeTrue();
+            entry.TryGetProperty("parentIds", out var parentIds).Should().BeTrue();
+            parentIds.ValueKind.Should().Be(JsonValueKind.Array);
+        }
+    }
 }

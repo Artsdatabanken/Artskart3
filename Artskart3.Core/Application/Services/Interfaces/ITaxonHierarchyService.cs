@@ -22,6 +22,12 @@ public interface ITaxonHierarchyService
     List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId);
 
     /// <summary>
+    /// Returnerer foreldrekjeden (id-er fra rotnivå til nærmeste forelder) for hvert oppgitt taxonId.
+    /// Ukjente taxonId-er får en tom kjede. Filtreres ikke på observasjonsantall.
+    /// </summary>
+    List<TaxonAncestryDto> GetAncestries(IEnumerable<int> taxonIds);
+
+    /// <summary>
     /// Returnerer alle etterkommere på art-nivå (rang 22) for et gitt taxonId.
     /// Brukes for å konvertere høyere-rangs filter til SpeciesTaxonId-oppslag.
     /// </summary>
