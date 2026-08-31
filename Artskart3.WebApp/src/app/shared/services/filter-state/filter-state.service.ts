@@ -198,10 +198,8 @@ export class FilterStateService {
     this.selectedTaxonIds.update((ids) => ids.filter((id) => id !== taxonId));
   }
 
-  toggleTaxon(taxonId: number): void {
-    this.selectedTaxonIds.update((ids) =>
-      ids.includes(taxonId) ? ids.filter((id) => id !== taxonId) : [...ids, taxonId],
-    );
+  setTaxons(ids: number[]): void {
+    this.selectedTaxonIds.set([...ids]);
   }
 
   clearTaxons(): void {
