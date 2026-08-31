@@ -589,6 +589,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/TaxonAncestry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    taxonIds?: number[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxonAncestryDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Notifications": {
         parameters: {
             query?: never;
@@ -1277,6 +1314,17 @@ export interface components {
             name?: string | null;
             filter?: components["schemas"]["ObservationSearchFilterDto"];
             selectedColumns?: string[] | null;
+        };
+        TaxonAncestryDto: {
+            /** Format: int32 */
+            id?: number;
+            parentIds?: number[] | null;
+            levels?: components["schemas"]["TaxonAncestryLevelDto"][] | null;
+        };
+        TaxonAncestryLevelDto: {
+            /** Format: int32 */
+            parentId?: number;
+            childIds?: number[] | null;
         };
         TaxonDto: {
             /** Format: int32 */

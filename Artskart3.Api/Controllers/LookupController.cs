@@ -122,4 +122,21 @@ public class LookupController : ControllerBase
         var children = _taxonHierarchy.GetChildren(parentTaxonId);
         return Ok(children);
     }
+
+    /// <summary>
+    /// Returnerer foreldrekjeden for hvert oppgitt taxonId.
+    /// Brukes av frontend til å avgjøre indeterminate/checked-tilstand i taxon-treet
+    /// for taxa valgt utenfor treet (f.eks. via artsøk).
+    /// Data hentes fra minne — ingen databasekall per request.
+    /// </summary>
+    [HttpGet("TaxonAncestry")]
+    [Produces("application/json")]
+    public ActionResult<List<TaxonAncestryDto>> GetTaxonAncestry([FromQuery] int[] taxonIds, CancellationToken cancellationToken = default)
+    {
+        // Begrens input slik at endepunktet ikke kan misbrukes med svært store spørringer
+        var ancestries = _taxonHierarchy.GetAncestries(taxonIds.Distinct().Take(MaxTaxonIdsPerRequest));
+        return Ok(ancestries);
+    }
+
+    private const int MaxTaxonIdsPerRequest = 100;
 }

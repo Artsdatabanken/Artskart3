@@ -864,19 +864,32 @@ public class SearchRepository : ISearchRepository
 
         foreach (var taxonId in taxonIds)
         {
+            // MERK: De denormaliserte kolonnene i ObservationEntityIndex inneholder kun
+            // eksakte rangnivåer (22 art, 19 slekt, 15 familie, 11 orden) — se
+            // BackfillTaxonHierarchyColumns.sql. Mellomnivåer (f.eks. underart 23,
+            // underslekt 20, underfamilie 16, underorden 12) ville gitt null treff via
+            // kolonnen og må derfor slås opp i ObservationTaxonHierarchy, som har egen
+            // kolonne for alle 26 rangnivåer.
             switch (_taxonHierarchy.GetTaxonRankId(taxonId))
             {
-                case >= 22: // Art, underart, varietet, form
+                case 22: // Art
                     speciesIds.Add(taxonId);
                     break;
-                case >= 19: // Slekt, underslekt, seksjon (19-21)
+                case 19: // Slekt
                     genusIds.Add(taxonId);
                     break;
-                case >= 15: // Familie, underfamilie, tribe, undertribe (15-18)
+                case 15: // Familie
                     familyIds.Add(taxonId);
                     break;
-                case >= 11: // Orden, underorden, infraorden, superfamilie (11-14)
+                case 11: // Orden
                     orderIds.Add(taxonId);
+                    break;
+
+                case >= 12 and <= 14:
+                case >= 16 and <= 18:
+                case >= 20 and <= 21:
+                case >= 23:
+                    FallBackToHierarchy(taxonId);
                     break;
 
                 case not null: // Klasse og høyere — konverter til underliggende ordener
@@ -925,15 +938,19 @@ public class SearchRepository : ISearchRepository
         if (hasHierarchy && !hasSpecies && !hasGenus && !hasFamily && !hasOrder)
             return query.Where(idx => hierarchyObsIds!.Contains(idx.ObservationId));
 
-        // Flere kilder — kombiner med OR.
-        // Snapshot av hierarchyObsIds fordi den settes av en lokal funksjon over.
-        var hierarchy = hierarchyObsIds;
-        return query.Where(idx =>
-            (distinctSpecies != null && distinctSpecies.Contains(idx.SpeciesTaxonId!.Value)) ||
-            (distinctGenus != null && distinctGenus.Contains(idx.GenusTaxonId!.Value)) ||
-            (distinctFamily != null && distinctFamily.Contains(idx.FamilyTaxonId!.Value)) ||
-            (distinctOrder != null && distinctOrder.Contains(idx.OrderTaxonId!.Value)) ||
-            (hierarchy != null && hierarchy.Contains(idx.ObservationId)));
+        // Flere kilder — slå sammen til én ObservationId-subspørring via UNION og filtrer
+        // med én enkelt Contains. En OR-lambda kan ikke brukes her: null-sjekken på den
+        // captured IQueryable-en (hierarchy != null) kan EF ikke oversette til SQL.
+        IQueryable<int>? matchingObsIds = null;
+        void AddMatching(IQueryable<int> source) => matchingObsIds = matchingObsIds == null ? source : matchingObsIds.Union(source);
+
+        if (hasSpecies) AddMatching(query.Where(idx => distinctSpecies!.Contains(idx.SpeciesTaxonId!.Value)).Select(idx => idx.ObservationId));
+        if (hasGenus) AddMatching(query.Where(idx => distinctGenus!.Contains(idx.GenusTaxonId!.Value)).Select(idx => idx.ObservationId));
+        if (hasFamily) AddMatching(query.Where(idx => distinctFamily!.Contains(idx.FamilyTaxonId!.Value)).Select(idx => idx.ObservationId));
+        if (hasOrder) AddMatching(query.Where(idx => distinctOrder!.Contains(idx.OrderTaxonId!.Value)).Select(idx => idx.ObservationId));
+        if (hasHierarchy) AddMatching(hierarchyObsIds!);
+
+        return query.Where(idx => matchingObsIds!.Contains(idx.ObservationId));
     }
 
     private List<Area> FilterAreasBySelection(List<Area> areas, LocationSearchFilterDto filter)
