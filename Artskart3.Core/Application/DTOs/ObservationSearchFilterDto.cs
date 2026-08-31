@@ -34,13 +34,11 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public PeriodDto? Period { get; set; }
 
-    public string? ProjectName { get; set; }
+    public int? CollectionOrgId { get; set; }
 
-    public int? ProjectOrganizationId { get; set; }
+    public int? DatasetOrgId { get; set; }
 
-    public string? CollectionCode { get; set; }
-
-    public string? CatalogNumber { get; set; }
+    public int[]? ObservationIds { get; set; }
 
     public bool? WithImages { get; set; }
 }

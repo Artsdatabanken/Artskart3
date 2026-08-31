@@ -4,6 +4,7 @@ using Artskart3.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    partial class ArtskartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828073037_RemoveInstitutionIndexRows")]
+    partial class RemoveInstitutionIndexRows
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1126,6 +1129,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<string>("CollectionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("CollectionOrgId")
                         .HasColumnType("int");
 
@@ -1164,6 +1171,14 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("HashCode")
                         .HasColumnType("int");
+
+                    b.Property<string>("InstitutionCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InstitutionId")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
 
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
@@ -1243,6 +1258,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "DateLastModified" }, "IX_Observation_DateLastModified");
 
                     b.HasIndex(new[] { "DateTimeCollected" }, "IX_Observation_DateTimeCollected");
+
+                    b.HasIndex(new[] { "InstitutionCode" }, "IX_Observation_InstitutionCode");
+
+                    b.HasIndex(new[] { "InstitutionId" }, "IX_Observation_InstitutionId");
 
                     b.HasIndex(new[] { "LocationId" }, "IX_Observation_LocationId");
 
@@ -1837,6 +1856,82 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "ParentId" }, "IX_ParentId");
 
                     b.ToTable("Organization", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationRelation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ObservationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RelationTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id")
+                        .HasName("PK_dbo.OrganizationRelation");
+
+                    b.HasIndex(new[] { "ObservationId" }, "IX_ObservationId");
+
+                    b.HasIndex(new[] { "OrganizationId" }, "IX_OrganizationId");
+
+                    b.HasIndex(new[] { "OrganizationId", "ObservationId" }, "IX_OrganizationRelation_OrgId_ObsId");
+
+                    b.HasIndex(new[] { "RelationTypeId" }, "IX_RelationTypeId");
+
+                    b.ToTable("OrganizationRelation", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationRelationType", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id")
+                        .HasName("PK_dbo.OrganizationRelationType");
+
+                    b.ToTable("OrganizationRelationType", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationType", b =>
@@ -2898,6 +2993,36 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationRelation", b =>
+                {
+                    b.HasOne("Artskart3.Core.Domain.Entities.Observation", "Observation")
+                        .WithMany("OrganizationRelations")
+                        .HasForeignKey("ObservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Observation_ObservationId");
+
+                    b.HasOne("Artskart3.Core.Domain.Entities.Organization", "Organization")
+                        .WithMany("OrganizationRelations")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Organization_OrganizationId");
+
+                    b.HasOne("Artskart3.Core.Domain.Entities.OrganizationRelationType", "RelationType")
+                        .WithMany("OrganizationRelations")
+                        .HasForeignKey("RelationTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.OrganizationRelation_dbo.OrganizationRelationType_RelationTypeId");
+
+                    b.Navigation("Observation");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("RelationType");
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ProcessRecordResult", b =>
                 {
                     b.HasOne("Artskart3.Core.Domain.Entities.RejectedRecord", "RejectedRecord")
@@ -3079,6 +3204,8 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Navigation("ObservationLinkObservations");
 
+                    b.Navigation("OrganizationRelations");
+
                     b.Navigation("SensitiveObservationDatum");
                 });
 
@@ -3090,6 +3217,13 @@ namespace Artskart3.Infrastructure.Migrations
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Organization", b =>
                 {
                     b.Navigation("InverseParent");
+
+                    b.Navigation("OrganizationRelations");
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationRelationType", b =>
+                {
+                    b.Navigation("OrganizationRelations");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationType", b =>

@@ -60,6 +60,17 @@ public class ExportService
 
         var needsDetail = columns.Any(c => c.StartsWith("Detail."));
 
+        // Institusjons- og samlingskode utledes fra Organization via
+        // InstitutionOrgId/CollectionOrgId. Hele tabellen lastes én gang — 25 943
+        // rader — i stedet for en join per observasjonsbatch.
+        Dictionary<int, string?>? organizationCodes = null;
+        if (columns.Contains("InstitutionCode") || columns.Contains("CollectionCode"))
+        {
+            organizationCodes = await _context.Set<Organization>()
+                .AsNoTracking()
+                .ToDictionaryAsync(o => o.Id, o => o.Code, cancellationToken);
+        }
+
         var query = BuildQuery(filter, needsDetail);
 
         // Tell totalt antall rader og lagre på jobben med én gang
@@ -129,7 +140,7 @@ public class ExportService
 
             foreach (var observation in batch)
             {
-                var values = columns.Select(c => ExportColumnRegistry.GetValue(observation, c)).ToList();
+                var values = columns.Select(c => ExportColumnRegistry.GetValue(observation, c, organizationCodes)).ToList();
 
                 // Skriv til CSV
                 await _csvWriter.WriteRowAsync(writer, values);

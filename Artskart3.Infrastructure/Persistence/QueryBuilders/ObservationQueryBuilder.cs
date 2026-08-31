@@ -22,8 +22,48 @@ public static class ObservationQueryBuilder
     {
         query = ApplyTextFilters(query, filter);
         query = ApplyDirectFilters(query, filter);
+        query = ApplyIdentifierFilters(context, query, filter);
         query = ApplyAreaFilters(context, query, filter);
         query = ApplyRangeFilters(query, filter);
+
+        return query;
+    }
+
+    /// <summary>
+    /// Samling, prosjekt/datasett og katalognummer.
+    ///
+    /// Disse manglet i eksportstien. Konsekvensen var ikke en for stor eksport, men
+    /// en avvist en: forhåndstellingen i ExportService talte alle 61M observasjoner
+    /// og traff radgrensen, så en bruker som hadde filtrert ned til tre treff fikk
+    /// «Antall rader overstiger grensen» i stedet for en fil.
+    ///
+    /// MERK at TaxonIds, RegistrationStatusId og WithImages fortsatt mangler her —
+    /// det er en eldre avvikelse mot SearchRepository.ApplyCommonFilters, ikke noe
+    /// CompleteFilter innførte, og den er ikke rettet i denne omgang.
+    /// </summary>
+    private static IQueryable<Observation> ApplyIdentifierFilters(
+        IArtsKartDbContext context,
+        IQueryable<Observation> query,
+        ObservationSearchFilterDto filter)
+    {
+        if (filter.CollectionOrgId.HasValue)
+        {
+            var collectionOrgId = filter.CollectionOrgId.Value;
+            query = query.Where(o => o.CollectionOrgId == collectionOrgId);
+        }
+
+        if (filter.DatasetOrgId.HasValue)
+        {
+            var datasetOrgId = filter.DatasetOrgId.Value;
+            query = query.Where(o => context.Set<ObservationDataset>()
+                .Any(d => d.ObservationId == o.Id && d.DatasetOrgId == datasetOrgId));
+        }
+
+        if (filter.ObservationIds?.Any() == true)
+        {
+            var observationIds = filter.ObservationIds;
+            query = query.Where(o => observationIds.Contains(o.Id));
+        }
 
         return query;
     }
@@ -84,24 +124,50 @@ public static class ObservationQueryBuilder
         var hasCounty = filter.CountyIds?.Any() == true;
         var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
         var hasOcean = filter.OceanAreaIds?.Any() == true;
-        var hasOrg = filter.OrganizationIds?.Any() == true;
 
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean || hasOrg)
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
         {
             var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
             var countyIds = ConvertFidsToInt(filter.CountyIds);
             var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
             var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
-            var orgIds = filter.OrganizationIds ?? [];
 
             query = query.Where(o => context.Set<ObservationEntityIndex>().Any(idx =>
                 idx.ObservationId == o.Id && (
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                    // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som i
+                    // SearchRepository. Grenen manglet her, så et fylkesvalg på
+                    // Svalbard ga treff på kartet og en tom CSV.
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Institution && orgIds.Contains(idx.EntityId))
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
                 )));
+        }
+
+        // Institusjonsfilteret er flyttet ut av OR-blokken over, til den
+        // denormaliserte kolonnen.
+        //
+        // SEMANTIKK: institusjon AND-es med områdefiltrene, men flere valgte
+        // institusjoner OR-es seg imellom — Contains blir IN (A, B). Velger man
+        // Oslo pluss NHM og NINA, betyr det «i Oslo, og fra enten NHM eller NINA».
+        // Samme regel gjelder i SearchRepository, både for observasjonssøk og
+        // områdetellinger.
+        //
+        // MERK — DETTE ER EN OPPFØRSELSENDRING. Institusjon lå tidligere som ett
+        // av leddene i den samme OR-en, så «Oslo ELLER NHM» ga treff på alt i Oslo
+        // pluss alt fra NHM. Søket (SearchRepository.ApplyCommonFilters) har alltid
+        // behandlet institusjon som et eget AND-vilkår, altså «i Oslo OG fra NHM».
+        // Kommentaren over hevdet at eksporten speilet søket; det gjorde den ikke.
+        //
+        // Semantikken kunne ikke bevares uansett: institusjon ligger nå i en kolonne
+        // på Observation, ikke som rader i indekstabellen, og de radene fjernes i
+        // oppryddingssteget. Valget står derfor mellom AND og å beholde en
+        // avvikende OR — og AND er det eksporten hele tiden var ment å gjøre.
+        if (filter.OrganizationIds?.Any() == true)
+        {
+            var orgIds = filter.OrganizationIds;
+            query = query.Where(o => o.InstitutionOrgId.HasValue && orgIds.Contains(o.InstitutionOrgId.Value));
         }
 
         return query;

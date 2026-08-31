@@ -70,9 +70,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<Organization> Organizations { get; set; }
 
-    public virtual DbSet<OrganizationRelation> OrganizationRelations { get; set; }
-
-    public virtual DbSet<OrganizationRelationType> OrganizationRelationTypes { get; set; }
 
     public virtual DbSet<OrganizationType> OrganizationTypes { get; set; }
 
@@ -508,14 +505,28 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
-            entity.Property(e => e.CollectionCode).HasMaxLength(100);
             entity.Property(e => e.DateTimeRecordProcessed);
-            entity.Property(e => e.InstitutionCode).HasMaxLength(100);
-            entity.Property(e => e.InstitutionId).HasMaxLength(25);
             entity.Property(e => e.MonthCollected).HasComputedColumnSql("(datepart(month,[DateTimeCollected]))", false);
             entity.Property(e => e.OccurrenceId).HasMaxLength(255);
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
+
+            // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
+            // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
+            // ObservationId-er fra typeaheaden og seeker på den clustered indeksen.
+            // Opprettes med sidekomprimering via rå SQL i migrasjonen; EF Core har
+            // ingen parameter for DATA_COMPRESSION.
+            entity.HasIndex(e => e.CatalogNumber).HasDatabaseName("IX_Observation_CatalogNumber");
+
+            // CompleteFilter — InstitutionOrgId og CollectionOrgId er bevisst IKKE
+            // modellert som relasjoner. EF Core oppretter automatisk en indeks bak
+            // hver fremmednøkkel, og på en tabell med 61M rader ville det blitt to
+            // rowstore-indekser vi har grunn til å tro er skadelige: institusjon har
+            // 54 distinkte verdier (~1,13M rader hver), så et seek etterfulgt av
+            // sortering taper mot et clustered scan som stopper ved første TOP N.
+            // Selve FK-constrainten opprettes med rå SQL i migrasjonen, så databasen
+            // har referanseintegriteten uten indeksene. Samme mønster som
+            // columnstore-indeksen: databasen kan ha ting EF ikke modellerer.
 
             entity.HasOne(d => d.BasisOfRecord).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.BasisOfRecordId)
@@ -705,43 +716,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .HasConstraintName("FK_dbo.Organization_dbo.Organization_ParentId");
         });
 
-        modelBuilder.Entity<OrganizationRelation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK_dbo.OrganizationRelation");
-
-            entity.ToTable("OrganizationRelation");
-
-            entity.HasIndex(e => e.ObservationId, "IX_ObservationId");
-
-            entity.HasIndex(e => e.OrganizationId, "IX_OrganizationId");
-
-            entity.HasIndex(e => e.RelationTypeId, "IX_RelationTypeId");
-
-            entity.HasIndex(e => new { e.OrganizationId, e.ObservationId }, "IX_OrganizationRelation_OrgId_ObsId");
-
-            entity.HasOne(d => d.Observation).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.ObservationId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Observation_ObservationId");
-
-            entity.HasOne(d => d.Organization).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.OrganizationId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Organization_OrganizationId");
-
-            entity.HasOne(d => d.RelationType).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.RelationTypeId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.OrganizationRelationType_RelationTypeId");
-        });
-
-        modelBuilder.Entity<OrganizationRelationType>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK_dbo.OrganizationRelationType");
-
-            entity.ToTable("OrganizationRelationType");
-
-            entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.Description).HasMaxLength(100);
-            entity.Property(e => e.Name).HasMaxLength(50);
-        });
 
         modelBuilder.Entity<OrganizationType>(entity =>
         {
@@ -1038,6 +1012,32 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
             // gjorde spørringene tregere. Columnstore-indeksen opprettes i
             // migrasjon 20260820140154 (EF Core modellerer ikke columnstore).
+            //
+            // Det samme gjelder CompleteFilter-kolonnene InstitutionOrgId,
+            // CollectionOrgId og BehaviorId: alle tre er lavselektive og betjenes av
+            // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
+        });
+
+        modelBuilder.Entity<ObservationDataset>(entity =>
+        {
+            entity.HasKey(e => new { e.ObservationId, e.DatasetOrgId });
+            entity.ToTable("ObservationDataset");
+
+            // Filterretningen: seek på datasett, få ObservationId-er ut. PK-en dekker
+            // motsatt retning (finn datasettene til én observasjon).
+            entity.HasIndex(e => new { e.DatasetOrgId, e.ObservationId })
+                .HasDatabaseName("IX_ObservationDataset_Dataset");
+
+            entity.HasOne<Observation>()
+                .WithMany()
+                .HasForeignKey(e => e.ObservationId)
+                .HasConstraintName("FK_ObservationDataset_Observation");
+
+            entity.HasOne<Organization>()
+                .WithMany()
+                .HasForeignKey(e => e.DatasetOrgId)
+                .HasConstraintName("FK_ObservationDataset_Organization")
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>

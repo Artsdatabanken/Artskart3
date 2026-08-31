@@ -36,8 +36,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     private const int TestTaxonNameMissingObservationId = 960005;
     private const int TestObservationTaxonGroupOneId = 970001;
     private const int TestObservationTaxonGroupTwoId = 970002;
-    private const string CollectionOne = "REPO-COLL-A";
-    private const string CollectionTwo = "REPO-COLL-B";
+    // CompleteFilter: samling er en Organization-ID, ikke lenger en kode-streng.
+    private const int CollectionOne = 1;
+    private const int CollectionTwo = 2;
 
     private readonly DatabaseFixture _db;
     private ArtskartDbContext _context = null!;
@@ -367,14 +368,14 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             IsDeleted = isDeleted
         };
 
-    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, string institutionCode, int coordinatePrecision, int hashCode)
+    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, int collectionOrgId, int coordinatePrecision, int hashCode)
         => new()
         {
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
-            InstitutionCode = institutionCode,
+            CollectionOrgId = collectionOrgId,
             BasisOfRecordId = basisOfRecordId,
             TaxonId = TestTaxonExactId,
             MatchedScientificNameId = TestTaxonNameExactId,

@@ -77,6 +77,91 @@ public class LookupController : ControllerBase
         return Ok(organizations);
     }
 
+    // OrganizationType: 2 = Collection, 3 = Dataset. Verifisert mot tabellen.
+    private const int CollectionOrganizationTypeId = 2;
+    private const int DatasetOrganizationTypeId = 3;
+
+    /// <summary>
+    /// Typeahead for samling. Returnerer OrganizationId som sendes som
+    /// collectionOrgId i søkefilteret.
+    /// </summary>
+    [HttpGet("Collections")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchCollections(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchOrganizationsByTypeAsync(
+            search, CollectionOrganizationTypeId, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Typeahead for prosjekt/datasett. Returnerer OrganizationId som sendes som
+    /// datasetOrgId i søkefilteret.
+    /// </summary>
+    [HttpGet("Datasets")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchDatasets(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchOrganizationsByTypeAsync(
+            search, DatasetOrganizationTypeId, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Typeahead for katalognummer. PREFIKSSØK — hvert treff kommer med
+    /// ObservationId-ene det peker på, som sendes som observationIds i filteret.
+    ///
+    /// Grunnen til at treffet bærer IDer og ikke bare strengen: katalognummer er
+    /// tilnærmet unikt, og et filter på ID blir et seek på klyngeindeksen i stedet
+    /// for et delstrengsøk mot 61M rader.
+    /// </summary>
+    [HttpGet("CatalogNumbers")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<CatalogNumberMatchDto>>> GetSearchCatalogNumbers(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<CatalogNumberMatchDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchCatalogNumbersAsync(search, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>
     /// Returns all taxon groups, intended for populating filter dropdowns.
     /// </summary>

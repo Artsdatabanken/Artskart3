@@ -47,12 +47,50 @@ export class SidebarComponent {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly translate = inject(TranslateService);
 
-  private readonly projectNameSearch$ = new Subject<string>();
-  readonly projectNameSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
-  readonly showProjectNameSuggestions = signal<boolean>(false);
+  // Samling, prosjekt og katalognummer er typeahead-felt: brukeren skriver
+  // fritekst, velger et treff, og filteret får en ID. Fritekstsøket skjer i
+  // Lookup-endepunktene mot små tabeller eller en indeks — aldri i selve
+  // søkespørringen mot 61M observasjoner.
+  private readonly datasetSearch$ = new Subject<string>();
+  readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
+  readonly showDatasetSuggestions = signal<boolean>(false);
+
+  private readonly collectionSearch$ = new Subject<string>();
+  readonly collectionSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
+  readonly showCollectionSuggestions = signal<boolean>(false);
+
+  private readonly catalogNumberSearch$ = new Subject<string>();
+  readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
+  readonly showCatalogNumberSuggestions = signal<boolean>(false);
+
+  // «Tekst skrevet, men ingen ID valgt» må være synlig.
+  //
+  // Filteret sender ID-er, ikke tekst. Uten dette kunne feltet vise
+  // «Universitetsmuseet i Bergen» mens søket var helt ufiltrert — brukeren ser et
+  // aktivt filter og får et resultat som ser plausibelt ut. Samme feilklasse som
+  // takson-filteret som stille returnerte alle 60M observasjoner, bare flyttet til
+  // presentasjonslaget.
+  //
+  // Gjelder også etter et valg: velger man «NHM» og deretter redigerer teksten til
+  // «NIN», nullstilles ID-en, og da må feltet si fra.
+  readonly datasetUnresolved = computed(
+    () => this.datasetName().trim().length > 0 && this.datasetOrgId() === null,
+  );
+  readonly collectionUnresolved = computed(
+    () => this.collectionName().trim().length > 0 && this.collectionOrgId() === null,
+  );
+  readonly catalogNumberUnresolved = computed(
+    () => this.catalogNumber().trim().length > 0 && this.catalogObservationIds().length === 0,
+  );
+
+  // Skilles fra «venter fortsatt» slik at et søk uten treff ikke ser identisk ut
+  // med et søk som ikke har rukket å svare.
+  readonly datasetNoMatches = signal<boolean>(false);
+  readonly collectionNoMatches = signal<boolean>(false);
+  readonly catalogNumberNoMatches = signal<boolean>(false);
 
   constructor() {
-    this.projectNameSearch$
+    this.datasetSearch$
       .pipe(
         debounceTime(300),
         distinctUntilChanged(),
@@ -62,14 +100,57 @@ export class SidebarComponent {
             return of<components['schemas']['OrganizationDto'][]>([]);
           }
           return this.organizationService
-            .searchOrganizations(trimmed)
+            .searchDatasets(trimmed)
             .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
         }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((organizations) => {
-        this.projectNameSuggestions.set(organizations);
-        this.showProjectNameSuggestions.set(organizations.length > 0);
+        this.datasetSuggestions.set(organizations);
+        this.showDatasetSuggestions.set(organizations.length > 0);
+        this.datasetNoMatches.set(organizations.length === 0 && this.datasetUnresolved());
+      });
+
+    this.collectionSearch$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const trimmed = term.trim();
+          if (trimmed.length < MinProjectNameSearchLength) {
+            return of<components['schemas']['OrganizationDto'][]>([]);
+          }
+          return this.organizationService
+            .searchCollections(trimmed)
+            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((organizations) => {
+        this.collectionSuggestions.set(organizations);
+        this.showCollectionSuggestions.set(organizations.length > 0);
+        this.collectionNoMatches.set(organizations.length === 0 && this.collectionUnresolved());
+      });
+
+    this.catalogNumberSearch$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const trimmed = term.trim();
+          if (trimmed.length < MinProjectNameSearchLength) {
+            return of<components['schemas']['CatalogNumberMatchDto'][]>([]);
+          }
+          return this.organizationService
+            .searchCatalogNumbers(trimmed)
+            .pipe(catchError(() => of<components['schemas']['CatalogNumberMatchDto'][]>([])));
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((matches) => {
+        this.catalogNumberSuggestions.set(matches);
+        this.showCatalogNumberSuggestions.set(matches.length > 0);
+        this.catalogNumberNoMatches.set(matches.length === 0 && this.catalogNumberUnresolved());
       });
   }
   readonly registreringOptions: RegistreringOption[] = [
@@ -345,45 +426,92 @@ export class SidebarComponent {
     this.filterState.setPeriod(from, to);
   }
 
-  readonly projectName = this.filterState.projectName;
-  readonly collectionCode = this.filterState.collectionCode;
+  readonly datasetName = this.filterState.datasetName;
+  readonly collectionName = this.filterState.collectionName;
   readonly catalogNumber = this.filterState.catalogNumber;
+  // ID-signalene eksponeres for de tre *Unresolved-computedene over: teksten alene
+  // sier ingenting om filteret faktisk er aktivt.
+  readonly datasetOrgId = this.filterState.datasetOrgId;
+  readonly collectionOrgId = this.filterState.collectionOrgId;
+  readonly catalogObservationIds = this.filterState.catalogObservationIds;
   readonly imageFilter = this.filterState.imageFilter;
 
-  onProjectNameChange(event: Event): void {
+  // Felles for alle tre: å skrive i feltet nullstiller den valgte ID-en. Uten
+  // det ville teksten og filteret kunne peke på hver sin ting — brukeren ser
+  // «Fugler», men filteret står fortsatt på forrige valg.
+  onDatasetNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setProjectName(input.value);
-    // Manual typing invalidates any previously selected exact match.
-    this.filterState.setProjectOrganizationId(null);
-    this.projectNameSearch$.next(input.value);
+    this.filterState.setDatasetName(input.value);
+    this.filterState.setDatasetOrgId(null);
+    this.datasetSearch$.next(input.value);
   }
 
-  onProjectNameFocus(): void {
-    if (this.projectNameSuggestions().length > 0) {
-      this.showProjectNameSuggestions.set(true);
+  onDatasetNameFocus(): void {
+    if (this.datasetSuggestions().length > 0) {
+      this.showDatasetSuggestions.set(true);
     }
   }
 
-  onProjectNameBlur(): void {
+  onDatasetNameBlur(): void {
     // Delay hiding so a (mousedown) selection on a suggestion registers first.
-    setTimeout(() => this.showProjectNameSuggestions.set(false), 150);
+    setTimeout(() => this.showDatasetSuggestions.set(false), 150);
   }
 
-  selectProjectNameSuggestion(organization: components['schemas']['OrganizationDto']): void {
-    this.filterState.setProjectName(organization.name ?? '');
-    this.filterState.setProjectOrganizationId(organization.id ?? null);
-    this.projectNameSuggestions.set([]);
-    this.showProjectNameSuggestions.set(false);
+  selectDatasetSuggestion(organization: components['schemas']['OrganizationDto']): void {
+    this.filterState.setDatasetName(organization.name ?? '');
+    this.filterState.setDatasetOrgId(organization.id ?? null);
+    this.datasetSuggestions.set([]);
+    this.showDatasetSuggestions.set(false);
   }
 
-  onCollectionCodeChange(event: Event): void {
+  onCollectionNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setCollectionCode(input.value);
+    this.filterState.setCollectionName(input.value);
+    this.filterState.setCollectionOrgId(null);
+    this.collectionSearch$.next(input.value);
+  }
+
+  onCollectionNameFocus(): void {
+    if (this.collectionSuggestions().length > 0) {
+      this.showCollectionSuggestions.set(true);
+    }
+  }
+
+  onCollectionNameBlur(): void {
+    setTimeout(() => this.showCollectionSuggestions.set(false), 150);
+  }
+
+  selectCollectionSuggestion(organization: components['schemas']['OrganizationDto']): void {
+    this.filterState.setCollectionName(organization.name ?? '');
+    this.filterState.setCollectionOrgId(organization.id ?? null);
+    this.collectionSuggestions.set([]);
+    this.showCollectionSuggestions.set(false);
   }
 
   onCatalogNumberChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.filterState.setCatalogNumber(input.value);
+    this.filterState.setCatalogObservationIds([]);
+    this.catalogNumberSearch$.next(input.value);
+  }
+
+  onCatalogNumberFocus(): void {
+    if (this.catalogNumberSuggestions().length > 0) {
+      this.showCatalogNumberSuggestions.set(true);
+    }
+  }
+
+  onCatalogNumberBlur(): void {
+    setTimeout(() => this.showCatalogNumberSuggestions.set(false), 150);
+  }
+
+  // Treffet bærer ObservationId-ene med seg, så det trengs ikke noe ekstra kall
+  // for å gjøre om katalognummeret til et filter.
+  selectCatalogNumberSuggestion(match: components['schemas']['CatalogNumberMatchDto']): void {
+    this.filterState.setCatalogNumber(match.catalogNumber ?? '');
+    this.filterState.setCatalogObservationIds(match.observationIds ?? []);
+    this.catalogNumberSuggestions.set([]);
+    this.showCatalogNumberSuggestions.set(false);
   }
 
   onImageFilterChange(event: Event): void {
