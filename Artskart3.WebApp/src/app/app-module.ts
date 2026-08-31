@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors, HttpBackend } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, HttpBackend, withXhr } from '@angular/common/http';
 import { APP_INITIALIZER, ErrorHandler, NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { TranslateModule, TranslateLoader, TranslationObject } from '@ngx-translate/core';
@@ -61,7 +61,7 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withInterceptors([languageInterceptor, csrfInterceptor])),
+    provideHttpClient(withXhr(), withInterceptors([languageInterceptor, csrfInterceptor])),
     AreasService,
     {
       provide: TitleStrategy,
