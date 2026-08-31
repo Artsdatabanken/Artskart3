@@ -239,6 +239,199 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task GetAreaCountsAsync_MixedRankTaxonIds_ExecutesTranslatedQuery()
+    {
+        // Regresjon: blanding av orden-rang (direkte kolonnefilter) og et taxon som
+        // faller tilbake til ObservationTaxonHierarchy ga en OR-lambda med null-sjekk
+        // på en captured IQueryable, som EF ikke kunne oversette til SQL.
+        const int orderTaxonId = 980001;
+        const int phylumTaxonId = 980002;
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [orderTaxonId] = 11,  // Orden
+            [phylumTaxonId] = 3,  // Rekke (Phylum)
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        var act = () => repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [orderTaxonId, phylumTaxonId]
+        });
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task GetAreaCountsAsync_HierarchyFallbackTaxon_ReturnsNonZeroCount()
+    {
+        // Bekrefter at en kollapset forelder-id (phylum, ingen orden-etterkommere) som går via
+        // ObservationTaxonHierarchy-fallback faktisk gir treff — ikke et stille tomt resultat.
+        const int phylumTaxonId = 980002;
+        const int areaEntityId = 980010;
+        var areaFid = $"980010";
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [phylumTaxonId] = 3,  // Rekke (Phylum)
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        // Seed: område på zoomnivå 2 + indeks- og hierarkirad. AreaCounts-spørringen
+        // berører kun indeks- og hierarkitabellen, så ingen Observation-rad trengs —
+        // og vi unngår å forurense de delte lokasjonsantallene.
+        const int syntheticObservationId = 980500;
+        await RemoveSyntheticRowsAsync(syntheticObservationId, areaFid);
+
+        _context.Set<Area>().Add(new Area
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            Fid = areaFid,
+            Name = "Ancestry test kommune",
+            AreaTypeId = TestAreaTypeMunicipalityId,
+            ZoomLevel = 2,
+            ParentFid = "repo-parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = 0,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+        });
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = syntheticObservationId,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = 0,
+        });
+        _context.Set<ObservationTaxonHierarchy>().Add(new ObservationTaxonHierarchy
+        {
+            ObservationId = syntheticObservationId,
+            PhylumTaxonId = phylumTaxonId,
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [phylumTaxonId]
+        });
+
+        var area = result.SingleOrDefault(a => a.Fid == areaFid);
+        area.Should().NotBeNull("området har en matchende observasjon via hierarki-fallback");
+        area!.ObservationCount.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Mellomnivåer har ingen egen kolonne i ObservationEntityIndex (kun eksakt rang
+    /// 11/15/19/22 — se BackfillTaxonHierarchyColumns.sql). De skal derfor matches via
+    /// ObservationTaxonHierarchy, som har en kolonne per rangnivå.
+    /// </summary>
+    [Theory]
+    [InlineData(12, nameof(ObservationTaxonHierarchy.SuborderTaxonId))]
+    [InlineData(16, nameof(ObservationTaxonHierarchy.SubfamilyTaxonId))]
+    [InlineData(20, nameof(ObservationTaxonHierarchy.SubgenusTaxonId))]
+    [InlineData(23, nameof(ObservationTaxonHierarchy.SubspeciesTaxonId))]
+    [InlineData(26, nameof(ObservationTaxonHierarchy.NotSetTaxonId))]
+    public async Task GetAreaCountsAsync_OffRankTaxon_UsesHierarchyFallback(int rankId, string hierarchyColumn)
+    {
+        var taxonId = 980100 + rankId;
+        var areaEntityId = 980200 + rankId;
+        var areaFid = areaEntityId.ToString();
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [taxonId] = rankId,
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        _context.Set<Area>().Add(new Area
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            Fid = areaFid,
+            Name = $"OffRank {rankId} test kommune",
+            AreaTypeId = TestAreaTypeMunicipalityId,
+            ZoomLevel = 2,
+            ParentFid = "repo-parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = 0,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+        });
+        // Kun indeks- og hierarkirad — AreaCounts berører ikke Observation-tabellen,
+        // og vi unngår å forurense de delte lokasjonsantallene.
+        var syntheticObservationId = 980500 + rankId;
+        await RemoveSyntheticRowsAsync(syntheticObservationId, areaFid);
+
+        // Indeksraden har ingen denormalisert rangverdi; hierarkiraden bærer mellomnivået
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = syntheticObservationId,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = 0,
+        });
+        var hierarchyRow = new ObservationTaxonHierarchy { ObservationId = syntheticObservationId };
+        typeof(ObservationTaxonHierarchy).GetProperty(hierarchyColumn)!.SetValue(hierarchyRow, taxonId);
+        _context.Set<ObservationTaxonHierarchy>().Add(hierarchyRow);
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [taxonId]
+        });
+
+        var area = result.SingleOrDefault(a => a.Fid == areaFid);
+        area.Should().NotBeNull($"rang {rankId} matcher via hierarkitabellen");
+        area!.ObservationCount.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Gjør seedingen av syntetiske rader idempotent på tvers av testkjøringer
+    /// (databasen deles og tilbakestilles ikke mellom kjøringer).
+    /// </summary>
+    private async Task RemoveSyntheticRowsAsync(int observationId, string areaFid)
+    {
+        _context.Set<ObservationTaxonHierarchy>()
+            .RemoveRange(_context.Set<ObservationTaxonHierarchy>().Where(h => h.ObservationId == observationId));
+        _context.Set<ObservationEntityIndex>()
+            .RemoveRange(_context.Set<ObservationEntityIndex>().Where(i => i.ObservationId == observationId));
+        _context.Set<Area>()
+            .RemoveRange(_context.Set<Area>().Where(a => a.Fid == areaFid));
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// ITaxonHierarchyService med konfigurerbare rangnivåer. Taxa uten oppføring
+    /// håndteres som ukjente. Ingen taxa har etterkommere på annet rangnivå,
+    /// slik at høyere-rangs taxa faller tilbake til ObservationTaxonHierarchy.
+    /// </summary>
+    private sealed class ConfigurableTaxonHierarchyService(Dictionary<int, int> ranks)
+        : Artskart3.Core.Application.Services.Interfaces.ITaxonHierarchyService
+    {
+        public int? GetTaxonRankId(int taxonId) => ranks.TryGetValue(taxonId, out var rank) ? rank : null;
+
+        public List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId) => [];
+
+        public List<TaxonAncestryDto> GetAncestries(IEnumerable<int> taxonIds) =>
+            taxonIds.Select(id => new TaxonAncestryDto { Id = id, ParentIds = [] }).ToList();
+
+        public List<int> GetDescendantSpeciesIds(int taxonId) => [];
+
+        public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];
+    }
+
     private async Task SeedTestDataAsync()
     {
         if (await _context.Set<TaxonGroup>().AnyAsync(group => group.Id == TestTaxonGroupId))

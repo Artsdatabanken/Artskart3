@@ -43,3 +43,7 @@ export interface TaxonTreeNodeDto {
   children: TaxonTreeNodeDto[];
 }
 
+/** Foreldrekjeden for et taxon, fra rotnivå til nærmeste forelder. */
+export type TaxonAncestryDto = components['schemas']['TaxonAncestryDto'];
+export type TaxonAncestryLevelDto = components['schemas']['TaxonAncestryLevelDto'];
+

@@ -200,20 +200,6 @@ export class SidebarComponent {
     return this.filterState.selectedCategoryIds().includes(id);
   }
 
-  isAllInTypeSelected(type: CategoryTypeDto): boolean {
-    const ids = (type.categories ?? []).filter((c) => c.id !== undefined).map((c) => c.id as number);
-    if (ids.length === 0) return false;
-    const selected = this.filterState.selectedCategoryIds();
-    return ids.every((id) => selected.includes(id));
-  }
-
-  isSomeInTypeSelected(type: CategoryTypeDto): boolean {
-    const ids = (type.categories ?? []).filter((c) => c.id !== undefined).map((c) => c.id as number);
-    const selected = this.filterState.selectedCategoryIds();
-    const count = ids.filter((id) => selected.includes(id)).length;
-    return count > 0 && count < ids.length;
-  }
-
   onCategoryToggle(id: number): void {
     this.filterState.toggleCategory(id);
   }
@@ -233,15 +219,6 @@ export class SidebarComponent {
     this.coordinatePrecisionToInput.set('');
     this.periodFromInput.set('');
     this.periodToInput.set('');
-  }
-
-  onTypeToggle(type: CategoryTypeDto): void {
-    const ids = (type.categories ?? []).filter((c) => c.id !== undefined).map((c) => c.id as number);
-    if (this.isAllInTypeSelected(type)) {
-      ids.forEach((id) => this.filterState.removeCategory(id));
-    } else {
-      ids.forEach((id) => this.filterState.addCategory(id));
-    }
   }
 
   isMunicipalitySelected(fid: string): boolean {

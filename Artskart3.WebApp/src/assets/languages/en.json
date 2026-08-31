@@ -108,8 +108,8 @@
     "clearFilter": "Clear filter",
     "searchAndFilter": "Search and filter",
     "categoryType": {
-      "Fremmedart": "Alien Species Categories",
-      "Rødliste": "Red List Categories"
+      "Fremmedart": "Alien Species List",
+      "Rødliste": "Red List"
     },
     "coordinatePrecision": "Coordinate Precision",
     "coordinatePrecisionFrom": "From",
