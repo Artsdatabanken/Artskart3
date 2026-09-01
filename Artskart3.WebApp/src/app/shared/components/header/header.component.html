@@ -40,6 +40,9 @@
             {{ item.label }}
           </a>
         }
+        <button type="button" class="nav-item nav-item-button" (click)="openCookieSettings()">
+          {{ 'header.cookieSettings' | translate }}
+        </button>
       </nav>
     </div>
 
@@ -314,16 +317,17 @@
             }
           </div>
         </div>
-        @for (item of menuItems; track item; let last = $last) {
+        @for (item of menuItems; track item) {
           <ng-container>
             <a [href]="item.href" class="mobile-menu-item" [attr.aria-label]="item.ariaLabel || item.label" (click)="onMenuItemClick()">{{
               item.label
             }}</a>
-            @if (!last) {
-              <div class="mobile-menu-divider" role="separator"></div>
-            }
+            <div class="mobile-menu-divider" role="separator"></div>
           </ng-container>
         }
+        <button type="button" class="mobile-menu-item mobile-menu-item-button" (click)="openCookieSettings()">
+          {{ 'header.cookieSettings' | translate }}
+        </button>
       </div>
     </div>
   }

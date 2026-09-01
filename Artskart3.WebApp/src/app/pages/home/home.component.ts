@@ -43,6 +43,7 @@ export class HomeComponent {
   private readonly HEADER_HEIGHT = this.getCSSVar('--home-header-height', 80);
   private readonly HANDLE_HEIGHT = this.getCSSVar('--home-handle-height', 56);
   private readonly MOBILE_BREAKPOINT = this.getCSSVar('--home-mobile-breakpoint', 768);
+  private readonly OPEN_GAP = this.getCSSVar('--home-open-gap', 24);
   readonly isFilterOpen = signal(false);
   readonly isDragging = signal(false);
   private readonly dragTranslatePx = signal<number | null>(null);
@@ -59,7 +60,7 @@ export class HomeComponent {
     if (dragValue !== null) {
       return `translateY(${dragValue}px)`;
     }
-    return `translateY(${this.isFilterOpen() ? 0 : this.getCollapsedTranslateY()}px)`;
+    return `translateY(${this.isFilterOpen() ? this.OPEN_GAP : this.getCollapsedTranslateY()}px)`;
   });
 
   activeTab = signal(0);
@@ -152,6 +153,15 @@ export class HomeComponent {
     this.isFilterOpen.update((open) => !open);
   }
 
+  toggleMobileTab(): void {
+    this.activeTab.update((tab) => (tab === 0 ? 1 : 0));
+  }
+
+  isMobile(): boolean {
+    this.viewportTick();
+    return this.isMobileViewport();
+  }
+
   @HostListener('window:resize')
   onWindowResize(): void {
     this.viewportTick.update((tick) => tick + 1);
@@ -160,7 +170,7 @@ export class HomeComponent {
   onHandlePointerDown(event: PointerEvent): void {
     this.isDragging.set(true);
     this.dragStartY = event.clientY;
-    this.dragStartTranslate = this.isFilterOpen() ? 0 : this.getCollapsedTranslateY();
+    this.dragStartTranslate = this.isFilterOpen() ? this.OPEN_GAP : this.getCollapsedTranslateY();
     this.dragTranslatePx.set(this.dragStartTranslate);
 
     const handle = event.currentTarget as Element | null;
@@ -171,7 +181,7 @@ export class HomeComponent {
     if (!this.isDragging()) return;
     const collapsedTranslateY = this.getCollapsedTranslateY();
     const deltaY = event.clientY - this.dragStartY;
-    const nextTranslateY = Math.min(Math.max(this.dragStartTranslate + deltaY, 0), collapsedTranslateY);
+    const nextTranslateY = Math.min(Math.max(this.dragStartTranslate + deltaY, this.OPEN_GAP), collapsedTranslateY);
     this.dragTranslatePx.set(nextTranslateY);
   }
 
