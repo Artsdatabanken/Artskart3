@@ -328,11 +328,11 @@ export class SidebarComponent {
   readonly imageFilter = this.filterState.imageFilter;
 
   onProjectNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setProjectName(input.value);
+    const { value } = (event as CustomEvent<{ value: string }>).detail;
+    this.filterState.setProjectName(value);
     // Manual typing invalidates any previously selected exact match.
     this.filterState.setProjectOrganizationId(null);
-    this.projectNameSearch$.next(input.value);
+    this.projectNameSearch$.next(value);
   }
 
   onProjectNameFocus(): void {
@@ -354,13 +354,13 @@ export class SidebarComponent {
   }
 
   onCollectionCodeChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setCollectionCode(input.value);
+    const { value } = (event as CustomEvent<{ value: string }>).detail;
+    this.filterState.setCollectionCode(value);
   }
 
   onCatalogNumberChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setCatalogNumber(input.value);
+    const { value } = (event as CustomEvent<{ value: string }>).detail;
+    this.filterState.setCatalogNumber(value);
   }
 
   onImageFilterChange(event: Event): void {
