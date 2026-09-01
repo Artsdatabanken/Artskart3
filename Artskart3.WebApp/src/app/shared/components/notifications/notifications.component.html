@@ -1,0 +1,15 @@
+@for (notification of visibleNotifications(); track notification) {
+  <adb-alert
+    [attr.variant]="variant(notification)"
+    [attr.heading]="notification.heading ?? null"
+    [attr.closable]="notification.canClose ?? true ? '' : null"
+    (adb-close)="dismiss(notification)"
+  >
+    @if (notification.startDisplayDate || notification.endDisplayDate) {
+      <div class="alert-date-range">{{ formatDateRange(notification.startDisplayDate, notification.endDisplayDate) }}</div>
+    }
+    @if (notification.description) {
+      {{ notification.description }}
+    }
+  </adb-alert>
+}
