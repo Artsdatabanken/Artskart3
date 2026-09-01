@@ -29,10 +29,10 @@ public class ObservationEntityIndex
     // (~32k), atferd 6. For alle tre ligger kostnaden i aggregeringen, ikke i å finne
     // radene, så de skal IKKE ha rowstore-indekser. Se kommentaren i DbContext.
     //
-    // Datasett er bevisst ikke her — det er ikke 1:1 og ligger i ObservationDataset.
+    // Datasett er bevisst ikke her — det er ikke 1:1 og ligger i ObservationProject.
     // Katalognummer er heller ikke her — det er tilnærmet unikt, og løses med seek
     // på ObservationId fra typeahead-endepunktet.
     public int? InstitutionOrgId { get; set; }
-    public int? CollectionOrgId { get; set; }
+    public int? DatasetOrgId { get; set; }
     public byte? BehaviorId { get; set; }
 }

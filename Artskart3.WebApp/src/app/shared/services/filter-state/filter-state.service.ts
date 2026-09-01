@@ -29,10 +29,10 @@ export class FilterStateService {
   // Samling, prosjekt og katalognummer filtreres på ID. Teksten beholdes kun for
   // å vise hva brukeren har valgt — det er ID-ene som sendes til backend.
   // Uten et valgt treff er ID-en null, og filteret er ikke aktivt.
+  readonly projectName = signal<string>('');
+  readonly projectOrgId = signal<number | null>(null);
   readonly datasetName = signal<string>('');
   readonly datasetOrgId = signal<number | null>(null);
-  readonly collectionName = signal<string>('');
-  readonly collectionOrgId = signal<number | null>(null);
   readonly catalogNumber = signal<string>('');
   readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
@@ -248,20 +248,20 @@ export class FilterStateService {
     this.clearMonths();
   }
 
+  setProjectName(value: string): void {
+    this.projectName.set(value);
+  }
+
+  setProjectOrgId(id: number | null): void {
+    this.projectOrgId.set(id);
+  }
+
   setDatasetName(value: string): void {
     this.datasetName.set(value);
   }
 
   setDatasetOrgId(id: number | null): void {
     this.datasetOrgId.set(id);
-  }
-
-  setCollectionName(value: string): void {
-    this.collectionName.set(value);
-  }
-
-  setCollectionOrgId(id: number | null): void {
-    this.collectionOrgId.set(id);
   }
 
   setCatalogNumber(value: string): void {
@@ -277,10 +277,10 @@ export class FilterStateService {
   }
 
   clearOtherFindProperties(): void {
+    this.projectName.set('');
+    this.projectOrgId.set(null);
     this.datasetName.set('');
     this.datasetOrgId.set(null);
-    this.collectionName.set('');
-    this.collectionOrgId.set(null);
     this.catalogNumber.set('');
     this.catalogObservationIds.set([]);
     this.imageFilter.set('all');

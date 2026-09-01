@@ -518,7 +518,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // ingen parameter for DATA_COMPRESSION.
             entity.HasIndex(e => e.CatalogNumber).HasDatabaseName("IX_Observation_CatalogNumber");
 
-            // CompleteFilter — InstitutionOrgId og CollectionOrgId er bevisst IKKE
+            // CompleteFilter — InstitutionOrgId og DatasetOrgId er bevisst IKKE
             // modellert som relasjoner. EF Core oppretter automatisk en indeks bak
             // hver fremmednøkkel, og på en tabell med 61M rader ville det blitt to
             // rowstore-indekser vi har grunn til å tro er skadelige: institusjon har
@@ -1014,29 +1014,29 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // migrasjon 20260820140154 (EF Core modellerer ikke columnstore).
             //
             // Det samme gjelder CompleteFilter-kolonnene InstitutionOrgId,
-            // CollectionOrgId og BehaviorId: alle tre er lavselektive og betjenes av
+            // DatasetOrgId og BehaviorId: alle tre er lavselektive og betjenes av
             // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
         });
 
-        modelBuilder.Entity<ObservationDataset>(entity =>
+        modelBuilder.Entity<ObservationProject>(entity =>
         {
-            entity.HasKey(e => new { e.ObservationId, e.DatasetOrgId });
-            entity.ToTable("ObservationDataset");
+            entity.HasKey(e => new { e.ObservationId, e.ProjectOrgId });
+            entity.ToTable("ObservationProject");
 
             // Filterretningen: seek på datasett, få ObservationId-er ut. PK-en dekker
             // motsatt retning (finn datasettene til én observasjon).
-            entity.HasIndex(e => new { e.DatasetOrgId, e.ObservationId })
-                .HasDatabaseName("IX_ObservationDataset_Dataset");
+            entity.HasIndex(e => new { e.ProjectOrgId, e.ObservationId })
+                .HasDatabaseName("IX_ObservationProject_Project");
 
             entity.HasOne<Observation>()
                 .WithMany()
                 .HasForeignKey(e => e.ObservationId)
-                .HasConstraintName("FK_ObservationDataset_Observation");
+                .HasConstraintName("FK_ObservationProject_Observation");
 
             entity.HasOne<Organization>()
                 .WithMany()
-                .HasForeignKey(e => e.DatasetOrgId)
-                .HasConstraintName("FK_ObservationDataset_Organization")
+                .HasForeignKey(e => e.ProjectOrgId)
+                .HasConstraintName("FK_ObservationProject_Organization")
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

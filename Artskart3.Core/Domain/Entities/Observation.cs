@@ -35,7 +35,7 @@ public partial class Observation : BaseEntity
     // vedlikeholdsvindu, med FK-ene droppet og lagt tilbake rundt endringen.
     public int? InstitutionOrgId { get; set; }
 
-    public int? CollectionOrgId { get; set; }
+    public int? DatasetOrgId { get; set; }
 
     public int BasisOfRecordId { get; set; }
 

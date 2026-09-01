@@ -19,11 +19,15 @@ public interface IObservationFilter
     int? RegistrationStatusId { get; }
     CoordinatePrecisionDto? CoordinatePrecision { get; }
     PeriodDto? Period { get; }
-    /// <summary>Samling — Organization med OrganizationTypeId = 2. Velges i typeahead.</summary>
-    int? CollectionOrgId { get; }
-
-    /// <summary>Prosjekt/datasett — Organization med OrganizationTypeId = 3. Velges i typeahead.</summary>
+    /// <summary>
+    /// Datasett — Organization med OrganizationTypeId = 2. Velges i typeahead.
+    /// </summary>
     int? DatasetOrgId { get; }
+
+    /// <summary>
+    /// Prosjekt — Organization med OrganizationTypeId = 3. Velges i typeahead.
+    /// </summary>
+    int? ProjectOrgId { get; }
 
     /// <summary>
     /// Observasjoner valgt direkte, i praksis fra katalognummer-typeaheaden.

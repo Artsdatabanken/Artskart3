@@ -37,21 +37,21 @@ describe('OrganizationService', () => {
       req.flush([]);
     });
 
-    it('should call /api/Lookup/Collections for searchCollections', () => {
-      service.searchCollections('bergen').subscribe();
+    it('should call /api/Lookup/Datasets for searchDatasets', () => {
+      service.searchDatasets('bergen').subscribe();
 
       const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/Collections' && r.params.get('search') === 'bergen',
+        (r) => r.url === '/api/Lookup/Datasets' && r.params.get('search') === 'bergen',
       );
       expect(req.request.method).toBe('GET');
       req.flush([]);
     });
 
-    it('should call /api/Lookup/Datasets for searchDatasets', () => {
-      service.searchDatasets('kartlegging').subscribe();
+    it('should call /api/Lookup/Projects for searchProjects', () => {
+      service.searchProjects('kartlegging').subscribe();
 
       const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/Datasets' && r.params.get('search') === 'kartlegging',
+        (r) => r.url === '/api/Lookup/Projects' && r.params.get('search') === 'kartlegging',
       );
       expect(req.request.method).toBe('GET');
       req.flush([]);
@@ -69,12 +69,12 @@ describe('OrganizationService', () => {
   });
 
   describe('svar', () => {
-    it('should return organizations from searchCollections', async () => {
+    it('should return organizations from searchDatasets', async () => {
       const expected = [{ id: 26435, name: 'Aqua Kompetanse AS', code: 'AK', observationCount: 12 }];
-      const result = service.searchCollections('aqua');
+      const result = service.searchDatasets('aqua');
       const promise = new Promise((resolve) => result.subscribe(resolve));
 
-      httpTesting.expectOne((r) => r.url === '/api/Lookup/Collections').flush(expected);
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/Datasets').flush(expected);
 
       expect(await promise).toEqual(expected);
     });

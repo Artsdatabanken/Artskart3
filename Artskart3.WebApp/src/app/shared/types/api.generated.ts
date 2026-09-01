@@ -447,7 +447,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/Lookup/Collections": {
+    "/api/Lookup/Datasets": {
         parameters: {
             query?: never;
             header?: never;
@@ -485,7 +485,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/Lookup/Datasets": {
+    "/api/Lookup/Projects": {
         parameters: {
             query?: never;
             header?: never;
@@ -1306,9 +1306,9 @@ export interface components {
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             /** Format: int32 */
-            collectionOrgId?: number | null;
-            /** Format: int32 */
             datasetOrgId?: number | null;
+            /** Format: int32 */
+            projectOrgId?: number | null;
             observationIds?: number[] | null;
             withImages?: boolean | null;
             readonly hasActiveFilters?: boolean;
@@ -1375,9 +1375,9 @@ export interface components {
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             /** Format: int32 */
-            collectionOrgId?: number | null;
-            /** Format: int32 */
             datasetOrgId?: number | null;
+            /** Format: int32 */
+            projectOrgId?: number | null;
             observationIds?: number[] | null;
             withImages?: boolean | null;
         };

@@ -61,7 +61,7 @@ public class ExportService
         var needsDetail = columns.Any(c => c.StartsWith("Detail."));
 
         // Institusjons- og samlingskode utledes fra Organization via
-        // InstitutionOrgId/CollectionOrgId. Hele tabellen lastes én gang — 25 943
+        // InstitutionOrgId/DatasetOrgId. Hele tabellen lastes én gang — 25 943
         // rader — i stedet for en join per observasjonsbatch.
         Dictionary<int, string?>? organizationCodes = null;
         if (columns.Contains("InstitutionCode") || columns.Contains("CollectionCode"))

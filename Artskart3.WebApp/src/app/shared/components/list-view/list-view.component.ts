@@ -84,8 +84,8 @@ export class ListViewComponent {
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
-    this.filterState.collectionOrgId();
     this.filterState.datasetOrgId();
+    this.filterState.projectOrgId();
     this.filterState.catalogObservationIds();
     this.filterState.imageFilter();
     this.filterState.selectedMonths();
@@ -107,8 +107,8 @@ export class ListViewComponent {
       const periodTo = this.filterState.periodTo();
       const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-      const collectionOrgId = this.filterState.collectionOrgId();
       const datasetOrgId = this.filterState.datasetOrgId();
+      const projectOrgId = this.filterState.projectOrgId();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
@@ -127,8 +127,8 @@ export class ListViewComponent {
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        collectionOrgId: collectionOrgId ?? undefined,
         datasetOrgId: datasetOrgId ?? undefined,
+        projectOrgId: projectOrgId ?? undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
         period: hasPeriod

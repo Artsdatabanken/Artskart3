@@ -17,24 +17,24 @@ import { Observable } from 'rxjs';
 export class OrganizationService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = '/api/Lookup/Organizations';
-  private readonly collectionsEndpoint = '/api/Lookup/Collections';
   private readonly datasetsEndpoint = '/api/Lookup/Datasets';
+  private readonly projectsEndpoint = '/api/Lookup/Projects';
   private readonly catalogNumbersEndpoint = '/api/Lookup/CatalogNumbers';
 
   searchOrganizations(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.endpoint, { params: { search } });
   }
 
-  /** Samlinger (OrganizationTypeId = 2). Treffet gir collectionOrgId. */
-  searchCollections(search: string): Observable<components['schemas']['OrganizationDto'][]> {
-    return this.http.get<components['schemas']['OrganizationDto'][]>(this.collectionsEndpoint, {
+  /** Datasett (OrganizationTypeId = 2). Treffet gir datasetOrgId. */
+  searchDatasets(search: string): Observable<components['schemas']['OrganizationDto'][]> {
+    return this.http.get<components['schemas']['OrganizationDto'][]>(this.datasetsEndpoint, {
       params: { search },
     });
   }
 
-  /** Prosjekt/datasett (OrganizationTypeId = 3). Treffet gir datasetOrgId. */
-  searchDatasets(search: string): Observable<components['schemas']['OrganizationDto'][]> {
-    return this.http.get<components['schemas']['OrganizationDto'][]>(this.datasetsEndpoint, {
+  /** Prosjekt (OrganizationTypeId = 3). Treffet gir projectOrgId. */
+  searchProjects(search: string): Observable<components['schemas']['OrganizationDto'][]> {
+    return this.http.get<components['schemas']['OrganizationDto'][]>(this.projectsEndpoint, {
       params: { search },
     });
   }

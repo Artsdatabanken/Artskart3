@@ -51,13 +51,13 @@ export class SidebarComponent {
   // fritekst, velger et treff, og filteret får en ID. Fritekstsøket skjer i
   // Lookup-endepunktene mot små tabeller eller en indeks — aldri i selve
   // søkespørringen mot 61M observasjoner.
+  private readonly projectSearch$ = new Subject<string>();
+  readonly projectSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
+  readonly showProjectSuggestions = signal<boolean>(false);
+
   private readonly datasetSearch$ = new Subject<string>();
   readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showDatasetSuggestions = signal<boolean>(false);
-
-  private readonly collectionSearch$ = new Subject<string>();
-  readonly collectionSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
-  readonly showCollectionSuggestions = signal<boolean>(false);
 
   private readonly catalogNumberSearch$ = new Subject<string>();
   readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
@@ -72,6 +72,26 @@ export class SidebarComponent {
   // «navn satt og ID null» (og for katalognummer: tom ID-liste).
 
   constructor() {
+    this.projectSearch$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const trimmed = term.trim();
+          if (trimmed.length < MinProjectNameSearchLength) {
+            return of<components['schemas']['OrganizationDto'][]>([]);
+          }
+          return this.organizationService
+            .searchProjects(trimmed)
+            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((organizations) => {
+        this.projectSuggestions.set(organizations);
+        this.showProjectSuggestions.set(organizations.length > 0);
+      });
+
     this.datasetSearch$
       .pipe(
         debounceTime(300),
@@ -90,26 +110,6 @@ export class SidebarComponent {
       .subscribe((organizations) => {
         this.datasetSuggestions.set(organizations);
         this.showDatasetSuggestions.set(organizations.length > 0);
-      });
-
-    this.collectionSearch$
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        switchMap((term) => {
-          const trimmed = term.trim();
-          if (trimmed.length < MinProjectNameSearchLength) {
-            return of<components['schemas']['OrganizationDto'][]>([]);
-          }
-          return this.organizationService
-            .searchCollections(trimmed)
-            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((organizations) => {
-        this.collectionSuggestions.set(organizations);
-        this.showCollectionSuggestions.set(organizations.length > 0);
       });
 
     this.catalogNumberSearch$
@@ -382,17 +382,42 @@ export class SidebarComponent {
     this.filterState.setPeriod(from, to);
   }
 
+  readonly projectName = this.filterState.projectName;
   readonly datasetName = this.filterState.datasetName;
-  readonly collectionName = this.filterState.collectionName;
   readonly catalogNumber = this.filterState.catalogNumber;
+  readonly projectOrgId = this.filterState.projectOrgId;
   readonly datasetOrgId = this.filterState.datasetOrgId;
-  readonly collectionOrgId = this.filterState.collectionOrgId;
   readonly catalogObservationIds = this.filterState.catalogObservationIds;
   readonly imageFilter = this.filterState.imageFilter;
 
   // Felles for alle tre: å skrive i feltet nullstiller den valgte ID-en. Uten
   // det ville teksten og filteret kunne peke på hver sin ting — brukeren ser
   // «Fugler», men filteret står fortsatt på forrige valg.
+  onProjectNameChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.filterState.setProjectName(input.value);
+    this.filterState.setProjectOrgId(null);
+    this.projectSearch$.next(input.value);
+  }
+
+  onProjectNameFocus(): void {
+    if (this.projectSuggestions().length > 0) {
+      this.showProjectSuggestions.set(true);
+    }
+  }
+
+  onProjectNameBlur(): void {
+    // Delay hiding so a (mousedown) selection on a suggestion registers first.
+    setTimeout(() => this.showProjectSuggestions.set(false), 150);
+  }
+
+  selectProjectSuggestion(organization: components['schemas']['OrganizationDto']): void {
+    this.filterState.setProjectName(organization.name ?? '');
+    this.filterState.setProjectOrgId(organization.id ?? null);
+    this.projectSuggestions.set([]);
+    this.showProjectSuggestions.set(false);
+  }
+
   onDatasetNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.filterState.setDatasetName(input.value);
@@ -407,7 +432,6 @@ export class SidebarComponent {
   }
 
   onDatasetNameBlur(): void {
-    // Delay hiding so a (mousedown) selection on a suggestion registers first.
     setTimeout(() => this.showDatasetSuggestions.set(false), 150);
   }
 
@@ -416,30 +440,6 @@ export class SidebarComponent {
     this.filterState.setDatasetOrgId(organization.id ?? null);
     this.datasetSuggestions.set([]);
     this.showDatasetSuggestions.set(false);
-  }
-
-  onCollectionNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setCollectionName(input.value);
-    this.filterState.setCollectionOrgId(null);
-    this.collectionSearch$.next(input.value);
-  }
-
-  onCollectionNameFocus(): void {
-    if (this.collectionSuggestions().length > 0) {
-      this.showCollectionSuggestions.set(true);
-    }
-  }
-
-  onCollectionNameBlur(): void {
-    setTimeout(() => this.showCollectionSuggestions.set(false), 150);
-  }
-
-  selectCollectionSuggestion(organization: components['schemas']['OrganizationDto']): void {
-    this.filterState.setCollectionName(organization.name ?? '');
-    this.filterState.setCollectionOrgId(organization.id ?? null);
-    this.collectionSuggestions.set([]);
-    this.showCollectionSuggestions.set(false);
   }
 
   onCatalogNumberChange(event: Event): void {

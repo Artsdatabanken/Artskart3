@@ -82,7 +82,7 @@ public class ExportColumnRegistry
     ///
     /// Institusjons- og samlingskode lå tidligere som dupliserte strengkolonner på
     /// Observation. Etter CompleteFilter er de borte, og kodene utledes fra
-    /// InstitutionOrgId/CollectionOrgId. Oppslaget gjøres i minnet fordi
+    /// InstitutionOrgId/DatasetOrgId. Oppslaget gjøres i minnet fordi
     /// Organization bare har 25 943 rader — det er billigere enn navigasjons-
     /// egenskaper, som ville fått EF til å opprette indekser bak fremmednøklene
     /// på en tabell med 61M rader.
@@ -101,7 +101,7 @@ public class ExportColumnRegistry
             "OccurrenceId" => observation.OccurrenceId,
             "NodeId" => observation.NodeId,
             "InstitutionCode" => LookupCode(observation.InstitutionOrgId, organizationCodes),
-            "CollectionCode" => LookupCode(observation.CollectionOrgId, organizationCodes),
+            "CollectionCode" => LookupCode(observation.DatasetOrgId, organizationCodes),
             "CatalogNumber" => observation.CatalogNumber,
             "BasisOfRecordId" => observation.BasisOfRecordId,
             "DateTimeCollected" => observation.DateTimeCollected,

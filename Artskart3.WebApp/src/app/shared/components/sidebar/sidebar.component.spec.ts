@@ -321,37 +321,37 @@ describe('SidebarComponent', () => {
       handler.call(component, { target: input } as unknown as Event);
     }
 
-    it('should clear datasetOrgId when the text is edited', () => {
-      filterState.setDatasetOrgId(14842);
-      typeInto(component.onDatasetNameChange, 'Kart');
+    it('should clear projectOrgId when the text is edited', () => {
+      filterState.setProjectOrgId(14842);
+      typeInto(component.onProjectNameChange, 'Kart');
 
-      expect(filterState.datasetName()).toBe('Kart');
-      expect(filterState.datasetOrgId()).toBeNull();
+      expect(filterState.projectName()).toBe('Kart');
+      expect(filterState.projectOrgId()).toBeNull();
     });
 
-    it('should clear collectionOrgId when the text is edited', () => {
-      filterState.setCollectionOrgId(26435);
-      typeInto(component.onCollectionNameChange, 'Aqu');
+    it('should clear datasetOrgId when the text is edited', () => {
+      filterState.setDatasetOrgId(26435);
+      typeInto(component.onDatasetNameChange, 'Aqu');
 
-      expect(filterState.collectionName()).toBe('Aqu');
-      expect(filterState.collectionOrgId()).toBeNull();
+      expect(filterState.datasetName()).toBe('Aqu');
+      expect(filterState.datasetOrgId()).toBeNull();
     });
   });
 
   describe('typeahead - valg av forslag', () => {
     it('should set both name and id when a dataset suggestion is selected', () => {
-      component.selectDatasetSuggestion({ id: 14842, name: 'Kartlegging' });
+      component.selectProjectSuggestion({ id: 14842, name: 'Kartlegging' });
 
-      expect(filterState.datasetName()).toBe('Kartlegging');
-      expect(filterState.datasetOrgId()).toBe(14842);
-      expect(component.showDatasetSuggestions()).toBe(false);
+      expect(filterState.projectName()).toBe('Kartlegging');
+      expect(filterState.projectOrgId()).toBe(14842);
+      expect(component.showProjectSuggestions()).toBe(false);
     });
 
     it('should set both name and id when a collection suggestion is selected', () => {
-      component.selectCollectionSuggestion({ id: 26435, name: 'Aqua Kompetanse AS' });
+      component.selectDatasetSuggestion({ id: 26435, name: 'Aqua Kompetanse AS' });
 
-      expect(filterState.collectionName()).toBe('Aqua Kompetanse AS');
-      expect(filterState.collectionOrgId()).toBe(26435);
+      expect(filterState.datasetName()).toBe('Aqua Kompetanse AS');
+      expect(filterState.datasetOrgId()).toBe(26435);
     });
   });
 });

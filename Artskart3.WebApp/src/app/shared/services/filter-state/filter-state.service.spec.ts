@@ -331,30 +331,30 @@ describe('FilterStateService', () => {
   // Kommer de to ut av synk, viser feltet et filter som ikke er i bruk.
   describe('andre funnegenskaper', () => {
     it('should start empty', () => {
+      expect(service.projectName()).toBe('');
+      expect(service.projectOrgId()).toBeNull();
       expect(service.datasetName()).toBe('');
       expect(service.datasetOrgId()).toBeNull();
-      expect(service.collectionName()).toBe('');
-      expect(service.collectionOrgId()).toBeNull();
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
     });
 
     it('should set dataset name and id independently', () => {
-      service.setDatasetName('Kartlegging');
-      expect(service.datasetOrgId()).toBeNull();
+      service.setProjectName('Kartlegging');
+      expect(service.projectOrgId()).toBeNull();
 
-      service.setDatasetOrgId(14842);
-      expect(service.datasetName()).toBe('Kartlegging');
-      expect(service.datasetOrgId()).toBe(14842);
+      service.setProjectOrgId(14842);
+      expect(service.projectName()).toBe('Kartlegging');
+      expect(service.projectOrgId()).toBe(14842);
     });
 
     it('should set collection name and id independently', () => {
-      service.setCollectionName('Aqua Kompetanse AS');
-      expect(service.collectionOrgId()).toBeNull();
+      service.setDatasetName('Aqua Kompetanse AS');
+      expect(service.datasetOrgId()).toBeNull();
 
-      service.setCollectionOrgId(26435);
-      expect(service.collectionName()).toBe('Aqua Kompetanse AS');
-      expect(service.collectionOrgId()).toBe(26435);
+      service.setDatasetOrgId(26435);
+      expect(service.datasetName()).toBe('Aqua Kompetanse AS');
+      expect(service.datasetOrgId()).toBe(26435);
     });
 
     it('should set catalog number and observation ids independently', () => {
@@ -367,31 +367,31 @@ describe('FilterStateService', () => {
     });
 
     it('should allow clearing a selected id without clearing the text', () => {
-      service.setDatasetName('Kartlegging');
-      service.setDatasetOrgId(14842);
-      service.setDatasetOrgId(null);
+      service.setProjectName('Kartlegging');
+      service.setProjectOrgId(14842);
+      service.setProjectOrgId(null);
 
-      expect(service.datasetName()).toBe('Kartlegging');
-      expect(service.datasetOrgId()).toBeNull();
+      expect(service.projectName()).toBe('Kartlegging');
+      expect(service.projectOrgId()).toBeNull();
     });
   });
 
   describe('clearOtherFindProperties', () => {
     it('should reset all three typeahead filters and the image filter', () => {
-      service.setDatasetName('Kartlegging');
-      service.setDatasetOrgId(14842);
-      service.setCollectionName('Aqua Kompetanse AS');
-      service.setCollectionOrgId(26435);
+      service.setProjectName('Kartlegging');
+      service.setProjectOrgId(14842);
+      service.setDatasetName('Aqua Kompetanse AS');
+      service.setDatasetOrgId(26435);
       service.setCatalogNumber('104168');
       service.setCatalogObservationIds([8368071]);
       service.setImageFilter('withImage');
 
       service.clearOtherFindProperties();
 
+      expect(service.projectName()).toBe('');
+      expect(service.projectOrgId()).toBeNull();
       expect(service.datasetName()).toBe('');
       expect(service.datasetOrgId()).toBeNull();
-      expect(service.collectionName()).toBe('');
-      expect(service.collectionOrgId()).toBeNull();
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
       expect(service.imageFilter()).toBe('all');
@@ -403,14 +403,14 @@ describe('FilterStateService', () => {
   // ikke lenger vises noe sted.
   describe('clearAll', () => {
     it('should also clear the typeahead filters', () => {
-      service.setDatasetOrgId(14842);
-      service.setCollectionOrgId(26435);
+      service.setProjectOrgId(14842);
+      service.setDatasetOrgId(26435);
       service.setCatalogObservationIds([8368071]);
 
       service.clearAll();
 
+      expect(service.projectOrgId()).toBeNull();
       expect(service.datasetOrgId()).toBeNull();
-      expect(service.collectionOrgId()).toBeNull();
       expect(service.catalogObservationIds()).toEqual([]);
     });
   });

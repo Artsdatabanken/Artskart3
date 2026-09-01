@@ -314,21 +314,21 @@
               autocomplete="off"
               role="combobox"
               aria-autocomplete="list"
-              aria-expanded="{{ showDatasetSuggestions() }}"
+              aria-expanded="{{ showProjectSuggestions() }}"
               aria-controls="dataset-suggestions"
-              [value]="datasetName()"
-              (input)="onDatasetNameChange($event)"
-              (focus)="onDatasetNameFocus()"
-              (blur)="onDatasetNameBlur()"
+              [value]="projectName()"
+              (input)="onProjectNameChange($event)"
+              (focus)="onProjectNameFocus()"
+              (blur)="onProjectNameBlur()"
             />
-            @if (showDatasetSuggestions() && datasetSuggestions().length > 0) {
+            @if (showProjectSuggestions() && projectSuggestions().length > 0) {
               <ul id="dataset-suggestions" class="project-name-suggestions" role="listbox">
-                @for (organization of datasetSuggestions(); track organization.id) {
+                @for (organization of projectSuggestions(); track organization.id) {
                   <li role="option" aria-selected="false">
                     <button
                       type="button"
                       class="project-name-suggestion"
-                      (mousedown)="selectDatasetSuggestion(organization)"
+                      (mousedown)="selectProjectSuggestion(organization)"
                     >
                       {{ organization.name }}
                     </button>
@@ -341,7 +341,7 @@
 
         <div class="other-properties-row">
           <label class="other-properties-label">
-            {{ 'sidebar.collectionCode' | translate }}
+            {{ 'sidebar.dataset' | translate }}
             <div class="search-input-wrapper">
               <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
               <input
@@ -350,21 +350,21 @@
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
-                aria-expanded="{{ showCollectionSuggestions() }}"
+                aria-expanded="{{ showDatasetSuggestions() }}"
                 aria-controls="collection-suggestions"
-                [value]="collectionName()"
-                (input)="onCollectionNameChange($event)"
-                (focus)="onCollectionNameFocus()"
-                (blur)="onCollectionNameBlur()"
+                [value]="datasetName()"
+                (input)="onDatasetNameChange($event)"
+                (focus)="onDatasetNameFocus()"
+                (blur)="onDatasetNameBlur()"
               />
-              @if (showCollectionSuggestions() && collectionSuggestions().length > 0) {
+              @if (showDatasetSuggestions() && datasetSuggestions().length > 0) {
                 <ul id="collection-suggestions" class="project-name-suggestions" role="listbox">
-                  @for (organization of collectionSuggestions(); track organization.id) {
+                  @for (organization of datasetSuggestions(); track organization.id) {
                     <li role="option" aria-selected="false">
                       <button
                         type="button"
                         class="project-name-suggestion"
-                        (mousedown)="selectCollectionSuggestion(organization)"
+                        (mousedown)="selectDatasetSuggestion(organization)"
                       >
                         {{ organization.name }}
                       </button>

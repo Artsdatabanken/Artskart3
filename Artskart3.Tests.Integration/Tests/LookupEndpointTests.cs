@@ -112,34 +112,6 @@ public class LookupEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/Lookup/Collections
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public async Task GetSearchCollections_Returns200WithJsonArray()
-    {
-        var response = await _client.GetAsync("/api/Lookup/Collections?search=a&maxCount=10");
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
-    }
-
-    /// <summary>
-    /// Blankt søk avvises av modellvalideringen til [ApiController] med «The search
-    /// field is required», FØR handlingen kjører. IsNullOrWhiteSpace-vakten inne i
-    /// endepunktet er derfor uåtakelig over HTTP — den dekker bare direkte kall på
-    /// metoden. Testen fester det som faktisk skjer, ikke det vakten antyder.
-    /// </summary>
-    [Fact]
-    public async Task GetSearchCollections_WithBlankSearch_Returns400()
-    {
-        var response = await _client.GetAsync("/api/Lookup/Collections?search=%20");
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    // -----------------------------------------------------------------------
     // GET /api/Lookup/Datasets
     // -----------------------------------------------------------------------
 
@@ -153,10 +125,38 @@ public class LookupEndpointTests : IAsyncLifetime
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
+    /// <summary>
+    /// Blankt søk avvises av modellvalideringen til [ApiController] med «The search
+    /// field is required», FØR handlingen kjører. IsNullOrWhiteSpace-vakten inne i
+    /// endepunktet er derfor uåtakelig over HTTP — den dekker bare direkte kall på
+    /// metoden. Testen fester det som faktisk skjer, ikke det vakten antyder.
+    /// </summary>
     [Fact]
-    public async Task GetSearchDatasets_WithMaxCountOutOfRange_Returns400()
+    public async Task GetSearchDatasets_WithBlankSearch_Returns400()
     {
-        var response = await _client.GetAsync("/api/Lookup/Datasets?search=a&maxCount=0");
+        var response = await _client.GetAsync("/api/Lookup/Datasets?search=%20");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Projects
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetSearchProjects_Returns200WithJsonArray()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Projects?search=a&maxCount=10");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetSearchProjects_WithMaxCountOutOfRange_Returns400()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Projects?search=a&maxCount=0");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

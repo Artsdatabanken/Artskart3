@@ -211,7 +211,7 @@
     },
     "otherProperties": "Other find properties",
     "project": "Project",
-    "collectionCode": "Dataset",
+    "dataset": "Dataset",
     "catalogNumber": "Id / catalog number",
     "image": "Image",
     "imageAll": "All (default)",

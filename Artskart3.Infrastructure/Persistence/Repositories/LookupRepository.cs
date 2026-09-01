@@ -83,6 +83,8 @@ public class LookupRepository : ILookupRepository
         }
     }
 
+    // Type 1 heter «Publisher» etter navnebyttet 1. september 2026. Konstanten og
+    // endepunktet heter fortsatt Institution — se kommentaren i LookupController.
     private const int InstitutionOrganizationTypeId = 1;
 
     public async Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default)
@@ -141,7 +143,8 @@ public class LookupRepository : ILookupRepository
     }
 
     /// <summary>
-    /// Typeahead for samling (OrganizationTypeId = 2) og prosjekt/datasett (3).
+    /// Typeahead for datasett (OrganizationTypeId = 2) og prosjekt (3).
+    /// Navnene i koden er de gamle — se kommentaren i LookupController.
     ///
     /// Organization har 25 943 rader, så delstrengsøk er gratis her. Det er kun
     /// filterspørringen mot 61M/192M rader som ikke tåler strengsammenligning —

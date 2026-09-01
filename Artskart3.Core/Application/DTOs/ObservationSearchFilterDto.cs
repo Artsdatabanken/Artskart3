@@ -34,9 +34,9 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public PeriodDto? Period { get; set; }
 
-    public int? CollectionOrgId { get; set; }
-
     public int? DatasetOrgId { get; set; }
+
+    public int? ProjectOrgId { get; set; }
 
     public int[]? ObservationIds { get; set; }
 

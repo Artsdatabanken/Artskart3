@@ -30,16 +30,16 @@ public class ObservationQueryBuilderTests
     }
 
     [Fact]
-    public void ApplyFilters_WithCollectionOrgId_ReturnsOnlyMatchingCollection()
+    public void ApplyFilters_WithDatasetOrgId_ReturnsOnlyMatchingDataset()
     {
         using var context = CreateInMemoryContext();
         SeedObservations(context,
-            CreateObservation(1, collectionOrgId: 100),
-            CreateObservation(2, collectionOrgId: 200),
-            CreateObservation(3, collectionOrgId: null));
+            CreateObservation(1, datasetOrgId: 100),
+            CreateObservation(2, datasetOrgId: 200),
+            CreateObservation(3, datasetOrgId: null));
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { CollectionOrgId = 100 });
+        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 100 });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -57,16 +57,16 @@ public class ObservationQueryBuilderTests
     }
 
     [Fact]
-    public void ApplyFilters_WithDatasetOrgId_ReturnsObservationsInThatDataset()
+    public void ApplyFilters_WithProjectOrgId_ReturnsObservationsInThatProject()
     {
         using var context = CreateInMemoryContext();
         SeedObservations(context, CreateObservation(1), CreateObservation(2));
-        context.Set<ObservationDataset>().AddRange(
-            new ObservationDataset { ObservationId = 1, DatasetOrgId = 500 },
-            new ObservationDataset { ObservationId = 2, DatasetOrgId = 600 });
+        context.Set<ObservationProject>().AddRange(
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 500 },
+            new ObservationProject { ObservationId = 2, ProjectOrgId = 600 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -78,30 +78,30 @@ public class ObservationQueryBuilderTests
     /// datasett, altså duplikater i eksporten og for høy forhåndstelling.
     /// </summary>
     [Fact]
-    public void ApplyFilters_WithDatasetOrgId_DoesNotDuplicateMultiDatasetObservations()
+    public void ApplyFilters_WithProjectOrgId_DoesNotDuplicateMultiProjectObservations()
     {
         using var context = CreateInMemoryContext();
         SeedObservations(context, CreateObservation(1));
-        context.Set<ObservationDataset>().AddRange(
-            new ObservationDataset { ObservationId = 1, DatasetOrgId = 500 },
-            new ObservationDataset { ObservationId = 1, DatasetOrgId = 501 },
-            new ObservationDataset { ObservationId = 1, DatasetOrgId = 502 });
+        context.Set<ObservationProject>().AddRange(
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 500 },
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 501 },
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 502 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
     }
 
     [Fact]
-    public void ApplyFilters_WithDatasetOrgId_ExcludesObservationsWithNoDatasetRows()
+    public void ApplyFilters_WithProjectOrgId_ExcludesObservationsWithNoProjectRows()
     {
         using var context = CreateInMemoryContext();
         SeedObservations(context, CreateObservation(1), CreateObservation(2));
-        context.Set<ObservationDataset>().Add(new ObservationDataset { ObservationId = 1, DatasetOrgId = 500 });
+        context.Set<ObservationProject>().Add(new ObservationProject { ObservationId = 1, ProjectOrgId = 500 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
 
         result.Select(o => o.Id).Should().BeEquivalentTo([1]);
     }
@@ -111,17 +111,17 @@ public class ObservationQueryBuilderTests
     /// separate Where-kall og må derfor virke som OG.
     /// </summary>
     [Fact]
-    public void ApplyFilters_WithCollectionAndObservationIds_CombinesWithAnd()
+    public void ApplyFilters_WithDatasetAndObservationIds_CombinesWithAnd()
     {
         using var context = CreateInMemoryContext();
         SeedObservations(context,
-            CreateObservation(1, collectionOrgId: 100),
-            CreateObservation(2, collectionOrgId: 200));
+            CreateObservation(1, datasetOrgId: 100),
+            CreateObservation(2, datasetOrgId: 200));
         context.SaveChanges();
 
         var result = Apply(context, new ObservationSearchFilterDto
         {
-            CollectionOrgId = 100,
+            DatasetOrgId = 100,
             ObservationIds = [2]
         });
 
@@ -145,7 +145,7 @@ public class ObservationQueryBuilderTests
     private static void SeedObservations(ArtskartDbContext context, params Observation[] observations) =>
         context.Set<Observation>().AddRange(observations);
 
-    private static Observation CreateObservation(int id, int? collectionOrgId = null) =>
+    private static Observation CreateObservation(int id, int? datasetOrgId = null) =>
         new()
         {
             Id = id,
@@ -165,7 +165,7 @@ public class ObservationQueryBuilderTests
             North = 2000,
             LocationId = 1,
             InstitutionOrgId = 1,
-            CollectionOrgId = collectionOrgId,
+            DatasetOrgId = datasetOrgId,
             HashCode = id,
             ProcessEngineId = 1,
             HasAnnotations = false,

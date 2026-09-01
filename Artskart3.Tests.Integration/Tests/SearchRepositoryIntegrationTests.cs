@@ -476,11 +476,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         var repository = CreateCompleteFilterRepository();
         await RemoveSyntheticRowsAsync(observationId, areaFid);
         SeedArea(areaFid, "Samling test kommune");
-        SeedIndexRow(observationId, areaEntityId, collectionOrgId: 26435);
+        SeedIndexRow(observationId, areaEntityId, datasetOrgId: 26435);
         await _context.SaveChangesAsync();
 
-        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { CollectionOrgId = 26435 });
-        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { CollectionOrgId = 26436 });
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = 26435 });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = 26436 });
 
         treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
         bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
@@ -572,7 +572,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         const string areaFid = "981610";
         const int areaEntityId = 981610;
 
-        // ObservationDataset har fremmednokler til BADE Observation og Organization,
+        // ObservationProject har fremmednokler til BADE Observation og Organization,
         // saa raden maa henge paa noe som finnes. Vi laaner en observasjon fra
         // testdataene i stedet for aa lage en ny - en ny observasjon ville endret
         // lokasjonstellingene som de andre testene i samlingen bygger paa.
@@ -582,18 +582,18 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         var repository = CreateCompleteFilterRepository();
         await RemoveSyntheticRowsAsync(observationId, areaFid);
         await RemoveSyntheticDatasetRowsAsync(observationId);
-        var datasetOrgId = (await CreateDatasetOrganizationsAsync(1))[0];
+        var projectOrgId = (await CreateDatasetOrganizationsAsync(1))[0];
         SeedArea(areaFid, "Prosjekt test kommune");
         SeedIndexRow(observationId, areaEntityId);
-        _context.Set<ObservationDataset>().Add(new ObservationDataset
+        _context.Set<ObservationProject>().Add(new ObservationProject
         {
             ObservationId = observationId,
-            DatasetOrgId = datasetOrgId,
+            ProjectOrgId = projectOrgId,
         });
         await _context.SaveChangesAsync();
 
-        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = datasetOrgId });
-        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = UnusedDatasetOrgId });
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ProjectOrgId = projectOrgId });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ProjectOrgId = UnusedDatasetOrgId });
 
         treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
         bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
@@ -617,20 +617,20 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         await RemoveSyntheticRowsAsync(observationId, areaFid);
         await RemoveSyntheticDatasetRowsAsync(observationId);
         var datasetOrgIds = await CreateDatasetOrganizationsAsync(3);
-        var datasetOrgId = datasetOrgIds[0];
+        var projectOrgId = datasetOrgIds[0];
         SeedArea(areaFid, "Flere datasett kommune");
         SeedIndexRow(observationId, areaEntityId);
-        _context.Set<ObservationDataset>().AddRange(
-            datasetOrgIds.Select(id => new ObservationDataset
+        _context.Set<ObservationProject>().AddRange(
+            datasetOrgIds.Select(id => new ObservationProject
             {
                 ObservationId = observationId,
-                DatasetOrgId = id,
+                ProjectOrgId = id,
             }));
         await _context.SaveChangesAsync();
 
         var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
         {
-            DatasetOrgId = datasetOrgId
+            ProjectOrgId = projectOrgId
         });
 
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
@@ -660,7 +660,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         int observationId,
         int areaEntityId,
         int? institutionOrgId = null,
-        int? collectionOrgId = null,
+        int? datasetOrgId = null,
         byte? behaviorId = null) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
@@ -671,12 +671,12 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             BasisOfRecordId = TestBasisOfRecordOneId,
             RegistrationStatusId = 0,
             InstitutionOrgId = institutionOrgId,
-            CollectionOrgId = collectionOrgId,
+            DatasetOrgId = datasetOrgId,
             BehaviorId = behaviorId,
         });
 
     /// <summary>
-    /// DatasetOrgId peker paa Organization, som igjen peker paa OrganizationType.
+    /// ProjectOrgId peker paa Organization, som igjen peker paa OrganizationType.
     /// Testdataene inneholder ingen av delene, saa begge maa opprettes.
     ///
     /// Id-ene settes IKKE eksplisitt: Organization.Id er en identity-kolonne, og et
@@ -718,8 +718,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
     private async Task RemoveSyntheticDatasetRowsAsync(int observationId)
     {
-        _context.Set<ObservationDataset>()
-            .RemoveRange(_context.Set<ObservationDataset>().Where(d => d.ObservationId == observationId));
+        _context.Set<ObservationProject>()
+            .RemoveRange(_context.Set<ObservationProject>().Where(d => d.ObservationId == observationId));
         await _context.SaveChangesAsync();
     }
 
@@ -883,14 +883,14 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             IsDeleted = isDeleted
         };
 
-    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, int collectionOrgId, int coordinatePrecision, int hashCode)
+    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, int datasetOrgId, int coordinatePrecision, int hashCode)
         => new()
         {
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
-            CollectionOrgId = collectionOrgId,
+            DatasetOrgId = datasetOrgId,
             BasisOfRecordId = basisOfRecordId,
             TaxonId = TestTaxonExactId,
             MatchedScientificNameId = TestTaxonNameExactId,

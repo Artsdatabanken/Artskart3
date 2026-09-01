@@ -347,13 +347,13 @@ public class LookupControllerTests
     /// riktig ut og ikke feiler noe sted.
     /// </summary>
     [Fact]
-    public async Task GetSearchCollections_PassesCollectionOrganizationType()
+    public async Task GetSearchDatasets_PassesDatasetOrganizationType()
     {
         _serviceMock
             .Setup(s => s.SearchOrganizationsByTypeAsync("aqua", 2, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new OrganizationDto { Id = 26435, Name = "Aqua Kompetanse AS" }]);
 
-        var result = await _sut.GetSearchCollections("aqua");
+        var result = await _sut.GetSearchDatasets("aqua");
 
         result.Result.Should().BeOfType<OkObjectResult>();
         _serviceMock.Verify(
@@ -362,13 +362,13 @@ public class LookupControllerTests
     }
 
     [Fact]
-    public async Task GetSearchDatasets_PassesDatasetOrganizationType()
+    public async Task GetSearchProjects_PassesProjectOrganizationType()
     {
         _serviceMock
             .Setup(s => s.SearchOrganizationsByTypeAsync("kart", 3, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new OrganizationDto { Id = 14842, Name = "Kartlegging" }]);
 
-        var result = await _sut.GetSearchDatasets("kart");
+        var result = await _sut.GetSearchProjects("kart");
 
         result.Result.Should().BeOfType<OkObjectResult>();
         _serviceMock.Verify(
@@ -397,9 +397,9 @@ public class LookupControllerTests
     [InlineData(0)]
     [InlineData(-1)]
     [InlineData(SearchConstants.MaxOrganizationCount + 1)]
-    public async Task GetSearchCollections_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
+    public async Task GetSearchDatasets_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
     {
-        var result = await _sut.GetSearchCollections("aqua", maxCount);
+        var result = await _sut.GetSearchDatasets("aqua", maxCount);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -407,9 +407,9 @@ public class LookupControllerTests
     [Theory]
     [InlineData(0)]
     [InlineData(SearchConstants.MaxOrganizationCount + 1)]
-    public async Task GetSearchDatasets_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
+    public async Task GetSearchProjects_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
     {
-        var result = await _sut.GetSearchDatasets("kart", maxCount);
+        var result = await _sut.GetSearchProjects("kart", maxCount);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }

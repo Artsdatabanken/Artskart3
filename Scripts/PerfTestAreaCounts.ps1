@@ -291,17 +291,17 @@ Write-Host "  Fylker=$($countyFids -join ',') Kommuner=$($municipalityFids -join
 # Oppslaget selv er ikke gratis og bør måles for seg. Det er lagt inn som egne
 # case i Oppslag-gruppen lenger ned.
 # ---------------------------------------------------------------------------
-$collectionOrg = $null; $datasetOrg = $null; $catalogMatch = $null
+$datasetOrg = $null; $projectOrg = $null; $catalogMatch = $null
 
 try {
-    $collectionOrg = Invoke-Api -Path '/api/Lookup/Collections?search=a&maxCount=1' | Select-Object -First 1
-    $datasetOrg    = Invoke-Api -Path '/api/Lookup/Datasets?search=a&maxCount=1'    | Select-Object -First 1
+    $datasetOrg = Invoke-Api -Path '/api/Lookup/Datasets?search=a&maxCount=1' | Select-Object -First 1
+    $projectOrg    = Invoke-Api -Path '/api/Lookup/Projects?search=a&maxCount=1'    | Select-Object -First 1
     $catalogMatch  = Invoke-Api -Path '/api/Lookup/CatalogNumbers?search=12&maxCount=1' | Select-Object -First 1
 }
 catch { Write-Warning "Kunne ikke hente CompleteFilter-oppslag: $($_.Exception.Message)" }
 
-if ($collectionOrg) { Write-Host ("  Samling      {0,-30} id={1}" -f $collectionOrg.name, $collectionOrg.id) }
-if ($datasetOrg)    { Write-Host ("  Prosjekt     {0,-30} id={1}" -f $datasetOrg.name, $datasetOrg.id) }
+if ($datasetOrg) { Write-Host ("  Datasett     {0,-30} id={1}" -f $datasetOrg.name, $datasetOrg.id) }
+if ($projectOrg)    { Write-Host ("  Prosjekt     {0,-30} id={1}" -f $projectOrg.name, $projectOrg.id) }
 if ($catalogMatch)  { Write-Host ("  Katalognr    {0,-30} obs={1}" -f $catalogMatch.catalogNumber, $catalogMatch.observationIds.Count) }
 
 # ---------------------------------------------------------------------------
@@ -378,8 +378,8 @@ Add-Case 'Koordinatpresisjon'        @{ coordinatePrecision = @{ from = 0; to = 
 # ---------------------------------------------------------------------------
 if ($behavior)    { Add-Case "Atferd ($($behavior.Name))"         @{ behaviorIds     = @($behavior.Id) }    'Subquery' }
 if ($institution) { Add-Case "Institusjon ($($institution.Name))" @{ organizationIds = @($institution.Id) } 'Subquery' }
-if ($collectionOrg) { Add-Case "Samling ($($collectionOrg.name))"  @{ collectionOrgId = $collectionOrg.id } 'Subquery' }
-if ($datasetOrg)    { Add-Case "Prosjekt ($($datasetOrg.name))"    @{ datasetOrgId    = $datasetOrg.id }    'Subquery' }
+if ($datasetOrg) { Add-Case "Datasett ($($datasetOrg.name))"  @{ datasetOrgId = $datasetOrg.id } 'Subquery' }
+if ($projectOrg)    { Add-Case "Prosjekt ($($projectOrg.name))"    @{ projectOrgId    = $projectOrg.id }    'Subquery' }
 if ($catalogMatch)  { Add-Case "Katalognummer ($($catalogMatch.catalogNumber))" @{ observationIds = @($catalogMatch.observationIds) } 'Subquery' }
 
 # ---------------------------------------------------------------------------
@@ -392,8 +392,8 @@ if ($catalogMatch)  { Add-Case "Katalognummer ($($catalogMatch.catalogNumber))" 
 # er det verdt å sjekke om søket har blitt gjort om til delstreng ('%x%') —
 # det kan ikke bruke indeksen.
 # ---------------------------------------------------------------------------
-Add-Case 'Oppslag: samling'        @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Collections?search=a'
-Add-Case 'Oppslag: prosjekt'       @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Datasets?search=a'
+Add-Case 'Oppslag: datasett'        @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Datasets?search=a'
+Add-Case 'Oppslag: prosjekt'       @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Projects?search=a'
 Add-Case 'Oppslag: katalognr kort'   @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/CatalogNumbers?search=12'
 Add-Case 'Oppslag: katalognr lengre'  @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/CatalogNumbers?search=123456'
 

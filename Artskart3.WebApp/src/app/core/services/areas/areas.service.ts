@@ -309,8 +309,8 @@ export interface LocationSearchFilter {
   periodFrom?: number | null;
   periodTo?: number | null;
   // Sendes som ID-er. Fritekstsoeket skjer i typeahead-endepunktene, ikke her.
-  collectionOrgId?: number | null;
   datasetOrgId?: number | null;
+  projectOrgId?: number | null;
   observationIds?: number[] | null;
   withImages?: boolean | null;
   periodMonths?: number[] | null;
@@ -502,8 +502,8 @@ export class AreasService {
           months: filter.periodMonths?.length ? filter.periodMonths : undefined,
         };
       }
-      if (filter.collectionOrgId != null) body['collectionOrgId'] = filter.collectionOrgId;
       if (filter.datasetOrgId != null) body['datasetOrgId'] = filter.datasetOrgId;
+      if (filter.projectOrgId != null) body['projectOrgId'] = filter.projectOrgId;
       if (filter.observationIds?.length) body['observationIds'] = filter.observationIds;
       if (filter.withImages != null) body['withImages'] = filter.withImages;
     }

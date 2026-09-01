@@ -211,7 +211,7 @@
     },
     "otherProperties": "Andre funnegenskaper",
     "project": "Prosjekt",
-    "collectionCode": "Datasett",
+    "dataset": "Datasett",
     "catalogNumber": "Id / katalognummer",
     "image": "Bilde",
     "imageAll": "Alle (standard)",

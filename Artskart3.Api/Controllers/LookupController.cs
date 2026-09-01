@@ -77,39 +77,19 @@ public class LookupController : ControllerBase
         return Ok(organizations);
     }
 
-    // OrganizationType: 2 = Collection, 3 = Dataset. Verifisert mot tabellen.
-    private const int CollectionOrganizationTypeId = 2;
-    private const int DatasetOrganizationTypeId = 3;
+    // OrganizationType: 1 = Publisher, 2 = Dataset, 3 = Project (GBIF-navn).
+    //
+    // Navnene i koden fulgte etter 1. september 2026. FØR den datoen het type 2
+    // «Collection» og type 3 «Dataset» — så et gammelt «DatasetOrgId» betyr type 3,
+    // mens dagens betyr type 2. De byttet plass, de flyttet seg ikke ett hakk.
+    // Det gjelder alt fra før den datoen: spørringer, planer, eksportfiler og
+    // API-kall mot /api/Lookup/Datasets.
+    private const int DatasetOrganizationTypeId = 2;
+    private const int ProjectOrganizationTypeId = 3;
 
     /// <summary>
-    /// Typeahead for samling. Returnerer OrganizationId som sendes som
-    /// collectionOrgId i søkefilteret.
-    /// </summary>
-    [HttpGet("Collections")]
-    [Produces("application/json")]
-    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchCollections(
-        [FromQuery] string search,
-        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(search))
-        {
-            return Ok(Enumerable.Empty<OrganizationDto>());
-        }
-
-        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
-        {
-            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
-        }
-
-        var result = await _lookupService.SearchOrganizationsByTypeAsync(
-            search, CollectionOrganizationTypeId, maxCount, cancellationToken);
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Typeahead for prosjekt/datasett. Returnerer OrganizationId som sendes som
-    /// datasetOrgId i søkefilteret.
+    /// Typeahead for datasett — organisasjonstype 2. Returnerer OrganizationId som
+    /// sendes som datasetOrgId i søkefilteret.
     /// </summary>
     [HttpGet("Datasets")]
     [Produces("application/json")]
@@ -130,6 +110,32 @@ public class LookupController : ControllerBase
 
         var result = await _lookupService.SearchOrganizationsByTypeAsync(
             search, DatasetOrganizationTypeId, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Typeahead for prosjekt — organisasjonstype 3. Returnerer OrganizationId som
+    /// sendes som projectOrgId i søkefilteret.
+    /// </summary>
+    [HttpGet("Projects")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchProjects(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchOrganizationsByTypeAsync(
+            search, ProjectOrganizationTypeId, maxCount, cancellationToken);
         return Ok(result);
     }
 
