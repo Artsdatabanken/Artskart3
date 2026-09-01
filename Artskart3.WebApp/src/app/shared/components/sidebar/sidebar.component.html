@@ -304,23 +304,25 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
       <div class="other-properties-filter">
-        <label class="other-properties-label">
+        <span class="other-properties-label">
           {{ 'sidebar.project' | translate }}
           <div class="search-input-wrapper">
-            <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-            <input
-              type="text"
-              class="other-properties-input"
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
               autocomplete="off"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded="{{ showProjectNameSuggestions() }}"
               aria-controls="project-name-suggestions"
+              [attr.label]="'sidebar.project' | translate"
+              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
               [value]="projectName()"
-              (input)="onProjectNameChange($event)"
-              (focus)="onProjectNameFocus()"
-              (blur)="onProjectNameBlur()"
-            />
+              (adb-input)="onProjectNameChange($event)"
+              (focusin)="onProjectNameFocus()"
+              (focusout)="onProjectNameBlur()"
+            ></adb-search>
             @if (showProjectNameSuggestions() && projectNameSuggestions().length > 0) {
               <ul id="project-name-suggestions" class="project-name-suggestions" role="listbox">
                 @for (organization of projectNameSuggestions(); track organization.id) {
@@ -337,33 +339,33 @@
               </ul>
             }
           </div>
-        </label>
+        </span>
 
         <div class="other-properties-row">
-          <label class="other-properties-label">
+          <span class="other-properties-label">
             {{ 'sidebar.collectionCode' | translate }}
-            <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                [value]="collectionCode()"
-                (input)="onCollectionCodeChange($event)"
-              />
-            </div>
-          </label>
-          <label class="other-properties-label">
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
+              [attr.label]="'sidebar.collectionCode' | translate"
+              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
+              [value]="collectionCode()"
+              (adb-input)="onCollectionCodeChange($event)"
+            ></adb-search>
+          </span>
+          <span class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
-            <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                [value]="catalogNumber()"
-                (input)="onCatalogNumberChange($event)"
-              />
-            </div>
-          </label>
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
+              [attr.label]="'sidebar.catalogNumber' | translate"
+              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
+              [value]="catalogNumber()"
+              (adb-input)="onCatalogNumberChange($event)"
+            ></adb-search>
+          </span>
         </div>
 
         <div class="other-properties-image-filter">

@@ -210,6 +210,7 @@
       "Sphere": "Sphere"
     },
     "otherProperties": "Other find properties",
+    "searchPlaceholder": "Search",
     "project": "Project",
     "collectionCode": "Collection",
     "catalogNumber": "Catalog number",
