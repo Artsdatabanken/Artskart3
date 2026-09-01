@@ -6,7 +6,7 @@
     (adb-close)="dismiss(notification)"
   >
     @if (notification.startDisplayDate || notification.endDisplayDate) {
-      <div class="alert-date-range">{{ formatDateRange(notification.startDisplayDate, notification.endDisplayDate) }}</div>
+      <div class="alert-date-range">{{ notification.startDisplayDate | dateRange: notification.endDisplayDate }}</div>
     }
     @if (notification.description) {
       {{ notification.description }}

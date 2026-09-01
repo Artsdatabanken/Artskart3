@@ -1,5 +1,6 @@
 import '@artsdatabanken/components';
 import { ChangeDetectionStrategy, Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal } from '@angular/core';
+import { DateRangePipe } from '../../pipes/date-range.pipe';
 import { AlertVariant } from '../../services/alert/alert.service';
 import { NotificationsService } from '../../services/notifications/notifications.service';
 import { NotificationModel } from '../../types/api.types';
@@ -14,6 +15,7 @@ const ALERT_TYPE_VARIANT: Record<number, AlertVariant> = {
 
 @Component({
   selector: 'app-notifications',
+  imports: [DateRangePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './notifications.component.html',
@@ -32,13 +34,5 @@ export class NotificationsComponent {
 
   protected dismiss(notification: NotificationModel): void {
     this.dismissedNotifications.update(dismissed => new Set(dismissed).add(notification));
-  }
-
-  protected formatDateRange(startDate?: string | null, endDate?: string | null): string {
-    if (startDate && endDate && startDate === endDate) return startDate;
-    if (startDate && endDate) return `${startDate} - ${endDate}`;
-    if (startDate) return `From ${startDate}`;
-    if (endDate) return `Until ${endDate}`;
-    return '';
   }
 }
