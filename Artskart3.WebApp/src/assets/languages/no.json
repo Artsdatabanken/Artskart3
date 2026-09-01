@@ -215,7 +215,6 @@
     "catalogNumber": "Katalognummer",
     "typeaheadUnresolved": "Velg et treff fra listen for aa bruke filteret",
     "typeaheadNoMatches": "Ingen treff",
-    "catalogNumberHint": "Soeker fra starten av katalognummeret",
     "image": "Bilde",
     "imageAll": "Alle (standard)",
     "imageWith": "Med bilde",
