@@ -1,0 +1,14 @@
+@if (chips().length > 0) {
+  <div class="filter-chips">
+    @for (chip of chips(); track chip.label) {
+      <span class="filter-chip">
+        <span class="filter-chip-label">{{ chip.text }}</span>
+        <adb-icon-button size="sm" variant="tertiary" [attr.aria-label]="'Remove ' + chip.label + ' filter'" (click)="chip.clear()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4.26732 12.6666L3.33398 11.7333L7.06732 7.99992L3.33398 4.26659L4.26732 3.33325L8.00065 7.06659L11.734 3.33325L12.6673 4.26659L8.93398 7.99992L12.6673 11.7333L11.734 12.6666L8.00065 8.93325L4.26732 12.6666Z" fill="currentColor"/>
+          </svg>
+        </adb-icon-button>
+      </span>
+    }
+  </div>
+}

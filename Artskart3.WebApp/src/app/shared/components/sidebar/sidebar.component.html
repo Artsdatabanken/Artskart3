@@ -1,8 +1,11 @@
 <div class="sidebar-content">
+  <app-species-search />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
   </div>
+
+  <app-filter-chips />
 
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
@@ -26,40 +29,36 @@
   </adb-accordion>
 
   <adb-accordion>
+    <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
+      @if (taxonTreeOpened()) {
+        <app-taxon-tree />
+      }
+    </adb-accordion-item>
+  </adb-accordion>
+
+  <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
       @if (categoryTypes(); as types) {
-        <adb-accordion>
-          @for (type of types; track type.id ?? $index) {
-            <adb-accordion-item>
-              <adb-checkbox
-                slot="heading"
-                [attr.checked]="isAllInTypeSelected(type) ? '' : null"
-                [attr.indeterminate]="isSomeInTypeSelected(type) ? '' : null"
-                (click)="$event.stopPropagation()"
-                (change)="onTypeToggle(type)"
-              >
-                {{ 'sidebar.categoryType.' + type.name | translate }}
-              </adb-checkbox>
-              <div class="category-children">
-                  @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
-                    @if (category.id !== undefined) {
-                      <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
-                        <span class="category-content">
-                          <span class="risk-category-circle-small" [class]="category.code">
-                            <span class="risk-category-tag-label-small">{{ category.code }}</span>
-                          </span>
-                          <span class="category-name">{{ category.name }}</span>
-                        </span>
-                        @if (category.observationCount !== null && category.observationCount !== undefined) {
-                          <span slot="counter">{{ category.observationCount | formatNumber:translate.currentLang }}</span>
-                        }
-                      </adb-checkbox>
-                    }
+        @for (type of types; track type.id ?? $index) {
+          <h6 class="category-section-heading">{{ 'sidebar.categoryType.' + type.name | translate }}</h6>
+          <div class="category-flat">
+            @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
+              @if (category.id !== undefined) {
+                <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
+                  <span class="category-content">
+                    <span class="risk-category-circle-small" [class]="category.code">
+                      <span class="risk-category-tag-label-small">{{ category.code }}</span>
+                    </span>
+                    <span class="category-name">{{ category.name }}</span>
+                  </span>
+                  @if (category.observationCount !== null && category.observationCount !== undefined) {
+                    <span slot="counter">{{ category.observationCount | formatNumber: translate.currentLang }}</span>
                   }
-                </div>
-            </adb-accordion-item>
-          }
-        </adb-accordion>
+                </adb-checkbox>
+              }
+            }
+          </div>
+        }
       }
     </adb-accordion-item>
   </adb-accordion>

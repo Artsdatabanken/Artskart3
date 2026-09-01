@@ -1032,6 +1032,46 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+            // Taksonkolonnene (SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId)
+            // har bevisst ingen rowstore-indekser — de betjenes av columnstore-indeksen
+            // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
+            // gjorde spørringene tregere. Columnstore-indeksen opprettes i
+            // migrasjon 20260820140154 (EF Core modellerer ikke columnstore).
+        });
+
+        modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>
+        {
+            entity.HasKey(e => e.ObservationId);
+            entity.Property(e => e.ObservationId).ValueGeneratedNever();
+            entity.ToTable("ObservationTaxonHierarchy");
+
+            entity.HasIndex(e => e.KingdomTaxonId).HasDatabaseName("IX_OTH_Kingdom").HasFilter("[KingdomTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubkingdomTaxonId).HasDatabaseName("IX_OTH_Subkingdom").HasFilter("[SubkingdomTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.PhylumTaxonId).HasDatabaseName("IX_OTH_Phylum").HasFilter("[PhylumTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubphylumTaxonId).HasDatabaseName("IX_OTH_Subphylum").HasFilter("[SubphylumTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperclassTaxonId).HasDatabaseName("IX_OTH_Superclass").HasFilter("[SuperclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.ClassTaxonId).HasDatabaseName("IX_OTH_Class").HasFilter("[ClassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubclassTaxonId).HasDatabaseName("IX_OTH_Subclass").HasFilter("[SubclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.InfraclassTaxonId).HasDatabaseName("IX_OTH_Infraclass").HasFilter("[InfraclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.CohortTaxonId).HasDatabaseName("IX_OTH_Cohort").HasFilter("[CohortTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperorderTaxonId).HasDatabaseName("IX_OTH_Superorder").HasFilter("[SuperorderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.OrderTaxonId).HasDatabaseName("IX_OTH_Order").HasFilter("[OrderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuborderTaxonId).HasDatabaseName("IX_OTH_Suborder").HasFilter("[SuborderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.InfraorderTaxonId).HasDatabaseName("IX_OTH_Infraorder").HasFilter("[InfraorderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperfamilyTaxonId).HasDatabaseName("IX_OTH_Superfamily").HasFilter("[SuperfamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.FamilyTaxonId).HasDatabaseName("IX_OTH_Family").HasFilter("[FamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubfamilyTaxonId).HasDatabaseName("IX_OTH_Subfamily").HasFilter("[SubfamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.TribeTaxonId).HasDatabaseName("IX_OTH_Tribe").HasFilter("[TribeTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubtribeTaxonId).HasDatabaseName("IX_OTH_Subtribe").HasFilter("[SubtribeTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.GenusTaxonId).HasDatabaseName("IX_OTH_Genus").HasFilter("[GenusTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubgenusTaxonId).HasDatabaseName("IX_OTH_Subgenus").HasFilter("[SubgenusTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SectionTaxonId).HasDatabaseName("IX_OTH_Section").HasFilter("[SectionTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SpeciesTaxonId).HasDatabaseName("IX_OTH_Species").HasFilter("[SpeciesTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubspeciesTaxonId).HasDatabaseName("IX_OTH_Subspecies").HasFilter("[SubspeciesTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.VarietyTaxonId).HasDatabaseName("IX_OTH_Variety").HasFilter("[VarietyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.FormTaxonId).HasDatabaseName("IX_OTH_Form").HasFilter("[FormTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.NotSetTaxonId).HasDatabaseName("IX_OTH_NotSet").HasFilter("[NotSetTaxonId] IS NOT NULL");
         });
 
         OnModelCreatingPartial(modelBuilder);

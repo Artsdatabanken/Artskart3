@@ -38,9 +38,9 @@
   --border-alien-list-nr: var(--adb-border-strong);
   --text-alien-list-nr: var(--adb-neutrals-ocean-90);
 
-  --background-alien-list-nk: var(--adb-brand-white);
-  --border-alien-list-nk: var(--adb-border-strong);
-  --text-alien-list-nk: var(--adb-neutrals-ocean-90);
+  --background-alien-list-nk: var(--adb-special-10);
+  --border-alien-list-nk: var(--adb-special-10);
+  --text-alien-list-nk: var(--adb-brand-white);
 
   --background-alien-list-lo: var(--adb-special-20);
   --border-alien-list-lo: var(--adb-special-20);
