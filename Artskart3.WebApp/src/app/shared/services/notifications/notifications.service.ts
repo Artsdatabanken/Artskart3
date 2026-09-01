@@ -1,51 +1,21 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { httpResource } from '@angular/common/http';
+import { Injectable, computed } from '@angular/core';
 import { NotificationModel } from '../../types/api.types';
-import { AlertService, AlertVariant } from '../alert/alert.service';
-
-const ALERT_TYPE_VARIANT: Record<number, AlertVariant> = {
-  0: 'danger',
-  1: 'warning',
-  2: 'info',
-  3: 'success',
-  4: 'info',
-};
 
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationsService {
-  private readonly http = inject(HttpClient);
-  private readonly alertService = inject(AlertService);
-  private readonly endpoint = '/api/Notifications';
+  private readonly notifications = httpResource<NotificationModel[]>(() => '/api/Notifications', {
+    defaultValue: [],
+  });
 
-  getNotifications(): Observable<NotificationModel[]> {
-    return this.http.get<NotificationModel[]>(this.endpoint);
-  }
-
-  /** Fetches notifications and shows the currently active ones as alerts. */
-  loadAndShowNotifications(): void {
-    this.getNotifications().subscribe((notifications) => {
-      notifications.filter((n) => this.isActive(n)).forEach((n) => this.showNotification(n));
-    });
-  }
+  readonly activeNotifications = computed(() => this.notifications.value().filter(notification => this.isActive(notification)));
 
   private isActive(notification: NotificationModel): boolean {
     const now = Date.now();
     const start = notification.startDateTime ? new Date(notification.startDateTime).getTime() : -Infinity;
     const end = notification.endDateTime ? new Date(notification.endDateTime).getTime() : Infinity;
     return now >= start && now <= end;
-  }
-
-  private showNotification(notification: NotificationModel): void {
-    const variant = ALERT_TYPE_VARIANT[notification.type ?? 0] ?? 'info';
-    this.alertService.show(notification.description ?? '', variant, {
-      heading: notification.heading ?? undefined,
-      closable: notification.canClose ?? true,
-      autoDismissMs: 0,
-      startDisplayDate: notification.startDisplayDate ?? undefined,
-      endDisplayDate: notification.endDisplayDate ?? undefined,
-    });
   }
 }
