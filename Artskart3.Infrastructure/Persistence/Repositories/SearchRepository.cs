@@ -899,7 +899,7 @@ public class SearchRepository : ISearchRepository
         {
             // MERK: De denormaliserte kolonnene i ObservationEntityIndex inneholder kun
             // eksakte rangnivåer (22 art, 19 slekt, 15 familie, 11 orden) — se
-            // BackfillTaxonHierarchyColumns.sql. Mellomnivåer (f.eks. underart 23,
+            // Scripts/BackfillAll.sql seksjon D. Mellomnivåer (f.eks. underart 23,
             // underslekt 20, underfamilie 16, underorden 12) ville gitt null treff via
             // kolonnen og må derfor slås opp i ObservationTaxonHierarchy, som har egen
             // kolonne for alle 26 rangnivåer.
@@ -954,36 +954,45 @@ public class SearchRepository : ISearchRepository
         if (!hasSpecies && !hasGenus && !hasFamily && !hasOrder && !hasHierarchy)
             return query.Where(idx => false);
 
-        var distinctSpecies = hasSpecies ? speciesIds.Distinct().ToList() : null;
-        var distinctGenus = hasGenus ? genusIds.Distinct().ToList() : null;
-        var distinctFamily = hasFamily ? familyIds.Distinct().ToList() : null;
-        var distinctOrder = hasOrder ? orderIds.Distinct().ToList() : null;
+        // Tomme lister, ikke null. EF Core fjerner et Contains over en tom liste helt
+        // fra OR-uttrykket — er alle fire tomme, blir hele leddet WHERE 0 = 1, altså
+        // tomt resultat og aldri ufiltrert. Det er også grunnen til at vi slipper én
+        // gren per kombinasjon: med bare én ikke-tom liste blir SQL-en identisk med den
+        // håndskrevne enkeltkilde-grenen som stod her før.
+        var distinctSpecies = speciesIds.Distinct().ToList();
+        var distinctGenus = genusIds.Distinct().ToList();
+        var distinctFamily = familyIds.Distinct().ToList();
+        var distinctOrder = orderIds.Distinct().ToList();
 
-        // Én enkelt kilde — unngå OR for best mulig query plan
-        if (hasSpecies && !hasGenus && !hasFamily && !hasOrder && !hasHierarchy)
-            return query.Where(idx => distinctSpecies!.Contains(idx.SpeciesTaxonId!.Value));
-        if (hasGenus && !hasSpecies && !hasFamily && !hasOrder && !hasHierarchy)
-            return query.Where(idx => distinctGenus!.Contains(idx.GenusTaxonId!.Value));
-        if (hasFamily && !hasSpecies && !hasGenus && !hasOrder && !hasHierarchy)
-            return query.Where(idx => distinctFamily!.Contains(idx.FamilyTaxonId!.Value));
-        if (hasOrder && !hasSpecies && !hasGenus && !hasFamily && !hasHierarchy)
-            return query.Where(idx => distinctOrder!.Contains(idx.OrderTaxonId!.Value));
-        if (hasHierarchy && !hasSpecies && !hasGenus && !hasFamily && !hasOrder)
-            return query.Where(idx => hierarchyObsIds!.Contains(idx.ObservationId));
+        // Kolonnene er denormalisert per observasjon og gjentas på alle indeksradene til
+        // samme observasjon, så en OR direkte på radene gir samme treffmengde som et
+        // semi-join på ObservationId — men med én gjennomgang av tabellen.
+        //
+        // Her stod tidligere en UNION av én subspørring per kilde, semi-joinet mot samme
+        // tabell. Den planen leste ObservationEntityIndex én gang per kilde PLUSS én gang
+        // for ytterspørringen, og deduperte hele ObservationId-mengden underveis: for
+        // orden + underart på zoomnivå 2 gikk ~17,6 millioner rader gjennom UNION-en,
+        // målt til 9,2 sekunder mot 0,8 for hver av de to kildene alene.
+        //
+        // OR-en lot seg ikke skrive før fordi lambdaen inneholdt en null-sjekk på den
+        // captured IQueryable-en (hierarchy != null), som EF ikke kan oversette. Løsningen
+        // er å avgjøre i C# om hierarkileddet skal med, framfor inne i uttrykket.
+        if (!hasHierarchy)
+            return query.Where(idx =>
+                distinctSpecies.Contains(idx.SpeciesTaxonId!.Value) ||
+                distinctGenus.Contains(idx.GenusTaxonId!.Value) ||
+                distinctFamily.Contains(idx.FamilyTaxonId!.Value) ||
+                distinctOrder.Contains(idx.OrderTaxonId!.Value));
 
-        // Flere kilder — slå sammen til én ObservationId-subspørring via UNION og filtrer
-        // med én enkelt Contains. En OR-lambda kan ikke brukes her: null-sjekken på den
-        // captured IQueryable-en (hierarchy != null) kan EF ikke oversette til SQL.
-        IQueryable<int>? matchingObsIds = null;
-        void AddMatching(IQueryable<int> source) => matchingObsIds = matchingObsIds == null ? source : matchingObsIds.Union(source);
-
-        if (hasSpecies) AddMatching(query.Where(idx => distinctSpecies!.Contains(idx.SpeciesTaxonId!.Value)).Select(idx => idx.ObservationId));
-        if (hasGenus) AddMatching(query.Where(idx => distinctGenus!.Contains(idx.GenusTaxonId!.Value)).Select(idx => idx.ObservationId));
-        if (hasFamily) AddMatching(query.Where(idx => distinctFamily!.Contains(idx.FamilyTaxonId!.Value)).Select(idx => idx.ObservationId));
-        if (hasOrder) AddMatching(query.Where(idx => distinctOrder!.Contains(idx.OrderTaxonId!.Value)).Select(idx => idx.ObservationId));
-        if (hasHierarchy) AddMatching(hierarchyObsIds!);
-
-        return query.Where(idx => matchingObsIds!.Contains(idx.ObservationId));
+        // Lokal kopi: hierarchyObsIds settes av en lokal funksjon over, og må fanges som
+        // en ikke-nullbar verdi for at uttrykket skal kunne oversettes.
+        var hierarchy = hierarchyObsIds!;
+        return query.Where(idx =>
+            distinctSpecies.Contains(idx.SpeciesTaxonId!.Value) ||
+            distinctGenus.Contains(idx.GenusTaxonId!.Value) ||
+            distinctFamily.Contains(idx.FamilyTaxonId!.Value) ||
+            distinctOrder.Contains(idx.OrderTaxonId!.Value) ||
+            hierarchy.Contains(idx.ObservationId));
     }
 
     private List<Area> FilterAreasBySelection(List<Area> areas, LocationSearchFilterDto filter)

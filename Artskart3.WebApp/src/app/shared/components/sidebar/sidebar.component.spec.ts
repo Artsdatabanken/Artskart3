@@ -307,4 +307,86 @@ describe('SidebarComponent', () => {
       expect(filterState.periodTo()).toBe(2020);
     });
   });
+// «Tekst skrevet, men ingen ID valgt» er den farlige tilstanden: filteret sender
+  // ID-er, så feltet kan vise et navn mens søket er helt ufiltrert. Computeden er
+  // det eneste som skiller de to tilfellene i brukergrensesnittet.
+  describe('typeahead - uavklart tilstand', () => {
+    it('should report dataset unresolved when text is typed but no id chosen', () => {
+      filterState.setDatasetName('Kartlegging');
+      expect(component.datasetUnresolved()).toBe(true);
+    });
+
+    it('should report dataset resolved once an id is chosen', () => {
+      filterState.setDatasetName('Kartlegging');
+      filterState.setDatasetOrgId(14842);
+      expect(component.datasetUnresolved()).toBe(false);
+    });
+
+    it('should not report unresolved for whitespace only', () => {
+      filterState.setDatasetName('   ');
+      expect(component.datasetUnresolved()).toBe(false);
+    });
+
+    it('should report collection unresolved when text is typed but no id chosen', () => {
+      filterState.setCollectionName('Aqua');
+      expect(component.collectionUnresolved()).toBe(true);
+
+      filterState.setCollectionOrgId(26435);
+      expect(component.collectionUnresolved()).toBe(false);
+    });
+
+    // Katalognummer avklares av ID-LISTEN, ikke av en enkelt ID.
+    it('should report catalog number unresolved until observation ids arrive', () => {
+      filterState.setCatalogNumber('104168');
+      expect(component.catalogNumberUnresolved()).toBe(true);
+
+      filterState.setCatalogObservationIds([8368071]);
+      expect(component.catalogNumberUnresolved()).toBe(false);
+    });
+  });
+
+  // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
+  // teksten og filteret på hver sin ting.
+  describe('typeahead - endring nullstiller valgt id', () => {
+    function typeInto(handler: (e: Event) => void, value: string): void {
+      const input = document.createElement('input');
+      input.value = value;
+      handler.call(component, { target: input } as unknown as Event);
+    }
+
+    it('should clear datasetOrgId when the text is edited', () => {
+      filterState.setDatasetOrgId(14842);
+      typeInto(component.onDatasetNameChange, 'Kart');
+
+      expect(filterState.datasetName()).toBe('Kart');
+      expect(filterState.datasetOrgId()).toBeNull();
+    });
+
+    it('should clear collectionOrgId when the text is edited', () => {
+      filterState.setCollectionOrgId(26435);
+      typeInto(component.onCollectionNameChange, 'Aqu');
+
+      expect(filterState.collectionName()).toBe('Aqu');
+      expect(filterState.collectionOrgId()).toBeNull();
+    });
+  });
+
+  describe('typeahead - valg av forslag', () => {
+    it('should set both name and id when a dataset suggestion is selected', () => {
+      component.selectDatasetSuggestion({ id: 14842, name: 'Kartlegging' });
+
+      expect(filterState.datasetName()).toBe('Kartlegging');
+      expect(filterState.datasetOrgId()).toBe(14842);
+      expect(component.datasetUnresolved()).toBe(false);
+      expect(component.showDatasetSuggestions()).toBe(false);
+    });
+
+    it('should set both name and id when a collection suggestion is selected', () => {
+      component.selectCollectionSuggestion({ id: 26435, name: 'Aqua Kompetanse AS' });
+
+      expect(filterState.collectionName()).toBe('Aqua Kompetanse AS');
+      expect(filterState.collectionOrgId()).toBe(26435);
+      expect(component.collectionUnresolved()).toBe(false);
+    });
+  });
 });
