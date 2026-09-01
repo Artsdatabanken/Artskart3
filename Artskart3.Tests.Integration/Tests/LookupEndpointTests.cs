@@ -190,6 +190,110 @@ public class LookupEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // Eksakt oppslag paa ProxyId / OccurrenceId
+    //
+    // Artskart 2 soekte paa katalognummer, ProxyId og OccurrenceId under ett, med
+    // LIKE '%x%'. Maalt paa produksjonslik kopi koster det 12,2 s og 29,0 s per
+    // soek, saa de to URN-kolonnene matches eksakt i stedet. Prefiks er ikke et
+    // alternativ: katalognummeret ligger til SLUTT i dem
+    // (biofokus/biofokus/104168), saa 'x%' ville aldri truffet.
+    // -----------------------------------------------------------------------
+
+    private const string SeededProxyId = "biofokus/biofokus/104168";
+    private const int SeededObservationId = 8368071;
+
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithExactProxyId_ReturnsThatObservation()
+    {
+        var response = await _client.GetAsync(
+            $"/api/Lookup/CatalogNumbers?search={Uri.EscapeDataString(SeededProxyId)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var ider = doc.RootElement.EnumerateArray()
+            .SelectMany(m => m.GetProperty("observationIds").EnumerateArray())
+            .Select(id => id.GetInt32())
+            .ToList();
+
+        ider.Should().Contain(SeededObservationId,
+            "et innlimt ProxyId skal finne observasjonen sin");
+    }
+
+    /// <summary>
+    /// Sorteringen i databasen er case-insensitiv, og ProxyId og OccurrenceId er
+    /// samme verdi med ulik bokstavstoerrelse. Kopierer brukeren fra en kilde som
+    /// versaliserer, skal treffet vaere det samme.
+    /// </summary>
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithExactProxyIdInUpperCase_ReturnsSameObservation()
+    {
+        var response = await _client.GetAsync(
+            $"/api/Lookup/CatalogNumbers?search={Uri.EscapeDataString(SeededProxyId.ToUpperInvariant())}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var ider = doc.RootElement.EnumerateArray()
+            .SelectMany(m => m.GetProperty("observationIds").EnumerateArray())
+            .Select(id => id.GetInt32())
+            .ToList();
+
+        ider.Should().Contain(SeededObservationId);
+    }
+
+    /// <summary>
+    /// Bare EKSAKT treff. Et halvt ProxyId skal ikke gi noe - ellers er vi tilbake
+    /// til delstrengsoeket som kostet 12-29 sekunder.
+    /// </summary>
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithPartialProxyId_ReturnsNothingForIt()
+    {
+        var delvis = SeededProxyId[..12];
+
+        var response = await _client.GetAsync(
+            $"/api/Lookup/CatalogNumbers?search={Uri.EscapeDataString(delvis)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var ider = doc.RootElement.EnumerateArray()
+            .SelectMany(m => m.GetProperty("observationIds").EnumerateArray())
+            .Select(id => id.GetInt32())
+            .ToList();
+
+        ider.Should().NotContain(SeededObservationId,
+            "delvis ProxyId er ikke stoettet - eksakt treff er hele poenget");
+    }
+
+    /// <summary>
+    /// Katalognummersoeket skal fortsatt virke som prefikssoek. Regresjonsvakt for
+    /// at det eksakte oppslaget ikke fortrenger den opprinnelige oppfoerselen.
+    /// </summary>
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithCatalogNumberPrefix_StillReturnsMatches()
+    {
+        var response = await _client.GetAsync("/api/Lookup/CatalogNumbers?search=10416");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        doc.RootElement.GetArrayLength().Should().BeGreaterThan(0,
+            "prefikssoek paa katalognummer er den opprinnelige funksjonen");
+    }
+
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithUnknownIdentifier_ReturnsEmptyArray()
+    {
+        var response = await _client.GetAsync(
+            "/api/Lookup/CatalogNumbers?search=finnes-helt-sikkert-ikke-42");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetArrayLength().Should().Be(0);
+    }
+
+    // -----------------------------------------------------------------------
     // GET /api/Lookup/Areas
     // -----------------------------------------------------------------------
 

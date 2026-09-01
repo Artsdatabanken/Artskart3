@@ -192,6 +192,21 @@ public class LookupRepository : ILookupRepository
     /// (seek + TOP), deretter ID-ene for akkurat dem. Å bygge ID-listene i én
     /// gruppert spørring lar seg ikke oversette pålitelig av EF, og gevinsten
     /// ville uansett vært null — begge er indekserte oppslag på en håndfull rader.
+    ///
+    /// PROXYID OG OCCURRENCEID MATCHES EKSAKT, ikke som prefiks.
+    /// De to er ikke lengre utgaver av katalognummeret, men kildekvalifiserte
+    /// URN-er der katalognummeret ligger til slutt:
+    ///   CatalogNumber  37
+    ///   ProxyId        urn:catalog:o:l:37
+    ///   OccurrenceId   urn:catalog:O:L:37
+    /// Et prefikssøk på «37» ville derfor aldri truffet dem, og det eneste
+    /// prefikssøk finner er kildenavnet — «urn:catalog:» dekker alene 8 029 416
+    /// rader. Delstreng ville løst det, men målt til 12,2 s og 29,0 s per søk på
+    /// en produksjonslik kopi, på et anonymt endepunkt.
+    ///
+    /// Eksakt treff dekker den faktiske bruken: ingen skriver en halv URN for
+    /// hånd, de limer inn en hel. Det gir et seek på IX_Observation_ProxyId /
+    /// IX_Observation_OccurrenceId.
     /// </summary>
     public async Task<IEnumerable<CatalogNumberMatchDto>> SearchCatalogNumbersAsync(
         string search, int maxCount, CancellationToken cancellationToken = default)
@@ -234,7 +249,10 @@ public class LookupRepository : ILookupRepository
 
             if (catalogNumbers.Count == 0)
             {
-                return Enumerable.Empty<CatalogNumberMatchDto>();
+                // Ikke ferdig: en innlimt URN gir null katalognummertreff, men
+                // kan fortsatt matche ProxyId eller OccurrenceId eksakt.
+                return await LeggTilEksakteIdentifikatorTreffAsync(
+                    [], trimmed, maxCount, cancellationToken);
             }
 
             var matches = await _context.Set<Observation>()
@@ -248,7 +266,7 @@ public class LookupRepository : ILookupRepository
             // slo sammen til én rad i spørringen over — blitt splittet i to DTO-er:
             // flere treff enn maxCount, og et valg som bare får med den ene
             // skrivemåtens observasjoner. Take-en gjentas av samme grunn.
-            return matches
+            var treff = matches
                 .GroupBy(m => m.CatalogNumber!, StringComparer.OrdinalIgnoreCase)
                 .Select(g => new CatalogNumberMatchDto
                 {
@@ -258,12 +276,71 @@ public class LookupRepository : ILookupRepository
                 .OrderBy(m => m.CatalogNumber, StringComparer.OrdinalIgnoreCase)
                 .Take(maxCount)
                 .ToList();
+
+            return await LeggTilEksakteIdentifikatorTreffAsync(treff, trimmed, maxCount, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Feil ved søk etter katalognummer: {Search}", search);
             throw new ApplicationException("Feil ved søk etter katalognummer", ex);
         }
+    }
+
+    /// <summary>
+    /// Legger til observasjoner der søketeksten er et EKSAKT ProxyId eller
+    /// OccurrenceId, uten å fortrenge katalognummertreffene.
+    ///
+    /// Vaktsetningene i kalleren gjelder også her: blankt søk og søk under
+    /// minstelengden kommer aldri hit. Jokertegnvakten er derimot ikke relevant —
+    /// dette er likhet, ikke LIKE, så '%' er bare et vanlig tegn.
+    ///
+    /// Sammenligningen er databasens, altså case-insensitiv. ProxyId og
+    /// OccurrenceId er samme verdi med ulik bokstavstørrelse
+    /// (urn:catalog:o:l:37 mot urn:catalog:O:L:37), så én innliming treffer
+    /// begge kolonnene og dermed samme observasjon. Derfor grupperes resultatet
+    /// per verdi, ellers ville brukeren fått to identiske forslag.
+    /// </summary>
+    private async Task<List<CatalogNumberMatchDto>> LeggTilEksakteIdentifikatorTreffAsync(
+        List<CatalogNumberMatchDto> katalogTreff,
+        string trimmed,
+        int maxCount,
+        CancellationToken cancellationToken)
+    {
+        if (katalogTreff.Count >= maxCount)
+        {
+            return katalogTreff;
+        }
+
+        var identifikatorTreff = await _context.Set<Observation>()
+            .AsNoTracking()
+            .Where(o => o.ProxyId == trimmed || o.OccurrenceId == trimmed)
+            .Select(o => new { o.Id, o.ProxyId, o.OccurrenceId })
+            .Take(maxCount)
+            .ToListAsync(cancellationToken);
+
+        if (identifikatorTreff.Count == 0)
+        {
+            return katalogTreff;
+        }
+
+        // Verdien som vises er den brukeren faktisk søkte på, ikke begge
+        // skrivemåtene — forslaget skal kunne kjennes igjen som det som ble limt inn.
+        var alleredeMed = katalogTreff
+            .Select(t => t.CatalogNumber)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (alleredeMed.Contains(trimmed))
+        {
+            return katalogTreff;
+        }
+
+        katalogTreff.Add(new CatalogNumberMatchDto
+        {
+            CatalogNumber = trimmed,
+            ObservationIds = identifikatorTreff.Select(t => t.Id).Distinct().ToArray()
+        });
+
+        return katalogTreff;
     }
 
     public async Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)

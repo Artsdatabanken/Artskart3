@@ -336,11 +336,6 @@
                 }
               </ul>
             }
-            @if (datasetNoMatches()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadNoMatches' | translate }}</small>
-            } @else if (datasetUnresolved()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadUnresolved' | translate }}</small>
-            }
           </div>
         </label>
 
@@ -377,11 +372,6 @@
                   }
                 </ul>
               }
-            @if (collectionNoMatches()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadNoMatches' | translate }}</small>
-            } @else if (collectionUnresolved()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadUnresolved' | translate }}</small>
-            }
             </div>
           </label>
           <label class="other-properties-label">
@@ -419,11 +409,6 @@
                   }
                 </ul>
               }
-            @if (catalogNumberNoMatches()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadNoMatches' | translate }}</small>
-            } @else if (catalogNumberUnresolved()) {
-              <small class="typeahead-warning">{{ 'sidebar.typeaheadUnresolved' | translate }}</small>
-            }
             </div>
           </label>
         </div>

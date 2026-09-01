@@ -312,13 +312,3 @@ adb-checkbox::part(control) {
   color: var(--adb-neutrals-gray-60, #6b6b6b);
   font-size: var(--adb-font-size-xsm, 0.75rem);
 }
-
-/* «Tekst skrevet, men ingen ID valgt» og «ingen treff».
-   Uten dette ser et inaktivt filter identisk ut med et aktivt. */
-.typeahead-warning {
-  display: block;
-  margin-top: var(--adb-spacing-2xsm, 4px);
-  font-size: var(--adb-font-size-xsm, 0.75rem);
-  line-height: 1.3;
-  color: var(--adb-feedback-warning-text, #8a5a00);
-}

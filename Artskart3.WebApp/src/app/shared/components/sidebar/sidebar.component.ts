@@ -63,31 +63,13 @@ export class SidebarComponent {
   readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
   readonly showCatalogNumberSuggestions = signal<boolean>(false);
 
-  // «Tekst skrevet, men ingen ID valgt» må være synlig.
+  // MERK: her lå tre *Unresolved-computeds og tre *NoMatches-signaler som varslet
+  // «tekst skrevet, men ingen ID valgt». De ble fjernet sammen med teksten de drev.
   //
-  // Filteret sender ID-er, ikke tekst. Uten dette kunne feltet vise
-  // «Universitetsmuseet i Bergen» mens søket var helt ufiltrert — brukeren ser et
-  // aktivt filter og får et resultat som ser plausibelt ut. Samme feilklasse som
-  // takson-filteret som stille returnerte alle 60M observasjoner, bare flyttet til
-  // presentasjonslaget.
-  //
-  // Gjelder også etter et valg: velger man «NHM» og deretter redigerer teksten til
-  // «NIN», nullstilles ID-en, og da må feltet si fra.
-  readonly datasetUnresolved = computed(
-    () => this.datasetName().trim().length > 0 && this.datasetOrgId() === null,
-  );
-  readonly collectionUnresolved = computed(
-    () => this.collectionName().trim().length > 0 && this.collectionOrgId() === null,
-  );
-  readonly catalogNumberUnresolved = computed(
-    () => this.catalogNumber().trim().length > 0 && this.catalogObservationIds().length === 0,
-  );
-
-  // Skilles fra «venter fortsatt» slik at et søk uten treff ikke ser identisk ut
-  // med et søk som ikke har rukket å svare.
-  readonly datasetNoMatches = signal<boolean>(false);
-  readonly collectionNoMatches = signal<boolean>(false);
-  readonly catalogNumberNoMatches = signal<boolean>(false);
+  // Tilstanden finnes fortsatt — filteret sender ID-er, ikke tekst, så et felt kan
+  // vise «Universitetsmuseet i Bergen» mens søket er helt ufiltrert. Det er bare
+  // ingenting som sier det til brukeren nå. Skal det varsles igjen, er regelen
+  // «navn satt og ID null» (og for katalognummer: tom ID-liste).
 
   constructor() {
     this.datasetSearch$
@@ -108,7 +90,6 @@ export class SidebarComponent {
       .subscribe((organizations) => {
         this.datasetSuggestions.set(organizations);
         this.showDatasetSuggestions.set(organizations.length > 0);
-        this.datasetNoMatches.set(organizations.length === 0 && this.datasetUnresolved());
       });
 
     this.collectionSearch$
@@ -129,7 +110,6 @@ export class SidebarComponent {
       .subscribe((organizations) => {
         this.collectionSuggestions.set(organizations);
         this.showCollectionSuggestions.set(organizations.length > 0);
-        this.collectionNoMatches.set(organizations.length === 0 && this.collectionUnresolved());
       });
 
     this.catalogNumberSearch$
@@ -150,7 +130,6 @@ export class SidebarComponent {
       .subscribe((matches) => {
         this.catalogNumberSuggestions.set(matches);
         this.showCatalogNumberSuggestions.set(matches.length > 0);
-        this.catalogNumberNoMatches.set(matches.length === 0 && this.catalogNumberUnresolved());
       });
   }
   readonly registreringOptions: RegistreringOption[] = [
@@ -406,8 +385,6 @@ export class SidebarComponent {
   readonly datasetName = this.filterState.datasetName;
   readonly collectionName = this.filterState.collectionName;
   readonly catalogNumber = this.filterState.catalogNumber;
-  // ID-signalene eksponeres for de tre *Unresolved-computedene over: teksten alene
-  // sier ingenting om filteret faktisk er aktivt.
   readonly datasetOrgId = this.filterState.datasetOrgId;
   readonly collectionOrgId = this.filterState.collectionOrgId;
   readonly catalogObservationIds = this.filterState.catalogObservationIds;

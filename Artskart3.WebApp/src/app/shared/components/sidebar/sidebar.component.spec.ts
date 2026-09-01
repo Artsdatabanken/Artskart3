@@ -307,43 +307,10 @@ describe('SidebarComponent', () => {
       expect(filterState.periodTo()).toBe(2020);
     });
   });
-// «Tekst skrevet, men ingen ID valgt» er den farlige tilstanden: filteret sender
-  // ID-er, så feltet kan vise et navn mens søket er helt ufiltrert. Computeden er
-  // det eneste som skiller de to tilfellene i brukergrensesnittet.
-  describe('typeahead - uavklart tilstand', () => {
-    it('should report dataset unresolved when text is typed but no id chosen', () => {
-      filterState.setDatasetName('Kartlegging');
-      expect(component.datasetUnresolved()).toBe(true);
-    });
-
-    it('should report dataset resolved once an id is chosen', () => {
-      filterState.setDatasetName('Kartlegging');
-      filterState.setDatasetOrgId(14842);
-      expect(component.datasetUnresolved()).toBe(false);
-    });
-
-    it('should not report unresolved for whitespace only', () => {
-      filterState.setDatasetName('   ');
-      expect(component.datasetUnresolved()).toBe(false);
-    });
-
-    it('should report collection unresolved when text is typed but no id chosen', () => {
-      filterState.setCollectionName('Aqua');
-      expect(component.collectionUnresolved()).toBe(true);
-
-      filterState.setCollectionOrgId(26435);
-      expect(component.collectionUnresolved()).toBe(false);
-    });
-
-    // Katalognummer avklares av ID-LISTEN, ikke av en enkelt ID.
-    it('should report catalog number unresolved until observation ids arrive', () => {
-      filterState.setCatalogNumber('104168');
-      expect(component.catalogNumberUnresolved()).toBe(true);
-
-      filterState.setCatalogObservationIds([8368071]);
-      expect(component.catalogNumberUnresolved()).toBe(false);
-    });
-  });
+  // MERK: her laa tester for de tre *Unresolved-computedene. De ble fjernet sammen
+  // med varselteksten de drev - se kommentaren i sidebar.component.ts. Testene under
+  // dekker fortsatt det som betyr noe for filteret: at teksten og den valgte ID-en
+  // ikke kan komme ut av synk.
 
   // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
   // teksten og filteret på hver sin ting.
@@ -377,7 +344,6 @@ describe('SidebarComponent', () => {
 
       expect(filterState.datasetName()).toBe('Kartlegging');
       expect(filterState.datasetOrgId()).toBe(14842);
-      expect(component.datasetUnresolved()).toBe(false);
       expect(component.showDatasetSuggestions()).toBe(false);
     });
 
@@ -386,7 +352,6 @@ describe('SidebarComponent', () => {
 
       expect(filterState.collectionName()).toBe('Aqua Kompetanse AS');
       expect(filterState.collectionOrgId()).toBe(26435);
-      expect(component.collectionUnresolved()).toBe(false);
     });
   });
 });

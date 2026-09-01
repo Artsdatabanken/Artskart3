@@ -213,8 +213,6 @@
     "project": "Project",
     "collectionCode": "Collection",
     "catalogNumber": "Catalog number",
-    "typeaheadUnresolved": "Select a match from the list to apply the filter",
-    "typeaheadNoMatches": "No matches",
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",
