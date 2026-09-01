@@ -22,6 +22,7 @@ import { ApiClientService } from '../api-client.service';
 import { LoggingService } from '@shared/logging.service';
 import { ValidationService } from '../validation.service';
 import { ApiMessages } from '@core/constants/api-messages';
+import { LanguageService } from '@shared/services/languages/language.service';
 
 /**
  * NBIC styling configuration for location markers (solid circle)
@@ -325,6 +326,7 @@ export class AreasService {
   private readonly apiClientService: ApiClientService = inject(ApiClientService);
   private readonly loggerService: LoggingService = inject(LoggingService);
   private readonly validationService: ValidationService = inject(ValidationService);
+  private readonly languageService: LanguageService = inject(LanguageService);
 
   private readonly areasBaseEndpoint = '/api/Search/AreaMarkers';
   private readonly areaCountsEndpoint = '/api/Search/AreaCounts';
@@ -412,7 +414,7 @@ export class AreasService {
         id: dto.locationId,
         name: dto.locality ?? `Location ${dto.locationId}`,
         observationCount: count,
-        observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count) : '',
+        observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
         isPolygon: true,
         'nbic:style': {
           fillColor: 'rgba(0, 90, 113, 0.06)',
@@ -539,7 +541,7 @@ export class AreasService {
           id,
           name: `Location ${id}`,
           observationCount: count,
-          observationCountDisplay: count ? AbbreviateNumberHelper.format(count) : '',
+          observationCountDisplay: count ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
           isPolygon: false,
           ...NBIC_LOCATION_STYLE,
         },
@@ -564,7 +566,7 @@ export class AreasService {
       if (!this.bboxOverlaps(bbox, extent)) continue;
 
       const count = area.observationCount ?? 0;
-      const formattedCount = AbbreviateNumberHelper.format(count);
+      const formattedCount = AbbreviateNumberHelper.format(count, this.languageService.getLanguage());
 
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1] && bbox[2] <= extent[2] && bbox[3] <= extent[3];

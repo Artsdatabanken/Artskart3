@@ -265,19 +265,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private listenForLanguageChanges(): void {
-    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.zoomControl?.updateLabels({
-        zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-        zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+    this.translate.onLangChange
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.zoomControl?.updateLabels({
+          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+        });
+        this.fullscreenControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+        });
+        this.geolocationControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+        });
+        this.rebuildAllLayers();
       });
-      this.fullscreenControl?.updateLabels({
-        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-      });
-      this.geolocationControl?.updateLabels({
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-      });
-    });
   }
 
   private onMapReady(): void {
