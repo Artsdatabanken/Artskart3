@@ -802,7 +802,29 @@ ELSE
 -- histogrammer som ikke reflekterer den nye fordelingen i kolonnene. Regn med
 -- 10-20 minutter på 195M rader.
 -- ---------------------------------------------------------------------------
-IF @HarArbeid = 1
+-- Statistikken har SITT EGET vannmerke, ikke @HarArbeid.
+--
+-- @HarArbeid svarer bare paa "er alle rader fylt?". Feiler skriptet ETTER
+-- seksjonene - tidsavbrudd, drept agent, mistet forbindelse - staar alle
+-- vannmerkene paa @MaxId, og neste forsoek konkluderte med "ingenting aa gjoere"
+-- og hoppet over statistikken. Migrasjonen ble stemplet som anvendt paa under et
+-- minutt, med statistikk som fortsatt beskrev tabellen slik den saa ut FOER
+-- backfillen. Maalt konsekvens staar i kommentaren over: 473 ms -> 11 982 ms.
+--
+-- Det skjedde i praksis 31. august 2026: kjoringen doede i UPDATE STATISTICS paa
+-- Observation, og gjenkjoeringen rapporterte OK uten aa roere statistikken.
+--
+-- F_Statistics skrives foerst NAAR alle fire er ferdige, saa et avbrudd midt i
+-- lar neste forsoek gjoere dem om igjen.
+DECLARE @TrengerStatistikk BIT = 0;
+
+IF @MaxId >= @MinId AND (
+       @HarArbeid = 1
+    OR ISNULL((SELECT p.LastCompletedId FROM dbo.BackfillProgress p
+               WHERE p.Section = 'F_Statistics'), @MinId - 1) < @MaxId)
+    SET @TrengerStatistikk = 1;
+
+IF @TrengerStatistikk = 1
 BEGIN
     RAISERROR('Oppdaterer statistikk med FULLSCAN (10-20 min)...', 0, 1) WITH NOWAIT;
 
@@ -818,10 +840,17 @@ BEGIN
     UPDATE STATISTICS dbo.ObservationTaxonHierarchy WITH FULLSCAN;
     RAISERROR('  ObservationTaxonHierarchy ferdig.', 0, 1) WITH NOWAIT;
 
+    -- Foerst her regnes etterarbeidet som fullfoert.
+    MERGE dbo.BackfillProgress AS t
+    USING (SELECT 'F_Statistics' AS Section, @MaxId AS LastCompletedId) AS s
+        ON t.Section = s.Section
+    WHEN MATCHED THEN UPDATE SET LastCompletedId = s.LastCompletedId, UpdatedAt = SYSUTCDATETIME()
+    WHEN NOT MATCHED THEN INSERT (Section, LastCompletedId) VALUES (s.Section, s.LastCompletedId);
+
     RAISERROR('Statistikk oppdatert.', 0, 1) WITH NOWAIT;
 END
 ELSE
-    RAISERROR('Ingen endringer - hopper over statistikkoppdatering.', 0, 1) WITH NOWAIT;
+    RAISERROR('Statistikken er allerede oppdatert for denne datamengden - hopper over.', 0, 1) WITH NOWAIT;
 
 SET @Msg = CONCAT('BackfillAll ferdig. Total tid: ',
                   DATEDIFF(MINUTE, @RunStart, SYSUTCDATETIME()), ' minutter.');

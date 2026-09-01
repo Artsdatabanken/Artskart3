@@ -16,6 +16,8 @@ namespace Artskart3.Infrastructure.Migrations;
 /// - OrganizationRelationType (1 rad, «Owner»). RelationTypeId bar aldri informasjon.
 /// - Observation.InstitutionId, InstitutionCode, CollectionCode med tilhørende
 ///   indekser. Kodene utledes fra Organization.Code — se ExportColumnRegistry.
+/// - dbo.BackfillProgress, vannmerketabellen BackfillAll bruker for å kunne
+///   gjenopptas. Ren stillas, og trygg å slippe først her.
 ///
 /// INNHOLDSGUARD, ikke bare rekkefølgeguard.
 /// Rekkefølgen (EF kjører sekvensielt og registrerer ikke en migrasjon som feilet)
@@ -98,6 +100,21 @@ IF EXISTS (
         migrationBuilder.DropColumn(
             name: "InstitutionId",
             table: "Observation");
+
+        // Fremdriftstabellen er stillas for backfillen og har ingen verdi etterpå.
+        //
+        // Den slippes HER og ikke på slutten av BackfillAll: slippes den i samme
+        // kjøring som fyller den, og noe går galt mellom DROP-en og at EF rekker å
+        // skrive raden i __EFMigrationsHistory, starter neste forsøk uten vannmerker
+        // og gjør hele backfillen om igjen fra bunnen — timer med arbeid.
+        //
+        // Her er BackfillAll for lengst registrert som anvendt, så tabellen kan
+        // ikke lenger trengs. Kjører noen Scripts/BackfillAll.sql manuelt senere,
+        // oppretter skriptet den på nytt.
+        migrationBuilder.Sql(@"
+IF OBJECT_ID('dbo.BackfillProgress') IS NOT NULL
+    DROP TABLE dbo.BackfillProgress;
+");
     }
 
     /// <inheritdoc />
