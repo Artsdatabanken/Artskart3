@@ -237,9 +237,9 @@ export class HomeComponent {
     const periodTo = this.filterState.periodTo();
     const periodMonths = this.filterState.selectedMonths();
     const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-    const projectName = this.filterState.projectName().trim();
-    const collectionCode = this.filterState.collectionCode().trim();
-    const catalogNumber = this.filterState.catalogNumber().trim();
+    const datasetOrgId = this.filterState.datasetOrgId();
+    const projectOrgId = this.filterState.projectOrgId();
+    const catalogObservationIds = this.filterState.catalogObservationIds();
     const withImages = imageFilterToWithImages(this.filterState.imageFilter());
     const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
@@ -268,9 +268,9 @@ export class HomeComponent {
         ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
         : undefined,
 
-      projectName: projectName ? projectName : undefined,
-      collectionCode: collectionCode ? collectionCode : undefined,
-      catalogNumber: catalogNumber ? catalogNumber : undefined,
+      datasetOrgId: datasetOrgId ?? undefined,
+      projectOrgId: projectOrgId ?? undefined,
+      observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
       withImages: withImages,
       period: hasPeriod
         ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }

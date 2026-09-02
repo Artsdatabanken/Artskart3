@@ -26,10 +26,15 @@ export class FilterStateService {
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
   readonly periodTo = signal<number | null>(null);
+  // Samling, prosjekt og katalognummer filtreres på ID. Teksten beholdes kun for
+  // å vise hva brukeren har valgt — det er ID-ene som sendes til backend.
+  // Uten et valgt treff er ID-en null, og filteret er ikke aktivt.
   readonly projectName = signal<string>('');
-  readonly projectOrganizationId = signal<number | null>(null);
-  readonly collectionCode = signal<string>('');
+  readonly projectOrgId = signal<number | null>(null);
+  readonly datasetName = signal<string>('');
+  readonly datasetOrgId = signal<number | null>(null);
   readonly catalogNumber = signal<string>('');
+  readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
   readonly selectedMonths = signal<number[]>([]);
 
@@ -247,16 +252,24 @@ export class FilterStateService {
     this.projectName.set(value);
   }
 
-  setProjectOrganizationId(id: number | null): void {
-    this.projectOrganizationId.set(id);
+  setProjectOrgId(id: number | null): void {
+    this.projectOrgId.set(id);
   }
 
-  setCollectionCode(value: string): void {
-    this.collectionCode.set(value);
+  setDatasetName(value: string): void {
+    this.datasetName.set(value);
+  }
+
+  setDatasetOrgId(id: number | null): void {
+    this.datasetOrgId.set(id);
   }
 
   setCatalogNumber(value: string): void {
     this.catalogNumber.set(value);
+  }
+
+  setCatalogObservationIds(ids: number[]): void {
+    this.catalogObservationIds.set(ids);
   }
 
   setImageFilter(value: ImageFilterOption): void {
@@ -265,9 +278,11 @@ export class FilterStateService {
 
   clearOtherFindProperties(): void {
     this.projectName.set('');
-    this.projectOrganizationId.set(null);
-    this.collectionCode.set('');
+    this.projectOrgId.set(null);
+    this.datasetName.set('');
+    this.datasetOrgId.set(null);
     this.catalogNumber.set('');
+    this.catalogObservationIds.set([]);
     this.imageFilter.set('all');
   }
 
