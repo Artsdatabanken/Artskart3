@@ -75,7 +75,24 @@ public class ExportColumnRegistry
     /// <summary>
     /// Henter verdien for en gitt kolonne fra en observasjon.
     /// </summary>
-    public static object? GetValue(Observation observation, string columnName)
+    /// <param name="observation">Observasjonen verdien hentes fra.</param>
+    /// <param name="columnName">Kolonnenavnet, slik det står i <see cref="Columns"/>.</param>
+    /// <param name="organizationCodes">
+    /// Oppslag fra OrganizationId til Organization.Code.
+    ///
+    /// Institusjons- og samlingskode lå tidligere som dupliserte strengkolonner på
+    /// Observation. Etter CompleteFilter er de borte, og kodene utledes fra
+    /// InstitutionOrgId/DatasetOrgId. Oppslaget gjøres i minnet fordi
+    /// Organization bare har 25 943 rader — det er billigere enn navigasjons-
+    /// egenskaper, som ville fått EF til å opprette indekser bak fremmednøklene
+    /// på en tabell med 61M rader.
+    ///
+    /// Er ordboken null, blir kodekolonnene tomme i stedet for å feile.
+    /// </param>
+    public static object? GetValue(
+        Observation observation,
+        string columnName,
+        IReadOnlyDictionary<int, string?>? organizationCodes = null)
     {
         return columnName switch
         {
@@ -83,8 +100,8 @@ public class ExportColumnRegistry
             "ProxyId" => observation.ProxyId,
             "OccurrenceId" => observation.OccurrenceId,
             "NodeId" => observation.NodeId,
-            "InstitutionCode" => observation.InstitutionCode,
-            "CollectionCode" => observation.CollectionCode,
+            "InstitutionCode" => LookupCode(observation.InstitutionOrgId, organizationCodes),
+            "CollectionCode" => LookupCode(observation.DatasetOrgId, organizationCodes),
             "CatalogNumber" => observation.CatalogNumber,
             "BasisOfRecordId" => observation.BasisOfRecordId,
             "DateTimeCollected" => observation.DateTimeCollected,
@@ -133,6 +150,16 @@ public class ExportColumnRegistry
 
             _ => null
         };
+    }
+
+    private static string? LookupCode(int? organizationId, IReadOnlyDictionary<int, string?>? organizationCodes)
+    {
+        if (organizationId is null || organizationCodes is null)
+        {
+            return null;
+        }
+
+        return organizationCodes.TryGetValue(organizationId.Value, out var code) ? code : null;
     }
 
     private static ExportColumnDefinition Col(string name, string displayName, bool isDefault = false) =>

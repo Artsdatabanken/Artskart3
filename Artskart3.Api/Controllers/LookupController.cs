@@ -77,6 +77,97 @@ public class LookupController : ControllerBase
         return Ok(organizations);
     }
 
+    // OrganizationType: 1 = Publisher, 2 = Dataset, 3 = Project (GBIF-navn).
+    //
+    // Navnene i koden fulgte etter 1. september 2026. FØR den datoen het type 2
+    // «Collection» og type 3 «Dataset» — så et gammelt «DatasetOrgId» betyr type 3,
+    // mens dagens betyr type 2. De byttet plass, de flyttet seg ikke ett hakk.
+    // Det gjelder alt fra før den datoen: spørringer, planer, eksportfiler og
+    // API-kall mot /api/Lookup/Datasets.
+    private const int DatasetOrganizationTypeId = 2;
+    private const int ProjectOrganizationTypeId = 3;
+
+    /// <summary>
+    /// Typeahead for datasett — organisasjonstype 2. Returnerer OrganizationId som
+    /// sendes som datasetOrgId i søkefilteret.
+    /// </summary>
+    [HttpGet("Datasets")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchDatasets(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchOrganizationsByTypeAsync(
+            search, DatasetOrganizationTypeId, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Typeahead for prosjekt — organisasjonstype 3. Returnerer OrganizationId som
+    /// sendes som projectOrgId i søkefilteret.
+    /// </summary>
+    [HttpGet("Projects")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetSearchProjects(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<OrganizationDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchOrganizationsByTypeAsync(
+            search, ProjectOrganizationTypeId, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Typeahead for katalognummer. PREFIKSSØK — hvert treff kommer med
+    /// ObservationId-ene det peker på, som sendes som observationIds i filteret.
+    ///
+    /// Grunnen til at treffet bærer IDer og ikke bare strengen: katalognummer er
+    /// tilnærmet unikt, og et filter på ID blir et seek på klyngeindeksen i stedet
+    /// for et delstrengsøk mot 61M rader.
+    /// </summary>
+    [HttpGet("CatalogNumbers")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<CatalogNumberMatchDto>>> GetSearchCatalogNumbers(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxOrganizationCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<CatalogNumberMatchDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxOrganizationCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxOrganizationCount}." });
+        }
+
+        var result = await _lookupService.SearchCatalogNumbersAsync(search, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>
     /// Returns all taxon groups, intended for populating filter dropdowns.
     /// </summary>

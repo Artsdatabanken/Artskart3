@@ -538,7 +538,7 @@ public class SearchRepositoryTests
         int taxonGroupId = 1,
         int? categoryId = 1,
         int basisOfRecordId = 1,
-        string? institutionCode = "NHM",
+        int institutionOrgId = 1,
         int? coordinatePrecisionInMeters = 25,
         int taxonId = 1) =>
         new()
@@ -559,7 +559,7 @@ public class SearchRepositoryTests
             East = 1000,
             North = 2000,
             LocationId = locationId,
-            InstitutionCode = institutionCode,
+            InstitutionOrgId = institutionOrgId,
             HashCode = id,
             ProcessEngineId = 1,
             HasAnnotations = false,

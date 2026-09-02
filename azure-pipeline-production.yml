@@ -108,3 +108,42 @@ steps:
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   displayName: "Publish workers artifact"
   artifact: workers
+# ---------------------------
+# EF-migrasjoner
+#
+# Migrasjonene bygges som en selvstendig kjoerbar (efbundle) og publiseres som
+# artefakt. Deploy-steget kjoerer den mot databasen FOER appen deployeres:
+#
+#   ./efbundle --connection "$(ConnectionStrings-ArtskartIndex)"
+#
+# Byggpipelinen roerer ingen database — den lager bare kjoerbaren. Tilkoblingen
+# under er en plassholder som kun brukes for aa konstruere DbContext ved bygg.
+#
+# VIKTIG for deploy-steget:
+# - Sett Database:AutoMigrate = false naar bundtet tas i bruk, ellers kjoerer
+#   API-et migrasjonene om igjen ved oppstart.
+# - Sett timeoutInMinutes hoeyt nok. Migrasjonen BackfillAll fyller hele
+#   datasettet og tar timer i et tomt miljoe. Feiler den paa tid, er det trygt:
+#   den foerer fremdrift i dbo.BackfillProgress og fortsetter der den slapp ved
+#   neste kjoering. Regn med flere forsoek foerste gang.
+# ---------------------------
+
+- script: |
+    dotnet tool install --global dotnet-ef --version 10.0.7
+    export PATH="$PATH:$HOME/.dotnet/tools"
+    dotnet ef migrations bundle \
+      --project Artskart3.Infrastructure \
+      --startup-project Artskart3.Api \
+      --context ArtskartDbContext \
+      --configuration Release \
+      --self-contained --target-runtime linux-x64 \
+      --output $(Build.ArtifactStagingDirectory)/migrations/efbundle \
+      --force
+  env:
+    ConnectionStrings__ArtskartIndex: 'Server=placeholder;Database=placeholder;'
+  displayName: "Build EF migration bundle"
+
+- publish: $(Build.ArtifactStagingDirectory)/migrations
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "Publish migration bundle artifact"
+  artifact: migrations

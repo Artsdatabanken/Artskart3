@@ -307,4 +307,51 @@ describe('SidebarComponent', () => {
       expect(filterState.periodTo()).toBe(2020);
     });
   });
+  // MERK: her laa tester for de tre *Unresolved-computedene. De ble fjernet sammen
+  // med varselteksten de drev - se kommentaren i sidebar.component.ts. Testene under
+  // dekker fortsatt det som betyr noe for filteret: at teksten og den valgte ID-en
+  // ikke kan komme ut av synk.
+
+  // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
+  // teksten og filteret på hver sin ting.
+  describe('typeahead - endring nullstiller valgt id', () => {
+    function typeInto(handler: (e: Event) => void, value: string): void {
+      const input = document.createElement('input');
+      input.value = value;
+      handler.call(component, { target: input } as unknown as Event);
+    }
+
+    it('should clear projectOrgId when the text is edited', () => {
+      filterState.setProjectOrgId(14842);
+      typeInto(component.onProjectNameChange, 'Kart');
+
+      expect(filterState.projectName()).toBe('Kart');
+      expect(filterState.projectOrgId()).toBeNull();
+    });
+
+    it('should clear datasetOrgId when the text is edited', () => {
+      filterState.setDatasetOrgId(26435);
+      typeInto(component.onDatasetNameChange, 'Aqu');
+
+      expect(filterState.datasetName()).toBe('Aqu');
+      expect(filterState.datasetOrgId()).toBeNull();
+    });
+  });
+
+  describe('typeahead - valg av forslag', () => {
+    it('should set both name and id when a dataset suggestion is selected', () => {
+      component.selectProjectSuggestion({ id: 14842, name: 'Kartlegging' });
+
+      expect(filterState.projectName()).toBe('Kartlegging');
+      expect(filterState.projectOrgId()).toBe(14842);
+      expect(component.showProjectSuggestions()).toBe(false);
+    });
+
+    it('should set both name and id when a collection suggestion is selected', () => {
+      component.selectDatasetSuggestion({ id: 26435, name: 'Aqua Kompetanse AS' });
+
+      expect(filterState.datasetName()).toBe('Aqua Kompetanse AS');
+      expect(filterState.datasetOrgId()).toBe(26435);
+    });
+  });
 });
