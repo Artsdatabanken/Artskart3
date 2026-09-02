@@ -275,7 +275,7 @@ adb-checkbox::part(control) {
 
 .project-name-suggestion:hover,
 .project-name-suggestion:focus {
-  background-color: var(--adb-neutrals-sand-20, #f2f2f2);
+  background-color: var(--adb-background-secondary);
   outline: none;
 }
 
@@ -309,6 +309,6 @@ adb-checkbox::part(control) {
    flere enn én observasjon — da er valget ikke entydig, og brukeren bør se det. */
 .suggestion-count {
   margin-left: var(--adb-spacing-2xsm, 4px);
-  color: var(--adb-neutrals-gray-60, #6b6b6b);
+  color: var(--adb-text-secondary);
   font-size: var(--adb-font-size-xsm, 0.75rem);
 }
