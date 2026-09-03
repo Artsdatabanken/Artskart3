@@ -106,6 +106,20 @@
   right: 12px;
 }
 
+@media (max-width: 768px) {
+  ::ng-deep .artskart-zoom {
+    bottom: calc(var(--home-handle-height, 56px) + 16px);
+  }
+
+  ::ng-deep .artskart-fullscreen {
+    bottom: calc(var(--home-handle-height, 56px) + 112px);
+  }
+
+  ::ng-deep .artskart-geolocation {
+    bottom: calc(var(--home-handle-height, 56px) + 160px);
+  }
+}
+
 ::ng-deep .artskart-geolocation-wrapper {
   position: relative;
 }

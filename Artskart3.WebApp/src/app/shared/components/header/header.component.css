@@ -124,6 +124,13 @@
   border-radius: var(--adb-border-radius-sm);
 }
 
+.nav-item-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -255,6 +262,14 @@
 .mobile-menu-item:focus-visible {
   outline: 4px solid var(--adb-focus-outer);
   outline-offset: 4px;
+}
+
+.mobile-menu-item-button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
 }
 
 .mobile-menu-content {
