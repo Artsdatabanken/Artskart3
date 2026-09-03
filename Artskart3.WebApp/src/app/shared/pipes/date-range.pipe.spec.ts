@@ -13,10 +13,14 @@ describe('DateRangePipe', () => {
   });
 
   it('formats one date', () => {
-    expect(pipe.transform('2026-07-01')).toBe('01. juli 2026');
+    expect(pipe.transform('2026-07-01', undefined, 'no')).toBe('01. juli 2026');
   });
 
   it('formats a date range', () => {
-    expect(pipe.transform('2026-07-01', '2026-07-31')).toBe('01. juli 2026 - 31. juli 2026');
+    expect(pipe.transform('2026-07-01', '2026-07-31', 'no')).toBe('01. juli 2026 - 31. juli 2026');
+  });
+
+  it('formats dates in English', () => {
+    expect(pipe.transform('2026-07-01', '2026-07-31', 'en')).toBe('01 July 2026 - 31 July 2026');
   });
 });
