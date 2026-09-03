@@ -16,6 +16,9 @@ namespace Artskart3.Tests.Integration.Tests;
 public class SearchRepositoryIntegrationTests : IAsyncLifetime
 {
     private const int TestAreaTypeMunicipalityId = 910001;
+
+    // Datasett-id som garantert ikke er knyttet til noen observasjon.
+    private const int UnusedDatasetOrgId = 987654321;
     private const int TestAreaTypeCountyId = 910002;
     private const int TestBasisOfRecordOneId = 920001;
     private const int TestBasisOfRecordTwoId = 920002;
@@ -36,8 +39,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     private const int TestTaxonNameMissingObservationId = 960005;
     private const int TestObservationTaxonGroupOneId = 970001;
     private const int TestObservationTaxonGroupTwoId = 970002;
-    private const string CollectionOne = "REPO-COLL-A";
-    private const string CollectionTwo = "REPO-COLL-B";
+    // CompleteFilter: samling er en Organization-ID, ikke lenger en kode-streng.
+    private const int CollectionOne = 1;
+    private const int CollectionTwo = 2;
 
     private readonly DatabaseFixture _db;
     private ArtskartDbContext _context = null!;
@@ -59,7 +63,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         await SeedTestDataAsync();
     }
@@ -238,6 +242,518 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task GetAreaCountsAsync_MixedRankTaxonIds_ExecutesTranslatedQuery()
+    {
+        // Regresjon: blanding av orden-rang (direkte kolonnefilter) og et taxon som
+        // faller tilbake til ObservationTaxonHierarchy ga en OR-lambda med null-sjekk
+        // på en captured IQueryable, som EF ikke kunne oversette til SQL.
+        const int orderTaxonId = 980001;
+        const int phylumTaxonId = 980002;
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [orderTaxonId] = 11,  // Orden
+            [phylumTaxonId] = 3,  // Rekke (Phylum)
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        var act = () => repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [orderTaxonId, phylumTaxonId]
+        });
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task GetAreaCountsAsync_HierarchyFallbackTaxon_ReturnsNonZeroCount()
+    {
+        // Bekrefter at en kollapset forelder-id (phylum, ingen orden-etterkommere) som går via
+        // ObservationTaxonHierarchy-fallback faktisk gir treff — ikke et stille tomt resultat.
+        const int phylumTaxonId = 980002;
+        const int areaEntityId = 980010;
+        var areaFid = $"980010";
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [phylumTaxonId] = 3,  // Rekke (Phylum)
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        // Seed: område på zoomnivå 2 + indeks- og hierarkirad. AreaCounts-spørringen
+        // berører kun indeks- og hierarkitabellen, så ingen Observation-rad trengs —
+        // og vi unngår å forurense de delte lokasjonsantallene.
+        const int syntheticObservationId = 980500;
+        await RemoveSyntheticRowsAsync(syntheticObservationId, areaFid);
+
+        _context.Set<Area>().Add(new Area
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            Fid = areaFid,
+            Name = "Ancestry test kommune",
+            AreaTypeId = TestAreaTypeMunicipalityId,
+            ZoomLevel = 2,
+            ParentFid = "repo-parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = 0,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+        });
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = syntheticObservationId,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = 0,
+        });
+        _context.Set<ObservationTaxonHierarchy>().Add(new ObservationTaxonHierarchy
+        {
+            ObservationId = syntheticObservationId,
+            PhylumTaxonId = phylumTaxonId,
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [phylumTaxonId]
+        });
+
+        var area = result.SingleOrDefault(a => a.Fid == areaFid);
+        area.Should().NotBeNull("området har en matchende observasjon via hierarki-fallback");
+        area!.ObservationCount.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Mellomnivåer har ingen egen kolonne i ObservationEntityIndex (kun eksakt rang
+    /// 11/15/19/22 — se Scripts/BackfillAll.sql seksjon D). De skal derfor matches via
+    /// ObservationTaxonHierarchy, som har en kolonne per rangnivå.
+    /// </summary>
+    [Theory]
+    [InlineData(12, nameof(ObservationTaxonHierarchy.SuborderTaxonId))]
+    [InlineData(16, nameof(ObservationTaxonHierarchy.SubfamilyTaxonId))]
+    [InlineData(20, nameof(ObservationTaxonHierarchy.SubgenusTaxonId))]
+    [InlineData(23, nameof(ObservationTaxonHierarchy.SubspeciesTaxonId))]
+    [InlineData(26, nameof(ObservationTaxonHierarchy.NotSetTaxonId))]
+    public async Task GetAreaCountsAsync_OffRankTaxon_UsesHierarchyFallback(int rankId, string hierarchyColumn)
+    {
+        var taxonId = 980100 + rankId;
+        var areaEntityId = 980200 + rankId;
+        var areaFid = areaEntityId.ToString();
+
+        var hierarchy = new ConfigurableTaxonHierarchyService(new Dictionary<int, int>
+        {
+            [taxonId] = rankId,
+        });
+        var repository = new SearchRepository(
+            _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), hierarchy);
+
+        _context.Set<Area>().Add(new Area
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            Fid = areaFid,
+            Name = $"OffRank {rankId} test kommune",
+            AreaTypeId = TestAreaTypeMunicipalityId,
+            ZoomLevel = 2,
+            ParentFid = "repo-parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = 0,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+        });
+        // Kun indeks- og hierarkirad — AreaCounts berører ikke Observation-tabellen,
+        // og vi unngår å forurense de delte lokasjonsantallene.
+        var syntheticObservationId = 980500 + rankId;
+        await RemoveSyntheticRowsAsync(syntheticObservationId, areaFid);
+
+        // Indeksraden har ingen denormalisert rangverdi; hierarkiraden bærer mellomnivået
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = syntheticObservationId,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = 0,
+        });
+        var hierarchyRow = new ObservationTaxonHierarchy { ObservationId = syntheticObservationId };
+        typeof(ObservationTaxonHierarchy).GetProperty(hierarchyColumn)!.SetValue(hierarchyRow, taxonId);
+        _context.Set<ObservationTaxonHierarchy>().Add(hierarchyRow);
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [taxonId]
+        });
+
+        var area = result.SingleOrDefault(a => a.Fid == areaFid);
+        area.Should().NotBeNull($"rang {rankId} matcher via hierarkitabellen");
+        area!.ObservationCount.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Gjør seedingen av syntetiske rader idempotent på tvers av testkjøringer
+    /// (databasen deles og tilbakestilles ikke mellom kjøringer).
+    /// </summary>
+    // -----------------------------------------------------------------------
+    // CompleteFilter: filtre som besvares direkte fra ObservationEntityIndex
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreaCountsAsync_BehaviorFilter_CountsOnlyMatchingBehavior()
+    {
+        const int observationId = 981000;
+        const string areaFid = "981010";
+        const int areaEntityId = 981010;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        SeedArea(areaFid, "Atferd test kommune");
+        SeedIndexRow(observationId, areaEntityId, behaviorId: 2);
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { BehaviorIds = [2] });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { BehaviorIds = [3] });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
+    }
+
+    /// <summary>
+    /// BehaviorId er tinyint. C# caster unchecked, saa (byte)257 blir 1: en
+    /// foresporsel med behaviorIds=[257] ville talt atferd 1 paa kartet, mens
+    /// listevisningen - som sammenligner raa int - korrekt ikke fant noe. Ikke
+    /// ufiltrert, men stille forskjovet, som er verre aa oppdage.
+    /// </summary>
+    [Theory]
+    [InlineData(257)]
+    [InlineData(-1)]
+    [InlineData(256)]
+    public async Task GetAreaCountsAsync_BehaviorIdOutsideByteRange_ReturnsNoCounts(int behaviorId)
+    {
+        const string areaFid = "981110";
+        const int areaEntityId = 981110;
+
+        var repository = CreateCompleteFilterRepository();
+
+        // En rad per verdi de tre inndataene ville kollapset til med unchecked cast:
+        // (byte)257 = 1, (byte)-1 = 255, (byte)256 = 0. Uten en rad aa treffe ville
+        // testen bestaatt ogsaa med vakten fjernet - den ville maalt ingenting.
+        foreach (var (observationId, seededBehaviorId) in new[] { (981100, 1), (981101, 255), (981102, 0) })
+        {
+            await RemoveSyntheticRowsAsync(observationId, areaFid);
+            SeedIndexRow(observationId, areaEntityId, behaviorId: (byte)seededBehaviorId);
+        }
+
+        SeedArea(areaFid, "Atferd overflow kommune");
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            BehaviorIds = [behaviorId]
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0,
+            "en atferds-id utenfor tinyint-omraadet har ingen treff og skal aldri kollapse til en gyldig verdi");
+    }
+
+    [Fact]
+    public async Task GetAreaCountsAsync_CollectionFilter_CountsOnlyMatchingCollection()
+    {
+        const int observationId = 981200;
+        const string areaFid = "981210";
+        const int areaEntityId = 981210;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        SeedArea(areaFid, "Samling test kommune");
+        SeedIndexRow(observationId, areaEntityId, datasetOrgId: 26435);
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = 26435 });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { DatasetOrgId = 26436 });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
+    }
+
+    /// <summary>
+    /// Institusjonsfilteret gikk tidligere via self-join mot EntityTypeId=101-radene.
+    /// Kolonnen erstattet baade joinen og radene.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_InstitutionFilter_CountsOnlyMatchingInstitution()
+    {
+        const int observationId = 981300;
+        const string areaFid = "981310";
+        const int areaEntityId = 981310;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        SeedArea(areaFid, "Institusjon test kommune");
+        SeedIndexRow(observationId, areaEntityId, institutionOrgId: 2046);
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { OrganizationIds = [2046] });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { OrganizationIds = [2047] });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
+    }
+
+    /// <summary>
+    /// Flere valgte institusjoner er ETT filter med OR internt: velger man to, skal
+    /// begge telle med.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_MultipleInstitutions_CountsAllOfThem()
+    {
+        const int firstObservationId = 981400;
+        const int secondObservationId = 981401;
+        const string areaFid = "981410";
+        const int areaEntityId = 981410;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(firstObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(secondObservationId, areaFid);
+        SeedArea(areaFid, "Institusjon OR kommune");
+        SeedIndexRow(firstObservationId, areaEntityId, institutionOrgId: 2046);
+        SeedIndexRow(secondObservationId, areaEntityId, institutionOrgId: 2047);
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            OrganizationIds = [2046, 2047]
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(2);
+    }
+
+    /// <summary>
+    /// Katalognummer er allerede lost opp til ObservationId-er av typeaheaden, saa
+    /// filteret er et seek paa klyngeindeksen.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_ObservationIdsFilter_CountsOnlyThoseObservations()
+    {
+        const int matchingObservationId = 981500;
+        const int otherObservationId = 981501;
+        const string areaFid = "981510";
+        const int areaEntityId = 981510;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(matchingObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(otherObservationId, areaFid);
+        SeedArea(areaFid, "Katalognummer test kommune");
+        SeedIndexRow(matchingObservationId, areaEntityId);
+        SeedIndexRow(otherObservationId, areaEntityId);
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            ObservationIds = [matchingObservationId]
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetAreaCountsAsync_DatasetFilter_CountsObservationsInThatDataset()
+    {
+        const string areaFid = "981610";
+        const int areaEntityId = 981610;
+
+        // ObservationProject har fremmednokler til BADE Observation og Organization,
+        // saa raden maa henge paa noe som finnes. Vi laaner en observasjon fra
+        // testdataene i stedet for aa lage en ny - en ny observasjon ville endret
+        // lokasjonstellingene som de andre testene i samlingen bygger paa.
+        var observationId = await _context.Set<Observation>()
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        await RemoveSyntheticDatasetRowsAsync(observationId);
+        var projectOrgId = (await CreateDatasetOrganizationsAsync(1))[0];
+        SeedArea(areaFid, "Prosjekt test kommune");
+        SeedIndexRow(observationId, areaEntityId);
+        _context.Set<ObservationProject>().Add(new ObservationProject
+        {
+            ObservationId = observationId,
+            ProjectOrgId = projectOrgId,
+        });
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ProjectOrgId = projectOrgId });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ProjectOrgId = UnusedDatasetOrgId });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
+    }
+
+    /// <summary>
+    /// 745 066 observasjoner tilhorer mellom to og fem datasett. Derfor er koblingen
+    /// en egen tabell, og derfor maa filteret vaere et semi-join: et join ville talt
+    /// observasjonen en gang per datasett og blaast opp omraadetellingen.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_ObservationInSeveralDatasets_IsCountedOnce()
+    {
+        const string areaFid = "981710";
+        const int areaEntityId = 981710;
+
+        var observationId = await _context.Set<Observation>()
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        await RemoveSyntheticDatasetRowsAsync(observationId);
+        var datasetOrgIds = await CreateDatasetOrganizationsAsync(3);
+        var projectOrgId = datasetOrgIds[0];
+        SeedArea(areaFid, "Flere datasett kommune");
+        SeedIndexRow(observationId, areaEntityId);
+        _context.Set<ObservationProject>().AddRange(
+            datasetOrgIds.Select(id => new ObservationProject
+            {
+                ObservationId = observationId,
+                ProjectOrgId = id,
+            }));
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            ProjectOrgId = projectOrgId
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    private SearchRepository CreateCompleteFilterRepository() =>
+        new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+
+    private void SeedArea(string areaFid, string name) =>
+        _context.Set<Area>().Add(new Area
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            Fid = areaFid,
+            Name = name,
+            AreaTypeId = TestAreaTypeMunicipalityId,
+            ZoomLevel = 2,
+            ParentFid = "repo-parent",
+            SyncDateTime = DateTime.UtcNow,
+            ObservationCount = 0,
+            Bbox = "bbox",
+            TimeStamp = DateTime.UtcNow,
+            IsCurrent = true,
+        });
+
+    private void SeedIndexRow(
+        int observationId,
+        int areaEntityId,
+        int? institutionOrgId = null,
+        int? datasetOrgId = null,
+        byte? behaviorId = null) =>
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = observationId,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = 0,
+            InstitutionOrgId = institutionOrgId,
+            DatasetOrgId = datasetOrgId,
+            BehaviorId = behaviorId,
+        });
+
+    /// <summary>
+    /// ProjectOrgId peker paa Organization, som igjen peker paa OrganizationType.
+    /// Testdataene inneholder ingen av delene, saa begge maa opprettes.
+    ///
+    /// Id-ene settes IKKE eksplisitt: Organization.Id er en identity-kolonne, og et
+    /// eksplisitt id-innslag avvises med IDENTITY_INSERT OFF. Vi lar databasen
+    /// tildele dem og leser dem tilbake.
+    /// </summary>
+    private async Task<List<int>> CreateDatasetOrganizationsAsync(int count)
+    {
+        const string testTypeName = "Datasett (integrasjonstest)";
+
+        var organizationType = await _context.Set<OrganizationType>()
+            .FirstOrDefaultAsync(t => t.Name == testTypeName);
+
+        if (organizationType is null)
+        {
+            organizationType = new OrganizationType
+            {
+                Name = testTypeName,
+                Description = "Syntetisk organisasjonstype for integrasjonstester",
+            };
+            _context.Set<OrganizationType>().Add(organizationType);
+            await _context.SaveChangesAsync();
+        }
+
+        var organizations = Enumerable.Range(0, count)
+            .Select(i => new Organization
+            {
+                Name = $"Datasett integrasjonstest {i}",
+                OrganizationTypeId = organizationType.Id,
+                DateCreated = DateTime.UtcNow,
+                DateModified = DateTime.UtcNow,
+            })
+            .ToList();
+
+        _context.Set<Organization>().AddRange(organizations);
+        await _context.SaveChangesAsync();
+
+        return organizations.Select(o => o.Id).ToList();
+    }
+    private async Task RemoveSyntheticDatasetRowsAsync(int observationId)
+    {
+        _context.Set<ObservationProject>()
+            .RemoveRange(_context.Set<ObservationProject>().Where(d => d.ObservationId == observationId));
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task RemoveSyntheticRowsAsync(int observationId, string areaFid)
+    {
+        _context.Set<ObservationTaxonHierarchy>()
+            .RemoveRange(_context.Set<ObservationTaxonHierarchy>().Where(h => h.ObservationId == observationId));
+        _context.Set<ObservationEntityIndex>()
+            .RemoveRange(_context.Set<ObservationEntityIndex>().Where(i => i.ObservationId == observationId));
+        _context.Set<Area>()
+            .RemoveRange(_context.Set<Area>().Where(a => a.Fid == areaFid));
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// ITaxonHierarchyService med konfigurerbare rangnivåer. Taxa uten oppføring
+    /// håndteres som ukjente. Ingen taxa har etterkommere på annet rangnivå,
+    /// slik at høyere-rangs taxa faller tilbake til ObservationTaxonHierarchy.
+    /// </summary>
+    private sealed class ConfigurableTaxonHierarchyService(Dictionary<int, int> ranks)
+        : Artskart3.Core.Application.Services.Interfaces.ITaxonHierarchyService
+    {
+        public int? GetTaxonRankId(int taxonId) => ranks.TryGetValue(taxonId, out var rank) ? rank : null;
+
+        public List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId) => [];
+
+        public List<TaxonAncestryDto> GetAncestries(IEnumerable<int> taxonIds) =>
+            taxonIds.Select(id => new TaxonAncestryDto { Id = id, ParentIds = [] }).ToList();
+
+        public List<int> GetDescendantSpeciesIds(int taxonId) => [];
+
+        public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];
+    }
+
     private async Task SeedTestDataAsync()
     {
         if (await _context.Set<TaxonGroup>().AnyAsync(group => group.Id == TestTaxonGroupId))
@@ -367,14 +883,14 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             IsDeleted = isDeleted
         };
 
-    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, string institutionCode, int coordinatePrecision, int hashCode)
+    private static Observation CreateObservation(int locationId, int taxonGroupId, int categoryId, int basisOfRecordId, int datasetOrgId, int coordinatePrecision, int hashCode)
         => new()
         {
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
-            InstitutionCode = institutionCode,
+            DatasetOrgId = datasetOrgId,
             BasisOfRecordId = basisOfRecordId,
             TaxonId = TestTaxonExactId,
             MatchedScientificNameId = TestTaxonNameExactId,

@@ -5,6 +5,7 @@ export type {
 
 export {
   AREA_TYPE_CONFIG,
+  AreaTypeId,
   getAreaTypeName,
   getAreaTypeColor
 } from './area-marker.model';

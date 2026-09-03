@@ -1,0 +1,60 @@
+:root {
+  --background-redlist-ne: var(--adb-brand-white);
+  --background-redlist-na: var(--adb-brand-white);
+  --background-redlist-lc: var(--adb-special-60);
+  --background-redlist-dd: var(--adb-special-70);
+  --background-redlist-nt: var(--adb-special-80);
+  --background-redlist-vu: var(--adb-special-90);
+  --background-redlist-en: var(--adb-special-100);
+  --background-redlist-cr: var(--adb-special-110);
+  --background-redlist-re: var(--adb-neutrals-ocean-90);
+  --background-redlist-co: var(--adb-neutrals-ocean-90);
+
+  --border-redlist-ne: var(--adb-border-strong);
+  --border-redlist-na: var(--adb-border-strong);
+  --border-redlist-lc: var(--adb-special-60);
+  --border-redlist-dd: var(--adb-special-70);
+  --border-redlist-nt: var(--adb-special-80);
+  --border-redlist-vu: var(--adb-special-90);
+  --border-redlist-en: var(--adb-special-100);
+  --border-redlist-cr: var(--adb-special-110);
+  --border-redlist-re: var(--adb-border-strong);
+  --border-redlist-co: var(--adb-border-strong);
+
+  --text-redlist-ne: var(--adb-neutrals-ocean-90);
+  --text-redlist-na: var(--adb-neutrals-ocean-90);
+  /* fixed colored backgrounds need fixed white text, not the theme-dependent text-invert token */
+  --text-redlist-lc: var(--adb-brand-white);
+  --text-redlist-dd: var(--adb-brand-white);
+  --text-redlist-nt: var(--adb-brand-white);
+  --text-redlist-vu: var(--adb-brand-white);
+  --text-redlist-en: var(--adb-brand-white);
+  --text-redlist-cr: var(--adb-brand-white);
+  --text-redlist-re: var(--adb-brand-white);
+  --text-redlist-co: var(--adb-brand-white);
+
+  /* Alien list */
+  --background-alien-list-nr: var(--adb-brand-white);
+  --border-alien-list-nr: var(--adb-border-strong);
+  --text-alien-list-nr: var(--adb-neutrals-ocean-90);
+
+  --background-alien-list-nk: var(--adb-special-10);
+  --border-alien-list-nk: var(--adb-special-10);
+  --text-alien-list-nk: var(--adb-brand-white);
+
+  --background-alien-list-lo: var(--adb-special-20);
+  --border-alien-list-lo: var(--adb-special-20);
+  --text-alien-list-lo: var(--adb-brand-white);
+
+  --background-alien-list-ph: var(--adb-special-30);
+  --border-alien-list-ph: var(--adb-special-30);
+  --text-alien-list-ph: var(--adb-brand-white);
+
+  --background-alien-list-hi: var(--adb-special-40);
+  --border-alien-list-hi: var(--adb-special-40);
+  --text-alien-list-hi: var(--adb-brand-white);
+
+  --background-alien-list-se: var(--adb-special-50);
+  --border-alien-list-se: var(--adb-special-50);
+  --text-alien-list-se: var(--adb-brand-white);
+}

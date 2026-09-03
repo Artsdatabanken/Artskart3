@@ -16,13 +16,26 @@ public partial class Observation : BaseEntity
 
     public int NodeId { get; set; }
 
-    public string? InstitutionId { get; set; }
-
-    public string? InstitutionCode { get; set; }
-
-    public string? CollectionCode { get; set; }
-
     public string? CatalogNumber { get; set; }
+
+    // CompleteFilter — erstattet InstitutionId/InstitutionCode og CollectionCode.
+    // Kodene som lå i strengkolonnene utledes nå fra Organization.Code.
+    //
+    // NULLABLE MED VILJE, selv om begge er målt 1:1 per observasjon (61 052 216
+    // relasjoner av hver type, nøyaktig like mange som det finnes observasjoner).
+    // Å gjøre dem NOT NULL krever ALTER COLUMN over 61M rader: en
+    // size-of-data-operasjon under Sch-M-lås, som i tillegg feiler fordi kolonnene
+    // er bundet av fremmednøkler, og som EF ville forsøkt å forberede med
+    // «UPDATE ... SET = 0 WHERE IS NULL» — der 0 ikke er en gyldig Organization.Id
+    // og dermed bryter selve fremmednøkkelen.
+    //
+    // Gevinsten er marginal; kostnaden er en migrasjon som ikke kan fullføre.
+    // Datakvaliteten sikres i stedet av verifiseringen i BackfillAll. Skal det
+    // strammes til senere, hører det hjemme i en egen migrasjon i et
+    // vedlikeholdsvindu, med FK-ene droppet og lagt tilbake rundt endringen.
+    public int? InstitutionOrgId { get; set; }
+
+    public int? DatasetOrgId { get; set; }
 
     public int BasisOfRecordId { get; set; }
 
@@ -83,8 +96,6 @@ public partial class Observation : BaseEntity
     public virtual ICollection<ObservationLink> ObservationLinkObservations { get; set; } = new List<ObservationLink>();
 
     public virtual ObservationQualityType? ObservationQualityType { get; set; }
-
-    public virtual ICollection<OrganizationRelation> OrganizationRelations { get; set; } = new List<OrganizationRelation>();
 
     public virtual SensitiveObservationDatum? SensitiveObservationDatum { get; set; }
 

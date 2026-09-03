@@ -1,0 +1,27 @@
+<div class="sr-only" role="status" [attr.aria-live]="ariaLive()">
+  @if (visible() && label()) {
+    {{ label() }}
+  }
+</div>
+@if (visible()) {
+  <div
+    class="loading-indicator"
+    [class.loading-indicator--inline]="variant() === 'inline'"
+    [class.loading-indicator--overlay]="variant() === 'overlay'"
+    aria-hidden="true"
+  >
+    <svg
+      class="loading-indicator__spinner"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 88 88"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="M4.0022 43.999C4.0022 33.3906 8.21636 23.2167 15.7176 15.7154C23.2189 8.21416 33.3928 4 44.0012 4C54.6096 4 64.7835 8.21417 72.2847 15.7154C79.786 23.2167 84.0001 33.3906 84.0001 43.999C84.0001 54.6074 79.786 64.7813 72.2847 72.2825C64.7835 79.7838 54.6096 83.9979 44.0012 83.9979C33.3928 83.9979 23.2189 79.7838 15.7176 72.2825C8.21636 64.7813 4.0022 54.6074 4.0022 43.999L4.0022 43.999Z" stroke="#D2DDE0" stroke-width="8"/>
+      <path d="M56.6292 6.00005C64.1357 8.49786 70.7331 13.1655 75.5869 19.4128C80.4406 25.6601 83.3329 33.2064 83.8979 41.0974C84.4628 48.9885 82.6752 56.8698 78.7609 63.7449C74.8466 70.6199 68.9816 76.1799 61.9074 79.7216C54.8332 83.2634 46.8677 84.6278 39.018 83.6425C31.1684 82.6571 23.7872 79.3662 17.8079 74.1859C11.8286 69.0056 7.51972 62.1686 5.42613 54.5394C3.33254 46.9102 3.54829 38.8315 6.04609 31.3249" stroke="#16A979" stroke-width="8"/>
+    </svg>
+    @if (label()) {
+      <span class="loading-indicator__text">{{ label() }}</span>
+    }
+  </div>
+}

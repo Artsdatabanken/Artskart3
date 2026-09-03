@@ -211,4 +211,74 @@ public class SearchEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/LocationPolygons
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetLocationPolygons_WithNoFilter_Returns200WithJsonArray()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetLocationPolygons_WithInvertedPrecisionRange_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationPolygons",
+            new { coordinatePrecision = new { from = 1000, to = 100 } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/AreaCounts
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAreaCounts_WithZoomLevel1_Returns200WithJsonArrayAndETag()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=1", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        response.Headers.ETag.Should().NotBeNull();
+
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithInvalidZoomLevel_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=3", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetAreaCounts_WithMatchingETag_Returns304()
+    {
+        var first = await _client.PostAsJsonAsync("/api/Search/AreaCounts?zoomLevel=1", new { });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var etag = first.Headers.ETag?.Tag;
+        etag.Should().NotBeNullOrEmpty();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/Search/AreaCounts?zoomLevel=1")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        request.Headers.TryAddWithoutValidation("If-None-Match", etag!);
+
+        var second = await _client.SendAsync(request);
+        second.StatusCode.Should().Be(HttpStatusCode.NotModified);
+    }
 }

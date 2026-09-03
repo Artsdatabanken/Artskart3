@@ -28,7 +28,7 @@ export class AreaService {
   readonly counties = computed(() => {
     const response = this.areaResponse();
     if (!response?.counties) return [];
-    return (response.counties.fastlandsNorge ?? []).filter(
+    return (response.counties.areas ?? []).filter(
       (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
     );
   });
@@ -54,30 +54,12 @@ export class AreaService {
     }));
   });
 
-  readonly janMayenGroup = computed<CountyGroup | null>(() => {
+  readonly svalbardBjornoyaAndJanMayenAreas = computed<(AreaDto & { fid: string })[]>(() => {
     const response = this.areaResponse();
-    const county = response?.counties?.janMayen;
-    if (!county?.fid || !county.isCurrent) return null;
-    const municipalities = this.municipalities();
-    return {
-      county: county as AreaDto & { fid: string },
-      municipalities: municipalities.filter(
-        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid!.padStart(2, '0'),
-      ),
-    };
-  });
-
-  readonly svalbardGroup = computed<CountyGroup | null>(() => {
-    const response = this.areaResponse();
-    const county = response?.counties?.svalbard;
-    if (!county?.fid || !county.isCurrent) return null;
-    const municipalities = this.municipalities();
-    return {
-      county: county as AreaDto & { fid: string },
-      municipalities: municipalities.filter(
-        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid!.padStart(2, '0'),
-      ),
-    };
+    if (!response?.svalbardBjørnøyaAndJanMayen) return [];
+    return (response.svalbardBjørnøyaAndJanMayen.areas ?? []).filter(
+      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
+    );
   });
 
   readonly oceanAreaGroup = computed<CountyGroup | null>(() => {
@@ -117,12 +99,6 @@ export class AreaService {
         ),
       })),
     ];
-
-    const janMayen = this.janMayenGroup();
-    if (janMayen) allGroups.push(janMayen);
-
-    const svalbard = this.svalbardGroup();
-    if (svalbard) allGroups.push(svalbard);
 
     for (const group of allGroups) {
       const groupMunicipalities = group.municipalities;

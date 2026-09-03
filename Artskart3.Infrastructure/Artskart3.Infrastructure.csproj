@@ -28,4 +28,11 @@
     <Compile Remove="Migrations\SessionDbContextModelSnapshot.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Backfill-skriptet bygges inn slik at migrasjonen BackfillAll kjører nøyaktig
+         samme SQL som den man kjører manuelt i SSMS. Kopieres den inn i migrasjonen
+         i stedet, driver de to fra hverandre ved første rettelse. -->
+    <EmbeddedResource Include="..\Scripts\BackfillAll.sql" Link="Scripts\BackfillAll.sql" />
+  </ItemGroup>
+
 </Project>

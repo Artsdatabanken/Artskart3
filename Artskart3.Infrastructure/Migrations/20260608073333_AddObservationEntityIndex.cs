@@ -1,11 +1,38 @@
-using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Artskart3.Infrastructure.Migrations;
 
-/// <inheritdoc />
+/// <summary>
+/// Oppretter ObservationEntityIndex-tabellen med indekser. Kun skjema — ingen data.
+///
+/// DATAFYLLINGEN ER FLYTTET UT (august 2026).
+/// Migrasjonen inneholdt opprinnelig to INSERT-setninger som fylte tabellen med
+/// ~192M rader (områder fra Observation -> Location -> LocationAreas -> Area, og
+/// institusjoner fra OrganizationRelation). Begge kjørte uten
+/// suppressTransaction, altså som én transaksjon.
+///
+/// Det er samme konstruksjon som feilet for ObservationTaxonHierarchy: på Azure SQL
+/// er loggskriving hardt begrenset per servicenivå, og med alt i én transaksjon kan
+/// loggen aldri avkortes underveis. Den kjøringen sprengte både CommandTimeout(1800)
+/// og oppstartsgrensen til App Service, og en feil ville i tillegg gitt en like lang
+/// rollback. Samme resonnement er dokumentert i Scripts/BackfillAll.sql.
+///
+/// Radene fylles nå av migrasjonen BackfillAll, som kjører batchvis, uten
+/// transaksjon og idempotent (NOT EXISTS). Den setter også inn rader som mangler
+/// fordi denne migrasjonen feilet halvveis, så et delvis fylt miljø repareres.
+///
+/// MERK for miljøer der denne migrasjonen allerede er anvendt (test, lokalt):
+/// __EFMigrationsHistory lagrer bare MigrationId og ProductVersion — ingen
+/// sjekksum — så endringen her får ingen konsekvens der. Radene ligger allerede
+/// inne, og BackfillAll finner ingenting å gjøre.
+///
+/// Kolonnene som kom til i 20260814125543 har defaultverdier (TaxonGroupId = 0,
+/// BasisOfRecordId = 0, HasMediaFiles = 0, RegistrationStatusId = 0). Rader som
+/// settes inn av BackfillAll får dermed TaxonGroupId = 0, som er nettopp markøren
+/// backfillen av filterkolonnene leter etter. Rekkefølgen går opp av seg selv.
+/// </summary>
 public partial class AddObservationEntityIndex : Migration
 {
     /// <inheritdoc />
@@ -24,37 +51,8 @@ public partial class AddObservationEntityIndex : Migration
                 table.PrimaryKey("PK_ObservationEntityIndex", x => new { x.ObservationId, x.EntityTypeId, x.EntityId });
             });
 
-        var restrictedArea = (int)ObservationIndexEntityType.RestrictedArea;
-        var institution = (int)ObservationIndexEntityType.Institution;
-
-        // Populer områder fra Observation -> Location -> LocationAreas -> Area
-        // AreaTypeId i Area-tabellen speiler ObservationIndexEntityType 1-4 direkte.
-        // Fid konverteres til int:
-        //   - RestrictedArea: fjern "Naturbase VV"-prefiks
-        //   - Andre: fjern eventuell "_" (gjelder historiske fylkes-Fid-er som "15_2017")
-        migrationBuilder.Sql($@"
-INSERT INTO dbo.ObservationEntityIndex (ObservationId, EntityTypeId, EntityId)
-SELECT DISTINCT o.Id, a.AreaTypeId,
-    CASE
-        WHEN a.AreaTypeId = {restrictedArea} THEN CAST(REPLACE(a.Fid, 'Naturbase VV', '') AS INT)
-        ELSE CAST(REPLACE(a.Fid, '_', '') AS INT)
-    END
-FROM dbo.Observation o
-JOIN dbo.Location l ON l.Id = o.LocationId
-JOIN dbo.LocationAreas la ON la.LocationId = l.Id
-JOIN dbo.Area a ON a.Id = la.AreaId
-WHERE a.IsCurrent = 1
-  AND o.LocationId IS NOT NULL;
-");
-
-        // Populer institusjoner (OrganizationType.Institution = 1)
-        migrationBuilder.Sql($@"
-INSERT INTO dbo.ObservationEntityIndex (ObservationId, EntityTypeId, EntityId)
-SELECT DISTINCT r.ObservationId, {institution}, r.OrganizationId
-FROM dbo.OrganizationRelation r
-JOIN dbo.Organization org ON org.Id = r.OrganizationId
-WHERE org.OrganizationTypeId = {(int)OrganizationType.Institution};
-");
+        // Datafyllingen lå her. Se klassekommentaren — den er flyttet til
+        // migrasjonen BackfillAll.
 
         migrationBuilder.CreateIndex(
             name: "IX_ObservationEntityIndex_Lookup",

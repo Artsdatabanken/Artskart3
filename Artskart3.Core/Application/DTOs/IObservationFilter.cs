@@ -7,6 +7,7 @@ namespace Artskart3.Core.Application.DTOs;
 public interface IObservationFilter
 {
     int[]? TaxonGroupIds { get; }
+    int[]? TaxonIds { get; }
     int[]? CategoryIds { get; }
     int[]? OrganizationIds { get; }
     string[]? MunicipalityIds { get; }
@@ -18,9 +19,26 @@ public interface IObservationFilter
     int? RegistrationStatusId { get; }
     CoordinatePrecisionDto? CoordinatePrecision { get; }
     PeriodDto? Period { get; }
-    string? ProjectName { get; }
-    int? ProjectOrganizationId { get; }
-    string? CollectionCode { get; }
-    string? CatalogNumber { get; }
+    /// <summary>
+    /// Datasett — Organization med OrganizationTypeId = 2. Velges i typeahead.
+    /// </summary>
+    int? DatasetOrgId { get; }
+
+    /// <summary>
+    /// Prosjekt — Organization med OrganizationTypeId = 3. Velges i typeahead.
+    /// </summary>
+    int? ProjectOrgId { get; }
+
+    /// <summary>
+    /// Observasjoner valgt direkte, i praksis fra katalognummer-typeaheaden.
+    ///
+    /// Katalognummer er tilnærmet unikt (54,7M distinkte verdier over 61M
+    /// observasjoner), så oppslaget skjer i endepunktet og filteret får IDer.
+    /// Filterspørringen slipper dermed strengsammenligning helt — det var
+    /// `LIKE '%x%'` mot 61M rader som gjorde dette filteret 18-21 sekunder.
+    /// Verste fanout på én verdi er 675 observasjoner, så listen er alltid kort.
+    /// </summary>
+    int[]? ObservationIds { get; }
+
     bool? WithImages { get; }
 }
