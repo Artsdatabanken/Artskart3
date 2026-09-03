@@ -330,6 +330,7 @@ public class SearchController : ControllerBase
         ReadOnlySpan<(string name, int? length)> arrays =
         [
             (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
             (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
             (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
             (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
@@ -347,6 +348,15 @@ public class SearchController : ControllerBase
                 validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
                 return false;
             }
+        }
+
+        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
+        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
+        // Contains mot 192M rader paa et anonymt endepunkt.
+        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
+        {
+            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
+            return false;
         }
 
         return true;
@@ -396,6 +406,7 @@ public class SearchController : ControllerBase
         ReadOnlySpan<(string name, int? length)> arrays =
         [
             (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
+            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
             (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
             (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
             (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
@@ -413,6 +424,15 @@ public class SearchController : ControllerBase
                 validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
                 return false;
             }
+        }
+
+        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
+        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
+        // Contains mot 192M rader paa et anonymt endepunkt.
+        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
+        {
+            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
+            return false;
         }
 
         return true;

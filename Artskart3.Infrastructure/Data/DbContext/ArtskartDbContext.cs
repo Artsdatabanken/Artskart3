@@ -70,9 +70,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<Organization> Organizations { get; set; }
 
-    public virtual DbSet<OrganizationRelation> OrganizationRelations { get; set; }
-
-    public virtual DbSet<OrganizationRelationType> OrganizationRelationTypes { get; set; }
 
     public virtual DbSet<OrganizationType> OrganizationTypes { get; set; }
 
@@ -508,14 +505,28 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
-            entity.Property(e => e.CollectionCode).HasMaxLength(100);
             entity.Property(e => e.DateTimeRecordProcessed);
-            entity.Property(e => e.InstitutionCode).HasMaxLength(100);
-            entity.Property(e => e.InstitutionId).HasMaxLength(25);
             entity.Property(e => e.MonthCollected).HasComputedColumnSql("(datepart(month,[DateTimeCollected]))", false);
             entity.Property(e => e.OccurrenceId).HasMaxLength(255);
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
+
+            // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
+            // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
+            // ObservationId-er fra typeaheaden og seeker på den clustered indeksen.
+            // Opprettes med sidekomprimering via rå SQL i migrasjonen; EF Core har
+            // ingen parameter for DATA_COMPRESSION.
+            entity.HasIndex(e => e.CatalogNumber).HasDatabaseName("IX_Observation_CatalogNumber");
+
+            // CompleteFilter — InstitutionOrgId og DatasetOrgId er bevisst IKKE
+            // modellert som relasjoner. EF Core oppretter automatisk en indeks bak
+            // hver fremmednøkkel, og på en tabell med 61M rader ville det blitt to
+            // rowstore-indekser vi har grunn til å tro er skadelige: institusjon har
+            // 54 distinkte verdier (~1,13M rader hver), så et seek etterfulgt av
+            // sortering taper mot et clustered scan som stopper ved første TOP N.
+            // Selve FK-constrainten opprettes med rå SQL i migrasjonen, så databasen
+            // har referanseintegriteten uten indeksene. Samme mønster som
+            // columnstore-indeksen: databasen kan ha ting EF ikke modellerer.
 
             entity.HasOne(d => d.BasisOfRecord).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.BasisOfRecordId)
@@ -705,43 +716,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .HasConstraintName("FK_dbo.Organization_dbo.Organization_ParentId");
         });
 
-        modelBuilder.Entity<OrganizationRelation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK_dbo.OrganizationRelation");
-
-            entity.ToTable("OrganizationRelation");
-
-            entity.HasIndex(e => e.ObservationId, "IX_ObservationId");
-
-            entity.HasIndex(e => e.OrganizationId, "IX_OrganizationId");
-
-            entity.HasIndex(e => e.RelationTypeId, "IX_RelationTypeId");
-
-            entity.HasIndex(e => new { e.OrganizationId, e.ObservationId }, "IX_OrganizationRelation_OrgId_ObsId");
-
-            entity.HasOne(d => d.Observation).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.ObservationId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Observation_ObservationId");
-
-            entity.HasOne(d => d.Organization).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.OrganizationId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.Organization_OrganizationId");
-
-            entity.HasOne(d => d.RelationType).WithMany(p => p.OrganizationRelations)
-                .HasForeignKey(d => d.RelationTypeId)
-                .HasConstraintName("FK_dbo.OrganizationRelation_dbo.OrganizationRelationType_RelationTypeId");
-        });
-
-        modelBuilder.Entity<OrganizationRelationType>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK_dbo.OrganizationRelationType");
-
-            entity.ToTable("OrganizationRelationType");
-
-            entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.Description).HasMaxLength(100);
-            entity.Property(e => e.Name).HasMaxLength(50);
-        });
 
         modelBuilder.Entity<OrganizationType>(entity =>
         {
@@ -1032,6 +1006,72 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+            // Taksonkolonnene (SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId)
+            // har bevisst ingen rowstore-indekser — de betjenes av columnstore-indeksen
+            // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
+            // gjorde spørringene tregere. Columnstore-indeksen opprettes i
+            // migrasjon 20260820140154 (EF Core modellerer ikke columnstore).
+            //
+            // Det samme gjelder CompleteFilter-kolonnene InstitutionOrgId,
+            // DatasetOrgId og BehaviorId: alle tre er lavselektive og betjenes av
+            // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
+        });
+
+        modelBuilder.Entity<ObservationProject>(entity =>
+        {
+            entity.HasKey(e => new { e.ObservationId, e.ProjectOrgId });
+            entity.ToTable("ObservationProject");
+
+            // Filterretningen: seek på datasett, få ObservationId-er ut. PK-en dekker
+            // motsatt retning (finn datasettene til én observasjon).
+            entity.HasIndex(e => new { e.ProjectOrgId, e.ObservationId })
+                .HasDatabaseName("IX_ObservationProject_Project");
+
+            entity.HasOne<Observation>()
+                .WithMany()
+                .HasForeignKey(e => e.ObservationId)
+                .HasConstraintName("FK_ObservationProject_Observation");
+
+            entity.HasOne<Organization>()
+                .WithMany()
+                .HasForeignKey(e => e.ProjectOrgId)
+                .HasConstraintName("FK_ObservationProject_Organization")
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>
+        {
+            entity.HasKey(e => e.ObservationId);
+            entity.Property(e => e.ObservationId).ValueGeneratedNever();
+            entity.ToTable("ObservationTaxonHierarchy");
+
+            entity.HasIndex(e => e.KingdomTaxonId).HasDatabaseName("IX_OTH_Kingdom").HasFilter("[KingdomTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubkingdomTaxonId).HasDatabaseName("IX_OTH_Subkingdom").HasFilter("[SubkingdomTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.PhylumTaxonId).HasDatabaseName("IX_OTH_Phylum").HasFilter("[PhylumTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubphylumTaxonId).HasDatabaseName("IX_OTH_Subphylum").HasFilter("[SubphylumTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperclassTaxonId).HasDatabaseName("IX_OTH_Superclass").HasFilter("[SuperclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.ClassTaxonId).HasDatabaseName("IX_OTH_Class").HasFilter("[ClassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubclassTaxonId).HasDatabaseName("IX_OTH_Subclass").HasFilter("[SubclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.InfraclassTaxonId).HasDatabaseName("IX_OTH_Infraclass").HasFilter("[InfraclassTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.CohortTaxonId).HasDatabaseName("IX_OTH_Cohort").HasFilter("[CohortTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperorderTaxonId).HasDatabaseName("IX_OTH_Superorder").HasFilter("[SuperorderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.OrderTaxonId).HasDatabaseName("IX_OTH_Order").HasFilter("[OrderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuborderTaxonId).HasDatabaseName("IX_OTH_Suborder").HasFilter("[SuborderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.InfraorderTaxonId).HasDatabaseName("IX_OTH_Infraorder").HasFilter("[InfraorderTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SuperfamilyTaxonId).HasDatabaseName("IX_OTH_Superfamily").HasFilter("[SuperfamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.FamilyTaxonId).HasDatabaseName("IX_OTH_Family").HasFilter("[FamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubfamilyTaxonId).HasDatabaseName("IX_OTH_Subfamily").HasFilter("[SubfamilyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.TribeTaxonId).HasDatabaseName("IX_OTH_Tribe").HasFilter("[TribeTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubtribeTaxonId).HasDatabaseName("IX_OTH_Subtribe").HasFilter("[SubtribeTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.GenusTaxonId).HasDatabaseName("IX_OTH_Genus").HasFilter("[GenusTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubgenusTaxonId).HasDatabaseName("IX_OTH_Subgenus").HasFilter("[SubgenusTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SectionTaxonId).HasDatabaseName("IX_OTH_Section").HasFilter("[SectionTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SpeciesTaxonId).HasDatabaseName("IX_OTH_Species").HasFilter("[SpeciesTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.SubspeciesTaxonId).HasDatabaseName("IX_OTH_Subspecies").HasFilter("[SubspeciesTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.VarietyTaxonId).HasDatabaseName("IX_OTH_Variety").HasFilter("[VarietyTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.FormTaxonId).HasDatabaseName("IX_OTH_Form").HasFilter("[FormTaxonId] IS NOT NULL");
+            entity.HasIndex(e => e.NotSetTaxonId).HasDatabaseName("IX_OTH_NotSet").HasFilter("[NotSetTaxonId] IS NOT NULL");
         });
 
         OnModelCreatingPartial(modelBuilder);

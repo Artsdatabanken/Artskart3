@@ -23,13 +23,12 @@
   }
 }
 
-.sidebar-heading {
-  margin-bottom: 0;
-}
-
-/* Remove default beige border from all accordions in sidebar */
+/* Remove default beige border from all accordions in sidebar.
+   The border box itself must go too — a 1px transparent border still occupies
+   space and compounds per nesting level, shifting counters out of alignment. */
 adb-accordion {
   --adb-border-default: transparent;
+  border: 0;
 }
 
 /* Remove bottom border on nested (non-top-level) accordion items */
@@ -44,13 +43,13 @@ adb-accordion-item adb-accordion adb-accordion-item adb-checkbox {
 
 /* Reduce summary spacing on nested accordion items */
 adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
-  padding: var(--adb-spacing-3xsm, 4px);
+  padding-bottom: var(--adb-spacing-3xsm, 4px);
+  padding-top: var(--adb-spacing-3xsm, 4px);
 }
 
 /* Indent child checkboxes to align with parent checkbox label */
 .category-children {
   padding-inline-start: calc(var(--adb-spacing-lg, 24px) + var(--adb-spacing-md, 16px));
-  margin-inline-end: -6px;
   margin-top: var(--adb-spacing-xsm);
   display: flex;
   flex-direction: column;
@@ -62,7 +61,6 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-xsm, 8px);
-  margin-right: 10px;
 }
 
 /* Coordinate precision filter */
@@ -72,7 +70,7 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-xsm, 8px);
   padding: var(--adb-spacing-3xsm);
   flex-wrap: nowrap;
-  margin-top: var(--adb-spacing-2xsm);
+  padding-top: var(--adb-spacing-2xsm);
 }
 
 .coordinate-precision-inputs {
@@ -125,12 +123,10 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   display: flex;
   flex-direction: column;
   gap: var(--adb-spacing-2xsm);
-  margin-top: var(--adb-spacing-md);
-  margin-right: 10px;
 }
 
-/* Restore counter padding stripped by global * { padding: 0 } reset,
-   and right-align the counter badge */
+/* Re-assert counter padding/alignment stripped by the global * { margin: 0; padding: 0 }
+   reset, which overrides adb-checkbox's own ::slotted rules. */
 adb-checkbox [slot='counter'] {
   padding: 0 var(--adb-spacing-2xsm, 4px);
   margin-inline-start: auto;
@@ -145,14 +141,17 @@ adb-checkbox::part(control) {
   align-self: center;
 }
 
-adb-checkbox::part(text-wrapper) {
-  align-self: center;
-}
-
 .area-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-sm, 0.875rem);
-  margin: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
+  padding: var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-3xsm, 4px) 0;
+  padding-inline-start: var(--adb-spacing-3xsm, 4px);
+}
+
+.category-section-heading {
+  font-weight: 600;
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  padding-top: var(--adb-spacing-sm);
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
 }
 
@@ -163,15 +162,14 @@ adb-checkbox::part(text-wrapper) {
 }
 
 .category-name {
-  color: var(--text-base-text-primary, #262F31);
+  color: var(--text-base-text-primary, #262f31);
   font-family: var(--font-family-primary, Chivo);
   font-size: var(--adb-font-size);
   font-style: normal;
   font-weight: 400;
   line-height: 150%;
 }
-:host-context([data-theme='dark']) .category-name
- {
+:host-context([data-theme='dark']) .category-name {
   color: var(--adb-text-default, #fff);
 }
 
@@ -181,7 +179,7 @@ adb-checkbox::part(text-wrapper) {
   flex-direction: column;
   gap: var(--adb-spacing-sm, 12px);
   padding: var(--adb-spacing-3xsm);
-  margin-top: var(--adb-spacing-2xsm);
+  padding-top: var(--adb-spacing-2xsm);
 }
 
 .other-properties-row {
@@ -277,7 +275,7 @@ adb-checkbox::part(text-wrapper) {
 
 .project-name-suggestion:hover,
 .project-name-suggestion:focus {
-  background-color: var(--adb-neutrals-sand-20, #f2f2f2);
+  background-color: var(--adb-background-secondary);
   outline: none;
 }
 
@@ -298,7 +296,6 @@ adb-checkbox::part(text-wrapper) {
   gap: var(--adb-spacing-2xsm);
   margin-top: var(--adb-spacing-2xsm);
   padding-inline-start: var(--adb-spacing-3xsm, 4px);
-  margin-right: 10px;
 }
 
 .radio-description {
@@ -306,4 +303,12 @@ adb-checkbox::part(text-wrapper) {
   font-size: var(--adb-font-size-xs, 0.75rem);
   color: var(--adb-text-subtle, #666);
   margin-top: var(--adb-spacing-3xsm, 2px);
+}
+
+/* Antall observasjoner bak et katalognummer. Vises bare når nummeret peker på
+   flere enn én observasjon — da er valget ikke entydig, og brukeren bør se det. */
+.suggestion-count {
+  margin-left: var(--adb-spacing-2xsm, 4px);
+  color: var(--adb-text-secondary);
+  font-size: var(--adb-font-size-xsm, 0.75rem);
 }

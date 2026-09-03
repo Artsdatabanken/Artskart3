@@ -26,6 +26,18 @@ public static class SearchConstants
     // og begrenser størrelsen på SQL IN-klausuler for å hindre misbruk mot dette anonyme endepunktet.
     public const int MaxFilterArraySize = 500;
 
+    // ObservationIds har sin egen, høyere grense. Verdiene kommer fra
+    // katalognummer-oppslaget, ikke fra en avkrysningsliste: ett katalognummer kan
+    // peke på opptil 675 observasjoner (målt), og maxCount i oppslaget er 50. Med
+    // 500 ville et helt legitimt valg blitt avvist. Grensen finnes fortsatt for å
+    // begrense IN-klausulen på dette anonyme endepunktet.
+    public const int MaxObservationIdFilterSize = 5000;
+
+    // Minstelengde for katalognummer-oppslaget, håndhevet på serveren.
+    // 1 tegn ville krevd DISTINCT over millioner av indeksrader for hvert
+    // tastetrykk; 2 er nok til at prefikssøket blir et smalt range seek.
+    public const int MinCatalogNumberSearchLength = 2;
+
     // Coordinate constants
     public const int DefaultEpsgCode = 25833;
 

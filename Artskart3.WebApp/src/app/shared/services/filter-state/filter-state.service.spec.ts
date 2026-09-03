@@ -326,4 +326,92 @@ describe('FilterStateService', () => {
       expect(service.selectedOceanAreaIds()).toEqual([]);
     });
   });
+// Prosjekt, samling og katalognummer holder BÅDE teksten brukeren skrev og
+  // ID-en et treff ga. Bare ID-en sendes til backend; teksten er kun visning.
+  // Kommer de to ut av synk, viser feltet et filter som ikke er i bruk.
+  describe('andre funnegenskaper', () => {
+    it('should start empty', () => {
+      expect(service.projectName()).toBe('');
+      expect(service.projectOrgId()).toBeNull();
+      expect(service.datasetName()).toBe('');
+      expect(service.datasetOrgId()).toBeNull();
+      expect(service.catalogNumber()).toBe('');
+      expect(service.catalogObservationIds()).toEqual([]);
+    });
+
+    it('should set dataset name and id independently', () => {
+      service.setProjectName('Kartlegging');
+      expect(service.projectOrgId()).toBeNull();
+
+      service.setProjectOrgId(14842);
+      expect(service.projectName()).toBe('Kartlegging');
+      expect(service.projectOrgId()).toBe(14842);
+    });
+
+    it('should set collection name and id independently', () => {
+      service.setDatasetName('Aqua Kompetanse AS');
+      expect(service.datasetOrgId()).toBeNull();
+
+      service.setDatasetOrgId(26435);
+      expect(service.datasetName()).toBe('Aqua Kompetanse AS');
+      expect(service.datasetOrgId()).toBe(26435);
+    });
+
+    it('should set catalog number and observation ids independently', () => {
+      service.setCatalogNumber('104168');
+      expect(service.catalogObservationIds()).toEqual([]);
+
+      service.setCatalogObservationIds([8368071, 8368072]);
+      expect(service.catalogNumber()).toBe('104168');
+      expect(service.catalogObservationIds()).toEqual([8368071, 8368072]);
+    });
+
+    it('should allow clearing a selected id without clearing the text', () => {
+      service.setProjectName('Kartlegging');
+      service.setProjectOrgId(14842);
+      service.setProjectOrgId(null);
+
+      expect(service.projectName()).toBe('Kartlegging');
+      expect(service.projectOrgId()).toBeNull();
+    });
+  });
+
+  describe('clearOtherFindProperties', () => {
+    it('should reset all three typeahead filters and the image filter', () => {
+      service.setProjectName('Kartlegging');
+      service.setProjectOrgId(14842);
+      service.setDatasetName('Aqua Kompetanse AS');
+      service.setDatasetOrgId(26435);
+      service.setCatalogNumber('104168');
+      service.setCatalogObservationIds([8368071]);
+      service.setImageFilter('withImage');
+
+      service.clearOtherFindProperties();
+
+      expect(service.projectName()).toBe('');
+      expect(service.projectOrgId()).toBeNull();
+      expect(service.datasetName()).toBe('');
+      expect(service.datasetOrgId()).toBeNull();
+      expect(service.catalogNumber()).toBe('');
+      expect(service.catalogObservationIds()).toEqual([]);
+      expect(service.imageFilter()).toBe('all');
+    });
+  });
+
+  // clearAll nullstiller via clearOtherFindProperties. Glipper den koblingen,
+  // blir «nullstill alle filtre» liggende igjen med et aktivt ID-filter som
+  // ikke lenger vises noe sted.
+  describe('clearAll', () => {
+    it('should also clear the typeahead filters', () => {
+      service.setProjectOrgId(14842);
+      service.setDatasetOrgId(26435);
+      service.setCatalogObservationIds([8368071]);
+
+      service.clearAll();
+
+      expect(service.projectOrgId()).toBeNull();
+      expect(service.datasetOrgId()).toBeNull();
+      expect(service.catalogObservationIds()).toEqual([]);
+    });
+  });
 });

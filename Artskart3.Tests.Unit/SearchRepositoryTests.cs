@@ -18,7 +18,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         var result = await sut.GetTaxonsAsync(null!);
 
@@ -30,7 +30,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         var result = await sut.GetTaxonsAsync("   ");
 
@@ -42,7 +42,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 0);
 
@@ -54,7 +54,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 1001);
 
@@ -66,7 +66,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
         var act = () => sut.GetTaxonsAsync("fugl", -1);
 
@@ -509,7 +509,7 @@ public class SearchRepositoryTests
     }
 
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
     private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
         context.Set<Location>().AddRange(locations);
@@ -538,7 +538,7 @@ public class SearchRepositoryTests
         int taxonGroupId = 1,
         int? categoryId = 1,
         int basisOfRecordId = 1,
-        string? institutionCode = "NHM",
+        int institutionOrgId = 1,
         int? coordinatePrecisionInMeters = 25,
         int taxonId = 1) =>
         new()
@@ -559,7 +559,7 @@ public class SearchRepositoryTests
             East = 1000,
             North = 2000,
             LocationId = locationId,
-            InstitutionCode = institutionCode,
+            InstitutionOrgId = institutionOrgId,
             HashCode = id,
             ProcessEngineId = 1,
             HasAnnotations = false,
