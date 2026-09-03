@@ -17,6 +17,7 @@
   max-height: 300px;
   overflow-y: auto;
   z-index: 1000;
+  color: var(--adb-text-accent);
 }
 
 .autocomplete-item {

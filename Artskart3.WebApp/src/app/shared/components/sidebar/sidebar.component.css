@@ -250,7 +250,8 @@ adb-checkbox::part(control) {
   margin: 0;
   padding: var(--adb-spacing-2xsm, 4px) 0;
   list-style: none;
-  background-color: var(--adb-surface-primary, #fff);
+  background-color: var(--adb-surface-primary);
+  color: var(--adb-text-accent);
   border: 2px solid var(--adb-neutrals-sand-100);
   border-radius: var(--adb-border-radius-md, 8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
