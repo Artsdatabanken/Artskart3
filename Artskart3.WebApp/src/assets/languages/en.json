@@ -112,8 +112,8 @@
       "Rødliste": "Red List"
     },
     "coordinatePrecision": "Coordinate Precision",
-    "coordinatePrecisionFrom": "From",
-    "coordinatePrecisionTo": "To",
+    "coordinatePrecisionFrom": "From (meters)",
+    "coordinatePrecisionTo": "To (meters)",
     "coordinatePrecisionSearch": "Search",
     "period": "Period",
     "periodFrom": "From year",

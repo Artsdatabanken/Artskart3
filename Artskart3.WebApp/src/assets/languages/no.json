@@ -112,8 +112,8 @@
       "Rødliste": "Rødlista"
     },
     "coordinatePrecision": "Koordinatpresisjon",
-    "coordinatePrecisionFrom": "Fra",
-    "coordinatePrecisionTo": "Til",
+    "coordinatePrecisionFrom": "Fra (meter)",
+    "coordinatePrecisionTo": "Til (meter)",
     "coordinatePrecisionSearch": "Søk",
     "period": "Periode",
     "periodFrom": "Fra år",
