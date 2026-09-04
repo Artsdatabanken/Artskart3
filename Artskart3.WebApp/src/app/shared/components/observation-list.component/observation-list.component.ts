@@ -60,7 +60,7 @@ export class ObservationListComponent {
       const topKey = this.getFilterKey(obs);
       const regType = this.getRegistrationType(obs);
       const speciesName = (obs.displayName ?? "Ukjent");
-      const registration = obs.identifiedBy ?? '';
+      const registration = obs.collector ?? '';
 
       let regTypeMap = topLevelMap.get(topKey);
       if(!regTypeMap) {

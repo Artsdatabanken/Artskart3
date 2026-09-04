@@ -1450,7 +1450,7 @@ export interface components {
             /** Format: int32 */
             locationId?: number | null;
             registrationType?: string[] | null;
-            identifiedBy?: string | null;
+            collector?: string | null;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
