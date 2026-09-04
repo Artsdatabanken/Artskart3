@@ -12,9 +12,6 @@ export interface AlertOptions {
   closable?: boolean;
   /** Auto-dismiss delay in milliseconds. Defaults to 5000. Set to 0 to disable. */
   autoDismissMs?: number;
-  /** Optional display-only validity period, e.g. from a scheduled notification. */
-  startDisplayDate?: string;
-  endDisplayDate?: string;
   /** Optional link rendered below the message, navigates via Angular Router. */
   link?: AlertLink;
 }
@@ -26,8 +23,6 @@ export interface AlertItem {
   heading?: string;
   closable: boolean;
   autoDismissMs: number;
-  startDisplayDate?: string;
-  endDisplayDate?: string;
   link?: AlertLink;
 }
 
@@ -56,8 +51,6 @@ export class AlertService {
       heading: options?.heading,
       closable: options?.closable ?? true,
       autoDismissMs,
-      startDisplayDate: options?.startDisplayDate,
-      endDisplayDate: options?.endDisplayDate,
       link: options?.link,
     };
 
