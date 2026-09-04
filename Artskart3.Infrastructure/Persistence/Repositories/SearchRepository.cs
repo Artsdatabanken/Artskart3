@@ -147,25 +147,6 @@ public class SearchRepository : ISearchRepository
         var query = _context.Set<Observation>()
                             .AsNoTracking();
 
-        // Observasjonsspesifikke tekstfiltre
-        if (!string.IsNullOrEmpty(filter.PreferredPopularName))
-        {
-            var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.ScientificName))
-        {
-            var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.Author))
-        {
-            var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
-        }
-
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
         query = ApplyCommonFilters(query, filter);
 

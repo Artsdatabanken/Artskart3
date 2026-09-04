@@ -2,7 +2,6 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
-using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
@@ -13,14 +12,11 @@ namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 /// </summary>
 public static class ObservationQueryBuilder
 {
-    private const string SqlWildcard = "%";
-
     public static IQueryable<Observation> ApplyFilters(
         IArtsKartDbContext context,
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter)
     {
-        query = ApplyTextFilters(query, filter);
         query = ApplyDirectFilters(query, filter);
         query = ApplyIdentifierFilters(context, query, filter);
         query = ApplyAreaFilters(context, query, filter);
@@ -63,31 +59,6 @@ public static class ObservationQueryBuilder
         {
             var observationIds = filter.ObservationIds;
             query = query.Where(o => observationIds.Contains(o.Id));
-        }
-
-        return query;
-    }
-
-    private static IQueryable<Observation> ApplyTextFilters(
-        IQueryable<Observation> query,
-        ObservationSearchFilterDto filter)
-    {
-        if (!string.IsNullOrEmpty(filter.PreferredPopularName))
-        {
-            var pattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, pattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.ScientificName))
-        {
-            var pattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, pattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.Author))
-        {
-            var pattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, pattern));
         }
 
         return query;
