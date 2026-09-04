@@ -8,8 +8,17 @@ public interface IBlobStorageService
     /// </summary>
     Task CheckConnectionAsync(CancellationToken cancellationToken = default);
 
-    // TODO: Bytt tilbake til OpenWriteStreamAsync når Azurite-bug er fikset
+    /// <summary>
+    /// Laster opp innholdet i en ferdig strøm. Egnet for filer som allerede finnes
+    /// i minnet eller på disk.
+    /// </summary>
     Task UploadAsync(string blobPath, Stream content, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Åpner en skrivestrøm rett mot blob storage. Innholdet committes når strømmen
+    /// lukkes. Brukes for store filer som ikke bør bufres i minnet.
+    /// </summary>
+    Task<Stream> OpenWriteAsync(string blobPath, CancellationToken cancellationToken = default);
     Task<Stream> OpenReadStreamAsync(string blobPath, CancellationToken cancellationToken = default);
     Task<string> GenerateSasUrlAsync(string blobPath, TimeSpan validFor);
     Task DeleteBlobAsync(string blobPath, CancellationToken cancellationToken = default);
