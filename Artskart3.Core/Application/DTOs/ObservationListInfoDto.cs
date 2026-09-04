@@ -15,5 +15,5 @@ public class ObservationListInfoDto
     public string? InstitutionName { get; set; }
     public int? LocationId { get; set; }
     public IEnumerable<string>? RegistrationType { get; set; }
-    public string? IdentifiedBy { get; set; }
+    public string? Collector { get; set; }
 }

@@ -54,7 +54,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                     CategoryId = o.CategoryId,
                     CategoryName = o.Category != null ? o.Category.Name : string.Empty,
                     RegistrationType = o.Tags.Select(t => t.Name),
-                    IdentifiedBy = o.ObservationDetail != null ? o.ObservationDetail.IdentifiedBy : string.Empty,
+                    Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
                 })
                 .ToListAsync();
             return observationListInfoDtos;
