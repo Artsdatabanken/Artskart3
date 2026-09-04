@@ -32,6 +32,12 @@
   background: var(--adb-background-secondary);
 }
 
+.autocomplete-item--active {
+  background: var(--adb-background-secondary);
+  outline: 2px solid var(--adb-border-active, var(--adb-text-primary));
+  outline-offset: -2px;
+}
+
 .autocomplete-vernacular {
   font-weight: 600;
   font-size: var(--adb-font-size-sm, 0.875rem);

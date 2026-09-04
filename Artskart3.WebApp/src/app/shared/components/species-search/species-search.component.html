@@ -10,16 +10,36 @@
     (adb-clear)="onSearchClear()"
   ></adb-search>
 </div>
+<!-- Live region must exist in the DOM before results arrive — a region injected
+     already populated is never announced by screen readers. -->
+<div class="sr-only" role="status" aria-atomic="true">
+  @if (showAutocomplete()) {
+    {{ 'sidebar.searchResultsAnnouncement' | translate: { count: speciesResults().length } }}
+  } @else if (showNoResults()) {
+    {{ 'sidebar.noSearchResults' | translate }}
+  }
+</div>
 @if (showAutocomplete()) {
   <ul
     class="autocomplete-list"
     role="listbox"
+    [attr.aria-label]="'sidebar.searchResults' | translate"
     [style.top.px]="autocompletePosition().top"
     [style.left.px]="autocompletePosition().left"
     [style.min-width.px]="autocompletePosition().width"
   >
     @for (species of speciesResults(); track species.taxonId ?? $index) {
-      <li class="autocomplete-item" role="option" [attr.aria-selected]="false" tabindex="0" (click)="onSpeciesSelect(species)" (keydown.enter)="onSpeciesSelect(species)">
+      <li
+        class="autocomplete-item"
+        [class.autocomplete-item--active]="highlightedIndex() === $index"
+        [id]="'species-option-' + $index"
+        role="option"
+        [attr.aria-selected]="highlightedIndex() === $index"
+        [attr.tabindex]="highlightedIndex() === $index ? 0 : -1"
+        (click)="onSpeciesSelect(species)"
+        (keydown.enter)="onSpeciesSelect(species)"
+        (keydown.space)="onSpeciesSelect(species); $event.preventDefault()"
+      >
         <span class="autocomplete-vernacular" [innerHTML]="highlightMatch(getVernacularName(species))"></span>
         <span class="autocomplete-scientific" [innerHTML]="highlightMatch(species.scientificName)"></span>
         @if (species.author) {

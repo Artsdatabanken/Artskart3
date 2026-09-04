@@ -182,6 +182,8 @@
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}} - {{to}} meter",
     "chipPeriod": "Periode: {{from}} - {{to}}",
     "noSearchResults": "Ingen treff",
+    "searchResults": "Søkeresultater",
+    "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
       "Kingdom": "Rike",
       "Subkingdom": "Underrike",
