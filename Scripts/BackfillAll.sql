@@ -46,6 +46,31 @@ DECLARE @MinId INT, @MaxId INT, @CurrentId INT, @BatchEnd INT;
 DECLARE @Rows INT, @Total BIGINT, @SectionStart DATETIME2;
 DECLARE @RunStart DATETIME2 = SYSUTCDATETIME();
 
+-- ---------------------------------------------------------------------------
+-- ALLE BATCH-SETNINGER HAR OPTION (RECOMPILE). Det er ingen mikrooptimalisering.
+--
+-- @CurrentId og @BatchEnd er lokale variabler. SQL Server kan ikke lese verdien
+-- deres ved kompilering og gjetter i stedet en fast andel av tabellen — rundt
+-- 9 % for et tosidig intervall — uansett hvor smalt intervallet faktisk er.
+--
+-- Seksjon A–E1 tåler det: de har alle intervallpredikatet på en klyngeindeks
+-- (Observation.Id eller ObservationEntityIndex.ObservationId), så en feilestimert
+-- plan blir likevel en seek, og arbeidet avgrenses av de faktiske radene.
+--
+-- E2 er den eneste seksjonen som leser rett fra OrganizationRelation med
+-- intervallet på ObservationId — en NONCLUSTERED nøkkel; tabellen er klynget på
+-- Id. Uten RECOMPILE ble ~300 000 rader estimert til flere millioner, og både
+-- DISTINCT-en og NOT EXISTS-en fikk minnetildeling etter estimatet.
+-- Minnetildelingen er fast per plan, så kostnaden ble den samme for hver eneste
+-- batch — uavhengig av hvor mye som faktisk ble skrevet.
+--
+-- Målt i testmiljøet før denne endringen: ~190 sekunder per batch i E2, flatt
+-- over to kjøringer på til sammen 12 timer, mens ObservationDataset vokste fra
+-- nær tom til flere millioner rader. En kostnad som ikke følger datamengden er
+-- en kostnad som følger estimatet.
+--
+-- Rekompilering koster millisekunder per batch. Batchene er minutter.
+-- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
 -- Preflight — alt skjema må være på plass før datafyllingen gir mening.
@@ -237,7 +262,8 @@ BEGIN
               AND x.EntityTypeId = a.AreaTypeId
               AND x.EntityId = CASE WHEN a.AreaTypeId = 3
                                     THEN CAST(REPLACE(a.Fid, 'Naturbase VV', '') AS INT)
-                                    ELSE CAST(REPLACE(a.Fid, '_', '') AS INT) END);
+                                    ELSE CAST(REPLACE(a.Fid, '_', '') AS INT) END)
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -335,7 +361,8 @@ BEGIN
       AND o.Id >= @CurrentId AND o.Id <= @BatchEnd
       AND NOT EXISTS (SELECT 1 FROM dbo.ObservationTaxonHierarchy h
                       WHERE h.ObservationId = o.Id)
-    GROUP BY o.Id;
+    GROUP BY o.Id
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -395,7 +422,8 @@ BEGIN
     FROM dbo.ObservationEntityIndex idx
     INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
     WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
-      AND idx.TaxonGroupId = 0;
+      AND idx.TaxonGroupId = 0
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -454,7 +482,8 @@ BEGIN
       AND (   (idx.SpeciesTaxonId IS NULL AND h.SpeciesTaxonId IS NOT NULL)
            OR (idx.GenusTaxonId   IS NULL AND h.GenusTaxonId   IS NOT NULL)
            OR (idx.FamilyTaxonId  IS NULL AND h.FamilyTaxonId  IS NOT NULL)
-           OR (idx.OrderTaxonId   IS NULL AND h.OrderTaxonId   IS NOT NULL));
+           OR (idx.OrderTaxonId   IS NULL AND h.OrderTaxonId   IS NOT NULL))
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -550,7 +579,8 @@ BEGIN
       -- Begge kolonnene sjekkes. Med bare InstitutionOrgId som markør ville en
       -- observasjon med institusjon men uten samling fått markøren brukt opp og
       -- CollectionOrgId stående NULL for godt.
-      AND (o.InstitutionOrgId IS NULL OR o.CollectionOrgId IS NULL);
+      AND (o.InstitutionOrgId IS NULL OR o.CollectionOrgId IS NULL)
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -590,7 +620,8 @@ BEGIN
       AND g.OrganizationTypeId = 3
       AND NOT EXISTS (SELECT 1 FROM dbo.ObservationDataset d
                       WHERE d.ObservationId = r.ObservationId
-                        AND d.DatasetOrgId = r.OrganizationId);
+                        AND d.DatasetOrgId = r.OrganizationId)
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -642,7 +673,8 @@ BEGIN
       -- Samme oppfyllbarhetsregel som seksjon D: treff bare rader der kilden har
       -- en verdi indeksen mangler, slik at raden ikke matcher etterpå.
       AND (   (idx.InstitutionOrgId IS NULL AND o.InstitutionOrgId IS NOT NULL)
-           OR (idx.CollectionOrgId  IS NULL AND o.CollectionOrgId  IS NOT NULL));
+           OR (idx.CollectionOrgId  IS NULL AND o.CollectionOrgId  IS NOT NULL))
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
@@ -682,7 +714,8 @@ BEGIN
     FROM dbo.ObservationEntityIndex idx
     INNER JOIN dbo.ObservationBehaviors b ON b.ObservationId = idx.ObservationId
     WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
-      AND idx.BehaviorId IS NULL;
+      AND idx.BehaviorId IS NULL
+    OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
