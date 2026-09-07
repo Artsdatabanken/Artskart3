@@ -314,23 +314,21 @@
               autocomplete="off"
               role="combobox"
               aria-autocomplete="list"
-              aria-expanded="{{ showProjectNameSuggestions() }}"
-              aria-controls="project-name-suggestions"
-              [attr.label]="'sidebar.project' | translate"
-              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
+              aria-expanded="{{ showProjectSuggestions() }}"
+              aria-controls="dataset-suggestions"
               [value]="projectName()"
-              (adb-input)="onProjectNameChange($event)"
-              (focusin)="onProjectNameFocus()"
-              (focusout)="onProjectNameBlur()"
-            ></adb-search>
-            @if (showProjectNameSuggestions() && projectNameSuggestions().length > 0) {
-              <ul id="project-name-suggestions" class="project-name-suggestions" role="listbox">
-                @for (organization of projectNameSuggestions(); track organization.id) {
+              (input)="onProjectNameChange($event)"
+              (focus)="onProjectNameFocus()"
+              (blur)="onProjectNameBlur()"
+            />
+            @if (showProjectSuggestions() && projectSuggestions().length > 0) {
+              <ul id="dataset-suggestions" class="project-name-suggestions" role="listbox">
+                @for (organization of projectSuggestions(); track organization.id) {
                   <li role="option" aria-selected="false">
                     <button
                       type="button"
                       class="project-name-suggestion"
-                      (mousedown)="selectProjectNameSuggestion(organization)"
+                      (mousedown)="selectProjectSuggestion(organization)"
                     >
                       {{ organization.name }}
                     </button>
@@ -342,30 +340,77 @@
         </span>
 
         <div class="other-properties-row">
-          <span class="other-properties-label">
-            {{ 'sidebar.collectionCode' | translate }}
-            <adb-search
-              class="other-properties-search"
-              variant="standalone"
-              size="sm"
-              [attr.label]="'sidebar.collectionCode' | translate"
-              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
-              [value]="collectionCode()"
-              (adb-input)="onCollectionCodeChange($event)"
-            ></adb-search>
-          </span>
-          <span class="other-properties-label">
+          <label class="other-properties-label">
+            {{ 'sidebar.dataset' | translate }}
+            <div class="search-input-wrapper">
+              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
+              <input
+                type="text"
+                class="other-properties-input"
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="{{ showDatasetSuggestions() }}"
+                aria-controls="collection-suggestions"
+                [value]="datasetName()"
+                (input)="onDatasetNameChange($event)"
+                (focus)="onDatasetNameFocus()"
+                (blur)="onDatasetNameBlur()"
+              />
+              @if (showDatasetSuggestions() && datasetSuggestions().length > 0) {
+                <ul id="collection-suggestions" class="project-name-suggestions" role="listbox">
+                  @for (organization of datasetSuggestions(); track organization.id) {
+                    <li role="option" aria-selected="false">
+                      <button
+                        type="button"
+                        class="project-name-suggestion"
+                        (mousedown)="selectDatasetSuggestion(organization)"
+                      >
+                        {{ organization.name }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </label>
+          <label class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
-            <adb-search
-              class="other-properties-search"
-              variant="standalone"
-              size="sm"
-              [attr.label]="'sidebar.catalogNumber' | translate"
-              [attr.placeholder]="'sidebar.searchPlaceholder' | translate"
-              [value]="catalogNumber()"
-              (adb-input)="onCatalogNumberChange($event)"
-            ></adb-search>
-          </span>
+            <div class="search-input-wrapper">
+              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
+              <input
+                type="text"
+                class="other-properties-input"
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="{{ showCatalogNumberSuggestions() }}"
+                aria-controls="catalog-number-suggestions"
+                [value]="catalogNumber()"
+                (input)="onCatalogNumberChange($event)"
+                (focus)="onCatalogNumberFocus()"
+                (blur)="onCatalogNumberBlur()"
+              />
+              @if (showCatalogNumberSuggestions() && catalogNumberSuggestions().length > 0) {
+                <ul id="catalog-number-suggestions" class="project-name-suggestions" role="listbox">
+                  @for (match of catalogNumberSuggestions(); track match.catalogNumber) {
+                    <li role="option" aria-selected="false">
+                      <button
+                        type="button"
+                        class="project-name-suggestion"
+                        (mousedown)="selectCatalogNumberSuggestion(match)"
+                      >
+                        {{ match.catalogNumber }}
+                        @if ((match.observationCount ?? 0) > 1) {
+                          <span class="suggestion-count">({{ match.observationCount }})</span>
+                        }
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </label>
         </div>
 
         <div class="other-properties-image-filter">

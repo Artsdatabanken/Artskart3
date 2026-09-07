@@ -308,10 +308,10 @@ export interface LocationSearchFilter {
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
   periodTo?: number | null;
-  projectName?: string;
-  projectOrganizationId?: number | null;
-  collectionCode?: string;
-  catalogNumber?: string;
+  // Sendes som ID-er. Fritekstsoeket skjer i typeahead-endepunktene, ikke her.
+  datasetOrgId?: number | null;
+  projectOrgId?: number | null;
+  observationIds?: number[] | null;
   withImages?: boolean | null;
   periodMonths?: number[] | null;
 }
@@ -502,10 +502,9 @@ export class AreasService {
           months: filter.periodMonths?.length ? filter.periodMonths : undefined,
         };
       }
-      if (filter.projectName) body['projectName'] = filter.projectName;
-      if (filter.projectOrganizationId != null) body['projectOrganizationId'] = filter.projectOrganizationId;
-      if (filter.collectionCode) body['collectionCode'] = filter.collectionCode;
-      if (filter.catalogNumber) body['catalogNumber'] = filter.catalogNumber;
+      if (filter.datasetOrgId != null) body['datasetOrgId'] = filter.datasetOrgId;
+      if (filter.projectOrgId != null) body['projectOrgId'] = filter.projectOrgId;
+      if (filter.observationIds?.length) body['observationIds'] = filter.observationIds;
       if (filter.withImages != null) body['withImages'] = filter.withImages;
     }
 

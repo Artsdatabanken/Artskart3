@@ -281,6 +281,30 @@ $municipalityFids = @($municipalityFids | Where-Object { $_ })
 Write-Host "  Fylker=$($countyFids -join ',') Kommuner=$($municipalityFids -join ',')"
 
 # ---------------------------------------------------------------------------
+# CompleteFilter — samling, prosjekt og katalognummer
+#
+# Disse filtrene tar nå IDer, ikke strenger. Frontend henter dem fra typeahead-
+# endepunktene, og testen gjør det samme: slår opp en verdi først, og måler
+# deretter filteret med IDen. Det er hele poenget med endringen — strengsøket
+# skjer mot en liten tabell eller en indeks, ikke i filterspørringen.
+#
+# Oppslaget selv er ikke gratis og bør måles for seg. Det er lagt inn som egne
+# case i Oppslag-gruppen lenger ned.
+# ---------------------------------------------------------------------------
+$datasetOrg = $null; $projectOrg = $null; $catalogMatch = $null
+
+try {
+    $datasetOrg = Invoke-Api -Path '/api/Lookup/Datasets?search=a&maxCount=1' | Select-Object -First 1
+    $projectOrg    = Invoke-Api -Path '/api/Lookup/Projects?search=a&maxCount=1'    | Select-Object -First 1
+    $catalogMatch  = Invoke-Api -Path '/api/Lookup/CatalogNumbers?search=12&maxCount=1' | Select-Object -First 1
+}
+catch { Write-Warning "Kunne ikke hente CompleteFilter-oppslag: $($_.Exception.Message)" }
+
+if ($datasetOrg) { Write-Host ("  Datasett     {0,-30} id={1}" -f $datasetOrg.name, $datasetOrg.id) }
+if ($projectOrg)    { Write-Host ("  Prosjekt     {0,-30} id={1}" -f $projectOrg.name, $projectOrg.id) }
+if ($catalogMatch)  { Write-Host ("  Katalognr    {0,-30} obs={1}" -f $catalogMatch.catalogNumber, $catalogMatch.observationIds.Count) }
+
+# ---------------------------------------------------------------------------
 # Testmatrise
 # ---------------------------------------------------------------------------
 
@@ -292,15 +316,21 @@ function Add-Case {
           Area        - $Endpoint (AreaMarkers/AreaCounts), kjøres per zoomnivå
           Observation - /api/Search/Observation, kjøres én gang (ingen zoom)
           Locations   - /api/Search/Locations, kjøres én gang (ingen zoom)
+          Lookup      - GET mot LookupPath, kjøres én gang. Brukes til
+                        typeahead-endepunktene, som er GET uten filterkropp.
     #>
     param(
         [string] $Name,
         [hashtable] $Filter,
         [string] $Group,
-        [ValidateSet('Area', 'Observation', 'Locations')]
-        [string] $Target = 'Area'
+        [ValidateSet('Area', 'Observation', 'Locations', 'Lookup')]
+        [string] $Target = 'Area',
+        [string] $LookupPath
     )
-    $cases.Add([PSCustomObject]@{ Name = $Name; Filter = $Filter; Group = $Group; Target = $Target })
+    $cases.Add([PSCustomObject]@{
+        Name = $Name; Filter = $Filter; Group = $Group
+        Target = $Target; LookupPath = $LookupPath
+    })
 }
 
 # Ett case per rangnivå — treffer hver denormaliserte kolonne og oppløsningen over
@@ -325,11 +355,12 @@ Add-Case 'Periode (maaneder)'        @{ period = @{ months = @(6, 7, 8) } }     
 Add-Case 'Koordinatpresisjon'        @{ coordinatePrecision = @{ from = 0; to = 100 } } 'Enkeltfilter'
 
 # ---------------------------------------------------------------------------
-# MIDLERTIDIG DEAKTIVERT — subquery-filtrene
+# Subquery-filtrene — før/etter-målingen for CompleteFilter
 #
-# Disse tar 3-24 sekunder hver og dominerer hele kjøretiden, uten å gi ny
-# informasjon: vi vet allerede hvorfor de er trege (needsObservationSubquery
-# tvinger join mot Observation-tabellen) og at CompleteFilter-planen fikser dem.
+# Disse er trege fordi needsObservationSubquery i ComputeFilteredAreaCounts
+# tvinger join mot Observation-tabellen. De var midlertidig deaktivert mens
+# columnstore-arbeidet pågikk, og er lagt tilbake nå som CompleteFilter er
+# startet. Ferdigkriteriet er at hele gruppen havner under ~1,5 s.
 #
 # Målt utgangspunkt før planen (192M rader, zoom 1 / zoom 2):
 #   Prosjektnavn   21 878 / 23 983 ms
@@ -337,16 +368,34 @@ Add-Case 'Koordinatpresisjon'        @{ coordinatePrecision = @{ from = 0; to = 
 #   Atferd          5 446 /  5 605 ms
 #   Institusjon     3 657 /  4 208 ms
 #
-# LEGG DISSE TILBAKE når CompleteFilter startes — de er før/etter-målingen for
-# hele planen, og ferdigkriteriet er at gruppen havner under ~1,5 s.
+# Gruppen heter fortsatt Subquery slik at før/etter-sammenligningen mot tallene
+# over er direkte lesbar, selv om det ikke lenger finnes noen subquery i den.
+# Ferdigkriteriet er at hele gruppen havner under ~1,5 s.
 #
-# if ($behavior)    { Add-Case "Atferd ($($behavior.Name))"         @{ behaviorIds     = @($behavior.Id) }    'Subquery' }
-# if ($institution) { Add-Case "Institusjon ($($institution.Name))" @{ organizationIds = @($institution.Id) } 'Subquery' }
-# Add-Case 'Prosjektnavn: 1 tegn'      @{ projectName   = 'a' }        'Subquery'
-# Add-Case 'Prosjektnavn: lengre'      @{ projectName   = 'univers' }  'Subquery'
-# Add-Case 'Katalognummer: 1 tegn'     @{ catalogNumber = '1' }        'Subquery'
-# Add-Case 'Katalognummer: lengre'     @{ catalogNumber = '123456' }   'Subquery'
+# Filtrene tar nå IDer fra typeahead i stedet for strenger. Det er samme
+# brukerhandling som ble målt før — skriv katalognummer, velg treff — men
+# strengsøket er flyttet fra filterspørringen til oppslaget.
 # ---------------------------------------------------------------------------
+if ($behavior)    { Add-Case "Atferd ($($behavior.Name))"         @{ behaviorIds     = @($behavior.Id) }    'Subquery' }
+if ($institution) { Add-Case "Institusjon ($($institution.Name))" @{ organizationIds = @($institution.Id) } 'Subquery' }
+if ($datasetOrg) { Add-Case "Datasett ($($datasetOrg.name))"  @{ datasetOrgId = $datasetOrg.id } 'Subquery' }
+if ($projectOrg)    { Add-Case "Prosjekt ($($projectOrg.name))"    @{ projectOrgId    = $projectOrg.id }    'Subquery' }
+if ($catalogMatch)  { Add-Case "Katalognummer ($($catalogMatch.catalogNumber))" @{ observationIds = @($catalogMatch.observationIds) } 'Subquery' }
+
+# ---------------------------------------------------------------------------
+# Oppslag — typeahead-endepunktene
+#
+# Strengsøket forsvant ikke, det flyttet hit. Måles derfor for seg: gevinsten i
+# Subquery-gruppen er ikke reell hvis kostnaden bare er flyttet til oppslaget.
+#
+# Katalognummer er prefikssøk mot IX_Observation_CatalogNumber. Blir dette tregt,
+# er det verdt å sjekke om søket har blitt gjort om til delstreng ('%x%') —
+# det kan ikke bruke indeksen.
+# ---------------------------------------------------------------------------
+Add-Case 'Oppslag: datasett'        @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Datasets?search=a'
+Add-Case 'Oppslag: prosjekt'       @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/Projects?search=a'
+Add-Case 'Oppslag: katalognr kort'   @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/CatalogNumbers?search=12'
+Add-Case 'Oppslag: katalognr lengre'  @{} 'Oppslag' 'Lookup' -LookupPath '/api/Lookup/CatalogNumbers?search=123456'
 
 # Områdevalg
 if ($countyFids)       { Add-Case 'Fylkesvalg'   @{ countyIds       = $countyFids }       'Omraade' }
@@ -432,7 +481,12 @@ function Measure-Case {
     $rows = 0
 
     try {
-        $response = Invoke-Api -Path $Path -Method POST -Body $Case.Filter
+        # Oppslagsendepunktene er GET uten kropp; søket ligger i URL-en.
+        $response = if ($Case.Target -eq 'Lookup') {
+            Invoke-Api -Path $Path
+        } else {
+            Invoke-Api -Path $Path -Method POST -Body $Case.Filter
+        }
 
         $rows = if ($null -eq $response)       { 0 }
                 elseif ($response.locations)   { @($response.locations).Count }  # { epsg, locations[] }
@@ -475,10 +529,12 @@ foreach ($zoom in $ZoomLevels) {
     }
 }
 
-# Observasjons- og lokasjonssøk — ingen zoomnivå
+# Observasjons-, lokasjons- og oppslagssøk — ingen zoomnivå
 foreach ($case in $otherCases) {
-    $results.Add((Measure-Case -Case $case -Label '-' `
-        -Path "/api/Search/$($case.Target)"))
+    $path = if ($case.Target -eq 'Lookup') { $case.LookupPath }
+            else { "/api/Search/$($case.Target)" }
+
+    $results.Add((Measure-Case -Case $case -Label '-' -Path $path))
 }
 
 # ---------------------------------------------------------------------------

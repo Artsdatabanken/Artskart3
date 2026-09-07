@@ -224,6 +224,23 @@ try
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
                 logger.LogInformation("Applying pending database migrations...");
+
+                // Migrasjoner får sin egen kommandotimeout — 6 timer.
+                //
+                // CommandTimeout(1800) fra DbContext-registreringen er riktig for
+                // spørringer som betjener forespørsler, men altfor kort for
+                // datafyllende migrasjoner. BackfillAll kjører hele datasettet som
+                // én kommando, og hele løkken teller mot ett budsjett.
+                //
+                // SetCommandTimeout gjelder bare denne ene instansen, hentet fra et
+                // eget scope. Kontekstene som betjener HTTP-forespørsler beholder
+                // sine 30 minutter — en løpsk spørring henger fortsatt ikke i timevis.
+                //
+                // MERK: Ved 6 timers migrasjon kommer ikke appen opp før den er
+                // ferdig. På plattformer med helsesjekk-timeout kan containeren bli
+                // drept underveis. Deployede miljøer bør kjøre migrasjonsbundtet fra
+                // pipelinen og sette Database:AutoMigrate = false.
+                dbContext.Database.SetCommandTimeout((int)TimeSpan.FromHours(6).TotalSeconds);
                 dbContext.Database.Migrate();
                 logger.LogInformation("Database migrations applied successfully");
                 var sessionDbContext = scope.ServiceProvider.GetRequiredService<SessionDbContext>();

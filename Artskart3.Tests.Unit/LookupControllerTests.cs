@@ -1,5 +1,6 @@
 using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -334,5 +335,106 @@ public class LookupControllerTests
         await _sut.GetBasisOfRecords();
 
         _serviceMock.Verify(s => s.GetBasisOfRecordsAsync(), Times.Once);
+    }
+
+    // -----------------------------------------------------------------------
+    // Typeahead-endepunktene for samling, prosjekt og katalognummer
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Samling og prosjekt er ULIKE organisasjonstyper (2 og 3). Sendes feil type
+    /// videre, får brukeren samlinger i prosjektfeltet — et resultat som ser
+    /// riktig ut og ikke feiler noe sted.
+    /// </summary>
+    [Fact]
+    public async Task GetSearchDatasets_PassesDatasetOrganizationType()
+    {
+        _serviceMock
+            .Setup(s => s.SearchOrganizationsByTypeAsync("aqua", 2, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new OrganizationDto { Id = 26435, Name = "Aqua Kompetanse AS" }]);
+
+        var result = await _sut.GetSearchDatasets("aqua");
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        _serviceMock.Verify(
+            s => s.SearchOrganizationsByTypeAsync("aqua", 2, It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSearchProjects_PassesProjectOrganizationType()
+    {
+        _serviceMock
+            .Setup(s => s.SearchOrganizationsByTypeAsync("kart", 3, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new OrganizationDto { Id = 14842, Name = "Kartlegging" }]);
+
+        var result = await _sut.GetSearchProjects("kart");
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        _serviceMock.Verify(
+            s => s.SearchOrganizationsByTypeAsync("kart", 3, It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSearchCatalogNumbers_ReturnsMatchesFromService()
+    {
+        var matches = new List<CatalogNumberMatchDto>
+        {
+            new() { CatalogNumber = "104168", ObservationIds = [8368071, 8368072] }
+        };
+        _serviceMock
+            .Setup(s => s.SearchCatalogNumbersAsync("1041", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(matches);
+
+        var result = await _sut.GetSearchCatalogNumbers("1041");
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(matches);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(SearchConstants.MaxOrganizationCount + 1)]
+    public async Task GetSearchDatasets_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
+    {
+        var result = await _sut.GetSearchDatasets("aqua", maxCount);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(SearchConstants.MaxOrganizationCount + 1)]
+    public async Task GetSearchProjects_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
+    {
+        var result = await _sut.GetSearchProjects("kart", maxCount);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(SearchConstants.MaxOrganizationCount + 1)]
+    public async Task GetSearchCatalogNumbers_WithMaxCountOutOfRange_ReturnsBadRequest(int maxCount)
+    {
+        var result = await _sut.GetSearchCatalogNumbers("1041", maxCount);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    /// <summary>
+    /// Et ugyldig maxCount skal AVVISES, ikke stilltiende kappes til grensen.
+    /// Tjenesten må derfor ikke kalles i det hele tatt.
+    /// </summary>
+    [Fact]
+    public async Task GetSearchCatalogNumbers_WithMaxCountOutOfRange_DoesNotCallService()
+    {
+        await _sut.GetSearchCatalogNumbers("1041", 0);
+
+        _serviceMock.Verify(
+            s => s.SearchCatalogNumbersAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
