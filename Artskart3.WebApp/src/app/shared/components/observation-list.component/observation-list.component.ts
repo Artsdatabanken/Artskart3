@@ -1,7 +1,6 @@
 import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angular/core';
 import {ObservationListInfoDto} from '@shared/types/api.types';
-import {TranslateModule, TranslateService} from '@ngx-translate/core';
-import {FormatFileSizePipe} from '@shared/pipes/format-file-size.pipe';
+import {TranslateModule} from '@ngx-translate/core';
 
 enum Filters {
   TaxonGroup = "taxonGroup",
