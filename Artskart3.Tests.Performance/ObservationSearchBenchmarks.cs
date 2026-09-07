@@ -60,7 +60,7 @@ public class ObservationSearchBenchmarks
             .Options;
 
         _dbContext = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService());
+        _repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
     }
 
     [GlobalCleanup]

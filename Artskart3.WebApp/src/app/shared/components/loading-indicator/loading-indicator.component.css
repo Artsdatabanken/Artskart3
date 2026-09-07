@@ -1,0 +1,59 @@
+:host {
+  display: contents;
+}
+
+.loading-indicator {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--adb-spacing-sm, 8px);
+  width: 306px;
+  height: 238px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(38, 47, 49, 0.50);
+  color: #ffffff;
+  pointer-events: none;
+}
+
+.loading-indicator--overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+}
+
+.loading-indicator--inline {
+  position: relative;
+  display: inline-flex;
+}
+
+.loading-indicator__spinner {
+  width: 80px;
+  height: 80.044px;
+  display: inline-block;
+  animation: artskart-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.loading-indicator__text {
+  white-space: nowrap;
+  font-family: var(--adb-font-family-primary, Arial, sans-serif);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-weight: var(--adb-font-weight-semibold, 600);
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+@keyframes artskart-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-indicator__spinner {
+    animation: none;
+  }
+}

@@ -84,10 +84,9 @@ export class ListViewComponent {
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
-    this.filterState.projectName();
-    this.filterState.projectOrganizationId();
-    this.filterState.collectionCode();
-    this.filterState.catalogNumber();
+    this.filterState.datasetOrgId();
+    this.filterState.projectOrgId();
+    this.filterState.catalogObservationIds();
     this.filterState.imageFilter();
     this.filterState.selectedMonths();
     untracked(() => {
@@ -108,10 +107,9 @@ export class ListViewComponent {
       const periodTo = this.filterState.periodTo();
       const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-      const projectName = this.filterState.projectName().trim();
-      const projectOrganizationId = this.filterState.projectOrganizationId();
-      const collectionCode = this.filterState.collectionCode().trim();
-      const catalogNumber = this.filterState.catalogNumber().trim();
+      const datasetOrgId = this.filterState.datasetOrgId();
+      const projectOrgId = this.filterState.projectOrgId();
+      const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
 
@@ -124,14 +122,14 @@ export class ListViewComponent {
         basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
+        taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        projectName: projectName ? projectName : undefined,
-        projectOrganizationId: projectOrganizationId ?? undefined,
-        collectionCode: collectionCode ? collectionCode : undefined,
-        catalogNumber: catalogNumber ? catalogNumber : undefined,
+        datasetOrgId: datasetOrgId ?? undefined,
+        projectOrgId: projectOrgId ?? undefined,
+        observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }

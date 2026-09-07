@@ -1,0 +1,239 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Artskart3.Infrastructure.Migrations;
+
+/// <inheritdoc />
+public partial class AddObservationTaxonHierarchy : Migration
+{
+    /// <inheritdoc />
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+            migrationBuilder.CreateTable(
+                name: "ObservationTaxonHierarchy",
+                columns: table => new
+                {
+                    ObservationId = table.Column<int>(type: "int", nullable: false),
+                    KingdomTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubkingdomTaxonId = table.Column<int>(type: "int", nullable: true),
+                    PhylumTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubphylumTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SuperclassTaxonId = table.Column<int>(type: "int", nullable: true),
+                    ClassTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubclassTaxonId = table.Column<int>(type: "int", nullable: true),
+                    InfraclassTaxonId = table.Column<int>(type: "int", nullable: true),
+                    CohortTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SuperorderTaxonId = table.Column<int>(type: "int", nullable: true),
+                    OrderTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SuborderTaxonId = table.Column<int>(type: "int", nullable: true),
+                    InfraorderTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SuperfamilyTaxonId = table.Column<int>(type: "int", nullable: true),
+                    FamilyTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubfamilyTaxonId = table.Column<int>(type: "int", nullable: true),
+                    TribeTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubtribeTaxonId = table.Column<int>(type: "int", nullable: true),
+                    GenusTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubgenusTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SectionTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SpeciesTaxonId = table.Column<int>(type: "int", nullable: true),
+                    SubspeciesTaxonId = table.Column<int>(type: "int", nullable: true),
+                    VarietyTaxonId = table.Column<int>(type: "int", nullable: true),
+                    FormTaxonId = table.Column<int>(type: "int", nullable: true),
+                    NotSetTaxonId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ObservationTaxonHierarchy", x => x.ObservationId);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Class",
+                table: "ObservationTaxonHierarchy",
+                column: "ClassTaxonId",
+                filter: "[ClassTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Cohort",
+                table: "ObservationTaxonHierarchy",
+                column: "CohortTaxonId",
+                filter: "[CohortTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Family",
+                table: "ObservationTaxonHierarchy",
+                column: "FamilyTaxonId",
+                filter: "[FamilyTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Form",
+                table: "ObservationTaxonHierarchy",
+                column: "FormTaxonId",
+                filter: "[FormTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Genus",
+                table: "ObservationTaxonHierarchy",
+                column: "GenusTaxonId",
+                filter: "[GenusTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Infraclass",
+                table: "ObservationTaxonHierarchy",
+                column: "InfraclassTaxonId",
+                filter: "[InfraclassTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Infraorder",
+                table: "ObservationTaxonHierarchy",
+                column: "InfraorderTaxonId",
+                filter: "[InfraorderTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Kingdom",
+                table: "ObservationTaxonHierarchy",
+                column: "KingdomTaxonId",
+                filter: "[KingdomTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_NotSet",
+                table: "ObservationTaxonHierarchy",
+                column: "NotSetTaxonId",
+                filter: "[NotSetTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Order",
+                table: "ObservationTaxonHierarchy",
+                column: "OrderTaxonId",
+                filter: "[OrderTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Phylum",
+                table: "ObservationTaxonHierarchy",
+                column: "PhylumTaxonId",
+                filter: "[PhylumTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Section",
+                table: "ObservationTaxonHierarchy",
+                column: "SectionTaxonId",
+                filter: "[SectionTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Species",
+                table: "ObservationTaxonHierarchy",
+                column: "SpeciesTaxonId",
+                filter: "[SpeciesTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subclass",
+                table: "ObservationTaxonHierarchy",
+                column: "SubclassTaxonId",
+                filter: "[SubclassTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subfamily",
+                table: "ObservationTaxonHierarchy",
+                column: "SubfamilyTaxonId",
+                filter: "[SubfamilyTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subgenus",
+                table: "ObservationTaxonHierarchy",
+                column: "SubgenusTaxonId",
+                filter: "[SubgenusTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subkingdom",
+                table: "ObservationTaxonHierarchy",
+                column: "SubkingdomTaxonId",
+                filter: "[SubkingdomTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Suborder",
+                table: "ObservationTaxonHierarchy",
+                column: "SuborderTaxonId",
+                filter: "[SuborderTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subphylum",
+                table: "ObservationTaxonHierarchy",
+                column: "SubphylumTaxonId",
+                filter: "[SubphylumTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subspecies",
+                table: "ObservationTaxonHierarchy",
+                column: "SubspeciesTaxonId",
+                filter: "[SubspeciesTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Subtribe",
+                table: "ObservationTaxonHierarchy",
+                column: "SubtribeTaxonId",
+                filter: "[SubtribeTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Superclass",
+                table: "ObservationTaxonHierarchy",
+                column: "SuperclassTaxonId",
+                filter: "[SuperclassTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Superfamily",
+                table: "ObservationTaxonHierarchy",
+                column: "SuperfamilyTaxonId",
+                filter: "[SuperfamilyTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Superorder",
+                table: "ObservationTaxonHierarchy",
+                column: "SuperorderTaxonId",
+                filter: "[SuperorderTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Tribe",
+                table: "ObservationTaxonHierarchy",
+                column: "TribeTaxonId",
+                filter: "[TribeTaxonId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OTH_Variety",
+                table: "ObservationTaxonHierarchy",
+                column: "VarietyTaxonId",
+                filter: "[VarietyTaxonId] IS NOT NULL");
+
+            // Slå på sidekomprimering FØR tabellen fylles.
+            //
+            // EF Core støtter ikke DATA_COMPRESSION, så CreateTable/CreateIndex over
+            // gir ukomprimerte strukturer. Målt på ferdig fylt tabell utgjorde det
+            // ~21 GB (klyngeindeks + 25 rangindekser) mot ~10 GB komprimert.
+            //
+            // Her er tabellen fortsatt tom, så denne rebuilden er momentan — og
+            // backfillen skriver da rett inn i komprimerte sider. Gjøres dette
+            // etterpå i stedet, koster det 15-30 minutter.
+            migrationBuilder.Sql(@"
+ALTER INDEX ALL ON dbo.ObservationTaxonHierarchy
+    REBUILD WITH (DATA_COMPRESSION = PAGE);
+");
+
+            // Datafyllingen ligger i Scripts/BackfillAll.sql (seksjon B)
+            // og kjøres manuelt etter deploy. Den lå opprinnelig her som én INSERT
+            // over ~60M rader: ~7 minutter lokalt, men over 30 minutter på Azure SQL,
+            // der den traff både CommandTimeout(1800) og oppstartsgrensen til App
+            // Service (migrasjonene kjøres av Database.Migrate() ved oppstart).
+            //
+            // Flaskehalsen er loggskriving, ikke CPU. Azure SQL har hardt tak på
+            // loggrate per servicenivå, og hele migrasjonen kjører i én transaksjon,
+            // så loggen kunne aldri avkortes underveis — og en feil ville gitt en
+            // like lang rollback. Skriptet kjører batchvis utenfor transaksjon, med
+            // rangindeksene deaktivert under innlastingen.
+        }
+
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropTable(
+            name: "ObservationTaxonHierarchy");
+    }
+}

@@ -6,5 +6,7 @@ public enum AreaType
     Municipality = 1,
     County = 2,
     RestrictedArea = 3,
-    OceanArea = 4
+    OceanArea = 4,
+    NorwaysMarineAreas = 5, // Reservert for fremtidig bruk
+    SvalbardBjørnøyaAndJanMayen = 6,
 }

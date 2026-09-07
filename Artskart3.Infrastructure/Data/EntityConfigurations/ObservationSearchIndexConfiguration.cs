@@ -20,12 +20,17 @@ public class ObservationSearchIndexConfiguration : IEntityTypeConfiguration<Obse
         builder.HasIndex(o => o.MonthCollected, "IX_Observation_MonthCollected");
         builder.HasIndex(o => o.CategoryId, "IX_Observation_CategoryId");
         builder.HasIndex(o => o.BasisOfRecordId, "IX_Observation_BasisOfRecordId");
-        builder.HasIndex(o => o.InstitutionId, "IX_Observation_InstitutionId");
-        builder.HasIndex(o => o.InstitutionCode, "IX_Observation_InstitutionCode");
+        // InstitutionId og InstitutionCode er fjernet av CompleteFilter — begge var
+        // dupliserte strenger som nå utledes fra Organization via InstitutionOrgId.
+        // Kolonnen får bevisst ingen egen indeks: den har 54 distinkte verdier over
+        // 61M rader, så et seek etterfulgt av sortering taper mot et clustered scan
+        // som stopper ved første TOP N. Filtrering skjer uansett mot
+        // ObservationEntityIndex, der kolonnen ligger i columnstore.
         builder.HasIndex(o => o.YearCollected, "IX_Observation_YearCollected");
         builder.HasIndex(o => o.CoordinatePrecisionInMeters, "IX_Observation_CoordinatePrecisionInMeters");
         builder.HasIndex(o => o.DateTimeCollected, "IX_Observation_DateTimeCollected");
         builder.HasIndex(o => o.DateLastModified, "IX_Observation_DateLastModified");
+        builder.HasIndex(o => o.TaxonId, "IX_Observation_TaxonId");
 
         // Composite indexes for common filter combinations
         builder.HasIndex(o => new { o.LocationId, o.HasErrors, o.HasAnnotations }, "IX_Observation_LocationId_HasErrors_HasAnnotations");

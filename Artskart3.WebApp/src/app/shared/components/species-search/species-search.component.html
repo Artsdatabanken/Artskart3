@@ -1,0 +1,44 @@
+<div class="search-field" #searchField>
+  <adb-search
+    size="sm"
+    variant="with-button"
+    button-variant="filled"
+    [attr.placeholder]="'baseLayout.searchPlaceholder' | translate"
+    [attr.label]="'baseLayout.searchPlaceholder' | translate"
+    (adb-input)="onSearchInput($event)"
+    (adb-search)="onSearchSubmit()"
+    (adb-clear)="onSearchClear()"
+  ></adb-search>
+</div>
+@if (showAutocomplete()) {
+  <ul
+    class="autocomplete-list"
+    role="listbox"
+    [style.top.px]="autocompletePosition().top"
+    [style.left.px]="autocompletePosition().left"
+    [style.min-width.px]="autocompletePosition().width"
+  >
+    @for (species of speciesResults(); track species.taxonId ?? $index) {
+      <li class="autocomplete-item" role="option" [attr.aria-selected]="false" tabindex="0" (click)="onSpeciesSelect(species)" (keydown.enter)="onSpeciesSelect(species)">
+        <span class="autocomplete-vernacular" [innerHTML]="highlightMatch(getVernacularName(species))"></span>
+        <span class="autocomplete-scientific" [innerHTML]="highlightMatch(species.scientificName)"></span>
+        @if (species.author) {
+          <span class="autocomplete-author">– <span [innerHTML]="highlightMatch(species.author)"></span></span>
+        }
+        @if (species.rank) {
+          <span class="autocomplete-rank">{{ 'sidebar.rank.' + species.rank | translate }}</span>
+        }
+      </li>
+    }
+  </ul>
+}
+@if (showNoResults()) {
+  <div
+    class="autocomplete-list autocomplete-no-results"
+    [style.top.px]="autocompletePosition().top"
+    [style.left.px]="autocompletePosition().left"
+    [style.min-width.px]="autocompletePosition().width"
+  >
+    {{ 'sidebar.noSearchResults' | translate }}
+  </div>
+}

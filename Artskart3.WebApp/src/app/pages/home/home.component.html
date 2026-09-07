@@ -1,8 +1,28 @@
-<aside class="sidebar">
+<aside
+  class="sidebar"
+  [class.dragging]="isDragging()"
+  [style.transform]="sheetTransform()"
+>
+  <div
+    class="sheet-handle"
+    role="button"
+    tabindex="0"
+    [attr.aria-expanded]="isFilterOpen()"
+    [attr.aria-label]="'sidebar.searchAndFilter' | translate"
+    (pointerdown)="onHandlePointerDown($event)"
+    (pointermove)="onHandlePointerMove($event)"
+    (pointerup)="onHandlePointerUp($event)"
+    (pointercancel)="onHandlePointerUp($event)"
+    (keydown.enter)="toggleFilter()"
+    (keydown.space)="toggleFilter()"
+  >
+    <span class="sheet-handle-bar"></span>
+    <span class="sheet-handle-label">{{ 'sidebar.searchAndFilter' | translate }}</span>
+  </div>
   <app-resizable-panel
     [initialWidth]="filterPanelWidth()"
-    [minWidth]="300"
-    [maxWidth]="500"
+    [minWidth]="minWidth"
+    [maxWidth]="maxWidth"
     [isDraggable]="true"
     (widthChanged)="onFilterPanelResize($event)"
   >

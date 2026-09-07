@@ -26,6 +26,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AreaHierarchyService>();
         services.AddSingleton<IAreaHierarchyService>(sp => sp.GetRequiredService<AreaHierarchyService>());
         services.AddHostedService(sp => sp.GetRequiredService<AreaHierarchyService>());
+        services.AddSingleton<TaxonHierarchyService>();
+        services.AddSingleton<ITaxonHierarchyService>(sp => sp.GetRequiredService<TaxonHierarchyService>());
+        services.AddHostedService(sp => sp.GetRequiredService<TaxonHierarchyService>());
         services.AddScoped<ISearchService, SearchService>();
         services.AddScoped<INotificationsService, NotificationsService>();
         services.AddScoped<IUserService, UserService>();

@@ -13,6 +13,7 @@ public enum ObservationIndexEntityType
     County = 2,
     RestrictedArea = 3,
     OceanArea = 4,
+    SvalbardBjørnøyaAndJanMayen = 6,
 
     // Organisasjonstyper (100 + OrganizationType-verdi)
     Institution = 101

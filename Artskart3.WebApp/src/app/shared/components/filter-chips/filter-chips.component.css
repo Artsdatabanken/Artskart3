@@ -1,0 +1,22 @@
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adb-spacing-3xsm, 4px);
+  padding: 0 var(--adb-spacing-sm, 12px);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adb-spacing-3xsm, 4px);
+  padding: var(--adb-spacing-3xsm, 4px) var(--adb-spacing-xsm, 8px);
+  border: 2px solid var(--adb-border-accent, #005a71);
+  border-radius: var(--adb-border-radius);
+  font-size: var(--adb-font-size-sm, 0.875rem);
+  color: var(--adb-text-default, inherit);
+  white-space: nowrap;
+}
+
+.filter-chip-label {
+  font-weight: 600;
+}

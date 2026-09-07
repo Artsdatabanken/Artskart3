@@ -1,0 +1,40 @@
+:host {
+  display: flex;
+  flex-direction: column;
+
+  --taxon-summary-padding: var(--adb-spacing-3xsm, 0.125rem);
+  /* Where a checkbox sits inside an accordion summary: the summary's own
+     padding, plus the expand/collapse icon, plus the summary's flex gap.
+     Leaf rows have no accordion around them, so they reproduce that inset to
+     line up with their adb-accordion siblings. */
+  --taxon-row-indent: calc(
+    var(--taxon-summary-padding) + var(--adb-icon-size, 1.5rem) + var(--adb-spacing-xsm, 0.5rem)
+  );
+}
+
+adb-accordion {
+  --adb-border-default: transparent;
+  border: 0;
+}
+
+/* Use the accordion's own padding token rather than ::part(summary), so the
+   component can still zero the trailing padding on nested items and keep every
+   counter on one right edge. */
+adb-accordion-item {
+  --adb-accordion-summary-padding: var(--taxon-summary-padding);
+}
+
+adb-accordion-item adb-checkbox {
+  --adb-border-accent: #005a71;
+}
+
+/* Re-assert counter padding/alignment stripped by the global * { margin: 0; padding: 0 }
+   reset, which overrides adb-checkbox's own ::slotted rules. */
+adb-checkbox [slot='counter'] {
+  padding: 0 var(--adb-spacing-2xsm, 4px);
+  margin-inline-start: auto;
+}
+
+.taxon-leaf {
+  padding-inline-start: var(--taxon-row-indent);
+}

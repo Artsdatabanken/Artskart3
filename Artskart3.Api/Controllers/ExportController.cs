@@ -73,7 +73,7 @@ public class ExportController : ControllerBase
     }
 
     [HttpGet("{jobId:int}/download")]
-    public async Task<ActionResult<object>> Download(int jobId, CancellationToken cancellationToken)
+    public async Task<ActionResult> Download(int jobId, CancellationToken cancellationToken)
     {
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
@@ -82,12 +82,13 @@ public class ExportController : ControllerBase
         if (blobPath == null)
             return NotFound(new { error = "Filen er ikke klar eller er utløpt." });
 
-        var sasUrl = await _blobStorageService.GenerateSasUrlAsync(blobPath, TimeSpan.FromMinutes(10));
-        return Ok(new { url = sasUrl });
+        var stream = await _blobStorageService.OpenReadStreamAsync(blobPath, cancellationToken);
+        var fileName = Path.GetFileName(blobPath);
+        return File(stream, "text/csv", fileName);
     }
 
     [HttpGet("{jobId:int}/download/excel")]
-    public async Task<ActionResult<object>> DownloadExcel(int jobId, CancellationToken cancellationToken)
+    public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
@@ -96,8 +97,9 @@ public class ExportController : ControllerBase
         if (excelBlobPath == null)
             return NotFound(new { error = "Excel-filen er ikke tilgjengelig." });
 
-        var sasUrl = await _blobStorageService.GenerateSasUrlAsync(excelBlobPath, TimeSpan.FromMinutes(10));
-        return Ok(new { url = sasUrl });
+        var stream = await _blobStorageService.OpenReadStreamAsync(excelBlobPath, cancellationToken);
+        var fileName = Path.GetFileName(excelBlobPath);
+        return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     [HttpPost("{jobId:int}/cancel")]

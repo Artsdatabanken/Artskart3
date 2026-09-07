@@ -10,6 +10,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public int[]? TaxonGroupIds { get; set; }
 
+    public int[]? TaxonIds { get; set; }
+
     public int[]? CategoryIds { get; set; }
 
     public int[]? OrganizationIds { get; set; }
@@ -32,13 +34,11 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public PeriodDto? Period { get; set; }
 
-    public string? ProjectName { get; set; }
+    public int? DatasetOrgId { get; set; }
 
-    public int? ProjectOrganizationId { get; set; }
+    public int? ProjectOrgId { get; set; }
 
-    public string? CollectionCode { get; set; }
-
-    public string? CatalogNumber { get; set; }
+    public int[]? ObservationIds { get; set; }
 
     public bool? WithImages { get; set; }
 }

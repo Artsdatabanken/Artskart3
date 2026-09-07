@@ -14,12 +14,13 @@ export interface FullscreenControlLabels {
 }
 
 export class ArtskartFullscreenControl extends FullScreen {
-  constructor(labels: FullscreenControlLabels) {
+  constructor(labels: FullscreenControlLabels, source?: HTMLElement) {
     super({
       className: 'artskart-fullscreen',
       label: createSvgIcon(FULLSCREEN_SVG),
       labelActive: createSvgIcon(EXIT_FULLSCREEN_SVG),
       tipLabel: labels.tipLabel,
+      source,
     });
     this.updateLabels(labels);
   }

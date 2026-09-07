@@ -85,7 +85,7 @@ public class LookupServiceTests
         var result = await _sut.GetAreasAsync();
 
         result.Municipalities.Should().BeEquivalentTo(municipalityType);
-        result.Counties!.FastlandsNorge.Should().ContainSingle().Which.Fid.Should().Be("03");
+        result.Counties.Should().BeEquivalentTo(countyType);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class LookupServiceTests
 
         result.Should().NotBeNull();
         result.Municipalities.Should().BeNull();
-        result.Counties!.FastlandsNorge.Should().BeNullOrEmpty();
+        result.Counties.Should().BeNull();
     }
 
     [Fact]
