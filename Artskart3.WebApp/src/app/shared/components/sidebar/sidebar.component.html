@@ -304,13 +304,13 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
       <div class="other-properties-filter">
-        <label class="other-properties-label">
+        <span class="other-properties-label">
           {{ 'sidebar.project' | translate }}
           <div class="search-input-wrapper">
-            <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-            <input
-              type="text"
-              class="other-properties-input"
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
               autocomplete="off"
               role="combobox"
               aria-autocomplete="list"
@@ -337,7 +337,7 @@
               </ul>
             }
           </div>
-        </label>
+        </span>
 
         <div class="other-properties-row">
           <label class="other-properties-label">
