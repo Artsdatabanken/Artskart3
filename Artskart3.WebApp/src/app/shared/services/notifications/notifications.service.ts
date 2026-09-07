@@ -21,12 +21,12 @@ readonly activeNotifications = computed(() => {
   private isActive(notification: NotificationModel): boolean {
     const now = Date.now();
 
-    const start = notification.startDateTime
-      ? new Date(notification.startDateTime).getTime()
+    const start = notification.startDisplayDate
+      ? new Date(notification.startDisplayDate).getTime()
       : -Infinity;
 
-    const end = notification.endDateTime
-      ? new Date(notification.endDateTime).getTime()
+    const end = notification.endDisplayDate
+      ? new Date(notification.endDisplayDate).getTime()
       : Infinity;
 
     // Guard against invalid date strings (NaN)
