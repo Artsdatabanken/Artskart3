@@ -217,7 +217,7 @@ ALTER INDEX ALL ON dbo.ObservationTaxonHierarchy
     REBUILD WITH (DATA_COMPRESSION = PAGE);
 ");
 
-            // Datafyllingen ligger i Scripts/BackfillObservationTaxonHierarchy.sql
+            // Datafyllingen ligger i Scripts/BackfillAll.sql (seksjon B)
             // og kjøres manuelt etter deploy. Den lå opprinnelig her som én INSERT
             // over ~60M rader: ~7 minutter lokalt, men over 30 minutter på Azure SQL,
             // der den traff både CommandTimeout(1800) og oppstartsgrensen til App

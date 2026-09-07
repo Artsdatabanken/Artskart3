@@ -447,6 +447,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/Projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/CatalogNumbers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogNumberMatchDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/TaxonGroups": {
         parameters: {
             query?: never;
@@ -577,6 +691,43 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TaxonTreeNodeDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/TaxonAncestry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    taxonIds?: number[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxonAncestryDto"][];
                     };
                 };
             };
@@ -1010,7 +1161,7 @@ export interface components {
             municipalities?: components["schemas"]["AreaTypeDto"];
             restrictedAreas?: components["schemas"]["AreaTypeDto"];
             oceanAreas?: components["schemas"]["AreaTypeDto"];
-            svalbardBjørnøyaAndJanMayen?: components["schemas"]["AreaTypeDto"];
+            "svalbardBj\u00F8rn\u00F8yaAndJanMayen"?: components["schemas"]["AreaTypeDto"];
         };
         AreaTypeDto: {
             /** Format: int32 */
@@ -1035,6 +1186,12 @@ export interface components {
             /** Format: int32 */
             observationCount?: number | null;
             description?: string | null;
+        };
+        CatalogNumberMatchDto: {
+            catalogNumber?: string | null;
+            observationIds?: number[] | null;
+            /** Format: int32 */
+            readonly observationCount?: number;
         };
         CategoryDto: {
             /** Format: int32 */
@@ -1148,11 +1305,11 @@ export interface components {
             registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
-            projectName?: string | null;
             /** Format: int32 */
-            projectOrganizationId?: number | null;
-            collectionCode?: string | null;
-            catalogNumber?: string | null;
+            datasetOrgId?: number | null;
+            /** Format: int32 */
+            projectOrgId?: number | null;
+            observationIds?: number[] | null;
             withImages?: boolean | null;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
@@ -1217,11 +1374,11 @@ export interface components {
             registrationStatusId?: number | null;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
-            projectName?: string | null;
             /** Format: int32 */
-            projectOrganizationId?: number | null;
-            collectionCode?: string | null;
-            catalogNumber?: string | null;
+            datasetOrgId?: number | null;
+            /** Format: int32 */
+            projectOrgId?: number | null;
+            observationIds?: number[] | null;
             withImages?: boolean | null;
         };
         OrganizationDto: {
@@ -1277,6 +1434,17 @@ export interface components {
             name?: string | null;
             filter?: components["schemas"]["ObservationSearchFilterDto"];
             selectedColumns?: string[] | null;
+        };
+        TaxonAncestryDto: {
+            /** Format: int32 */
+            id?: number;
+            parentIds?: number[] | null;
+            levels?: components["schemas"]["TaxonAncestryLevelDto"][] | null;
+        };
+        TaxonAncestryLevelDto: {
+            /** Format: int32 */
+            parentId?: number;
+            childIds?: number[] | null;
         };
         TaxonDto: {
             /** Format: int32 */

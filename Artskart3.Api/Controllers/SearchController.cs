@@ -350,6 +350,15 @@ public class SearchController : ControllerBase
             }
         }
 
+        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
+        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
+        // Contains mot 192M rader paa et anonymt endepunkt.
+        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
+        {
+            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
+            return false;
+        }
+
         return true;
     }
 
@@ -415,6 +424,15 @@ public class SearchController : ControllerBase
                 validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
                 return false;
             }
+        }
+
+        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
+        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
+        // Contains mot 192M rader paa et anonymt endepunkt.
+        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
+        {
+            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
+            return false;
         }
 
         return true;

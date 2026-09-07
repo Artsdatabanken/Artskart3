@@ -1,10 +1,12 @@
 @for (node of nodes(); track node.id) {
+  @let state = checkboxState(node.id);
   @if (node.hasChildren) {
     <adb-accordion>
       <adb-accordion-item (toggle)="onNodeToggle(node.id)">
         <adb-checkbox
           slot="heading"
-          [attr.checked]="isTaxonSelected(node.id) ? '' : null"
+          [attr.checked]="state === 'checked' ? '' : null"
+          [attr.indeterminate]="state === 'indeterminate' ? '' : null"
           (click)="$event.stopPropagation()"
           (change)="onTaxonToggle(node.id)"
         >
@@ -14,14 +16,15 @@
           }
         </adb-checkbox>
         @if (isNodeExpanded(node.id)) {
-          <app-taxon-tree [parentTaxonId]="node.id" />
+          <app-taxon-tree [parentTaxonId]="node.id" [ancestorIds]="childAncestorIds(node.id)" />
         }
       </adb-accordion-item>
     </adb-accordion>
   } @else {
     <div class="taxon-leaf">
       <adb-checkbox
-        [attr.checked]="isTaxonSelected(node.id) ? '' : null"
+        [attr.checked]="state === 'checked' ? '' : null"
+        [attr.indeterminate]="state === 'indeterminate' ? '' : null"
         (change)="onTaxonToggle(node.id)"
       >
         <span [innerHTML]="node.preferredPopularName ?? node.validScientificName"></span>

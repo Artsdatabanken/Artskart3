@@ -13,6 +13,9 @@ internal sealed class StubTaxonHierarchyService : ITaxonHierarchyService
 
     public List<TaxonTreeNodeDto> GetChildren(int? parentTaxonId) => [];
 
+    public List<TaxonAncestryDto> GetAncestries(IEnumerable<int> taxonIds) =>
+        taxonIds.Select(id => new TaxonAncestryDto { Id = id, ParentIds = [] }).ToList();
+
     public List<int> GetDescendantSpeciesIds(int taxonId) => [];
 
     public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];

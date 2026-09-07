@@ -39,6 +39,12 @@
     <ProjectReference Include="..\Artskart3.Api\Artskart3.Api.csproj" />
     <ProjectReference Include="..\Artskart3.Core\Artskart3.Core.csproj" />
     <ProjectReference Include="..\Artskart3.Infrastructure\Artskart3.Infrastructure.csproj" />
+    <!--
+      Workers refereres bak et alias. Både Api og Workers har en implisitt
+      top-level Program-klasse, og uten aliaset kolliderer de to i
+      WebApplicationFactory<Program>.
+    -->
+    <ProjectReference Include="..\Artskart3.Workers\Artskart3.Workers.csproj" Aliases="workers" />
   </ItemGroup>
 
 </Project>

@@ -152,9 +152,7 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
         foreach (var childId in childIds)
         {
             if (!_taxons.TryGetValue(childId, out var taxon)) continue;
-
-            // Filtrer: kun taxoner med observasjoner eller som finnes i landet
-            if (taxon.CumulativeObservationCount is null or 0 && !taxon.ExistsInCountry) continue;
+            if (!IsVisible(taxon)) continue;
 
             result.Add(new TaxonTreeNodeDto
             {
@@ -170,6 +168,85 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
         }
 
         return result.OrderBy(t => t.ValidScientificName).ToList();
+    }
+
+    public List<TaxonAncestryDto> GetAncestries(IEnumerable<int> taxonIds)
+    {
+        EnsureInitialized();
+
+        var result = new List<TaxonAncestryDto>();
+        foreach (var taxonId in taxonIds.Distinct())
+        {
+            var parentIds = BuildParentIdChain(taxonId);
+
+            // Synlige barn for hvert nivå i kjeden, inkludert taxonet selv — lar frontend
+            // avgjøre full dekning uten at treet er ekspandert ned til nivået.
+            var levels = new List<TaxonAncestryLevelDto>(parentIds.Count + 1);
+            foreach (var levelId in parentIds.Append(taxonId))
+            {
+                levels.Add(new TaxonAncestryLevelDto
+                {
+                    ParentId = levelId,
+                    ChildIds = GetVisibleChildIds(levelId)
+                });
+            }
+
+            result.Add(new TaxonAncestryDto
+            {
+                Id = taxonId,
+                ParentIds = parentIds,
+                Levels = levels
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Synlige barn av en forelder, filtrert likt som GetChildren.
+    /// </summary>
+    private List<int> GetVisibleChildIds(int parentId)
+    {
+        if (!_childrenByParent.TryGetValue(parentId, out var childIds)) return [];
+
+        var result = new List<int>(childIds.Count);
+        foreach (var childId in childIds)
+        {
+            if (_taxons.TryGetValue(childId, out var taxon) && IsVisible(taxon))
+                result.Add(childId);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Kun taxoner med observasjoner eller som finnes i landet vises i treet.
+    /// </summary>
+    private static bool IsVisible(TaxonData taxon) =>
+        taxon.CumulativeObservationCount is not (null or 0) || taxon.ExistsInCountry;
+
+    /// <summary>
+    /// Bygger foreldrekjeden for et taxonId som id-er, sortert fra rotnivå til nærmeste forelder.
+    /// Returnerer tom liste for rotnivå eller ukjent taxonId.
+    /// Foreldre filtreres ikke på observasjonsantall — hierarkiet skal alltid være komplett.
+    /// </summary>
+    private List<int> BuildParentIdChain(int taxonId)
+    {
+        if (!_taxons.TryGetValue(taxonId, out var taxon)) return [];
+
+        var chain = new List<int>();
+        var visited = new HashSet<int> { taxonId };
+        var currentId = taxon.ParentTaxonId;
+
+        // visited beskytter mot sykluser dersom ParentTaxonId-dataene er korrupte
+        while (currentId != 0 && visited.Add(currentId))
+        {
+            chain.Add(currentId);
+            currentId = _taxons.TryGetValue(currentId, out var parent) ? parent.ParentTaxonId : 0;
+        }
+
+        chain.Reverse();
+        return chain;
     }
 
     public List<int> GetDescendantSpeciesIds(int taxonId)

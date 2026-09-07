@@ -8,6 +8,8 @@ public interface ILookupRepository
     Task<IEnumerable<AreaTypeDto>> GetAreasAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<InstitutionDto>> GetInstitutionsAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<OrganizationDto>> SearchOrganizationsAsync(string name, int maxCount, CancellationToken cancellationToken = default);
+    Task<IEnumerable<OrganizationDto>> SearchOrganizationsByTypeAsync(string name, int organizationTypeId, int maxCount, CancellationToken cancellationToken = default);
+    Task<IEnumerable<CatalogNumberMatchDto>> SearchCatalogNumbersAsync(string search, int maxCount, CancellationToken cancellationToken = default);
     Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<BasisOfRecordDto>> GetBasisOfRecordsAsync(CancellationToken cancellationToken = default);

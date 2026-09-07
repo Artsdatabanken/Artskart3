@@ -28,13 +28,11 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public PeriodDto? Period { get; set; }
 
-    public string? ProjectName { get; set; }
+    public int? DatasetOrgId { get; set; }
 
-    public int? ProjectOrganizationId { get; set; }
+    public int? ProjectOrgId { get; set; }
 
-    public string? CollectionCode { get; set; }
-
-    public string? CatalogNumber { get; set; }
+    public int[]? ObservationIds { get; set; }
 
     public bool? WithImages { get; set; }
 
@@ -57,10 +55,9 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        !string.IsNullOrWhiteSpace(ProjectName) ||
-        ProjectOrganizationId.HasValue ||
-        !string.IsNullOrWhiteSpace(CollectionCode) ||
-        !string.IsNullOrWhiteSpace(CatalogNumber) ||
+        DatasetOrgId.HasValue ||
+        ProjectOrgId.HasValue ||
+        ObservationIds?.Length > 0 ||
         WithImages != null;
 
     /// <summary>
@@ -82,10 +79,9 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        !string.IsNullOrWhiteSpace(ProjectName) ||
-        ProjectOrganizationId.HasValue ||
-        !string.IsNullOrWhiteSpace(CollectionCode) ||
-        !string.IsNullOrWhiteSpace(CatalogNumber) ||
+        DatasetOrgId.HasValue ||
+        ProjectOrgId.HasValue ||
+        ObservationIds?.Length > 0 ||
         WithImages != null;
 
     /// <summary>

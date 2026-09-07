@@ -35,15 +35,24 @@ public class BlobStorageService : IBlobStorageService
         }
     }
 
-    // TODO: Bytt tilbake til OpenWriteStreamAsync (streaming) når Azurite-bug er fikset
     public async Task UploadAsync(string blobPath, Stream content, CancellationToken cancellationToken = default)
     {
         var container = _blobServiceClient.GetBlobContainerClient(_containerName);
         await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         var blob = container.GetBlobClient(blobPath);
-        content.Position = 0;
+        if (content.CanSeek)
+            content.Position = 0;
         await blob.UploadAsync(content, overwrite: true, cancellationToken: cancellationToken);
+    }
+
+    public async Task<Stream> OpenWriteAsync(string blobPath, CancellationToken cancellationToken = default)
+    {
+        var container = _blobServiceClient.GetBlobContainerClient(_containerName);
+        await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
+        var blob = container.GetBlobClient(blobPath);
+        return await blob.OpenWriteAsync(overwrite: true, cancellationToken: cancellationToken);
     }
 
     public async Task<Stream> OpenReadStreamAsync(string blobPath, CancellationToken cancellationToken = default)

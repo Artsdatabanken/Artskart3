@@ -62,7 +62,7 @@ public partial class AddFilterColumnsToObservationEntityIndex : Migration
             defaultValue: 0);
 
         // MERK: Backfill kjøres manuelt via SQL-skript
-        // på grunn av lang kjøretid (300M+ rader). Se BackfillObservationEntityIndex.sql.
+        // på grunn av lang kjøretid (300M+ rader). Se Scripts/BackfillAll.sql (seksjon C).
         migrationBuilder.CreateIndex(
             name: "IX_ObservationEntityIndex_EntityLookup",
             table: "ObservationEntityIndex",

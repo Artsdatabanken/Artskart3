@@ -36,7 +36,7 @@ namespace Artskart3.Infrastructure.Migrations;
 /// Med Database:AutoMigrate kjører denne ved oppstart, før backfillen. Backfill-
 /// skriptet deaktiverer så indeksen og bygger den opp igjen, så den bygges to
 /// ganger. Vil man unngå det, kan man deployere fram til forrige migrasjon,
-/// kjøre Scripts/BackfillTaxonHierarchyColumns.sql, og deretter deployere denne.
+/// kjøre Scripts/BackfillAll.sql, og deretter deployere denne.
 /// </summary>
 public partial class AddObservationEntityIndexColumnstore : Migration
 {

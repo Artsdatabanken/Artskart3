@@ -24,8 +24,6 @@ public partial class Organization : BaseEntity
 
     public virtual ICollection<Organization> InverseParent { get; set; } = new List<Organization>();
 
-    public virtual ICollection<OrganizationRelation> OrganizationRelations { get; set; } = new List<OrganizationRelation>();
-
     public virtual OrganizationType OrganizationType { get; set; } = null!;
 
     public virtual Organization? Parent { get; set; }

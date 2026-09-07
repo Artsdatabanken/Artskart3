@@ -97,10 +97,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
-      const projectName = this.filterState.projectName().trim();
-      const projectOrganizationId = this.filterState.projectOrganizationId();
-      const collectionCode = this.filterState.collectionCode().trim();
-      const catalogNumber = this.filterState.catalogNumber().trim();
+      const datasetOrgId = this.filterState.datasetOrgId();
+      const projectOrgId = this.filterState.projectOrgId();
+      const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const periodMonths = this.filterState.selectedMonths();
 
@@ -116,10 +115,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         coordinatePrecisionTo,
         periodFrom,
         periodTo,
-        projectName: projectName || undefined,
-        projectOrganizationId: projectOrganizationId ?? undefined,
-        collectionCode: collectionCode || undefined,
-        catalogNumber: catalogNumber || undefined,
+        datasetOrgId: datasetOrgId ?? undefined,
+        projectOrgId: projectOrgId ?? undefined,
+        observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };

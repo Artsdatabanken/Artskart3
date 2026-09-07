@@ -34,7 +34,7 @@ public partial class AddSpeciesTaxonIdToObservationEntityIndex : Migration
             type: "int",
             nullable: true);
 
-        // Kolonnene fylles manuelt via Scripts/BackfillTaxonHierarchyColumns.sql
+        // Kolonnene fylles av Scripts/BackfillAll.sql (seksjon D)
         // på grunn av lang kjøretid (190M+ rader).
         //
         // MERK: Det opprettes bevisst INGEN rowstore-indekser på disse kolonnene.
