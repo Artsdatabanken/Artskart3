@@ -182,6 +182,8 @@
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
     "chipPeriod": "Period: {{from}} - {{to}}",
     "noSearchResults": "No results",
+    "searchResults": "Search results",
+    "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
       "Kingdom": "Kingdom",
       "Subkingdom": "Subkingdom",
