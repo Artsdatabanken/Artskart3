@@ -9,14 +9,14 @@ namespace Artskart3.Infrastructure.Persistence.Repositories;
 
 public class ObservationRepository(IArtsKartDbContext context, ILogger<ObservationRepository> logger) : IObservationRepository
 {
-    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId)
+    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId, CancellationToken cancellationToken = default)
     {
         try
         {
             Observation observationDetails = await context.Set<Observation>()
                 .Include(o => o.Taxon)
                 .Where(o => (o.LocationId == locationId) && (o.Id == observationId))
-                .FirstAsync();
+                .FirstAsync(cancellationToken);
             var observationDto = new ObservationDto
             {
                 Id = observationDetails.Id,

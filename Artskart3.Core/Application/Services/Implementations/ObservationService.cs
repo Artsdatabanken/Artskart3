@@ -6,9 +6,9 @@ namespace Artskart3.Core.Application.Services.Implementations;
 
 public class ObservationService(IObservationRepository observationService) : IObservationService
 {
-    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId)
+    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId, CancellationToken cancellationToken = default)
     {
-        ObservationDto observation = await observationService.GetObservationDetails(locationId, observationId);
+        ObservationDto observation = await observationService.GetObservationDetails(locationId, observationId, cancellationToken);
         return observation;
     }
 

@@ -13,11 +13,11 @@ public class ObservationController(IObservationService observationService, ILogg
 {
     [HttpGet("{locationId}/{observationId}")]
     [Produces("application/json")]
-    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId)
+    public async Task<ObservationDto> GetObservationDetails(int locationId, int observationId, CancellationToken cancellationToken = default)
     {
         try
         {
-            ObservationDto observation = await observationService.GetObservationDetails(locationId, observationId);
+            ObservationDto observation = await observationService.GetObservationDetails(locationId, observationId, cancellationToken);
             return observation;
         }
         catch (Exception e)
