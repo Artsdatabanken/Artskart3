@@ -10,6 +10,7 @@ describe('DateRangePipe', () => {
 
   it('returns an empty string for invalid dates', () => {
     expect(pipe.transform('not-a-date')).toBe('');
+    expect(pipe.transform('2026-02-31')).toBe('');
   });
 
   it('formats one date', () => {

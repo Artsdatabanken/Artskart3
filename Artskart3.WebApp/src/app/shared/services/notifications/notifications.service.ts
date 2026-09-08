@@ -22,11 +22,11 @@ readonly activeNotifications = computed(() => {
     const now = Date.now();
 
     const start = notification.startDisplayDate
-      ? new Date(notification.startDisplayDate).getTime()
+      ? this.parseLocalDate(notification.startDisplayDate)?.getTime() ?? NaN
       : -Infinity;
 
     const end = notification.endDisplayDate
-      ? new Date(notification.endDisplayDate).getTime()
+      ? this.parseLocalDate(notification.endDisplayDate, true)?.getTime() ?? NaN
       : Infinity;
 
     // Guard against invalid date strings (NaN)
@@ -35,5 +35,27 @@ readonly activeNotifications = computed(() => {
     }
 
     return now >= start && now <= end;
+  }
+
+  private parseLocalDate(value: string, endOfDay = false): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    const date = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0,
+    );
+
+    return date.getFullYear() === Number(year) &&
+      date.getMonth() === Number(month) - 1 &&
+      date.getDate() === Number(day)
+      ? date
+      : null;
   }
 }
