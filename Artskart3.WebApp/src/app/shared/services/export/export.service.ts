@@ -92,7 +92,8 @@ export class ExportService {
               route: '/mittartskart',
             },
           });
-        } else {
+        } else if (job.status !== CSV_EXPORT_STATUS.Cancelled) {
+          // Avbrutt er brukerens eget valg, ikke en feil — ingen toast.
           this.alertService.showError(this.translate.instant('export.failed'));
         }
         this.historyVersion.update((v) => v + 1);
