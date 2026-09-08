@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { Injector, inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../services/auth/auth.service';
 
@@ -21,16 +21,31 @@ import { AuthService } from '../services/auth/auth.service';
  * 401 derfra ville satt i gang en ny runde med det samme kallet.
  */
 export const unauthorizedInterceptor: HttpInterceptorFn = (req, next) => {
-  const authService = inject(AuthService);
+  // Selve sesjonsoppslaget slipper forbi urørt. En 401 derfra BETYR bare at
+  // brukeren ikke er innlogget — å reagere på den ville satt i gang et nytt
+  // oppslag mot det samme endepunktet.
+  //
+  // Denne testen må stå FØR alt annet i interceptoren, ikke inne i catchError.
+  // AuthService henter bff/user fra sin egen konstruktør, og det kallet går
+  // gjennom denne interceptoren mens tjenesten fortsatt konstrueres. Ba vi DI om
+  // AuthService her, ville vi bedt om en tjeneste som er midt i konstruksjon —
+  // NG0200, sirkulær avhengighet, ved aller første HTTP-kall i appen.
+  if (req.url.includes('bff/')) {
+    return next(req);
+  }
+
+  // Injector, ikke AuthService direkte. Oppslaget utsettes til feilen faktisk
+  // inntreffer, altså lenge etter at konstruktøren er ferdig. Det holder
+  // interceptoren trygg også hvis noen senere legger til flere kall som skjer
+  // under oppstart.
+  const injector = inject(Injector);
 
   return next(req).pipe(
     catchError((error: unknown) => {
-      const isSessionRequest = req.url.includes('bff/');
-
-      if (error instanceof HttpErrorResponse && error.status === 401 && !isSessionRequest) {
+      if (error instanceof HttpErrorResponse && error.status === 401) {
         // Tvinger et nytt oppslag mot bff/user. Signalet oppdateres, og
         // grensesnittet slutter å tilby handlinger brukeren ikke har tilgang til.
-        authService.refreshSession();
+        injector.get(AuthService).refreshSession();
       }
 
       return throwError(() => error);
