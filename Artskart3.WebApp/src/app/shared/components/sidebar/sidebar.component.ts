@@ -55,11 +55,13 @@ export class SidebarComponent {
   readonly projectSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showProjectSuggestions = signal<boolean>(false);
   readonly projectSearchTerm = signal('');
+  readonly projectSearchPending = signal<boolean>(false);
 
   private readonly datasetSearch$ = new Subject<string>();
   readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showDatasetSuggestions = signal<boolean>(false);
   readonly datasetSearchTerm = signal('');
+  readonly datasetSearchPending = signal<boolean>(false);
 
   private readonly catalogNumberSearch$ = new Subject<string>();
   readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
@@ -91,6 +93,7 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.projectSuggestions.set(organizations);
+        this.projectSearchPending.set(false);
         this.showProjectSuggestions.set(this.projectSearchTerm().trim().length > 0);
       });
 
@@ -111,6 +114,7 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.datasetSuggestions.set(organizations);
+        this.datasetSearchPending.set(false);
         this.showDatasetSuggestions.set(this.datasetSearchTerm().trim().length > 0);
       });
 
@@ -402,12 +406,13 @@ export class SidebarComponent {
     this.filterState.setProjectName(value);
     this.filterState.setProjectOrgId(null);
     this.showProjectSuggestions.set(value.trim().length > 0);
+    this.projectSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
     this.projectSearch$.next(value);
   }
 
   onProjectNameFocus(): void {
-    if (this.projectSearchTerm().trim().length >= MinProjectNameSearchLength || this.projectSuggestions().length > 0) {
-      this.showProjectSuggestions.set(this.projectSearchTerm().trim().length > 0);
+    if (this.projectSuggestions().length > 0) {
+      this.showProjectSuggestions.set(true);
     }
   }
 
@@ -431,12 +436,13 @@ export class SidebarComponent {
     this.filterState.setDatasetName(value);
     this.filterState.setDatasetOrgId(null);
     this.showDatasetSuggestions.set(value.trim().length > 0);
+    this.datasetSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
     this.datasetSearch$.next(value);
   }
 
   onDatasetNameFocus(): void {
-    if (this.datasetSearchTerm().trim().length >= MinProjectNameSearchLength || this.datasetSuggestions().length > 0) {
-      this.showDatasetSuggestions.set(this.datasetSearchTerm().trim().length > 0);
+    if (this.datasetSuggestions().length > 0) {
+      this.showDatasetSuggestions.set(true);
     }
   }
 

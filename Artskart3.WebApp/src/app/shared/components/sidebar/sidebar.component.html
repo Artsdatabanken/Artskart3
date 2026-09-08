@@ -336,7 +336,7 @@
                     </li>
                   }
                 </ul>
-              } @else if (projectSearchTerm().trim().length > 0) {
+              } @else if (!projectSearchPending() && projectSearchTerm().trim().length > 0) {
                 <div class="project-name-empty project-name-suggestions" role="status">
                   <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
                   <span>{{ 'sidebar.noSearchResultsProject' | translate: { searchTerm: projectSearchTerm().trim() } }}</span>
@@ -379,7 +379,7 @@
                       </li>
                     }
                   </ul>
-                } @else if (datasetSearchTerm().trim().length > 0) {
+                } @else if (!datasetSearchPending() && datasetSearchTerm().trim().length > 0) {
                   <div class="dataset-name-empty project-name-suggestions" role="status">
                     <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
                     <span>{{ 'sidebar.noSearchResultsDataset' | translate: { searchTerm: datasetSearchTerm().trim() } }}</span>
