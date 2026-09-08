@@ -103,7 +103,7 @@
   },
   "sidebar": {
     "categories": "Rødliste- og fremmedartskategorier",
-    "areas": "Område",
+    "areas": "Områder",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "searchAndFilter": "Søk og filter",
@@ -115,7 +115,7 @@
     "coordinatePrecisionFrom": "Fra (meter)",
     "coordinatePrecisionTo": "Til (meter)",
     "coordinatePrecisionSearch": "Søk",
-    "period": "Periode",
+    "period": "Perioder",
     "periodFrom": "Fra år",
     "periodTo": "Til år",
     "periodSearch": "Søk",
@@ -135,7 +135,7 @@
       "december": "Desember"
     },
     "institutions": "Dataleverandører",
-    "behaviors": "Habitat- og artsegenskaper",
+    "behaviors": "Aktiviteter",
     "behaviorName": {
       "dead": "Død",
       "feeding": "Fødesøkende",
@@ -144,7 +144,7 @@
       "reproductive": "Reproduksjon",
       "stationary": "Stasjonær"
     },
-    "basisOfRecords": "Funntype",
+    "basisOfRecords": "Funntyper",
     "basisOfRecordName": {
       "assessment": "Sakkyndig vurdering",
       "carcassobservation": "Kadaverundersøkelse",
@@ -184,6 +184,8 @@
     "noSearchResults": "Ingen treff",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
     "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
+    "searchResults": "Søkeresultater",
+    "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
       "Kingdom": "Rike",
       "Subkingdom": "Underrike",
