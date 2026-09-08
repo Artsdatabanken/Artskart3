@@ -89,14 +89,6 @@ public class ExportService : IExportService
         // Merk: dette er en TOCTOU-sjekk (les-så-skriv uten serializable transaksjon),
         // men med forventet lavt volum er race condition ikke et reelt problem.
         // Revurder hvis volumet øker vesentlig.
-        //
-        // Aldersgrensen er en nødutgang, ikke en finesse. Grensen telte tidligere
-        // ALLE jobber i Pending eller Processing uansett alder, og en jobb blir bare
-        // tatt hånd om hvis workeren faktisk kjører. Står workeren — og det er
-        // nøyaktig det som skjer når Hangfire-planleggeren ikke tikker — er tre
-        // jobber nok til å låse brukeren ute permanent, med «prøv igjen senere» som
-        // eneste tilbakemelding og en manuell databaseoppdatering som eneste utvei.
-        // Etter cutoff-en teller ikke gamle jobber lenger mot grensen.
         var activeJobCutoffHours = _configuration.GetValue("CsvExport:Limits:ActiveJobCutoffHours", 24);
         var activeJobCutoff = DateTime.UtcNow.AddHours(-activeJobCutoffHours);
 
