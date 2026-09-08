@@ -182,7 +182,7 @@
       "svalbardBjørnøyaAndJanMayen": "Svalbard, Bjørnøya and Jan Mayen",
       "oceanAreas": "Ocean Areas"
     },
-    "taxonGroups": "Taxon Groups",
+    "taxonGroups": "Species Groups",
     "taxonTree": "Taxonomy Tree",
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
