@@ -39,7 +39,6 @@ import { createGeolocationControl, GeolocationMapControl } from './controls/geol
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {ObservationService} from '@shared/services/observation/observation.service';
 import {ObservationListComponent} from '@shared/components/observation-list.component/observation-list.component';
-import {HttpClient} from '@angular/common/http';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 

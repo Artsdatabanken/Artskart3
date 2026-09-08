@@ -8,20 +8,20 @@ enum Filters {
   Location= "location"
 }
 
-type TopLevelFilter = {
+interface TopLevelFilter {
   groupKeyId: string,
   registrationTypes: RegistrationTypeGroup[]
-};
+}
 
-type RegistrationTypeGroup = {
+interface RegistrationTypeGroup {
   registrationKeyId: string,
   species: SpeciesGroup[]
-};
+}
 
-type SpeciesGroup = {
+interface SpeciesGroup {
   speciesKeyId: string,
   registrations: string[]
-};
+}
 
 @Component({
   selector: 'app-observation-list',
