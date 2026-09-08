@@ -12,9 +12,9 @@ public class ObservationService(IObservationRepository observationService) : IOb
         return observation;
     }
 
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations(IEnumerable<int> locationIds)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations(IEnumerable<int> locationIds, CancellationToken cancellationToken = default)
     {
-        IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationByLocations(locationIds);
+        IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationByLocations(locationIds, cancellationToken);
         return observations;
     }
 }

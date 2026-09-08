@@ -28,11 +28,11 @@ public class ObservationController(IObservationService observationService, ILogg
     }
 
     [HttpPost]
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations(IEnumerable<int> locationIds)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations(IEnumerable<int> locationIds, CancellationToken cancellationToken = default)
     {
         try
         {
-            IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationsByLocations(locationIds);
+            IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationsByLocations(locationIds, cancellationToken);
             return observations;
         }
         catch (Exception e)

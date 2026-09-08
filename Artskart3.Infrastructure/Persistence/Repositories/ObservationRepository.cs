@@ -33,7 +33,8 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
         }
     }
 
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(IEnumerable<int> locationIds)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(IEnumerable<int> locationIds,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -56,7 +57,7 @@ public class ObservationRepository(IArtsKartDbContext context, ILogger<Observati
                     RegistrationType = o.Tags.Select(t => t.Name),
                     Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
             return observationListInfoDtos;
         }
         catch (Exception e)
