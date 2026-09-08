@@ -86,7 +86,13 @@
     "exportProcessing": "Eksporterer ({{percent}}%) - {{name}}",
     "exportPending": "Venter - {{name}}",
     "downloadFailed": "Kunne ikke laste ned filen. Prøv igjen senere.",
-    "failed": "Feilet"
+    "failed": "Feilet",
+    "actions": "Handlinger",
+    "cancelExport": "Avbryt",
+    "cancelExportLink": "Avbryt eksportjobb",
+    "cancelled": "Eksporten ble avbrutt.",
+    "cancelledLabel": "Avbrutt",
+    "cancelFailed": "Kunne ikke avbryte eksporten. Den kan allerede være ferdig."
   },
   "listView": {
     "name": "Populærnavn (nb)",

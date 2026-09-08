@@ -8,6 +8,7 @@ using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
+using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -436,44 +437,9 @@ public class SearchRepository : ISearchRepository
     }
     /// <summary>
     /// Returnerer ObservationId-er som matcher et gitt taxonId via ObservationTaxonHierarchy.
-    /// Slår opp taxonens rang og spør mot riktig kolonne i hierarkitabellen.
     /// </summary>
-    private IQueryable<int> GetObservationIdsByTaxonHierarchy(int taxonId)
-    {
-        var rankId = _taxonHierarchy.GetTaxonRankId(taxonId);
-        var h = _context.Set<ObservationTaxonHierarchy>();
-
-        return rankId switch
-        {
-            1  => h.Where(x => x.KingdomTaxonId == taxonId).Select(x => x.ObservationId),
-            2  => h.Where(x => x.SubkingdomTaxonId == taxonId).Select(x => x.ObservationId),
-            3  => h.Where(x => x.PhylumTaxonId == taxonId).Select(x => x.ObservationId),
-            4  => h.Where(x => x.SubphylumTaxonId == taxonId).Select(x => x.ObservationId),
-            5  => h.Where(x => x.SuperclassTaxonId == taxonId).Select(x => x.ObservationId),
-            6  => h.Where(x => x.ClassTaxonId == taxonId).Select(x => x.ObservationId),
-            7  => h.Where(x => x.SubclassTaxonId == taxonId).Select(x => x.ObservationId),
-            8  => h.Where(x => x.InfraclassTaxonId == taxonId).Select(x => x.ObservationId),
-            9  => h.Where(x => x.CohortTaxonId == taxonId).Select(x => x.ObservationId),
-            10 => h.Where(x => x.SuperorderTaxonId == taxonId).Select(x => x.ObservationId),
-            11 => h.Where(x => x.OrderTaxonId == taxonId).Select(x => x.ObservationId),
-            12 => h.Where(x => x.SuborderTaxonId == taxonId).Select(x => x.ObservationId),
-            13 => h.Where(x => x.InfraorderTaxonId == taxonId).Select(x => x.ObservationId),
-            14 => h.Where(x => x.SuperfamilyTaxonId == taxonId).Select(x => x.ObservationId),
-            15 => h.Where(x => x.FamilyTaxonId == taxonId).Select(x => x.ObservationId),
-            16 => h.Where(x => x.SubfamilyTaxonId == taxonId).Select(x => x.ObservationId),
-            17 => h.Where(x => x.TribeTaxonId == taxonId).Select(x => x.ObservationId),
-            18 => h.Where(x => x.SubtribeTaxonId == taxonId).Select(x => x.ObservationId),
-            19 => h.Where(x => x.GenusTaxonId == taxonId).Select(x => x.ObservationId),
-            20 => h.Where(x => x.SubgenusTaxonId == taxonId).Select(x => x.ObservationId),
-            21 => h.Where(x => x.SectionTaxonId == taxonId).Select(x => x.ObservationId),
-            22 => h.Where(x => x.SpeciesTaxonId == taxonId).Select(x => x.ObservationId),
-            23 => h.Where(x => x.SubspeciesTaxonId == taxonId).Select(x => x.ObservationId),
-            24 => h.Where(x => x.VarietyTaxonId == taxonId).Select(x => x.ObservationId),
-            25 => h.Where(x => x.FormTaxonId == taxonId).Select(x => x.ObservationId),
-            26 => h.Where(x => x.NotSetTaxonId == taxonId).Select(x => x.ObservationId),
-            _  => h.Where(x => x.ObservationId == -1).Select(x => x.ObservationId) // ukjent rang, tomt resultat
-        };
-    }
+    private IQueryable<int> GetObservationIdsByTaxonHierarchy(int taxonId) =>
+        ObservationQueryBuilder.GetObservationIdsByTaxonHierarchy(_context, _taxonHierarchy, taxonId);
 
     /// <summary>
     /// Henter områdemarkører (fylker/kommuner) gruppert etter navn med observasjonsantall.

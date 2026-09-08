@@ -254,7 +254,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.Status, "IX_CsvExportJob_Status");
             entity.HasIndex(e => e.UserId, "IX_CsvExportJob_UserId");
 
-            entity.Property(e => e.UserId).HasMaxLength(256);
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.Status).HasConversion<int>();
             entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
@@ -262,6 +261,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.BlobPath).HasMaxLength(500);
             entity.Property(e => e.ExcelBlobPath).HasMaxLength(500);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.Attempts).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<Fab4exclude>(entity =>

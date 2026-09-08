@@ -21,12 +21,18 @@ public class ExportService : IExportService
     private readonly IArtsKartDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly ExportColumnRegistry _columnRegistry;
+    private readonly ITaxonHierarchyService _taxonHierarchy;
 
-    public ExportService(IArtsKartDbContext context, IConfiguration configuration, ExportColumnRegistry columnRegistry)
+    public ExportService(
+        IArtsKartDbContext context,
+        IConfiguration configuration,
+        ExportColumnRegistry columnRegistry,
+        ITaxonHierarchyService taxonHierarchy)
     {
         _context = context;
         _configuration = configuration;
         _columnRegistry = columnRegistry;
+        _taxonHierarchy = taxonHierarchy;
     }
 
     public Task<IReadOnlyList<ExportColumnDefinition>> GetAvailableColumnsAsync()
@@ -74,7 +80,7 @@ public class ExportService : IExportService
         return string.IsNullOrEmpty(sanitized) ? "eksport" : sanitized;
     }
 
-    public async Task<int> StartExportAsync(string userId, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
+    public async Task<int> StartExportAsync(Guid userId, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
     {
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
         var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
@@ -83,13 +89,26 @@ public class ExportService : IExportService
         // Merk: dette er en TOCTOU-sjekk (les-så-skriv uten serializable transaksjon),
         // men med forventet lavt volum er race condition ikke et reelt problem.
         // Revurder hvis volumet øker vesentlig.
+        //
+        // Aldersgrensen er en nødutgang, ikke en finesse. Grensen telte tidligere
+        // ALLE jobber i Pending eller Processing uansett alder, og en jobb blir bare
+        // tatt hånd om hvis workeren faktisk kjører. Står workeren — og det er
+        // nøyaktig det som skjer når Hangfire-planleggeren ikke tikker — er tre
+        // jobber nok til å låse brukeren ute permanent, med «prøv igjen senere» som
+        // eneste tilbakemelding og en manuell databaseoppdatering som eneste utvei.
+        // Etter cutoff-en teller ikke gamle jobber lenger mot grensen.
+        var activeJobCutoffHours = _configuration.GetValue("CsvExport:Limits:ActiveJobCutoffHours", 24);
+        var activeJobCutoff = DateTime.UtcNow.AddHours(-activeJobCutoffHours);
+
         var activeJobCount = await _context.Set<CsvExportJob>()
             .CountAsync(j => j.UserId == userId &&
+                j.CreatedAt >= activeJobCutoff &&
                 (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing), cancellationToken);
 
         if (activeJobCount >= maxConcurrent)
             throw new InvalidOperationException(
-                $"Maks {maxConcurrent} samtidige eksportjobber per bruker.");
+                $"Maks {maxConcurrent} samtidige eksportjobber per bruker. " +
+                "Vent til en av dem er ferdig, eller avbryt en av dem i Mitt Artskart.");
 
         // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
         var query = BuildFilteredQuery(filter);
@@ -114,7 +133,7 @@ public class ExportService : IExportService
         return job.Id;
     }
 
-    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, string userId, CancellationToken cancellationToken)
+    public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, Guid userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
@@ -123,7 +142,7 @@ public class ExportService : IExportService
         return job == null ? null : MapToDto(job);
     }
 
-    public async Task<bool> CancelExportAsync(int jobId, string userId, CancellationToken cancellationToken)
+    public async Task<bool> CancelExportAsync(int jobId, Guid userId, CancellationToken cancellationToken)
     {
         // Atomisk oppdatering — unngår at workeren overskriver Complete med Cancelled
         var updated = await _context.Set<CsvExportJob>()
@@ -137,7 +156,7 @@ public class ExportService : IExportService
         return updated > 0;
     }
 
-    public async Task<string?> GetCsvBlobPathAsync(int jobId, string userId, CancellationToken cancellationToken)
+    public async Task<string?> GetCsvBlobPathAsync(int jobId, Guid userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
@@ -152,7 +171,7 @@ public class ExportService : IExportService
         return job.BlobPath;
     }
 
-    public async Task<string?> GetExcelBlobPathAsync(int jobId, string userId, CancellationToken cancellationToken)
+    public async Task<string?> GetExcelBlobPathAsync(int jobId, Guid userId, CancellationToken cancellationToken)
     {
         var job = await _context.Set<CsvExportJob>()
             .AsNoTracking()
@@ -167,7 +186,7 @@ public class ExportService : IExportService
         return job.ExcelBlobPath;
     }
 
-    public async Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(string userId, CancellationToken cancellationToken)
+    public async Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(Guid userId, CancellationToken cancellationToken)
     {
         var jobs = await _context.Set<CsvExportJob>()
             .AsNoTracking()
@@ -182,7 +201,7 @@ public class ExportService : IExportService
     private IQueryable<Observation> BuildFilteredQuery(ObservationSearchFilterDto filter)
     {
         var query = _context.Set<Observation>().AsNoTracking();
-        return ObservationQueryBuilder.ApplyFilters(_context, query, filter);
+        return ObservationQueryBuilder.ApplyFilters(_context, _taxonHierarchy, query, filter);
     }
 
     private static CsvExportJobDto MapToDto(CsvExportJob job) => new()

@@ -5,7 +5,8 @@ import { ObservationService } from '../../services/observation/observation.servi
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
+import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { SearchFilterService } from '../../services/search-filter/search-filter.service';
 import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
@@ -26,6 +27,7 @@ export class ListViewComponent {
   private readonly categoryService = inject(CategoryService);
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly filterState = inject(FilterStateService);
+  private readonly searchFilter = inject(SearchFilterService);
 
   private readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -98,44 +100,16 @@ export class ListViewComponent {
   readonly pageSizeOptions = [10, 25, 50];
   readonly resultsPerPage = signal(this.pageSizeOptions[0]);
 
+  /**
+   * Selve filteret bygges i SearchFilterService, som deles med eksporten. Her
+   * legges kun pagineringen på — den er unik for listevisningen.
+   */
   private readonly searchParams = computed<ObservationSearchFilter>(
-    () => {
-      const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
-      const coordinatePrecisionFrom = this.filterState.coordinatePrecisionFrom();
-      const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
-      const periodFrom = this.filterState.periodFrom();
-      const periodTo = this.filterState.periodTo();
-      const periodMonths = this.filterState.selectedMonths();
-      const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-      const datasetOrgId = this.filterState.datasetOrgId();
-      const projectOrgId = this.filterState.projectOrgId();
-      const catalogObservationIds = this.filterState.catalogObservationIds();
-      const withImages = imageFilterToWithImages(this.filterState.imageFilter());
-      const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
-
-      return {
-        pageNumber: this.pageNumber(),
-        resultsPerPage: this.resultsPerPage(),
-        categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
-        organizationIds: this.filterState.selectedInstitutionIds().length ? this.filterState.selectedInstitutionIds() : undefined,
-        behaviorIds: this.filterState.selectedBehaviorIds().length ? this.filterState.selectedBehaviorIds() : undefined,
-        basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length ? this.filterState.selectedBasisOfRecordIds() : undefined,
-        registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
-        taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
-        taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
-        countyIds: countyIds.length ? countyIds : undefined,
-        municipalityIds: municipalityIds.length ? municipalityIds : undefined,
-        oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
-        coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        datasetOrgId: datasetOrgId ?? undefined,
-        projectOrgId: projectOrgId ?? undefined,
-        observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
-        withImages: withImages,
-        period: hasPeriod
-          ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
-          : undefined,
-      };
-    },
+    () => ({
+      ...this.searchFilter.observationFilter(),
+      pageNumber: this.pageNumber(),
+      resultsPerPage: this.resultsPerPage(),
+    }),
     { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
   );
 
