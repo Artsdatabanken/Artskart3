@@ -7,12 +7,12 @@ import { SharedModule } from '../../shared/shared.module';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
-import { FilterStateService, imageFilterToWithImages } from '../../shared/services/filter-state/filter-state.service';
-import { AreaService } from '../../shared/services/area/area.service';
+import { SearchFilterService } from '../../shared/services/search-filter/search-filter.service';
 import { ExportService } from '../../shared/services/export/export.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
 import { AuthService } from '../../shared/services/auth/auth.service';
 import { ObservationSearchFilter } from '../../shared/types/api.types';
+import { apiErrorMessage } from '../../shared/utils/api-error';
 import { FormatNumberPipe } from '../../shared/pipes/format-number.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 import { FormsModule } from '@angular/forms';
@@ -29,8 +29,7 @@ const SKIP_EXPORT_INFO_KEY = 'artskart.export.skipInfoModal';
 })
 export class HomeComponent {
   private readonly document = inject(DOCUMENT);
-  private readonly filterState = inject(FilterStateService);
-  private readonly areaService = inject(AreaService);
+  private readonly searchFilter = inject(SearchFilterService);
   private readonly exportService = inject(ExportService);
   protected readonly translate = inject(TranslateService);
   readonly alertService = inject(AlertService);
@@ -117,10 +116,12 @@ export class HomeComponent {
         this.exporting.set(true);
         this.startExportWithName(filter, name);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.summaryLoading.set(false);
         this.showNameModal.set(false);
-        this.alertService.showError(this.translate.instant('export.summaryFailed'));
+        this.alertService.showError(
+          apiErrorMessage(error, this.translate.instant('export.summaryFailed')),
+        );
       },
     });
   }
@@ -208,64 +209,34 @@ export class HomeComponent {
         this.exportService.trackExport(response.jobId);
 
         const skipInfo = localStorage.getItem(SKIP_EXPORT_INFO_KEY) === 'true';
-        if (!skipInfo) {
+        if (skipInfo) {
+          // Har brukeren huket av «ikke vis igjen», sto det tidligere ingenting
+          // igjen som bekreftet at eksporten faktisk ble startet — vellykket
+          // start så nøyaktig ut som ingenting.
+          this.alertService.showSuccess(this.translate.instant('export.started', { jobId: response.jobId }));
+        } else {
           this.showInfoModal.set(true);
         }
       },
-      error: () => {
+      error: (error: unknown) => {
         this.exporting.set(false);
-        this.alertService.showError(this.translate.instant('export.startFailed'));
+        // Serveren har en konkret grunn — for mange samtidige jobber, for mange
+        // rader, utløpt sesjon. Den skal vises, ikke erstattes med «prøv igjen
+        // senere», som gjorde alle tre umulige å skille fra hverandre.
+        this.alertService.showError(
+          apiErrorMessage(error, this.translate.instant('export.startFailed')),
+        );
       },
     });
   }
 
+  /**
+   * Eksporten skal bruke NØYAKTIG samme filter som listevisningen søker med.
+   * Filteret bygges derfor i SearchFilterService — her lå det tidligere en egen
+   * kopi som manglet `taxonIds` og `registrationStatusId`.
+   */
   private buildFilter(): ObservationSearchFilter {
-    const { countyIds, municipalityIds } = this.areaService.resolvedAreaFilter();
-    const coordinatePrecisionFrom = this.filterState.coordinatePrecisionFrom();
-    const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
-    const periodFrom = this.filterState.periodFrom();
-    const periodTo = this.filterState.periodTo();
-    const periodMonths = this.filterState.selectedMonths();
-    const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
-    const datasetOrgId = this.filterState.datasetOrgId();
-    const projectOrgId = this.filterState.projectOrgId();
-    const catalogObservationIds = this.filterState.catalogObservationIds();
-    const withImages = imageFilterToWithImages(this.filterState.imageFilter());
-    const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
-
-    return {
-      categoryIds: this.filterState.selectedCategoryIds().length
-        ? this.filterState.selectedCategoryIds()
-        : undefined,
-      organizationIds: this.filterState.selectedInstitutionIds().length
-        ? this.filterState.selectedInstitutionIds()
-        : undefined,
-      behaviorIds: this.filterState.selectedBehaviorIds().length
-        ? this.filterState.selectedBehaviorIds()
-        : undefined,
-      basisOfRecordIds: this.filterState.selectedBasisOfRecordIds().length
-        ? this.filterState.selectedBasisOfRecordIds()
-        : undefined,
-      taxonGroupIds: this.filterState.selectedTaxonGroupIds().length
-        ? this.filterState.selectedTaxonGroupIds()
-        : undefined,
-      countyIds: countyIds.length ? countyIds : undefined,
-      municipalityIds: municipalityIds.length ? municipalityIds : undefined,
-      oceanAreaIds: this.filterState.selectedOceanAreaIds().length
-        ? this.filterState.selectedOceanAreaIds()
-        : undefined,
-      coordinatePrecision: hasCoordinatePrecision
-        ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo }
-        : undefined,
-
-      datasetOrgId: datasetOrgId ?? undefined,
-      projectOrgId: projectOrgId ?? undefined,
-      observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
-      withImages: withImages,
-      period: hasPeriod
-        ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
-        : undefined,
-    };
+    return this.searchFilter.observationFilter();
   }
 
   private getCSSVar(name: string, fallback: number): number {

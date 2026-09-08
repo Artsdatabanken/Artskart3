@@ -86,7 +86,13 @@
     "exportProcessing": "Exporting ({{percent}}%) - {{name}}",
     "exportPending": "Pending - {{name}}",
     "downloadFailed": "Could not download the file. Please try again later.",
-    "failed": "Failed"
+    "failed": "Failed",
+    "actions": "Actions",
+    "cancelExport": "Cancel",
+    "cancelExportLink": "Cancel export job",
+    "cancelled": "The export was cancelled.",
+    "cancelledLabel": "Cancelled",
+    "cancelFailed": "Could not cancel the export. It may already have finished."
   },
   "listView": {
     "name": "Species name",

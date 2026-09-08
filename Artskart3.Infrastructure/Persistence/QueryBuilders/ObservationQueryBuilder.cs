@@ -1,9 +1,11 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 
@@ -17,11 +19,13 @@ public static class ObservationQueryBuilder
 
     public static IQueryable<Observation> ApplyFilters(
         IArtsKartDbContext context,
+        ITaxonHierarchyService taxonHierarchy,
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter)
     {
         query = ApplyTextFilters(query, filter);
         query = ApplyDirectFilters(query, filter);
+        query = ApplyTaxonFilter(context, taxonHierarchy, query, filter);
         query = ApplyIdentifierFilters(context, query, filter);
         query = ApplyAreaFilters(context, query, filter);
         query = ApplyRangeFilters(query, filter);
@@ -29,18 +33,65 @@ public static class ObservationQueryBuilder
         return query;
     }
 
-    /// <summary>
-    /// Samling, prosjekt/datasett og katalognummer.
-    ///
-    /// Disse manglet i eksportstien. Konsekvensen var ikke en for stor eksport, men
-    /// en avvist en: forhåndstellingen i ExportService talte alle 61M observasjoner
-    /// og traff radgrensen, så en bruker som hadde filtrert ned til tre treff fikk
-    /// «Antall rader overstiger grensen» i stedet for en fil.
-    ///
-    /// MERK at TaxonIds, RegistrationStatusId og WithImages fortsatt mangler her —
-    /// det er en eldre avvikelse mot SearchRepository.ApplyCommonFilters, ikke noe
-    /// CompleteFilter innførte, og den er ikke rettet i denne omgang.
-    /// </summary>
+    private static IQueryable<Observation> ApplyTaxonFilter(
+        IArtsKartDbContext context,
+        ITaxonHierarchyService taxonHierarchy,
+        IQueryable<Observation> query,
+        ObservationSearchFilterDto filter)
+    {
+        if (filter.TaxonIds?.Any() != true)
+            return query;
+
+        IQueryable<int>? combinedQuery = null;
+        foreach (var taxonId in filter.TaxonIds)
+        {
+            var subquery = GetObservationIdsByTaxonHierarchy(context, taxonHierarchy, taxonId);
+            combinedQuery = combinedQuery == null ? subquery : combinedQuery.Union(subquery);
+        }
+
+        return query.Where(o => combinedQuery!.Contains(o.Id));
+    }
+
+    public static IQueryable<int> GetObservationIdsByTaxonHierarchy(
+        IArtsKartDbContext context,
+        ITaxonHierarchyService taxonHierarchy,
+        int taxonId)
+    {
+        var rankId = taxonHierarchy.GetTaxonRankId(taxonId);
+        var h = context.Set<ObservationTaxonHierarchy>();
+
+        return rankId switch
+        {
+            1  => h.Where(x => x.KingdomTaxonId == taxonId).Select(x => x.ObservationId),
+            2  => h.Where(x => x.SubkingdomTaxonId == taxonId).Select(x => x.ObservationId),
+            3  => h.Where(x => x.PhylumTaxonId == taxonId).Select(x => x.ObservationId),
+            4  => h.Where(x => x.SubphylumTaxonId == taxonId).Select(x => x.ObservationId),
+            5  => h.Where(x => x.SuperclassTaxonId == taxonId).Select(x => x.ObservationId),
+            6  => h.Where(x => x.ClassTaxonId == taxonId).Select(x => x.ObservationId),
+            7  => h.Where(x => x.SubclassTaxonId == taxonId).Select(x => x.ObservationId),
+            8  => h.Where(x => x.InfraclassTaxonId == taxonId).Select(x => x.ObservationId),
+            9  => h.Where(x => x.CohortTaxonId == taxonId).Select(x => x.ObservationId),
+            10 => h.Where(x => x.SuperorderTaxonId == taxonId).Select(x => x.ObservationId),
+            11 => h.Where(x => x.OrderTaxonId == taxonId).Select(x => x.ObservationId),
+            12 => h.Where(x => x.SuborderTaxonId == taxonId).Select(x => x.ObservationId),
+            13 => h.Where(x => x.InfraorderTaxonId == taxonId).Select(x => x.ObservationId),
+            14 => h.Where(x => x.SuperfamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            15 => h.Where(x => x.FamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            16 => h.Where(x => x.SubfamilyTaxonId == taxonId).Select(x => x.ObservationId),
+            17 => h.Where(x => x.TribeTaxonId == taxonId).Select(x => x.ObservationId),
+            18 => h.Where(x => x.SubtribeTaxonId == taxonId).Select(x => x.ObservationId),
+            19 => h.Where(x => x.GenusTaxonId == taxonId).Select(x => x.ObservationId),
+            20 => h.Where(x => x.SubgenusTaxonId == taxonId).Select(x => x.ObservationId),
+            21 => h.Where(x => x.SectionTaxonId == taxonId).Select(x => x.ObservationId),
+            22 => h.Where(x => x.SpeciesTaxonId == taxonId).Select(x => x.ObservationId),
+            23 => h.Where(x => x.SubspeciesTaxonId == taxonId).Select(x => x.ObservationId),
+            24 => h.Where(x => x.VarietyTaxonId == taxonId).Select(x => x.ObservationId),
+            25 => h.Where(x => x.FormTaxonId == taxonId).Select(x => x.ObservationId),
+            26 => h.Where(x => x.NotSetTaxonId == taxonId).Select(x => x.ObservationId),
+            _  => h.Where(x => x.ObservationId == -1).Select(x => x.ObservationId) // ukjent rang, tomt resultat
+        };
+    }
+
     private static IQueryable<Observation> ApplyIdentifierFilters(
         IArtsKartDbContext context,
         IQueryable<Observation> query,
@@ -108,6 +159,36 @@ public static class ObservationQueryBuilder
 
         if (filter.BasisOfRecordIds?.Any() == true)
             query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
+
+        // Registreringsstatus er ikke en egen kolonne, men utledes av tagger.
+        // Verdiene speiler SearchRepository.ApplyCommonFilters én-til-én:
+        //   1 = funnet (alt som verken er «ikke gjenfunnet» eller «ikke registrert»)
+        //   2 = ikke registrert (Absent)
+        //   3 = ikke gjenfunnet (NotRecovered)
+        // Merk at 1 er et NEGATIVT vilkår. Manglet filteret i eksporten, fikk man
+        // altså med nettopp de radene brukeren hadde filtrert bort.
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            switch (filter.RegistrationStatusId.Value)
+            {
+                case 1:
+                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
+                    break;
+                case 2:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
+                    break;
+                case 3:
+                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
+                    break;
+            }
+        }
+
+        if (filter.WithImages.HasValue)
+        {
+            query = filter.WithImages.Value
+                ? query.Where(o => o.MediaFiles.Any())
+                : query.Where(o => !o.MediaFiles.Any());
+        }
 
         return query;
     }

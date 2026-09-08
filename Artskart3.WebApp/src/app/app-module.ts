@@ -11,6 +11,7 @@ import { LayoutsModule } from './layouts/layouts.module';
 import { DesignComponent } from './shared/components/design.component/design.component';
 import { languageInterceptor } from './shared/interceptors/language.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
+import { unauthorizedInterceptor } from './shared/interceptors/unauthorized.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { LoggingService } from './shared/logging.service';
@@ -61,7 +62,7 @@ export function initializeLanguageFactory(languageService: LanguageService) {
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withXhr(), withInterceptors([languageInterceptor, csrfInterceptor])),
+    provideHttpClient(withXhr(), withInterceptors([languageInterceptor, csrfInterceptor, unauthorizedInterceptor])),
     AreasService,
     {
       provide: TitleStrategy,

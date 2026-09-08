@@ -5,7 +5,7 @@ namespace Artskart3.Core.Domain.Entities;
 
 public class CsvExportJob : BaseEntity
 {
-    public string UserId { get; set; } = null!;
+    public Guid UserId { get; set; }
 
     public string? Name { get; set; }
 
@@ -38,4 +38,6 @@ public class CsvExportJob : BaseEntity
     public DateTime? ExpiresAt { get; set; }
 
     public string? ErrorMessage { get; set; }
+
+    public int Attempts { get; set; }
 }
