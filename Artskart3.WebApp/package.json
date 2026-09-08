@@ -29,12 +29,12 @@
   "private": true,
   "packageManager": "npm@10.9.2",
   "dependencies": {
-    "@angular/common": "^21.1.0",
-    "@angular/compiler": "^21.1.0",
-    "@angular/core": "^21.1.0",
-    "@angular/forms": "^21.1.0",
-    "@angular/platform-browser": "^21.1.0",
-    "@angular/router": "^21.1.0",
+    "@angular/common": "^22.1.4",
+    "@angular/compiler": "^22.1.4",
+    "@angular/core": "^22.1.4",
+    "@angular/forms": "^22.1.4",
+    "@angular/platform-browser": "^22.1.4",
+    "@angular/router": "^22.1.4",
     "@artsdatabanken/components": "^1.4.2",
     "@artsdatabanken/tokens": "^1.1.6",
     "@artsdatabanken/nbic-map-component": "0.3.0",
@@ -48,30 +48,34 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@angular/build": "^21.1.4",
-    "@angular/cli": "^21.1.4",
-    "@angular/compiler-cli": "^21.1.0",
+    "@angular/build": "^22.1.6",
+    "@angular/cli": "^22.1.6",
+    "@angular/compiler-cli": "^22.1.4",
     "@eslint/js": "^10.0.1",
-    "angular-eslint": "21.3.1",
-    "eslint": "^10.0.3",
+    "angular-eslint": "^22.2.0",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^27.1.0",
     "openapi-typescript": "^7.13.0",
-    "typescript": "~5.9.2",
-    "typescript-eslint": "8.56.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^4.0.8"
   },
   "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "4.60.3",
-    "@rollup/rollup-linux-x64-gnu": "4.60.3",
-    "@rollup/rollup-win32-x64-msvc": "4.60.3"
+    "@rollup/rollup-darwin-arm64": "4.63.1",
+    "@rollup/rollup-linux-x64-gnu": "4.63.1",
+    "@rollup/rollup-win32-x64-msvc": "4.63.1"
   },
   "allowScripts": {
-    "lmdb@3.5.1": true,
     "msgpackr-extract@3.0.4": true,
     "fsevents@2.3.3": true,
-    "esbuild@0.27.7": true,
-    "esbuild@0.28.1": true,
-    "@parcel/watcher@2.6.0": true
+    "@parcel/watcher@2.6.0": true,
+    "esbuild@0.28.2": true,
+    "lmdb@3.5.6": true
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   }
 }

@@ -103,7 +103,7 @@
     "noResults": "No observations found"
   },
   "sidebar": {
-    "categories": "Red List and Alien Species Categories",
+    "categories": "Red List- and Alien Species Categories",
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
@@ -116,7 +116,7 @@
     "coordinatePrecisionFrom": "From (meters)",
     "coordinatePrecisionTo": "To (meters)",
     "coordinatePrecisionSearch": "Search",
-    "period": "Period",
+    "period": "Periods",
     "periodFrom": "From year",
     "periodTo": "To year",
     "periodSearch": "Search",
@@ -135,8 +135,8 @@
       "november": "November",
       "december": "December"
     },
-    "institutions": "Data Supplier",
-    "behaviors": "Habitat and Species Properties",
+    "institutions": "Data Suppliers",
+    "behaviors": "Activities",
     "behaviorName": {
       "dead": "Dead",
       "feeding": "Foraging",
@@ -145,7 +145,7 @@
       "reproductive": "Reproductive",
       "stationary": "Stationary"
     },
-    "basisOfRecords": "Basis of Record",
+    "basisOfRecords": "Basis of Records",
     "basisOfRecordName": {
       "assessment": "Assessment",
       "carcassobservation": "Carcass observation",
@@ -183,6 +183,8 @@
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
     "chipPeriod": "Period: {{from}} - {{to}}",
     "noSearchResults": "No results",
+    "searchResults": "Search results",
+    "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
       "Kingdom": "Kingdom",
       "Subkingdom": "Subkingdom",
@@ -210,7 +212,7 @@
       "Cultivar": "Cultivar",
       "Sphere": "Sphere"
     },
-    "otherProperties": "Other find properties",
+    "otherProperties": "Other Occurance Properties",
     "project": "Project",
     "dataset": "Dataset",
     "catalogNumber": "Id / catalog number",
