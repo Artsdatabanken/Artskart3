@@ -8,18 +8,14 @@ namespace Artskart3.Infrastructure.Migrations;
 /// Indeks på Observation.DatasetOrgId — samme grep som
 /// 20260904114820_AddObservationInstitutionOrgIdIndex, for samme spørreform.
 ///
-/// DateTimeCollected er med som INCLUDE-kolonne av samme grunn som der: uten den
-/// må planen gjøre et key lookup per kandidatrad bare for å teste periodefilteret.
-/// Se institusjonsmigrasjonen for hvorfor datoen ikke kan være nøkkelkolonne.
+/// DateTimeCollected er nøkkelkolonne nummer to, av samme grunn som der: det gir
+/// seek på datasettet og bakoverskann i datorekkefølge, uten sortering.
 ///
-/// Målt på 61 052 216 rader, datasett + periode 2020-2024, før INCLUDE:
-///   so2-birds (29,2M obs)                 2 364 ms
-///   import hos GBIF-noder (4,7M obs)      2 539 ms
-///   so2-vascular (4,3M obs)               2 002 ms
-///   dnv (2,2M obs)                        2 858 ms
 /// Datasettfilteret er skjevere enn institusjon — 1 862 av 1 908 datasett har
-/// under 100 000 observasjoner — så dette treffer nesten hvert datasett en bruker
-/// kan velge i typeaheaden.
+/// under 100 000 observasjoner, det minste har 1 — så nesten hvert datasett en
+/// bruker kan velge i typeaheaden ligger i det tunge området. Målt før noen
+/// indeks fantes: 2 002 til 2 858 ms for de fire største datasettene, og
+/// 5 063 ms for det minste.
 /// </summary>
 public partial class AddObservationDatasetOrgIdIndex : Migration
 {
@@ -38,8 +34,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes
                  AND object_id = OBJECT_ID('dbo.Observation'))
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Observation_DatasetOrgId
-    ON dbo.Observation (DatasetOrgId)
-    INCLUDE (DateTimeCollected)
+    ON dbo.Observation (DatasetOrgId, DateTimeCollected)
     WITH (DATA_COMPRESSION = PAGE, MAXDOP = 4);
 END
 ", suppressTransaction: true);

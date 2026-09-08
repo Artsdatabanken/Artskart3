@@ -7,6 +7,7 @@ using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -144,13 +145,28 @@ public class SearchRepository : ISearchRepository
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
+        // Taggen plukkes opp av RecompileHintInterceptor, som legger på
+        // OPTION (RECOMPILE). Uten den gjenbrukes én plan på tvers av
+        // filterverdier som spenner flere størrelsesordener — se interceptoren
+        // for målingene.
         var query = _context.Set<Observation>()
-                            .AsNoTracking();
+                            .AsNoTracking()
+                            .TagWith(RecompileHintInterceptor.Tag);
 
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
         query = ApplyCommonFilters(query, filter);
 
-        query = query.OrderBy(o => o.Id);
+        // Nyeste funn først. Id er med som sekundærnøkkel fordi DateTimeCollected
+        // ikke er unik — uten den kan OFFSET/FETCH gi samme rad på to sider, eller
+        // hoppe over en, uten at dataene har endret seg. Id er unik, så paret er en
+        // total ordning og pagineringen blir stabil.
+        //
+        // Sorteringen er ikke gratis: for hvert filter som brukes alene må det
+        // finnes en indeks på (filterkolonne, DateTimeCollected), ellers må planen
+        // sortere hele treffmengden for å plukke 40. Se indeksene med dato som
+        // andre nøkkelkolonne — de er forutsetningen for at dette er raskt.
+        query = query.OrderByDescending(o => o.DateTimeCollected)
+                     .ThenByDescending(o => o.Id);
 
         if (filter.IsPaginated)
         {

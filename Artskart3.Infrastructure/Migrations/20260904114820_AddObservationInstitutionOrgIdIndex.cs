@@ -8,25 +8,22 @@ namespace Artskart3.Infrastructure.Migrations;
 /// Indeks på Observation.InstitutionOrgId — gjør institusjonsfilteret i
 /// listevisningen til et seek i stedet for et fullt tabellskann.
 ///
-/// DateTimeCollected er med som INCLUDE-kolonne, ikke nøkkelkolonne. Uten den
-/// måtte planen gjøre et key lookup mot klyngeindeksen for hver kandidatrad bare
-/// for å lese datoen og teste periodefilteret. Med den evalueres periodepredikatet
-/// direkte i indeksen, og oppslagene forsvinner.
+/// DateTimeCollected er NØKKELkolonne nummer to, ikke INCLUDE. Listevisningen
+/// sorterer nyeste først (SearchRepository), og med denne rekkefølgen kan planen
+/// seeke på institusjonen og så gå BAKOVER gjennom datoene innenfor den — ferdig
+/// sortert, uten Sort-operator. Er datoen bare INCLUDE, må hele treffmengden
+/// sorteres for å plukke 40.
 ///
-/// Nøkkelen er fortsatt bare InstitutionOrgId. Datoen kan ikke være nøkkelkolonne:
-/// periodefilteret er et OMRÅDEpredikat, og et område på andre nøkkelkolonne ville
-/// ødelagt Id-rekkefølgen listevisningen sorterer på.
+/// Forskjellen er ikke marginal. Målt på 61 052 216 rader, institusjon alene,
+/// nyeste først, uten og med dato som nøkkelkolonne:
+///   Havforskningsinstituttet (480 402 obs)   23 294 ms ->  1 ms
+///   Norges miljø- og biovitensk. (149 720)    9 465 ms ->  3 ms
+///   Universitetsmuseet i Bergen (602 804)     2 687 ms ->  4 ms
+///   Birdlife Norge (29,2M)                    2 120 ms ->  3 ms
 ///
-/// Målt på 61 052 216 rader, institusjon + periode 2020-2024:
-///   Birdlife Norge (29,2M obs)      2 339 ms -> 936 ms
-///   Miljødirektoratet (2,27M obs)   1 924 ms ->   3 ms
-///   Naturhistorisk Museum (4,2M)             ->  52 ms
-///   GBIF-noder utenfor Norge (4,7M)          ->   5 ms
-/// Institusjon uten periode er uendret på 1-11 ms.
-///
-/// Birdlife blir liggende på ~936 ms fordi institusjonen alene er 48 % av tabellen
-/// — selv et rent indeksskann må da lese langt. Alt under ~5M observasjoner faller
-/// til tosifrede millisekunder.
+/// MERK REKKEFØLGEN: sorteringen i koden og denne indeksen hører sammen. Ruller
+/// man tilbake denne migrasjonen uten å endre sorteringen, faller listevisningen
+/// tilbake til tallene i venstre kolonne.
 ///
 /// INCLUDE-kolonnen koster 462 MB -> 600 MB.
 /// </summary>
@@ -47,8 +44,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes
                  AND object_id = OBJECT_ID('dbo.Observation'))
 BEGIN
     CREATE NONCLUSTERED INDEX IX_Observation_InstitutionOrgId
-    ON dbo.Observation (InstitutionOrgId)
-    INCLUDE (DateTimeCollected)
+    ON dbo.Observation (InstitutionOrgId, DateTimeCollected)
     WITH (DATA_COMPRESSION = PAGE, MAXDOP = 4);
 END
 ", suppressTransaction: true);
