@@ -41,17 +41,6 @@ export class ObservationListComponent {
     this.currentFilter.set(filter);
   }
 
-  filterBy = computed(() => {
-    switch (this.currentFilter()) {
-      case Filters.TaxonGroup:
-        return "taxonGroup";
-      case Filters.Category:
-        return "category";
-      case Filters.Location:
-        return "location";
-    }
-  })
-
   public getTopLevelGroups(observationList: ObservationListInfoDto[]) {
     const topLevelMap = new Map<string, Map<string, Map<string, string[]>>>();
 
@@ -85,7 +74,6 @@ export class ObservationListComponent {
         .map(([registrationKeyId, speciesMap]) => ({
           registrationKeyId,
           species: Array.from(speciesMap.entries()).sort(([a], [b]) => a.localeCompare(b))
-          .sort(([a], [b]) => a.localeCompare(b))
           .map(([speciesKeyId, registrations]) => ({
             speciesKeyId,
             registrations: registrations.map(String).sort((a, b) => a.localeCompare(b))
@@ -96,14 +84,14 @@ export class ObservationListComponent {
   }
 
   private getRegistrationType(observation: ObservationListInfoDto): string {
-    switch (observation.registrationType) {
-      case observation.registrationType?.includes("Absent"):
-        return "Ikke funnet";
-      case observation.registrationType?.includes("NotRecovered"):
-        return "Ikke gjenfunnet";
-      default:
-        return "Funnet";
+    const types = observation.registrationType ?? [];
+    if(types.includes("Absent")) {
+      return "Ikke funnet";
     }
+    if(types.includes("NotRecovered")) {
+      return "Ikke gjenfunnet";
+    }
+    return "Funnet";
   }
 
   private getFilterKey(observation: ObservationListInfoDto): string {

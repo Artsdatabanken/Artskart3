@@ -91,6 +91,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     requests: { dataZoomLevel: number; apiZoomLevel: number; visible: boolean }[];
     extent: [number, number, number, number];
   }>();
+  private locationClick$ = new Subject<number[]>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
@@ -205,6 +206,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.map.on(MapEvents.PointerClick, (payload) => {
         this.handlePointerClick(payload);
       })
+      this.locationClick$
+        .pipe(
+          switchMap(ids =>
+            this.observationService.getObservationByLocation(ids).pipe(
+              catchError((err: unknown) => {
+                this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
+                this.showObservationList.set(false);
+                return EMPTY;
+              })
+            )
+          ),
+          takeUntil(this.destroy$)
+        )
+        .subscribe(observations => {
+          this.observationList.set(observations);
+          this.showObservationList.set(true);
+        });
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
@@ -555,20 +573,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
 
     const ids = [...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined);
-
-    this.observationService.getObservationByLocation(ids)
-      .pipe(
-        tap(observations => {
-          this.observationList.set(observations);
-          this.showObservationList.set(true);
-        }),
-        catchError((err: unknown) => {
-          this.logger.error("failed to fetch observations", ids?.toString(), err);
-          return EMPTY;
-        }),
-        takeUntil(this.destroy$)
-      )
-      .subscribe();
+    this.locationClick$.next(ids);
   }
 
 
