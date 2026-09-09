@@ -26,14 +26,25 @@ namespace Artskart3.Infrastructure.Migrations;
 /// Institusjon og datasett får det samme, men i sine egne migrasjoner
 /// (20260904114820 og 20260904122248) fordi de indeksene ble opprettet der.
 ///
-/// IX_OEI_Entity_Date er ny og dekker områdefiltrene. Den ble bygget for at planen
-/// skulle kunne seeke et område og gå bakover i den denormaliserte datoen der.
-/// MERK AT DEN IKKE BLE TATT I BRUK: i målingene sto den med null seeks, fordi
-/// EF skriver områdefilteret som EXISTS med Observation som drivende tabell.
-/// Den er tatt med her likevel fordi områdefiltrene er raske som de er (32 ms i
-/// snitt) og fordi den er forutsetningen hvis spørringen senere skrives om til å
-/// drive fra indekstabellen. Vurder å droppe den hvis den fortsatt står ubrukt
-/// etter en periode i produksjon — den koster ~1,5 GB.
+/// OMRÅDEFILTRENE ER IKKE MED HER, OG DET ER PRØVD UT.
+/// Det ble bygget en indeks IX_OEI_Entity_Date på
+/// ObservationEntityIndex (EntityTypeId, EntityId, DateTimeCollected, ObservationId)
+/// for at planen skulle kunne seeke et område og gå bakover i den denormaliserte
+/// datoen der. Selve formen virker — målt isolert ga den 2 ms mot 169 ms for
+/// EXISTS-formen — men optimalisereren valgte den aldri: EF skriver områdefilteret
+/// som EXISTS med Observation som drivende tabell, og både EXISTS og
+/// IN (SELECT ...) normaliseres til samme semi-join.
+///
+/// Indeksen sto med 2 seeks over 181 benchmark-case, og de to ble absorbert av
+/// IX_ObservationEntityIndex_EntityLookup da den ble droppet. Å droppe den
+/// endret ingenting: Geografi-gruppen lå på 32 ms både med og uten, og
+/// «Kommune lettest (Sørreisa)» på 39 ms begge veier. Den kostet 1 358,9 MB.
+///
+/// Skal områdefilteret senere skrives om til å drive fra indekstabellen — et
+/// eksplisitt totrinns oppslag, ikke en LINQ-omskriving — må indeksen bygges på
+/// nytt. Det tar ~5,5 minutter. Merk at et slikt oppslag må håndtere duplikater:
+/// en observasjon som ligger både i en valgt kommune og i fylket over, treffer to
+/// rader i indekstabellen.
 ///
 /// MERK OGSÅ: MonthCollected-indeksen hjelper bare delvis. Månedsfilteret bruker
 /// DATEPART på DateTimeCollected og treffer derfor ikke kolonnen; selv om det
@@ -50,9 +61,9 @@ public partial class AddListViewDateSortIndexes : Migration
         // stedet for drop + create.
         //
         // suppressTransaction av samme grunn som de andre indeksmigrasjonene:
-        // hver av disse går over 61M rader (134M for IX_OEI_Entity_Date) og tar
-        // 1-6 minutter. En så lang operasjon inne i migrasjonstransaksjonen
-        // hindrer avkorting av transaksjonsloggen mens den pågår.
+        // hver av disse går over 61M rader og tar omtrent ett minutt. En så lang
+        // operasjon inne i migrasjonstransaksjonen hindrer avkorting av
+        // transaksjonsloggen mens den pågår.
         //
         // PAGE-komprimering beholdes — det er slik indeksene var fra før.
         migrationBuilder.Sql(@"
@@ -85,18 +96,6 @@ ON dbo.Observation (TaxonId, DateTimeCollected)
 WITH (DROP_EXISTING = ON, DATA_COMPRESSION = PAGE, MAXDOP = 4);
 ", suppressTransaction: true);
 
-        // Ny indeks. IF NOT EXISTS fordi bygget over 134M rader tar ~5,5 minutter
-        // og kan bli avbrutt uten at historikkraden rekker å bli skrevet.
-        migrationBuilder.Sql(@"
-IF NOT EXISTS (SELECT 1 FROM sys.indexes
-               WHERE name = 'IX_OEI_Entity_Date'
-                 AND object_id = OBJECT_ID('dbo.ObservationEntityIndex'))
-BEGIN
-    CREATE NONCLUSTERED INDEX IX_OEI_Entity_Date
-    ON dbo.ObservationEntityIndex (EntityTypeId, EntityId, DateTimeCollected, ObservationId)
-    WITH (DATA_COMPRESSION = PAGE, MAXDOP = 4);
-END
-", suppressTransaction: true);
     }
 
     /// <inheritdoc />
@@ -134,13 +133,5 @@ ON dbo.Observation (TaxonId)
 WITH (DROP_EXISTING = ON, DATA_COMPRESSION = PAGE, MAXDOP = 4);
 ", suppressTransaction: true);
 
-        migrationBuilder.Sql(@"
-IF EXISTS (SELECT 1 FROM sys.indexes
-           WHERE name = 'IX_OEI_Entity_Date'
-             AND object_id = OBJECT_ID('dbo.ObservationEntityIndex'))
-BEGIN
-    DROP INDEX IX_OEI_Entity_Date ON dbo.ObservationEntityIndex;
-END
-", suppressTransaction: true);
     }
 }

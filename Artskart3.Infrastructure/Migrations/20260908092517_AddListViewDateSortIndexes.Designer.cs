@@ -392,6 +392,11 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("BlobPath")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
