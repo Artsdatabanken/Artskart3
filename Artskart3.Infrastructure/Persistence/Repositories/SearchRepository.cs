@@ -7,6 +7,7 @@ using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
@@ -145,32 +146,17 @@ public class SearchRepository : ISearchRepository
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
+        // Taggen plukkes opp av RecompileHintInterceptor, som legger på
+        // OPTION (RECOMPILE) og valg av riktig query plan.
         var query = _context.Set<Observation>()
-                            .AsNoTracking();
-
-        // Observasjonsspesifikke tekstfiltre
-        if (!string.IsNullOrEmpty(filter.PreferredPopularName))
-        {
-            var popularNamePattern = SqlWildcard + filter.PreferredPopularName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.Taxon.PreferredPopularName, popularNamePattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.ScientificName))
-        {
-            var scientificNamePattern = SqlWildcard + filter.ScientificName.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificName, scientificNamePattern));
-        }
-
-        if (!string.IsNullOrEmpty(filter.Author))
-        {
-            var authorPattern = SqlWildcard + filter.Author.EscapeSqlLikePattern() + SqlWildcard;
-            query = query.Where(o => EF.Functions.Like(o.MatchedScientificName.ScientificNameAuthorship, authorPattern));
-        }
+                            .AsNoTracking()
+                            .TagWith(RecompileHintInterceptor.Tag);
 
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
         query = ApplyCommonFilters(query, filter);
 
-        query = query.OrderBy(o => o.Id);
+        query = query.OrderByDescending(o => o.DateTimeCollected)
+                     .ThenByDescending(o => o.Id);
 
         if (filter.IsPaginated)
         {

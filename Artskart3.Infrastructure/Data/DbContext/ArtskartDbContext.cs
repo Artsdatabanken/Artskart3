@@ -519,14 +519,10 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.CatalogNumber).HasDatabaseName("IX_Observation_CatalogNumber");
 
             // CompleteFilter — InstitutionOrgId og DatasetOrgId er bevisst IKKE
-            // modellert som relasjoner. EF Core oppretter automatisk en indeks bak
-            // hver fremmednøkkel, og på en tabell med 61M rader ville det blitt to
-            // rowstore-indekser vi har grunn til å tro er skadelige: institusjon har
-            // 54 distinkte verdier (~1,13M rader hver), så et seek etterfulgt av
-            // sortering taper mot et clustered scan som stopper ved første TOP N.
-            // Selve FK-constrainten opprettes med rå SQL i migrasjonen, så databasen
-            // har referanseintegriteten uten indeksene. Samme mønster som
-            // columnstore-indeksen: databasen kan ha ting EF ikke modellerer.
+            // modellert som relasjoner. Selve FK-constrainten opprettes med rå SQL i
+            // migrasjonen, så databasen har referanseintegriteten uten at EF eier
+            // navigasjonen. Samme mønster som columnstore-indeksen: databasen kan ha
+            // ting EF ikke modellerer.
 
             entity.HasOne(d => d.BasisOfRecord).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.BasisOfRecordId)
