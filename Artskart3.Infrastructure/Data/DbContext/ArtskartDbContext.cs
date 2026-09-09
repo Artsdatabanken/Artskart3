@@ -523,35 +523,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // migrasjonen, så databasen har referanseintegriteten uten at EF eier
             // navigasjonen. Samme mønster som columnstore-indeksen: databasen kan ha
             // ting EF ikke modellerer.
-            //
-            // MERK: her sto det tidligere at ingen av kolonnene skulle indekseres,
-            // fordi «institusjon har 54 distinkte verdier (~1,13M rader hver), så et
-            // seek etterfulgt av sortering taper mot et clustered scan som stopper
-            // ved første TOP N». Det er målt feil på to punkter:
-            //
-            //   1,13M er gjennomsnittet, og fordelingen er ekstremt skjev — største
-            //   institusjon har 29,2M observasjoner, minste har 32, og 32 av 54 har
-            //   under 100 000. For de små må TOP-en lese seg gjennom hele
-            //   klyngeindeksen (15,66 GB) før den gir opp.
-            //
-            //   Og det blir ingen sortering: en ikke-unik nonclustered indeks får
-            //   klyngenøkkelen som siste nøkkelkolonne, så indeksen er fysisk
-            //   (InstitutionOrgId, Id) og leverer radene ferdig sortert for
-            //   ORDER BY Id. Planen er seek + key lookup, uten Sort.
-            //
-            // Begge kolonnene er derfor indeksert nå, hver i sin migrasjon — se dem
-            // for målinger:
-            //   IX_Observation_InstitutionOrgId   20260904114820
-            //   IX_Observation_DatasetOrgId       20260904122248
-            // Ingen av dem er modellert her, av samme grunn som resten: EF eier ikke
-            // kolonnene. Indeksene finnes bare i databasen.
-            //
-            // DatasetOrgId var det verste tilfellet av de to, ikke det minste.
-            // Fordelingen er langt skjevere enn for institusjon: 1 908 datasett mot
-            // 54 institusjoner, og 1 862 av 1 908 (97,6 %) har under 100 000
-            // observasjoner — minste har 1. Der institusjonsfilteret i det minste var
-            // raskt for de få store, lå så godt som hvert datasett en bruker kan velge
-            // i typeaheaden i det trege området. Målt 5 063 ms -> 7 ms for det minste.
 
             entity.HasOne(d => d.BasisOfRecord).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.BasisOfRecordId)
