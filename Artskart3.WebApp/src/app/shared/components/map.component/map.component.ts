@@ -10,7 +10,7 @@ import {
   inject,
   computed,
   effect,
-  signal,
+  signal
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';

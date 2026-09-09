@@ -1357,9 +1357,6 @@ export interface components {
             /** Format: int32 */
             resultsPerPage?: number | null;
             readonly isPaginated?: boolean;
-            preferredPopularName?: string | null;
-            scientificName?: string | null;
-            author?: string | null;
             taxonGroupIds?: number[] | null;
             taxonIds?: number[] | null;
             categoryIds?: number[] | null;
