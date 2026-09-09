@@ -17,6 +17,7 @@
   max-height: 300px;
   overflow-y: auto;
   z-index: 1000;
+  color: var(--adb-text-accent);
 }
 
 .autocomplete-item {
@@ -30,6 +31,12 @@
 
 .autocomplete-item:hover {
   background: var(--adb-background-secondary);
+}
+
+.autocomplete-item--active {
+  background: var(--adb-background-secondary);
+  outline: 2px solid var(--adb-border-active, var(--adb-text-primary));
+  outline-offset: -2px;
 }
 
 .autocomplete-vernacular {

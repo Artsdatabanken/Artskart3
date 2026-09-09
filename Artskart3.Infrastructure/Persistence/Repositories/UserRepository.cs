@@ -36,4 +36,20 @@ public class UserRepository(IArtsKartDbContext context, ILogger<UserRepository> 
             throw new ApplicationException("Feil ved opprettelse av bruker", e);
         }
     }
+
+    public async Task<User> UpdateUser(User user, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            ArgumentNullException.ThrowIfNull(user);
+            context.Set<User>().Update(user);
+            await context.SaveChangesAsync(cancellationToken);
+            return user;
+        }
+        catch (Exception e) when (e is not OperationCanceledException and not ArgumentNullException)
+        {
+            logger.LogError(e, "Feil ved oppdatering av bruker");
+            throw new ApplicationException("Feil ved oppdatering av bruker", e);
+        }
+    }
 }
