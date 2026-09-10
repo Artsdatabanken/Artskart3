@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Injectable, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { Observable, catchError, of, shareReplay } from 'rxjs';
 import { CategoryTypeDto } from '../../types/api.types';
 
 @Injectable({
@@ -10,7 +11,24 @@ export class CategoryService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = '/api/Lookup/Categories';
 
+  private readonly categories$ = this.http.get<CategoryTypeDto[]>(this.endpoint).pipe(
+    catchError(() => of([])),
+    shareReplay(1),
+  );
+
+  readonly categoryTypes = toSignal(this.categories$, { initialValue: [] });
+
+  readonly categoryTypeNameById = computed(() => {
+    const map = new Map<number, string>();
+    for (const type of this.categoryTypes()) {
+      for (const category of type.categories ?? []) {
+        if (category.id != null && type.name) map.set(category.id, type.name);
+      }
+    }
+    return map;
+  });
+
   getCategories(): Observable<CategoryTypeDto[]> {
-    return this.http.get<CategoryTypeDto[]>(this.endpoint);
+    return this.categories$;
   }
 }
