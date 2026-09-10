@@ -22,6 +22,8 @@ describe('CategoryService', () => {
 
   it('should be created', () => {
     expect(service).toBeTruthy();
+    // Tjenesten henter kategoriene ved opprettelse (delt strøm).
+    httpTesting.expectOne('/api/Lookup/Categories').flush([]);
   });
 
   it('should call GET /api/Lookup/Categories', () => {
@@ -37,5 +39,21 @@ describe('CategoryService', () => {
     const req = httpTesting.expectOne('/api/Lookup/Categories');
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
+  });
+
+  it('deler én request mellom abonnenter', () => {
+    service.getCategories().subscribe();
+    service.getCategories().subscribe();
+    httpTesting.expectOne('/api/Lookup/Categories').flush([]);
+  });
+
+  it('bygger categoryTypeNameById fra kategoriene', () => {
+    httpTesting.expectOne('/api/Lookup/Categories').flush([
+      { id: 1, name: 'Rødliste', categories: [{ id: 10, code: 'CR', name: 'Kritisk truet' }] },
+      { id: 2, name: 'Fremmedart', categories: [{ id: 7, code: 'SE', name: 'Svært høy risiko' }] },
+    ]);
+    const map = service.categoryTypeNameById();
+    expect(map.get(10)).toBe('Rødliste');
+    expect(map.get(7)).toBe('Fremmedart');
   });
 });

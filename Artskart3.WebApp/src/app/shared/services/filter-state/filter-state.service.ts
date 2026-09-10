@@ -55,6 +55,10 @@ export class FilterStateService {
     });
   }
 
+  removeCategories(ids: ReadonlySet<number>): void {
+    this.selectedCategoryIds.update((current) => current.filter((id) => !ids.has(id)));
+  }
+
   clearCategories(): void {
     this.selectedCategoryIds.set([]);
   }
@@ -217,6 +221,14 @@ export class FilterStateService {
     this.selectedOceanAreaIds.set([]);
   }
 
+  clearMunicipalities(): void {
+    this.selectedMunicipalityIds.set([]);
+  }
+
+  removeCounties(fids: ReadonlySet<string>): void {
+    this.selectedCountyIds.update((ids) => ids.filter((id) => !fids.has(id)));
+  }
+
   setCoordinatePrecision(from: number | null, to: number | null): void {
     this.coordinatePrecisionFrom.set(from);
     this.coordinatePrecisionTo.set(to);
@@ -242,9 +254,14 @@ export class FilterStateService {
     this.selectedMonths.set([]);
   }
 
-  clearPeriod(): void {
+  /** Nullstiller kun årstallene — månedsvalget har egen chip og ryddes separat. */
+  clearPeriodYears(): void {
     this.periodFrom.set(null);
     this.periodTo.set(null);
+  }
+
+  clearPeriod(): void {
+    this.clearPeriodYears();
     this.clearMonths();
   }
 

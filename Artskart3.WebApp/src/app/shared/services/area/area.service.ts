@@ -117,4 +117,44 @@ export class AreaService {
 
     return { countyIds, municipalityIds };
   });
+
+  /**
+   * Antall aktive områdevalg på fastlandet slik chip-en skal telle dem:
+   * et fylke der alle kommunene er valgt teller som 1 (kommunene er implisitt
+   * valgt), mens et delvis valgt fylke teller sine valgte kommuner. Speiler
+   * resolvedAreaFilter sin optimalisering.
+   */
+  readonly mainlandSelectionCount = computed(() => {
+    const selectedMunicipalities = this.filterState.selectedMunicipalityIds();
+    const selectedCounties = this.filterState.selectedCountyIds();
+    const groups = this.countyGroups();
+    if (groups.length === 0) {
+      // Ikke lastet ennå — eller requesten feilet permanent (catchError). Vi kan
+      // ikke skille fastlandsfylker fra Svalbard-områder, så alt telles som
+      // fastland: bedre en chip med for høyt tall enn valg som ikke kan fjernes.
+      return selectedMunicipalities.length + selectedCounties.length;
+    }
+    let count = 0;
+    for (const group of groups) {
+      const municipalityFids = group.municipalities.map((m) => m.fid!);
+      const selected = municipalityFids.filter((fid) => selectedMunicipalities.includes(fid)).length;
+      if (selected > 0) {
+        count += selected === municipalityFids.length ? 1 : selected;
+      } else if (group.county.fid && selectedCounties.includes(group.county.fid)) {
+        count += 1;
+      }
+    }
+    return count;
+  });
+
+  /** Antall valgte områder under Svalbard, Bjørnøya og Jan Mayen (direkte fylkesvalg). */
+  readonly svalbardBjornoyaAndJanMayenSelectionCount = computed(() => {
+    const areas = this.svalbardBjornoyaAndJanMayenAreas();
+    // Ukjent før lasting (og etter feilet request): tell ingenting. Uten listen
+    // vet vi verken hvilke fider som hører til eller kan fjerne dem — en chip
+    // ville vist feil tall og hatt en clear-knapp som ikke gjorde noe.
+    if (areas.length === 0) return 0;
+    const fids = new Set(areas.map((a) => a.fid));
+    return this.filterState.selectedCountyIds().filter((fid) => fids.has(fid)).length;
+  });
 }
