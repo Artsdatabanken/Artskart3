@@ -12,6 +12,7 @@ import { TaxonGroupService } from '../../services/taxon-group/taxon-group.servic
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
+import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
 import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
@@ -20,12 +21,6 @@ import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 2;
-
-interface RegistreringOption {
-  id: number | null;
-  labelKey: string;
-  descriptionKey?: string;
-}
 
 @Component({
   selector: 'app-sidebar',
@@ -132,12 +127,7 @@ export class SidebarComponent {
         this.showCatalogNumberSuggestions.set(matches.length > 0);
       });
   }
-  readonly registreringOptions: RegistreringOption[] = [
-    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
-    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
-    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
-    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
-  ];
+  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS;
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
