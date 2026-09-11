@@ -1,0 +1,70 @@
+.observation-list {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  margin: 1rem;
+  width: 20rem;
+  border-radius: 1rem;
+  max-height: calc(80vh - var(--home-header-height));
+  overflow: auto;
+  background-color: var(--adb-background-default, #fff);
+  top: 0;
+  left: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.observation-details {
+  display: flex;
+  padding-left: var(--spacing-spacing-lg, 24px);
+  align-items: center;
+  gap: var(--spacing-spacing-15-sm, 6px);
+  align-self: stretch;
+}
+
+/* Remove bottom border on nested (non-top-level) accordion items */
+adb-accordion-item adb-accordion adb-accordion-item {
+  --adb-border-accent: transparent;
+}
+
+.filter {
+  margin-left: auto;
+}
+
+adb-accordion {
+  --adb-border-default: transparent;
+  --adb-border-accent: transparent;
+}
+
+adb-accordion-item adb-accordion {
+  --adb-border-default: transparent;
+}
+
+.click-coordinates {
+  color: var(--text-base-text-secondary, #616B6D);
+
+  /* typography/paragraph/sm */
+  font-family: var(--font-family-primary, Chivo);
+  font-size: var(--font-size-3, 13px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 160%; /* 20.8px */
+}
+
+.observation-count {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  align-self: stretch;
+}
+
+.registration-text {
+  display: flex;
+  padding-left: var(--spacing-spacing-lg, 24px);
+  align-items: center;
+  gap: var(--spacing-spacing-15-sm, 6px);
+}

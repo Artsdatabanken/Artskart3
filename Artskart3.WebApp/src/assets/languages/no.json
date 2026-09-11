@@ -363,5 +363,11 @@
     "paginationSmall": "Liten (sm)",
     "paginationLarge": "Stor (lg)",
     "icons": "Ikoner"
+  },
+  "observationList": {
+    "registrations": "{{number}} registreringer",
+    "taxonGroup": "Artsgrupper",
+    "category": "Kategorier",
+    "location": "Lokaliteter"
   }
 }

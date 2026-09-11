@@ -43,7 +43,7 @@ export function initializeLanguageFactory(languageService: LanguageService) {
 
 @NgModule({
   declarations: [
-    App
+    App,
   ],
   imports: [
     BrowserModule,

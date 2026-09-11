@@ -363,5 +363,11 @@
     "paginationSmall": "Small (sm)",
     "paginationLarge": "Large (lg)",
     "icons": "Icons"
+  },
+  "observationList": {
+    "registrations": "{{number}} registrations",
+    "taxonGroup": "Taxon Groups",
+    "category": "Categories",
+    "location": "Locations"
   }
 }
