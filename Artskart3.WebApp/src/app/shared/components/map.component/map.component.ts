@@ -22,7 +22,7 @@ import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
-import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -794,7 +794,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     return areas.filter(
       (a) =>
-        countyFids.has(a.fid) || municipalityFids.has(a.fid) || oceanAreaFids.has(a.fid) || (a.parentFid && countyFids.has(a.parentFid)),
+        a.fid != null &&
+        (countyFids.has(a.fid) || municipalityFids.has(a.fid) || oceanAreaFids.has(a.fid) || (a.parentFid != null && countyFids.has(a.parentFid))),
     );
   }
 
@@ -808,15 +809,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const selectedFids = new Set([...(filter.countyIds ?? []), ...(filter.municipalityIds ?? []), ...(filter.oceanAreaIds ?? [])]);
 
     return this.filterCachedAreasBySelection(areas, filter)
-      .map((a) => ({ ...a, observationCount: counts.get(a.fid) ?? 0 }))
-      .filter((a) => (a.observationCount ?? 0) > 0 || selectedFids.has(a.fid));
+      .map((a) => ({ ...a, observationCount: (a.fid != null ? counts.get(a.fid) : undefined) ?? 0 }))
+      .filter((a) => (a.observationCount ?? 0) > 0 || (a.fid != null && selectedFids.has(a.fid)));
   }
 
   /**
    * Bruker de forhåndsberegnede antallene som følger med geometriene.
    */
   private countsFromAreas(areas: AreaMarkerDto[]): Map<string, number> {
-    return new Map(areas.map((a) => [a.fid, a.observationCount ?? 0]));
+    const counts = new Map<string, number>();
+    for (const a of areas) {
+      if (a.fid != null) counts.set(a.fid, a.observationCount ?? 0);
+    }
+    return counts;
   }
 
   private updateSelectedAreaOverlays(): void {
@@ -830,7 +835,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     const parentCountyFids =
       municipalityIds.length > 0
-        ? [...new Set(municipalityAreas.filter((a) => municipalityIds.includes(a.fid) && a.parentFid).map((a) => a.parentFid))]
+        ? [
+            ...new Set(
+              municipalityAreas
+                .filter((a) => a.fid != null && municipalityIds.includes(a.fid))
+                .map((a) => a.parentFid)
+                .filter((fid): fid is string => fid != null),
+            ),
+          ]
         : [];
 
     const countyLevelFids = [...new Set([...countyIds, ...selectedOceanAreaFids, ...parentCountyFids])];

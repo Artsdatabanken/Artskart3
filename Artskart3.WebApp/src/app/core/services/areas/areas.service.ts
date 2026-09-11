@@ -12,10 +12,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
-  AreaMarkerDto,
   AreaMarkerFeature,
   LocationPolygonDto,
 } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { ApiClientService } from '../api-client.service';
@@ -66,7 +66,7 @@ function parseRing(ringStr: string): number[][] | null {
  * @example "MULTIPOLYGON (((1 2, 3 4, 5 6, 1 2)),((7 8, 9 10, 11 12, 7 8)))" =>
  *   { type: 'MultiPolygon', coordinates: [[[[1,2],[3,4],[5,6],[1,2]]],[[[7,8],[9,10],[11,12],[7,8]]]] }
  */
-function parseWkt(wkt: string | undefined): ParsedGeometry | null {
+function parseWkt(wkt: string | null | undefined): ParsedGeometry | null {
   if (!wkt) return null;
 
   try {
@@ -345,10 +345,9 @@ export class AreasService {
     const body = this.buildFilterBody(filter);
 
     return this.apiClientService
-      .postJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body, { responseType: 'text' })
+      .postJson<AreaMarkerDto[]>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body)
       .pipe(
-        map((responseText) => {
-          const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
+        map((areas) => {
           this.loggerService.info(
             `Retrieved ${Array.isArray(areas) ? areas.length : 0} areas for zoom level ${apiZoomLevel}`,
             AreasService.SERVICE_NAME,
@@ -454,7 +453,7 @@ export class AreasService {
     const features: unknown[] = [];
 
     for (const area of areas) {
-      if (!fidSet.has(area.fid)) continue;
+      if (!area.fid || !fidSet.has(area.fid)) continue;
       const parsed = parseWkt(area.wktsPolygon);
       if (!parsed) continue;
 
@@ -565,24 +564,26 @@ export class AreasService {
       const count = area.observationCount ?? 0;
       const formattedCount = AbbreviateNumberHelper.format(count);
 
+      const dbCentroid: [number, number] | null =
+        area.centroid?.x != null && area.centroid?.y != null ? [area.centroid.x, area.centroid.y] : null;
+
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1] && bbox[2] <= extent[2] && bbox[3] <= extent[3];
 
       let centroid: [number, number];
       if (fullyVisible) {
-        centroid = area.centroid
-          ? [area.centroid.x, area.centroid.y]
-          : this.calculateCentroid(
-              parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
-            );
+        centroid =
+          dbCentroid ??
+          this.calculateCentroid(
+            parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
+          );
       } else {
         centroid =
           calculateClippedCentroid(parsed, extent) ??
-          (area.centroid
-            ? [area.centroid.x, area.centroid.y]
-            : this.calculateCentroid(
-                parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
-              ));
+          dbCentroid ??
+          this.calculateCentroid(
+            parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
+          );
       }
 
       // Polygon/MultiPolygon boundary feature
