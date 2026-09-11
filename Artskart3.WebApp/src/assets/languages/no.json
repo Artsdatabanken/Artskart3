@@ -189,6 +189,8 @@
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}} - {{to}} meter",
     "chipPeriod": "Periode: {{from}} - {{to}}",
     "noSearchResults": "Ingen treff",
+    "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
     "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {

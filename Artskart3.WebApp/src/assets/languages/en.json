@@ -189,6 +189,8 @@
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
     "chipPeriod": "Period: {{from}} - {{to}}",
     "noSearchResults": "No results",
+    "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
