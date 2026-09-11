@@ -2,7 +2,7 @@ import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angul
 import {ObservationListInfoDto} from '@shared/types/api.types';
 import {TranslateModule} from '@ngx-translate/core';
 
-enum Filters {
+export enum Filters {
   TaxonGroup = "taxonGroup",
   Category = "category",
   Location= "location"

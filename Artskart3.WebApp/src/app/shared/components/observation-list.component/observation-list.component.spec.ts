@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateModule } from "@ngx-translate/core";
-import { ObservationListComponent } from './observation-list.component';
+import {Filters, ObservationListComponent} from './observation-list.component';
 
 describe('ObservationList', () => {
   let component: ObservationListComponent;
@@ -87,7 +87,7 @@ describe('ObservationList', () => {
       }
     ]);
 
-    component.currentFilter.set('category' as never);
+    component.currentFilter.set(Filters.Category);
 
     expect(component.topLevelFilter().map(group => group.groupKeyId)).toEqual([
       'Livskraftig',

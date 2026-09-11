@@ -5,7 +5,6 @@
   margin: 1rem;
   width: 20rem;
   border-radius: 1rem;
-  height: 1037px;
   max-height: calc(80vh - var(--home-header-height));
   overflow: auto;
   background-color: var(--adb-background-default, #fff);

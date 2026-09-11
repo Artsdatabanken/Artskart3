@@ -3,7 +3,6 @@ using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Artskart3.Tests.Unit;
 
@@ -128,7 +127,7 @@ public class ObservationRepositoryTests
     }
 
     private static ObservationRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<ObservationRepository>.Instance);
+        new(context);
 
     private static Taxon CreateTaxon(int id, string scientificName, string? popularName) =>
         new()
