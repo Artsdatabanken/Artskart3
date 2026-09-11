@@ -16,7 +16,7 @@ import {
   inject,
   computed,
   effect,
-  signal
+  signal,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
@@ -30,6 +30,8 @@ import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { Feature, ImageTile } from 'ol';
 import Point from 'ol/geom/Point';
+import { unByKey } from 'ol/Observable';
+import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
@@ -205,7 +207,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on(MapEvents.PointerClick, (payload) => {
         this.handlePointerClick(payload);
-      })
+        this.handleAreaMarkerClick(payload.features as PointerClickFeature[] | null);
+      });
       this.locationClick$
         .pipe(
           switchMap(ids =>
@@ -321,6 +324,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map) return;
     this.map.activateHoverInfo();
     this.setupAreaMarkerLayers();
+    this.setupMarkerCursor();
     this.setupCountsFetchPipeline();
     this.setupLocationsFetchPipeline();
     this.setupCameraChangePipeline();
@@ -328,6 +332,98 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.prefetchAreaGeometries();
     this.rebuildAllLayers();
   }
+
+  // ─── Marker click → zoom/pan to area centroid ──────────────────────
+
+  private readonly CLICK_ANIMATION_DURATION_MS = 300;
+
+  /**
+   * Clicking a county/municipality count marker pans to the area's centroid
+   * and zooms just past the threshold so the next layer takes over.
+   * The centroid-less polygon outline feature in the same layer is ignored.
+   */
+  private handleAreaMarkerClick(features: PointerClickFeature[] | null): void {
+    if (!features?.length) return;
+
+    let hitMarkerLayer: string | null = null;
+    for (const hit of features) {
+      const targetZoom = this.zoomTargetForLayer(hit.layerId);
+      if (targetZoom == null) continue;
+      hitMarkerLayer = hit.layerId;
+
+      const centroid = this.extractCentroid(hit.properties);
+      if (!centroid) continue; // polygon outline feature in the same layer has no centroid
+
+      this.zoomToCentroid(centroid, targetZoom);
+      return;
+    }
+
+    if (hitMarkerLayer) {
+      this.logger.warn(`Marker in layer ${hitMarkerLayer} has no valid centroid; ignoring click`, 'MapComponent');
+    }
+  }
+
+  private zoomTargetForLayer(layerId: string): number | null {
+    if (layerId === this.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
+    if (layerId === this.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
+    return null;
+  }
+
+  private extractCentroid(properties?: Record<string, unknown>): [number, number] | null {
+    const centroid = properties?.['centroid'] as { x?: unknown; y?: unknown } | undefined;
+    if (typeof centroid?.x !== 'number' || typeof centroid?.y !== 'number') return null;
+    if (!Number.isFinite(centroid.x) || !Number.isFinite(centroid.y)) return null;
+    return [centroid.x, centroid.y];
+  }
+
+  private zoomToCentroid(centroid: [number, number], zoom: number): void {
+    // nbic-map-component exposes no fly-to; use the OL view via the adopted zoom control.
+    const view = this.zoomControl?.getMap()?.getView();
+    if (view) {
+      view.animate({ center: centroid, zoom, duration: this.CLICK_ANIMATION_DURATION_MS });
+      return;
+    }
+    this.map?.setCenter(centroid);
+    this.map?.setZoom(zoom);
+  }
+
+  /**
+   * nbic-map-component's hover cursor is layer-level, and the marker layers contain both
+   * polygon outlines and count markers — so the pointer cursor is applied manually, only
+   * when the hovered feature is an actual count marker (i.e. carries a centroid).
+   * Registered after activateHoverInfo() so this listener runs after the library's
+   * pointermove handler and can override its cursor.
+   */
+  private setupMarkerCursor(): void {
+    const olMap = this.zoomControl?.getMap();
+    if (!olMap) return;
+
+    this.markerCursorKey = olMap.on('pointermove', (evt) => {
+      const overMarker = olMap.forEachFeatureAtPixel(
+        evt.pixel,
+        (feature) => (feature?.get('centroid') != null ? true : undefined),
+        {
+          hitTolerance: 5,
+          layerFilter: (layer) => {
+            const id = layer?.get('id') as string | undefined;
+            return id === this.COUNTIES_LAYER_ID || id === this.MUNICIPALITIES_LAYER_ID;
+          },
+        },
+      );
+
+      const target = olMap.getTargetElement();
+      if (overMarker) {
+        target.style.cursor = 'pointer';
+        this.markerCursorActive = true;
+      } else if (this.markerCursorActive) {
+        target.style.cursor = '';
+        this.markerCursorActive = false;
+      }
+    });
+  }
+
+  private markerCursorKey?: EventsKey;
+  private markerCursorActive = false;
 
   private setupAreaMarkerLayers(): void {
     this.map.addLayer({
@@ -795,7 +891,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return areas.filter(
       (a) =>
         a.fid != null &&
-        (countyFids.has(a.fid) || municipalityFids.has(a.fid) || oceanAreaFids.has(a.fid) || (a.parentFid != null && countyFids.has(a.parentFid))),
+        (countyFids.has(a.fid) ||
+          municipalityFids.has(a.fid) ||
+          oceanAreaFids.has(a.fid) ||
+          (a.parentFid != null && countyFids.has(a.parentFid))),
     );
   }
 
@@ -887,6 +986,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.visibilityObserver?.disconnect();
+    if (this.markerCursorKey) unByKey(this.markerCursorKey);
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
