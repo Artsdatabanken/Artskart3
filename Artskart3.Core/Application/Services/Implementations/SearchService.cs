@@ -85,7 +85,7 @@ public class SearchService : ISearchService
             countsArray = markers.Select(m => new AreaCountDto
             {
                 Fid = m.Fid,
-                ObservationCount = m.ObservationCount ?? 0
+                ObservationCount = m.ObservationCount
             }).ToArray();
         }
         else

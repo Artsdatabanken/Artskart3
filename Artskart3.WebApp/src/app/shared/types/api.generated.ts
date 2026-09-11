@@ -1217,24 +1217,24 @@ export interface components {
         AreaDto: {
             /** Format: int32 */
             id?: number;
-            fid?: string | null;
-            name?: string | null;
+            fid?: string;
+            name?: string;
             isCurrent?: boolean;
             /** Format: int32 */
-            observationCount?: number | null;
+            observationCount?: null | number;
         };
         AreaMarkerDto: {
             /** Format: int32 */
-            id?: number;
-            documentId?: string | null;
-            fid?: string | null;
-            name?: string | null;
+            id: number;
+            documentId: string;
+            fid: string;
+            name: string;
             /** Format: int32 */
-            areaTypeId?: number;
-            parentFid?: string | null;
+            areaTypeId: number;
+            parentFid: string;
             /** Format: int32 */
-            observationCount?: number | null;
-            wktsPolygon?: string | null;
+            observationCount: number;
+            wktsPolygon: null | string;
             centroid?: components["schemas"]["CentroidDto"];
         };
         AreaResponseDto: {
@@ -1247,64 +1247,64 @@ export interface components {
         AreaTypeDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            areas?: components["schemas"]["AreaDto"][] | null;
+            name?: string;
+            areas?: components["schemas"]["AreaDto"][];
         };
         BasisOfRecordDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            description?: string | null;
-            variants?: string | null;
+            name?: string;
+            description?: null | string;
+            variants?: string;
             /** Format: int32 */
-            observationCount?: number | null;
+            observationCount?: null | number;
         };
         BehaviorDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            variants?: string | null;
+            name?: string;
+            variants?: string;
             /** Format: int32 */
-            observationCount?: number | null;
-            description?: string | null;
+            observationCount?: null | number;
+            description?: null | string;
         };
         CatalogNumberMatchDto: {
-            catalogNumber?: string | null;
-            observationIds?: number[] | null;
+            catalogNumber?: string;
+            observationIds?: number[];
             /** Format: int32 */
             readonly observationCount?: number;
         };
         CategoryDto: {
             /** Format: int32 */
             id?: number;
-            code?: string | null;
-            name?: string | null;
+            code?: string;
+            name?: string;
             /** Format: int32 */
-            observationCount?: number | null;
+            observationCount?: null | number;
         };
         CategoryTypeDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            categories?: components["schemas"]["CategoryDto"][] | null;
+            name?: string;
+            categories?: components["schemas"]["CategoryDto"][];
         };
         CentroidDto: {
             /** Format: double */
-            x?: number;
+            x: number;
             /** Format: double */
-            y?: number;
+            y: number;
         };
         CoordinatePrecisionDto: {
             /** Format: int32 */
-            from?: number | null;
+            from?: null | number;
             /** Format: int32 */
-            to?: number | null;
+            to?: null | number;
         };
         CsvExportJobDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            fileName?: string | null;
+            name?: null | string;
+            fileName?: string;
             status?: components["schemas"]["CsvExportStatus"];
             /** Format: int32 */
             totalRows?: number;
@@ -1316,12 +1316,12 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
-            startedAt?: string | null;
+            startedAt?: null | string;
             /** Format: date-time */
-            completedAt?: string | null;
+            completedAt?: null | string;
             /** Format: date-time */
-            expiresAt?: string | null;
-            errorMessage?: string | null;
+            expiresAt?: null | string;
+            errorMessage?: null | string;
         };
         /**
          * Format: int32
@@ -1340,8 +1340,8 @@ export interface components {
             readonly isValid?: boolean;
         };
         ExportColumnDefinition: {
-            name?: string | null;
-            displayName?: string | null;
+            name?: string;
+            displayName?: string;
             isDefaultSelected?: boolean;
         };
         ExportSummaryDto: {
@@ -1351,141 +1351,141 @@ export interface components {
             estimatedFileSizeBytes?: number;
             exceedsSoftLimit?: boolean;
             exceedsHardLimit?: boolean;
-            exportName?: string | null;
+            exportName?: string;
             /** Format: int32 */
             hardLimit?: number;
         };
         InstitutionDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
-            code?: string | null;
+            name?: string;
+            code?: null | string;
             /** Format: int32 */
-            observationCount?: number | null;
+            observationCount?: null | number;
         };
         LocationPolygonDto: {
             /** Format: int32 */
             locationId?: number;
-            locality?: string | null;
-            wktPolygon?: string | null;
+            locality?: null | string;
+            wktPolygon?: string;
             /** Format: int32 */
             observationCount?: number;
         };
         LocationSearchFilterDto: {
-            taxonGroupIds?: number[] | null;
-            taxonIds?: number[] | null;
-            categoryIds?: number[] | null;
-            basisOfRecordIds?: number[] | null;
-            organizationIds?: number[] | null;
-            municipalityIds?: string[] | null;
-            countyIds?: string[] | null;
-            restrictedAreaIds?: string[] | null;
-            oceanAreaIds?: string[] | null;
-            behaviorIds?: number[] | null;
+            taxonGroupIds?: null | number[];
+            taxonIds?: null | number[];
+            categoryIds?: null | number[];
+            basisOfRecordIds?: null | number[];
+            organizationIds?: null | number[];
+            municipalityIds?: null | string[];
+            countyIds?: null | string[];
+            restrictedAreaIds?: null | string[];
+            oceanAreaIds?: null | string[];
+            behaviorIds?: null | number[];
             /** Format: int32 */
-            registrationStatusId?: number | null;
+            registrationStatusId?: null | number;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             /** Format: int32 */
-            datasetOrgId?: number | null;
+            datasetOrgId?: null | number;
             /** Format: int32 */
-            projectOrgId?: number | null;
-            observationIds?: number[] | null;
-            withImages?: boolean | null;
+            projectOrgId?: null | number;
+            observationIds?: null | number[];
+            withImages?: null | boolean;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
-            epsg?: number | null;
+            epsg?: null | number;
             /** Format: int32 */
             maxResults?: number;
             envelope?: components["schemas"]["EnvelopeDto"];
         };
         NotificationModel: {
             type?: components["schemas"]["AlertType"];
-            heading?: string | null;
-            description?: string | null;
+            heading?: string;
+            description?: string;
             /** Format: date-time */
-            startDateTime?: string | null;
+            startDateTime?: null | string;
             /** Format: date-time */
-            endDateTime?: string | null;
+            endDateTime?: null | string;
             /** Format: date */
-            startDisplayDate?: string | null;
+            startDisplayDate?: null | string;
             /** Format: date */
-            endDisplayDate?: string | null;
+            endDisplayDate?: null | string;
             canClose?: boolean;
         };
         ObservationDto: {
             /** Format: int32 */
             id?: number;
-            preferredPopularName?: string | null;
-            scientificName?: string | null;
-            author?: string | null;
-            institution?: string | null;
-            locality?: string | null;
-            municipalityId?: string | null;
+            preferredPopularName?: null | string;
+            scientificName?: null | string;
+            author?: null | string;
+            institution?: null | string;
+            locality?: null | string;
+            municipalityId?: null | string;
             /** Format: int32 */
-            taxonGroupId?: number | null;
+            taxonGroupId?: null | number;
             /** Format: int32 */
-            categoryId?: number | null;
+            categoryId?: null | number;
             /** Format: date-time */
-            dateTimeCollected?: string | null;
+            dateTimeCollected?: null | string;
             /** Format: int32 */
-            coordinatePrecisionInMeters?: number | null;
+            coordinatePrecisionInMeters?: null | number;
         };
         ObservationListInfoDto: {
             /** Format: int32 */
             id?: number;
-            preferredPopularName?: string | null;
-            scientificName?: string | null;
-            displayName?: string | null;
-            author?: string | null;
+            preferredPopularName?: null | string;
+            scientificName?: null | string;
+            displayName?: string;
+            author?: null | string;
             /** Format: int32 */
-            taxonGroupId?: number | null;
-            taxonGroupName?: string | null;
+            taxonGroupId?: null | number;
+            taxonGroupName?: null | string;
             /** Format: int32 */
-            categoryId?: number | null;
-            categoryName?: string | null;
-            institutionId?: string | null;
-            institutionName?: string | null;
+            categoryId?: null | number;
+            categoryName?: null | string;
+            institutionId?: null | string;
+            institutionName?: null | string;
             /** Format: int32 */
-            locationId?: number | null;
-            registrationType?: string[] | null;
-            collector?: string | null;
+            locationId?: null | number;
+            registrationType?: null | string[];
+            collector?: null | string;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
-            pageNumber?: number | null;
+            pageNumber?: null | number;
             /** Format: int32 */
-            resultsPerPage?: number | null;
+            resultsPerPage?: null | number;
             readonly isPaginated?: boolean;
-            taxonGroupIds?: number[] | null;
-            taxonIds?: number[] | null;
-            categoryIds?: number[] | null;
-            organizationIds?: number[] | null;
-            municipalityIds?: string[] | null;
-            countyIds?: string[] | null;
-            restrictedAreaIds?: string[] | null;
-            oceanAreaIds?: string[] | null;
-            behaviorIds?: number[] | null;
-            basisOfRecordIds?: number[] | null;
+            taxonGroupIds?: null | number[];
+            taxonIds?: null | number[];
+            categoryIds?: null | number[];
+            organizationIds?: null | number[];
+            municipalityIds?: null | string[];
+            countyIds?: null | string[];
+            restrictedAreaIds?: null | string[];
+            oceanAreaIds?: null | string[];
+            behaviorIds?: null | number[];
+            basisOfRecordIds?: null | number[];
             /** Format: int32 */
-            registrationStatusId?: number | null;
+            registrationStatusId?: null | number;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
             /** Format: int32 */
-            datasetOrgId?: number | null;
+            datasetOrgId?: null | number;
             /** Format: int32 */
-            projectOrgId?: number | null;
-            observationIds?: number[] | null;
-            withImages?: boolean | null;
+            projectOrgId?: null | number;
+            observationIds?: null | number[];
+            withImages?: null | boolean;
         };
         OrganizationDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
+            name?: string;
         };
         PagedObservationResponseDto: {
-            items?: components["schemas"]["ObservationDto"][] | null;
+            items?: null | components["schemas"]["ObservationDto"][];
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
@@ -1496,99 +1496,99 @@ export interface components {
         };
         PeriodDto: {
             /** Format: int32 */
-            from?: number | null;
+            from?: null | number;
             /** Format: int32 */
-            to?: number | null;
-            months?: number[] | null;
+            to?: null | number;
+            months?: null | number[];
         };
         ProblemDetails: {
-            type?: string | null;
-            title?: string | null;
+            type?: null | string;
+            title?: null | string;
             /** Format: int32 */
-            status?: number | null;
-            detail?: string | null;
-            instance?: string | null;
+            status?: null | number;
+            detail?: null | string;
+            instance?: null | string;
         } & {
             [key: string]: unknown;
         };
         ScientificNameSynonymDto: {
-            name?: string | null;
-            nameFormatted?: string | null;
-            author?: string | null;
-            rank?: string | null;
+            name?: string;
+            nameFormatted?: string;
+            author?: string;
+            rank?: string;
         };
         SpeciesDto: {
             /** Format: int32 */
             taxonId?: number;
-            scientificName?: string | null;
-            scientificNameFormatted?: string | null;
-            author?: string | null;
-            rank?: string | null;
-            preferredVernacularNames?: components["schemas"]["VernacularNameDto"][] | null;
-            vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][] | null;
-            scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][] | null;
+            scientificName?: string;
+            scientificNameFormatted?: string;
+            author?: string;
+            rank?: string;
+            preferredVernacularNames?: components["schemas"]["VernacularNameDto"][];
+            vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][];
+            scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][];
         };
         StartExportRequestDto: {
-            name?: string | null;
+            name?: null | string;
             filter?: components["schemas"]["ObservationSearchFilterDto"];
-            selectedColumns?: string[] | null;
+            selectedColumns?: string[];
         };
         TaxonAncestryDto: {
             /** Format: int32 */
             id?: number;
-            parentIds?: number[] | null;
-            levels?: components["schemas"]["TaxonAncestryLevelDto"][] | null;
+            parentIds?: number[];
+            levels?: components["schemas"]["TaxonAncestryLevelDto"][];
         };
         TaxonAncestryLevelDto: {
             /** Format: int32 */
             parentId?: number;
-            childIds?: number[] | null;
+            childIds?: number[];
         };
         TaxonDto: {
             /** Format: int32 */
             id?: number;
             /** Format: int32 */
             externalTaxonId?: number;
-            validScientificName?: string | null;
-            validScientificNameAuthorship?: string | null;
-            preferredPopularName?: string | null;
+            validScientificName?: null | string;
+            validScientificNameAuthorship?: null | string;
+            preferredPopularName?: null | string;
             /** Format: int32 */
             taxonGroupId?: number;
             /** Format: int32 */
             taxonRankId?: number;
             /** Format: int32 */
-            cumulativeObservationCount?: number | null;
+            cumulativeObservationCount?: null | number;
             existsInCountry?: boolean;
         };
         TaxonGroupDto: {
             /** Format: int32 */
             id?: number;
-            name?: string | null;
+            name?: string;
             /** Format: int32 */
-            observationCount?: number | null;
+            observationCount?: null | number;
         };
         TaxonTreeNodeDto: {
             /** Format: int32 */
             id?: number;
-            validScientificName?: string | null;
-            preferredPopularName?: string | null;
+            validScientificName?: null | string;
+            preferredPopularName?: null | string;
             /** Format: int32 */
             taxonRankId?: number;
             /** Format: int32 */
             taxonGroupId?: number;
             /** Format: int32 */
-            cumulativeObservationCount?: number | null;
+            cumulativeObservationCount?: null | number;
             existsInCountry?: boolean;
             hasChildren?: boolean;
-            children?: components["schemas"]["TaxonTreeNodeDto"][] | null;
+            children?: components["schemas"]["TaxonTreeNodeDto"][];
         };
         UserDto: {
-            name?: string | null;
-            email?: string | null;
+            name?: null | string;
+            email?: null | string;
         };
         VernacularNameDto: {
-            name?: string | null;
-            language?: string | null;
+            name?: string;
+            language?: string;
         };
     };
     responses: never;

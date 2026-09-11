@@ -105,6 +105,7 @@ try
     });
     builder.Services.AddSwaggerGen(c =>
     {
+        c.SupportNonNullableReferenceTypes();
         c.OperationFilter<Artskart3.Api.Filters.ExportRequestExampleFilter>();
     });
 
@@ -279,7 +280,10 @@ try
     if (app.Environment.IsDevelopment())
     {
         logger.LogInformation("Development environment detected - enabling Swagger UI");
-        app.UseSwagger();
+        app.UseSwagger(c =>
+        {
+            c.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1;
+        });
         app.UseSwaggerUI(c =>
         {
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");
