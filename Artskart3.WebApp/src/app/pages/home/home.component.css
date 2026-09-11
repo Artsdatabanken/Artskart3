@@ -39,11 +39,19 @@
   display: none;
 }
 
+.mobile-tab-toggle {
+  display: none;
+}
+
 .sheet-handle {
   display: none;
 }
 
 @media (max-width: 768px) {
+  .tabs {
+    display: none;
+  }
+
   .sidebar {
     display: flex;
     flex-direction: column;
@@ -66,13 +74,22 @@
     transition: none;
   }
 
+  .mobile-tab-toggle {
+    display: block;
+    position: absolute;
+    left: 12px;
+    bottom: calc(var(--home-handle-height, 56px) + 16px);
+    z-index: 250;
+    pointer-events: auto;
+  }
+
   .sheet-handle {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--adb-spacing-2xsm, 4px);
     flex-shrink: 0;
-    padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-md, 16px) var(--adb-spacing-sm, 12px);
+    padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-md, 16px) var(--adb-spacing-xsm, 8px);
     cursor: grab;
     background-color: var(--adb-background-default);
     border-radius: 16px 16px 0 0;
@@ -92,7 +109,7 @@
     width: 40px;
     height: 4px;
     border-radius: var(--adb-border-radius-sm, 2px);
-    background: var(--adb-border-default, #ccc);
+    background: var(--adb-surface-accent);
   }
 
   .sheet-handle-label {
