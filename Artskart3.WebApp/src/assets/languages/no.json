@@ -21,7 +21,8 @@
     "switchToLightModeAriaLabel": "Bytt til lyst tema",
     "switchToDarkModeAriaLabel": "Bytt til mørkt tema",
     "artsdatabankenLinkAriaLabel": "Lenke til Artsdatabanken hjemmeside",
-    "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode"
+    "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
+    "cookieSettings": "Informasjonskapsler"
   },
   "navigation": {
     "menuItem1": "Menypunkt 1",
@@ -86,7 +87,13 @@
     "exportProcessing": "Eksporterer ({{percent}}%) - {{name}}",
     "exportPending": "Venter - {{name}}",
     "downloadFailed": "Kunne ikke laste ned filen. Prøv igjen senere.",
-    "failed": "Feilet"
+    "failed": "Feilet",
+    "actions": "Handlinger",
+    "cancelExport": "Avbryt",
+    "cancelExportLink": "Avbryt eksportjobb",
+    "cancelled": "Eksporten ble avbrutt.",
+    "cancelledLabel": "Avbrutt",
+    "cancelFailed": "Kunne ikke avbryte eksporten. Den kan allerede være ferdig."
   },
   "listView": {
     "name": "Populærnavn (nb)",
@@ -182,6 +189,10 @@
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}} - {{to}} meter",
     "chipPeriod": "Periode: {{from}} - {{to}}",
     "noSearchResults": "Ingen treff",
+    "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
+    "searchResults": "Søkeresultater",
+    "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
       "Kingdom": "Rike",
       "Subkingdom": "Underrike",

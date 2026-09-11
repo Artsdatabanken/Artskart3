@@ -6,6 +6,7 @@ import { AlertService } from '../../shared/services/alert/alert.service';
 import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types';
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
+import { apiErrorMessage } from '../../shared/utils/api-error';
 
 @Component({
   selector: 'app-mitt-artskart',
@@ -74,6 +75,34 @@ export class MittArtskartComponent implements OnDestroy {
 
   isFailed(job: CsvExportJobDto): boolean {
     return job.status === CSV_EXPORT_STATUS.Failed;
+  }
+
+  /** En jobb kan avbrytes så lenge den ikke er ferdig, feilet eller alt avbrutt. */
+  isCancellable(job: CsvExportJobDto): boolean {
+    return job.status === CSV_EXPORT_STATUS.Pending || job.status === CSV_EXPORT_STATUS.Processing;
+  }
+
+  isCancelled(job: CsvExportJobDto): boolean {
+    return job.status === CSV_EXPORT_STATUS.Cancelled;
+  }
+
+  onCancel(job: CsvExportJobDto): void {
+    if (!job.id || !this.isCancellable(job)) return;
+
+    this.exportService.cancelExport(job.id).subscribe({
+      next: () => {
+        // Pollingen må stoppes eksplisitt — ellers fortsetter den å spørre etter
+        // en jobb som ikke lenger kommer til å endre status, og avslutter med en
+        // «eksporten feilet»-toast for noe brukeren selv avbrøt.
+        this.exportService.stopTracking(job.id!);
+        this.historyResource.reload();
+        this.alertService.showSuccess(this.translate.instant('mittArtskart.cancelled'));
+      },
+      error: (error: unknown) =>
+        this.alertService.showError(
+          apiErrorMessage(error, this.translate.instant('mittArtskart.cancelFailed')),
+        ),
+    });
   }
 
   onDownload(job: CsvExportJobDto): void {

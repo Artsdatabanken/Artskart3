@@ -19,7 +19,7 @@ import { SpeciesSearchComponent } from '../species-search/species-search.compone
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
 import type { components } from '../../types/api.generated';
 
-const MinProjectNameSearchLength = 2;
+const MinProjectNameSearchLength = 1;
 
 interface RegistreringOption {
   id: number | null;
@@ -54,10 +54,14 @@ export class SidebarComponent {
   private readonly projectSearch$ = new Subject<string>();
   readonly projectSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showProjectSuggestions = signal<boolean>(false);
+  readonly projectSearchTerm = signal('');
+  readonly projectSearchPending = signal<boolean>(false);
 
   private readonly datasetSearch$ = new Subject<string>();
   readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showDatasetSuggestions = signal<boolean>(false);
+  readonly datasetSearchTerm = signal('');
+  readonly datasetSearchPending = signal<boolean>(false);
 
   private readonly catalogNumberSearch$ = new Subject<string>();
   readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
@@ -89,7 +93,8 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.projectSuggestions.set(organizations);
-        this.showProjectSuggestions.set(organizations.length > 0);
+        this.projectSearchPending.set(false);
+        this.showProjectSuggestions.set(this.projectSearchTerm().trim().length > 0);
       });
 
     this.datasetSearch$
@@ -109,7 +114,8 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.datasetSuggestions.set(organizations);
-        this.showDatasetSuggestions.set(organizations.length > 0);
+        this.datasetSearchPending.set(false);
+        this.showDatasetSuggestions.set(this.datasetSearchTerm().trim().length > 0);
       });
 
     this.catalogNumberSearch$
@@ -395,9 +401,13 @@ export class SidebarComponent {
   // «Fugler», men filteret står fortsatt på forrige valg.
   onProjectNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setProjectName(input.value);
+    const value = input.value;
+    this.projectSearchTerm.set(value);
+    this.filterState.setProjectName(value);
     this.filterState.setProjectOrgId(null);
-    this.projectSearch$.next(input.value);
+    this.showProjectSuggestions.set(value.trim().length > 0);
+    this.projectSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
+    this.projectSearch$.next(value);
   }
 
   onProjectNameFocus(): void {
@@ -416,13 +426,18 @@ export class SidebarComponent {
     this.filterState.setProjectOrgId(organization.id ?? null);
     this.projectSuggestions.set([]);
     this.showProjectSuggestions.set(false);
+    this.projectSearchTerm.set(organization.name ?? '');
   }
 
   onDatasetNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setDatasetName(input.value);
+    const value = input.value;
+    this.datasetSearchTerm.set(value);
+    this.filterState.setDatasetName(value);
     this.filterState.setDatasetOrgId(null);
-    this.datasetSearch$.next(input.value);
+    this.showDatasetSuggestions.set(value.trim().length > 0);
+    this.datasetSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
+    this.datasetSearch$.next(value);
   }
 
   onDatasetNameFocus(): void {
@@ -440,6 +455,7 @@ export class SidebarComponent {
     this.filterState.setDatasetOrgId(organization.id ?? null);
     this.datasetSuggestions.set([]);
     this.showDatasetSuggestions.set(false);
+    this.datasetSearchTerm.set(organization.name ?? '');
   }
 
   onCatalogNumberChange(event: Event): void {

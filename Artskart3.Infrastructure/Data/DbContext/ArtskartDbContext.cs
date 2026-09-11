@@ -254,7 +254,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.Status, "IX_CsvExportJob_Status");
             entity.HasIndex(e => e.UserId, "IX_CsvExportJob_UserId");
 
-            entity.Property(e => e.UserId).HasMaxLength(256);
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.Status).HasConversion<int>();
             entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
@@ -262,6 +261,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.BlobPath).HasMaxLength(500);
             entity.Property(e => e.ExcelBlobPath).HasMaxLength(500);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.Attempts).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<Fab4exclude>(entity =>
@@ -519,14 +519,10 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => e.CatalogNumber).HasDatabaseName("IX_Observation_CatalogNumber");
 
             // CompleteFilter — InstitutionOrgId og DatasetOrgId er bevisst IKKE
-            // modellert som relasjoner. EF Core oppretter automatisk en indeks bak
-            // hver fremmednøkkel, og på en tabell med 61M rader ville det blitt to
-            // rowstore-indekser vi har grunn til å tro er skadelige: institusjon har
-            // 54 distinkte verdier (~1,13M rader hver), så et seek etterfulgt av
-            // sortering taper mot et clustered scan som stopper ved første TOP N.
-            // Selve FK-constrainten opprettes med rå SQL i migrasjonen, så databasen
-            // har referanseintegriteten uten indeksene. Samme mønster som
-            // columnstore-indeksen: databasen kan ha ting EF ikke modellerer.
+            // modellert som relasjoner. Selve FK-constrainten opprettes med rå SQL i
+            // migrasjonen, så databasen har referanseintegriteten uten at EF eier
+            // navigasjonen. Samme mønster som columnstore-indeksen: databasen kan ha
+            // ting EF ikke modellerer.
 
             entity.HasOne(d => d.BasisOfRecord).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.BasisOfRecordId)
