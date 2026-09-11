@@ -74,6 +74,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly pendingAreaDataRequests = signal(0);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
+  // Økes ved hver rebuild. Svar fra trege spørringer som ble sendt før siste
+  // rebuild (f.eks. et filtrert søk som svarer etter at brukeren trykket
+  // «Tøm filter») skal ikke tegnes — ellers overstyres det nettopp
+  // oppdaterte kartet av foreldet data. Se applyIfCurrent.
+  private fetchGeneration = 0;
+
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
   private fetchCounts$ = new Subject<{
@@ -433,6 +439,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private rebuildWithExtent(filter: LocationSearchFilter, extent: [number, number, number, number]): void {
+    this.fetchGeneration++;
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
 
@@ -539,6 +546,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   ): Observable<void> {
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
     const selectionKey = this.areaSelectionKey(filter);
+    const generation = this.fetchGeneration;
+    const requestHadAttributeFilters = this.hasActiveAttributeFilters();
 
     if (cachedGeometries) {
       const cacheKey = this.countsCacheKey(dataZoomLevel, selectionKey);
@@ -549,6 +558,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (visible) this.loadFetchStart();
         return this.areasService.getAreaCounts(dataZoomLevel, filter, existingCache?.etag ?? undefined).pipe(
           tap((response) => {
+            // Cachen er nøklet på filteret svaret gjelder for, så den er gyldig
+            // selv om brukeren har endret filteret i mellomtiden — men svaret
+            // skal ikke tegnes hvis kartet allerede viser et nyere filter.
             if (!response.notModified && response.counts) {
               const countsMap = new Map(response.counts.map((c) => [c.fid, c.observationCount]));
               this.countsCache.set(cacheKey, {
@@ -558,6 +570,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             } else if (existingCache && response.etag) {
               existingCache.etag = response.etag;
             }
+            if (generation !== this.fetchGeneration) return;
             const counts = this.countsCache.get(cacheKey)?.counts ?? new Map();
             const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
             const geojson = this.areasService.buildAreaGeoJson(merged, extent);
@@ -582,8 +595,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (visible) this.loadFetchStart();
       return this.areasService.getAreaMarkers(olZoom, filter).pipe(
         tap((areas) => {
-          // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
-          if (selectionKey === this.EMPTY_SELECTION_KEY && !this.hasActiveAttributeFilters()) {
+          // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett.
+          // Vurderingen må bruke filteret slik det var da spørringen ble sendt — leses
+          // attributtfilterne på nytt her, kan et tregt filtrert svar som ankommer etter
+          // «Tøm filter» ellers fylle cachen med et ufullstendig utvalg.
+          if (selectionKey === this.EMPTY_SELECTION_KEY && !requestHadAttributeFilters) {
             this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
           }
           const countsMap = this.countsFromAreas(areas);
@@ -591,6 +607,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             counts: countsMap,
             etag: null,
           });
+          if (generation !== this.fetchGeneration) return;
           const merged = this.mergeCountsIntoAreas(areas, countsMap, filter);
           const geojson = this.areasService.buildAreaGeoJson(merged, extent);
           this.applyGeoJsonToLayer(apiZoomLevel, geojson);
@@ -612,9 +629,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .pipe(
         debounceTime(300),
         switchMap(({ extent, filter }) => {
+          const generation = this.fetchGeneration;
           this.loadFetchStart();
           const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap((geojson) => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
+            tap((geojson) => {
+              if (generation === this.fetchGeneration) {
+                this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson);
+              }
+            }),
             catchError((err: unknown) => {
               this.logger.error('Failed to load location points:', 'MapComponent', err);
               return EMPTY;
@@ -625,7 +647,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.loadFetchStart();
           const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
             tap((geojson) => {
-              if (this.mapVisible) {
+              if (this.mapVisible && generation === this.fetchGeneration) {
                 this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
               }
             }),
