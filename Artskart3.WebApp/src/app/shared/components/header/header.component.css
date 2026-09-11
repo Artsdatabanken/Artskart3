@@ -257,6 +257,15 @@
   outline-offset: 4px;
 }
 
+.mobile-menu-item-button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--adb-text-accent);
+}
+
 .mobile-menu-content {
   display: flex;
   flex-direction: column;

@@ -21,7 +21,8 @@
     "switchToLightModeAriaLabel": "Bytt til lyst tema",
     "switchToDarkModeAriaLabel": "Bytt til mørkt tema",
     "artsdatabankenLinkAriaLabel": "Lenke til Artsdatabanken hjemmeside",
-    "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode"
+    "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
+    "cookieSettings": "Informasjonskapsler"
   },
   "navigation": {
     "menuItem1": "Menypunkt 1",
@@ -188,6 +189,8 @@
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}} - {{to}} meter",
     "chipPeriod": "Periode: {{from}} - {{to}}",
     "noSearchResults": "Ingen treff",
+    "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
     "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
@@ -241,6 +244,7 @@
       "topografisk": "Landkart (standard)",
       "topo4graatone": "Gråtonekart",
       "nib": "Norge i bilder",
+      "landscape": "Landkart",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
     },
@@ -359,5 +363,11 @@
     "paginationSmall": "Liten (sm)",
     "paginationLarge": "Stor (lg)",
     "icons": "Ikoner"
+  },
+  "observationList": {
+    "registrations": "{{number}} registreringer",
+    "taxonGroup": "Artsgrupper",
+    "category": "Kategorier",
+    "location": "Lokaliteter"
   }
 }

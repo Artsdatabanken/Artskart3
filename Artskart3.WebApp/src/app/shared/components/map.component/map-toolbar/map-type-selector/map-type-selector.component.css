@@ -11,7 +11,7 @@ adb-icon-button {
 .map-types-dropdown {
   position: absolute;
   top: calc(-20% + var(--adb-spacing-xsm, 8px));
-  right: 45px;
+  right: 40px;
   width: 200px;
   display: flex;
   flex-direction: column;
@@ -28,8 +28,8 @@ adb-icon-button {
   width: 100%;
   padding: 0 var(--adb-spacing-xsm, 8px);
   color: var(--adb-text-primary);
-  font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-2, 14px);
-  font-weight: var(--adb-font-weight-bold, 700);
-  line-height: 120%;
+}
+
+adb-radio-group {
+  margin-left: var(--adb-spacing-xsm, 4px);
 }

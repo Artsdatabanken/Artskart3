@@ -21,7 +21,8 @@
     "switchToLightModeAriaLabel": "Switch to light mode",
     "switchToDarkModeAriaLabel": "Switch to dark mode",
     "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
-    "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head"
+    "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
+    "cookieSettings": "Cookie settings"
   },
   "navigation": {
     "menuItem1": "Menu Item 1",
@@ -188,6 +189,8 @@
     "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
     "chipPeriod": "Period: {{from}} - {{to}}",
     "noSearchResults": "No results",
+    "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
@@ -241,6 +244,7 @@
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",
       "nib": "Norway in pictures",
+      "landscape": "Landscape map",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
     },
@@ -359,5 +363,11 @@
     "paginationSmall": "Small (sm)",
     "paginationLarge": "Large (lg)",
     "icons": "Icons"
+  },
+  "observationList": {
+    "registrations": "{{number}} registrations",
+    "taxonGroup": "Taxon Groups",
+    "category": "Categories",
+    "location": "Locations"
   }
 }
