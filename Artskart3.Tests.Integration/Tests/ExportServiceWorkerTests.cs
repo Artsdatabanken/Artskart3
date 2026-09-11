@@ -62,14 +62,15 @@ public class ExportServiceWorkerTests
             new CsvWriterService(),
             new ExportColumnRegistry(),
             options,
-            NullLogger<ExportService>.Instance);
+            NullLogger<ExportService>.Instance,
+            new StubTaxonHierarchyService());
     }
 
     private static async Task<CsvExportJob> CreateJobAsync(ArtskartDbContext context, string name)
     {
         var job = new CsvExportJob
         {
-            UserId = "00000000-0000-0000-0000-0000000000ff",
+            UserId = Guid.Parse("00000000-0000-0000-0000-0000000000ff"),
             Name = name,
             Status = CsvExportStatus.Processing,
             StartedAt = DateTime.UtcNow,
