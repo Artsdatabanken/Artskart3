@@ -28,10 +28,6 @@ adb-icon-button {
   width: 100%;
   padding: 0 var(--adb-spacing-xsm, 8px);
   color: var(--adb-text-primary);
-  font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-4, 16px);
-  font-weight: var(--adb-font-weight-bold, 700);
-  line-height: 120%;
 }
 
 adb-radio-group {
