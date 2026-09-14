@@ -1,4 +1,10 @@
-import { createMap, MapEvents, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import {
+  createMap,
+  MapEvents,
+  MapEventPayload,
+  NbicMapComponent,
+  nbicMapPresets,
+} from '@artsdatabanken/nbic-map-component';
 import {
   AfterViewInit,
   Component,
@@ -22,20 +28,25 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
-import { ImageTile } from 'ol';
-import { ApiZoomLevel } from './map.types';
+import { Feature, ImageTile } from 'ol';
+import Point from 'ol/geom/Point';
+import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import {ObservationService} from '@shared/services/observation/observation.service';
+import {ObservationListComponent} from '@shared/components/observation-list.component/observation-list.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
+import { ObservationListInfoDto } from '@shared/types/api.types';
+
 
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, MapToolbarComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -80,9 +91,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     requests: { dataZoomLevel: number; apiZoomLevel: number; visible: boolean }[];
     extent: [number, number, number, number];
   }>();
+  private locationClick$ = new Subject<number[]>();
 
   private readonly areasService = inject(AreasService);
   private readonly sharedMapService = inject(SharedMapService);
+  private readonly observationService = inject(ObservationService);
   private readonly logger = inject(LoggingService);
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
@@ -157,6 +170,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   });
 
+  public showObservationList = signal(false);
+  public observationList= signal<ObservationListInfoDto[]>([]);
+  public clickCoordinates = signal<number[]>([]);
+
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
   }
@@ -186,6 +203,26 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.adoptMapControls();
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
+      this.map.on(MapEvents.PointerClick, (payload) => {
+        this.handlePointerClick(payload);
+      })
+      this.locationClick$
+        .pipe(
+          switchMap(ids =>
+            this.observationService.getObservationByLocation(ids).pipe(
+              catchError((err: unknown) => {
+                this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
+                this.showObservationList.set(false);
+                return EMPTY;
+              })
+            )
+          ),
+          takeUntil(this.destroy$)
+        )
+        .subscribe(observations => {
+          this.observationList.set(observations);
+          this.showObservationList.set(true);
+        });
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
@@ -505,6 +542,40 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.applyGeoJsonToLayer(apiZoomLevel, '{"type":"FeatureCollection","features":[]}');
     pendingFetches.push({ dataZoomLevel, apiZoomLevel });
   }
+
+  private handlePointerClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
+    const features = payload.features as PointerClickFeature[];
+    if(!features) {
+      this.showObservationList.set(false);
+      return;
+    }
+
+    const hasRelevantFeature = features.some(
+      ({ layerId }) =>
+        layerId === this.LOCATIONS_LAYER_ID ||
+        layerId === this.LOCATION_POLYGONS_LAYER_ID
+    );
+
+    if(!hasRelevantFeature) {
+      this.showObservationList.set(false);
+      return;
+    }
+
+    this.clickCoordinates.set(payload.clickCoordinate.map(coordinate => Math.round(coordinate)));
+
+    const locationIds = features
+      .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
+      .flatMap(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature])
+      .map(( member ) => ( member.getProperties() as LocationFeatureProperties).id);
+
+    const polygonLocationIds = features
+      .filter(( { layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
+
+    const ids = [...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined);
+    this.locationClick$.next(ids);
+  }
+
 
   // ─── Async pipelines ───────────────────────────────────────────────
 

@@ -7,7 +7,9 @@ import { ResizablePanelComponent } from './components/resizable-panel/resizable-
 import { MapComponent } from './components/map.component/map.component';
 import { MapToolbarComponent } from './components/map.component/map-toolbar/map-toolbar.component';
 import { MapTypeSelectorComponent } from './components/map.component/map-toolbar/map-type-selector';
+import { ObservationListComponent } from './components/observation-list.component/observation-list.component';
 import { LoadingIndicatorComponent } from './components/loading-indicator/loading-indicator.component';
+import { NotificationsComponent } from './components/notifications/notifications.component';
 
 @NgModule({
   imports: [
@@ -18,8 +20,10 @@ import { LoadingIndicatorComponent } from './components/loading-indicator/loadin
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
+    ObservationListComponent,
     MapTypeSelectorComponent,
     LoadingIndicatorComponent,
+    NotificationsComponent,
   ],
   exports: [
     AlertComponent,
@@ -27,8 +31,10 @@ import { LoadingIndicatorComponent } from './components/loading-indicator/loadin
     ResizablePanelComponent,
     MapComponent,
     MapToolbarComponent,
+    ObservationListComponent,
     MapTypeSelectorComponent,
     LoadingIndicatorComponent,
+    NotificationsComponent,
   ],
 })
 export class SharedModule {}
