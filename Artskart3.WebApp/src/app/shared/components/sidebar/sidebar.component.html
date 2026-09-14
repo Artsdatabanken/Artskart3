@@ -304,18 +304,19 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
       <div class="other-properties-filter">
-        <label class="other-properties-label">
+        <span class="other-properties-label">
           {{ 'sidebar.project' | translate }}
           <div class="search-input-wrapper">
-            <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-            <input
-              type="text"
-              class="other-properties-input"
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
               autocomplete="off"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded="{{ showProjectSuggestions() }}"
               aria-controls="dataset-suggestions"
+              [attr.placeholder]="''"
               [value]="projectName()"
               (input)="onProjectNameChange($event)"
               (focus)="onProjectNameFocus()"
@@ -344,21 +345,22 @@
               }
             }
           </div>
-        </label>
+        </span>
 
         <div class="other-properties-row">
-          <label class="other-properties-label">
+          <span class="other-properties-label">
             {{ 'sidebar.dataset' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
                 aria-expanded="{{ showDatasetSuggestions() }}"
                 aria-controls="collection-suggestions"
+                [attr.placeholder]="''"
                 [value]="datasetName()"
                 (input)="onDatasetNameChange($event)"
                 (focus)="onDatasetNameFocus()"
@@ -387,19 +389,20 @@
                 }
               }
             </div>
-          </label>
-          <label class="other-properties-label">
+          </span>
+          <span class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
                 aria-expanded="{{ showCatalogNumberSuggestions() }}"
                 aria-controls="catalog-number-suggestions"
+                [attr.placeholder]="''"
                 [value]="catalogNumber()"
                 (input)="onCatalogNumberChange($event)"
                 (focus)="onCatalogNumberFocus()"
@@ -424,7 +427,7 @@
                 </ul>
               }
             </div>
-          </label>
+          </span>
         </div>
 
         <div class="other-properties-image-filter">
