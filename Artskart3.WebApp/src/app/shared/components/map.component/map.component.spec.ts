@@ -142,6 +142,78 @@ describe('MapComponent', () => {
     });
   });
 
+  describe('stale response guard', () => {
+    const AREA_TYPE_MUNICIPALITY = 1;
+    const testExtent: [number, number, number, number] = [0, 0, 1000000, 1000000];
+
+    const area = (fid: string, observationCount = 0) => ({
+      id: 1,
+      documentId: fid,
+      fid,
+      name: `Area ${fid}`,
+      areaTypeId: AREA_TYPE_MUNICIPALITY,
+      parentFid: '',
+      syncDateTime: '',
+      timeStamp: '',
+      isCurrent: true,
+      observationCount,
+      wktsPolygon: 'POLYGON((0 0, 0 10, 10 10, 10 0, 0 0))',
+    });
+
+    const accessPrivate = (c: MapComponent) =>
+      c as unknown as {
+        geometryCacheByApiZoom: Map<number, ReturnType<typeof area>[]>;
+        countsCache: Map<string, { counts: Map<string, number>; etag: string | null }>;
+        setupCountsFetchPipeline: () => void;
+        rebuildWithExtent: (filter: Record<string, unknown>, extent: [number, number, number, number]) => void;
+        areaSelectionKey: (filter: Record<string, unknown>) => string;
+        countsCacheKey: (zoomLevel: number, selectionKey: string) => string;
+      };
+
+    it('should not apply a slow filtered response that arrives after the filter is cleared', () => {
+      const areasService = TestBed.inject(AreasService);
+      const filterState = TestBed.inject(FilterStateService);
+      const priv = accessPrivate(component);
+      const updateSpy = vi.fn();
+      component.map = {
+        updateGeoJSONLayer: updateSpy,
+        getCamera: () => ({ zoom: 10 }),
+      } as unknown as NbicMapComponent;
+
+      priv.geometryCacheByApiZoom.set(ApiZoomLevel.Municipalities, [area('0301', 100)]);
+      priv.setupCountsFetchPipeline();
+
+      // Aktivt attributtfilter → antall må hentes fra backend (treg spørring)
+      filterState.selectedCategoryIds.set([1]);
+      const staleResponse$ = new Subject<{
+        counts: { fid: string; observationCount: number }[] | null;
+        etag: string | null;
+        notModified: boolean;
+      }>();
+      vi.spyOn(areasService, 'getAreaCounts').mockReturnValue(staleResponse$.asObservable());
+      const staleCacheKey = priv.countsCacheKey(ApiZoomLevel.Municipalities, priv.areaSelectionKey({}));
+
+      priv.rebuildWithExtent({}, testExtent);
+      expect(areasService.getAreaCounts).toHaveBeenCalledTimes(1);
+
+      // Brukeren trykker «Tøm filter» mens spørringen pågår. Ufiltrerte antall
+      // finnes i geometri-cachen, så kartet oppdateres synkront — ingen ny
+      // spørring sendes, og den gamle blir heller ikke kansellert av switchMap.
+      filterState.clearAll();
+      priv.rebuildWithExtent({}, testExtent);
+
+      const municipalityCalls = () => updateSpy.mock.calls.filter((call) => call[0] === 'area-markers-municipalities');
+      expect(municipalityCalls().at(-1)?.[1]).toContain('"observationCount":100');
+
+      // Det trege, filtrerte svaret ankommer — det skal ikke overstyre kartet
+      staleResponse$.next({ counts: [{ fid: '0301', observationCount: 3 }], etag: null, notModified: false });
+
+      expect(municipalityCalls().at(-1)?.[1]).toContain('"observationCount":100');
+      // ... men antallene caches likevel, så samme filter er instant neste gang
+      expect(priv.countsCache.get(staleCacheKey)?.counts.get('0301')).toBe(3);
+    });
+  });
+
   describe('geometry and counts caching', () => {
     const AREA_TYPE_MUNICIPALITY = 1;
     const AREA_TYPE_OCEAN = 4;
