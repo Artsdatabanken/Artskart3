@@ -347,13 +347,13 @@
         </span>
 
         <div class="other-properties-row">
-          <label class="other-properties-label">
+          <span class="other-properties-label">
             {{ 'sidebar.dataset' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
@@ -387,14 +387,14 @@
                 }
               }
             </div>
-          </label>
-          <label class="other-properties-label">
+          </span>
+          <span class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
                 autocomplete="off"
                 role="combobox"
                 aria-autocomplete="list"
@@ -424,7 +424,7 @@
                 </ul>
               }
             </div>
-          </label>
+          </span>
         </div>
 
         <div class="other-properties-image-filter">
