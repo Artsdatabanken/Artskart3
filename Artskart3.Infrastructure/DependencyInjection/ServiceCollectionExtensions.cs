@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationsRepository, NotificationsRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ILookupRepository, LookupRepository>();
+        services.AddScoped<IMapLayerRepository, MapLayerRepository>();
         services.AddScoped<IObservationRepository, ObservationRepository>();
         // Add other repositories here
         return services;
@@ -34,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationsService, NotificationsService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILookupService, LookupService>();
+        services.AddScoped<IMapLayerService, MapLayerService>();
         services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
