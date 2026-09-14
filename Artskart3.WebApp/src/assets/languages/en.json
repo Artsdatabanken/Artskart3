@@ -244,6 +244,7 @@
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",
       "nib": "Norway in pictures",
+      "landscape": "Landscape map",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
     },
@@ -362,5 +363,11 @@
     "paginationSmall": "Small (sm)",
     "paginationLarge": "Large (lg)",
     "icons": "Icons"
+  },
+  "observationList": {
+    "registrations": "{{number}} registrations",
+    "taxonGroup": "Taxon Groups",
+    "category": "Categories",
+    "location": "Locations"
   }
 }
