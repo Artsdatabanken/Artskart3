@@ -41,6 +41,24 @@ export class ExportService {
   }
 
   /**
+   * Avbryter en eksportjobb som ennå ikke er ferdig.
+   *
+   * Endepunktet har eksistert hele tiden, men var aldri koblet opp i klienten.
+   * Uten det var grensen på tre samtidige jobber en blindvei: tre jobber som ble
+   * stående låste brukeren ute fra all eksport, med «prøv igjen senere» som
+   * eneste tilbakemelding og en manuell databaseoppdatering som eneste utvei.
+   */
+  cancelExport(jobId: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${jobId}/cancel`, {});
+  }
+
+  /** Stopper statuspollingen for en jobb, f.eks. når den er avbrutt. */
+  stopTracking(jobId: number): void {
+    this.activePolls.get(jobId)?.unsubscribe();
+    this.activePolls.delete(jobId);
+  }
+
+  /**
    * Polls the export status every `intervalMs` until it completes or fails.
    * Emits intermediate statuses and completes with the final one.
    */
@@ -74,7 +92,8 @@ export class ExportService {
               route: '/mittartskart',
             },
           });
-        } else {
+        } else if (job.status !== CSV_EXPORT_STATUS.Cancelled) {
+          // Avbrutt er brukerens eget valg, ikke en feil — ingen toast.
           this.alertService.showError(this.translate.instant('export.failed'));
         }
         this.historyVersion.update((v) => v + 1);

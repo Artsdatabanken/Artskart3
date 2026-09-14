@@ -32,6 +32,7 @@ public class ExportService
     private readonly ExportColumnRegistry _columnRegistry;
     private readonly CsvExportOptions _options;
     private readonly ILogger<ExportService> _logger;
+    private readonly ITaxonHierarchyService _taxonHierarchy;
 
     public ExportService(
         IArtsKartDbContext context,
@@ -39,7 +40,8 @@ public class ExportService
         CsvWriterService csvWriter,
         ExportColumnRegistry columnRegistry,
         IOptions<CsvExportOptions> options,
-        ILogger<ExportService> logger)
+        ILogger<ExportService> logger,
+        ITaxonHierarchyService taxonHierarchy)
     {
         _context = context;
         _blobStorage = blobStorage;
@@ -47,6 +49,7 @@ public class ExportService
         _columnRegistry = columnRegistry;
         _options = options.Value;
         _logger = logger;
+        _taxonHierarchy = taxonHierarchy;
     }
 
     public async Task ProcessJobAsync(CsvExportJob job, CancellationToken cancellationToken)
@@ -325,7 +328,7 @@ public class ExportService
 
         if (filter != null)
         {
-            query = ObservationQueryBuilder.ApplyFilters(_context, query, filter);
+            query = ObservationQueryBuilder.ApplyFilters(_context, _taxonHierarchy, query, filter);
         }
 
         return query;

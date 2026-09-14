@@ -125,11 +125,17 @@ public class ExportController : ControllerBase
         return Ok(history);
     }
 
-    private ActionResult? TryGetUserId(out string userId)
+    private ActionResult? TryGetUserId(out Guid userId)
     {
-        userId = User.FindFirst("sub")?.Value ?? User.FindFirst("name")?.Value ?? "";
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized(new { error = "Bruker mangler 'sub'- eller 'name'-claim." });
+        userId = Guid.Empty;
+
+        var sub = User.FindFirst("sub")?.Value;
+        if (string.IsNullOrWhiteSpace(sub))
+            return Unauthorized(new { error = "Bruker mangler 'sub'-claim." });
+
+        if (!Guid.TryParse(sub, out userId))
+            return Unauthorized(new { error = "Bruker har ugyldig 'sub'-claim." });
+
         return null;
     }
 }

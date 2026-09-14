@@ -233,55 +233,6 @@ public class ObservationSearchBenchmarks
     }
 
     // -----------------------------------------------------------------------
-    // Tekstsøk (LIKE-mønstre mot Taxon/TaxonName-tabeller)
-    // -----------------------------------------------------------------------
-
-    [Benchmark]
-    public async Task TextSearch_PopularName()
-    {
-        _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
-        {
-            PageNumber = 1,
-            ResultsPerPage = 10,
-            PreferredPopularName = "blåmeis"
-        });
-    }
-
-    [Benchmark]
-    public async Task TextSearch_ScientificName()
-    {
-        _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
-        {
-            PageNumber = 1,
-            ResultsPerPage = 10,
-            ScientificName = "Parus major"
-        });
-    }
-
-    [Benchmark]
-    public async Task TextSearch_Author()
-    {
-        _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
-        {
-            PageNumber = 1,
-            ResultsPerPage = 10,
-            Author = "Linnaeus"
-        });
-    }
-
-    [Benchmark]
-    public async Task TextSearch_PopularName_Plus_Municipality1()
-    {
-        _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
-        {
-            PageNumber = 1,
-            ResultsPerPage = 10,
-            PreferredPopularName = "blåmeis",
-            MunicipalityIds = Municipalities1
-        });
-    }
-
-    // -----------------------------------------------------------------------
     // Paginering i dybden (Skip-ytelse ved store offsets)
     // -----------------------------------------------------------------------
 
@@ -402,13 +353,12 @@ public class ObservationSearchBenchmarks
     }
 
     [Benchmark]
-    public async Task RealisticCombo_Text_Category_Area_Period()
+    public async Task RealisticCombo_Category_Area_Period()
     {
         _ = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
         {
             PageNumber = 1,
             ResultsPerPage = 50,
-            PreferredPopularName = "meis",
             CategoryIds = Categories1,
             MunicipalityIds = Municipalities3,
             Period = new PeriodDto { From = 2015, To = 2025 }

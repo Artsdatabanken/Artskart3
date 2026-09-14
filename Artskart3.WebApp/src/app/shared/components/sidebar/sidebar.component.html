@@ -321,20 +321,27 @@
               (focus)="onProjectNameFocus()"
               (blur)="onProjectNameBlur()"
             />
-            @if (showProjectSuggestions() && projectSuggestions().length > 0) {
-              <ul id="dataset-suggestions" class="project-name-suggestions" role="listbox">
-                @for (organization of projectSuggestions(); track organization.id) {
-                  <li role="option" aria-selected="false">
-                    <button
-                      type="button"
-                      class="project-name-suggestion"
-                      (mousedown)="selectProjectSuggestion(organization)"
-                    >
-                      {{ organization.name }}
-                    </button>
-                  </li>
-                }
-              </ul>
+            @if (showProjectSuggestions()) {
+              @if (projectSuggestions().length > 0) {
+                <ul id="dataset-suggestions" class="project-name-suggestions" role="listbox">
+                  @for (organization of projectSuggestions(); track organization.id) {
+                    <li role="option" aria-selected="false">
+                      <button
+                        type="button"
+                        class="project-name-suggestion"
+                        (mousedown)="selectProjectSuggestion(organization)"
+                      >
+                        {{ organization.name }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              } @else if (!projectSearchPending() && projectSearchTerm().trim().length > 0) {
+                <div class="project-name-empty project-name-suggestions" role="status">
+                  <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
+                  <span>{{ 'sidebar.noSearchResultsProject' | translate: { searchTerm: projectSearchTerm().trim() } }}</span>
+                </div>
+              }
             }
           </div>
         </label>
@@ -357,20 +364,27 @@
                 (focus)="onDatasetNameFocus()"
                 (blur)="onDatasetNameBlur()"
               />
-              @if (showDatasetSuggestions() && datasetSuggestions().length > 0) {
-                <ul id="collection-suggestions" class="project-name-suggestions" role="listbox">
-                  @for (organization of datasetSuggestions(); track organization.id) {
-                    <li role="option" aria-selected="false">
-                      <button
-                        type="button"
-                        class="project-name-suggestion"
-                        (mousedown)="selectDatasetSuggestion(organization)"
-                      >
-                        {{ organization.name }}
-                      </button>
-                    </li>
-                  }
-                </ul>
+              @if (showDatasetSuggestions()) {
+                @if (datasetSuggestions().length > 0) {
+                  <ul id="collection-suggestions" class="project-name-suggestions" role="listbox">
+                    @for (organization of datasetSuggestions(); track organization.id) {
+                      <li role="option" aria-selected="false">
+                        <button
+                          type="button"
+                          class="project-name-suggestion"
+                          (mousedown)="selectDatasetSuggestion(organization)"
+                        >
+                          {{ organization.name }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                } @else if (!datasetSearchPending() && datasetSearchTerm().trim().length > 0) {
+                  <div class="dataset-name-empty project-name-suggestions" role="status">
+                    <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
+                    <span>{{ 'sidebar.noSearchResultsDataset' | translate: { searchTerm: datasetSearchTerm().trim() } }}</span>
+                  </div>
+                }
               }
             </div>
           </label>

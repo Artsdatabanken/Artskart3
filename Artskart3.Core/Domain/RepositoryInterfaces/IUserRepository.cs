@@ -6,4 +6,5 @@ public interface IUserRepository
 {
     Task<User?> GetUserById(Guid id, CancellationToken cancellationToken = default);
     Task<User> CreateUser(User user, CancellationToken cancellationToken = default);
+    Task<User> UpdateUser(User user, CancellationToken cancellationToken = default);
 }
