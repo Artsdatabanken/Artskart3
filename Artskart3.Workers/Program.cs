@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Infrastructure.Services;
 using Artskart3.Workers.Export;
 using Artskart3.Workers.Configuration;
 
@@ -71,6 +72,18 @@ builder.Services.AddScoped<IBlobStorageService, Artskart3.Infrastructure.Service
 builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
+
+// Taksonhierarki. Workeren trenger dette fordi taksonfilteret må utvides hierarkisk
+// på nøyaktig samme måte som i API-ets forhåndstelling — ellers teller API-et ett
+// utvalg og workeren skriver et annet.
+//
+// Registreres likt som i API-et (samme singleton bak både konkret type og
+// grensesnitt, med hosted service som laster ved oppstart). Alternativet var et
+// eget, lettere rangoppslag her, men to implementasjoner av det samme oppslaget
+// er akkurat den avvikstypen denne endringen skal bli kvitt.
+builder.Services.AddSingleton<TaxonHierarchyService>();
+builder.Services.AddSingleton<ITaxonHierarchyService>(sp => sp.GetRequiredService<TaxonHierarchyService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TaxonHierarchyService>());
 
 // Helsesjekk
 builder.Services.AddHealthChecks();

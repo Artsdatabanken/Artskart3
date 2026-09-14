@@ -22,6 +22,7 @@
               <th>{{ 'mittArtskart.fileSize' | translate }}</th>
               <th>{{ 'mittArtskart.downloadCsv' | translate }}</th>
               <th>{{ 'mittArtskart.downloadExcel' | translate }}</th>
+              <th>{{ 'mittArtskart.actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -49,10 +50,19 @@
                     -
                   }
                 </td>
+                <td>
+                  @if (isCancellable(job)) {
+                    <a href="#" role="button" aria-label="{{ 'mittArtskart.cancelExportLink' | translate }}" (click)="onCancel(job); $event.preventDefault()">{{ 'mittArtskart.cancelExport' | translate }}</a>
+                  } @else if (isCancelled(job)) {
+                    <span class="export-cancelled-label">{{ 'mittArtskart.cancelledLabel' | translate }}</span>
+                  } @else {
+                    -
+                  }
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="empty-message">{{ 'mittArtskart.noJobs' | translate }}</td>
+                <td colspan="6" class="empty-message">{{ 'mittArtskart.noJobs' | translate }}</td>
               </tr>
             }
           </tbody>

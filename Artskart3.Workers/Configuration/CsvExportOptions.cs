@@ -17,6 +17,13 @@ public class ExportWorkerOptions
     public int BatchSize { get; set; } = 5000;
     public int InterBatchDelayMs { get; set; } = 100;
     public int StuckJobTimeoutMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Hvor mange ganger en eksportjobb får bli gjenopprettet fra Processing før
+    /// den merkes Failed. Uten en grense blir en jobb som dreper prosessen liggende
+    /// først i køen for alltid og sulter ut alle andre eksporter.
+    /// </summary>
+    public int MaxAttempts { get; set; } = 3;
     /// <summary>
     /// Antall dager før ferdigstilte eksportjobber og tilhørende blob-filer slettes.
     /// </summary>

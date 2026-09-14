@@ -63,8 +63,18 @@ public class UserIntegrationTests : IAsyncLifetime
         });
     }
 
+    /// <summary>
+    /// En kjent bruker skal oppdateres, ikke dupliseres.
+    ///
+    /// Testen hevdet tidligere det motsatte av det den burde: at de lagrede
+    /// verdiene BLE STÅENDE når identitetstjenesten sendte noe annet. Det var
+    /// nettopp feilen — profildataene frøs slik de var ved første innlogging, og
+    /// UpdatedAt var identisk med CreatedAt på hver eneste rad i tabellen.
+    ///
+    /// Det som fortsatt må holde, er at oppdateringen ikke lager en ny rad.
+    /// </summary>
     [Fact]
-    public async Task GetOrCreateUser_WhenUserAlreadyExists_ReturnsExistingUserAndDoesNotCreateDuplicate()
+    public async Task GetOrCreateUser_WhenUserAlreadyExists_RefreshesProfileAndDoesNotCreateDuplicate()
     {
         var userId = Guid.NewGuid();
 
@@ -89,15 +99,23 @@ public class UserIntegrationTests : IAsyncLifetime
         var result = await userService.GetOrCreateUser(incomingUser);
 
         result.Id.Should().Be(userId);
-        result.Name.Should().Be(existingUser.Name);
-        result.Email.Should().Be(existingUser.Email);
+        result.Name.Should().Be(incomingUser.Name);
+        result.Email.Should().Be(incomingUser.Email);
 
         var dbContext = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
-        var usesWithTheSameId = await dbContext.Set<User>()
+        var usersWithTheSameId = await dbContext.Set<User>()
+            .AsNoTracking()
             .Where(user => user.Id == userId)
             .ToListAsync();
 
-        usesWithTheSameId.Should().ContainSingle();
+        usersWithTheSameId.Should().ContainSingle("oppdateringen skal endre raden, ikke legge til en ny");
+
+        // Lest tilbake fra databasen — det er persisteringen som er poenget her,
+        // ikke bare at objektet som returneres har riktige verdier.
+        var stored = usersWithTheSameId.Single();
+        stored.Name.Should().Be(incomingUser.Name);
+        stored.Email.Should().Be(incomingUser.Email);
+        stored.UpdatedAt.Should().BeAfter(stored.CreatedAt);
     }
 
     private async Task AddUserToDatabase(User user)
