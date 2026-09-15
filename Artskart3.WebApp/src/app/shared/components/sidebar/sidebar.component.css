@@ -291,6 +291,8 @@ adb-checkbox::part(control) {
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
   color: var(--adb-text-subtle, #4d4d4d);
   font-size: var(--adb-font-size-sm, 0.875rem);
+  font-family: var(--font-family-secondary);
+  font-weight: var(--adb-font-weight-regular);
   line-height: 1.5;
 }
 
@@ -303,6 +305,8 @@ adb-checkbox::part(control) {
 }
 
 .empty-search-icon {
+  width: 24px;
+  height: 24px;
   color: var(--adb-text-subtle, #4d4d4d);
   flex-shrink: 0;
 }
