@@ -7,6 +7,7 @@ import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
+import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { AreasService } from '@core/services/areas/areas.service';
 import { FilterStateService } from '@shared/services/filter-state/filter-state.service';
 
@@ -303,6 +304,91 @@ describe('MapComponent', () => {
       );
 
       expect(result.map(a => a.fid)).toEqual(['0302']);
+    });
+  });
+
+  describe('handleAreaMarkerClick', () => {
+    let animateSpy: ReturnType<typeof vi.fn<(opts: unknown) => void>>;
+    let warnSpy: ReturnType<typeof vi.spyOn>;
+
+    const accessPrivate = (c: MapComponent) =>
+      c as unknown as {
+        handleAreaMarkerClick: (features: unknown) => void;
+        zoomControl?: { getMap: () => { getView: () => { animate: (opts: unknown) => void } } | null };
+        logger: { warn: (msg: string, ctx?: string, data?: unknown) => void };
+        CLICK_ANIMATION_DURATION_MS: number;
+      };
+
+    const animationDuration = () => accessPrivate(component).CLICK_ANIMATION_DURATION_MS;
+
+    const centroid = { x: 250000, y: 7100000 };
+
+    beforeEach(() => {
+      animateSpy = vi.fn<(opts: unknown) => void>();
+      accessPrivate(component).zoomControl = { getMap: () => ({ getView: () => ({ animate: animateSpy }) }) };
+      warnSpy = vi.spyOn(accessPrivate(component).logger, 'warn').mockImplementation(() => undefined);
+    });
+
+    it('should animate to the centroid past the county threshold on county marker click', () => {
+      accessPrivate(component).handleAreaMarkerClick([{ layerId: 'area-markers-counties', properties: { centroid } }]);
+
+      expect(animateSpy).toHaveBeenCalledWith({
+        center: [centroid.x, centroid.y],
+        zoom: ZoomConfig.ZOOM_AFTER_COUNTY_CLICK,
+        duration: animationDuration(),
+      });
+    });
+
+    it('should animate to the centroid past the municipality threshold on municipality marker click', () => {
+      accessPrivate(component).handleAreaMarkerClick([{ layerId: 'area-markers-municipalities', properties: { centroid } }]);
+
+      expect(animateSpy).toHaveBeenCalledWith({
+        center: [centroid.x, centroid.y],
+        zoom: ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK,
+        duration: animationDuration(),
+      });
+    });
+
+    it('should ignore the polygon outline feature and use the marker feature in the same layer', () => {
+      accessPrivate(component).handleAreaMarkerClick([
+          { layerId: 'area-markers-counties', properties: { fid: '03' } },
+          { layerId: 'area-markers-counties', properties: { fid: '03', centroid } },
+      ]);
+
+      expect(animateSpy).toHaveBeenCalledTimes(1);
+      expect(animateSpy).toHaveBeenCalledWith(expect.objectContaining({ center: [centroid.x, centroid.y] }));
+    });
+
+    it('should warn and not move the camera when the marker has no valid centroid', () => {
+      accessPrivate(component).handleAreaMarkerClick([{ layerId: 'area-markers-counties', properties: {} }]);
+
+      expect(warnSpy).toHaveBeenCalled();
+      expect(animateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when no features were hit', () => {
+      accessPrivate(component).handleAreaMarkerClick(null);
+
+      expect(animateSpy).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('should ignore clicks on other layers', () => {
+      accessPrivate(component).handleAreaMarkerClick([{ layerId: 'area-markers-locations', properties: { centroid } }]);
+
+      expect(animateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to setCenter/setZoom when no OL view is available', () => {
+      accessPrivate(component).zoomControl = undefined;
+      const setCenterSpy = vi.fn();
+      const setZoomSpy = vi.fn();
+      component.map = { setCenter: setCenterSpy, setZoom: setZoomSpy } as unknown as NbicMapComponent;
+
+      accessPrivate(component).handleAreaMarkerClick([{ layerId: 'area-markers-counties', properties: { centroid } }]);
+
+      expect(setCenterSpy).toHaveBeenCalledWith([centroid.x, centroid.y]);
+      expect(setZoomSpy).toHaveBeenCalledWith(ZoomConfig.ZOOM_AFTER_COUNTY_CLICK);
     });
   });
 });
