@@ -220,7 +220,8 @@
       "Cultivar": "Cultivar",
       "Sphere": "Sphere"
     },
-    "otherProperties": "Other Occurance Properties",
+    "otherProperties": "Other find properties",
+    "searchPlaceholder": "Search",
     "project": "Project",
     "dataset": "Dataset",
     "catalogNumber": "Id / catalog number",
