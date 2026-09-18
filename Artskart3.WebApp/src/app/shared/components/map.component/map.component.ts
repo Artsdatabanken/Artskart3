@@ -1,10 +1,4 @@
-import {
-  createMap,
-  MapEvents,
-  MapEventPayload,
-  NbicMapComponent,
-  nbicMapPresets,
-} from '@artsdatabanken/nbic-map-component';
+import { createMap, MapEvents, MapEventPayload, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
 import {
   AfterViewInit,
   Component,
@@ -16,13 +10,13 @@ import {
   inject,
   computed,
   effect,
-  signal
+  signal,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
-import { AreaMarkerDto } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
@@ -30,6 +24,8 @@ import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { Feature, ImageTile } from 'ol';
 import Point from 'ol/geom/Point';
+import { unByKey } from 'ol/Observable';
+import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
@@ -37,11 +33,10 @@ import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import {ObservationService} from '@shared/services/observation/observation.service';
-import {ObservationListComponent} from '@shared/components/observation-list.component/observation-list.component';
+import { ObservationService } from '@shared/services/observation/observation.service';
+import { ObservationListComponent } from '@shared/components/observation-list.component/observation-list.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
-
 
 @Component({
   selector: 'app-map',
@@ -84,6 +79,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private readonly pendingAreaDataRequests = signal(0);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
+
+  private fetchGeneration = 0;
 
   private destroy$ = new Subject<void>();
   private cameraChanged$ = new Subject<void>();
@@ -171,7 +168,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   });
 
   public showObservationList = signal(false);
-  public observationList= signal<ObservationListInfoDto[]>([]);
+  public observationList = signal<ObservationListInfoDto[]>([]);
   public clickCoordinates = signal<number[]>([]);
 
   ngAfterViewInit(): void {
@@ -204,22 +201,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on(MapEvents.PointerClick, (payload) => {
-        this.handlePointerClick(payload);
-      })
+        this.handleLocationClick(payload);
+        this.handleAreaMarkerClick(payload.features as PointerClickFeature[] | null);
+      });
       this.locationClick$
         .pipe(
-          switchMap(ids =>
+          switchMap((ids) =>
             this.observationService.getObservationByLocation(ids).pipe(
               catchError((err: unknown) => {
                 this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
                 this.showObservationList.set(false);
                 return EMPTY;
-              })
-            )
+              }),
+            ),
           ),
-          takeUntil(this.destroy$)
+          takeUntil(this.destroy$),
         )
-        .subscribe(observations => {
+        .subscribe((observations) => {
           this.observationList.set(observations);
           this.showObservationList.set(true);
         });
@@ -321,6 +319,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map) return;
     this.map.activateHoverInfo();
     this.setupAreaMarkerLayers();
+    this.setupMarkerCursor();
     this.setupCountsFetchPipeline();
     this.setupLocationsFetchPipeline();
     this.setupCameraChangePipeline();
@@ -328,6 +327,80 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.prefetchAreaGeometries();
     this.rebuildAllLayers();
   }
+
+  private readonly CLICK_ANIMATION_DURATION_MS = 300;
+
+  private handleAreaMarkerClick(features: PointerClickFeature[] | null): void {
+    if (!features?.length) return;
+
+    let hitMarkerLayer: string | null = null;
+    for (const hit of features) {
+      const targetZoom = this.zoomTargetForLayer(hit.layerId);
+      if (targetZoom == null) continue;
+      hitMarkerLayer = hit.layerId;
+
+      const centroid = this.extractCentroid(hit.properties);
+      if (!centroid) continue; // polygon outline feature in the same layer has no centroid
+
+      this.zoomToCentroid(centroid, targetZoom);
+      return;
+    }
+
+    if (hitMarkerLayer) {
+      this.logger.warn(`Marker in layer ${hitMarkerLayer} has no valid centroid; ignoring click`, 'MapComponent');
+    }
+  }
+
+  private zoomTargetForLayer(layerId: string): number | null {
+    if (layerId === this.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
+    if (layerId === this.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
+    return null;
+  }
+
+  private extractCentroid(properties?: Record<string, unknown>): [number, number] | null {
+    const centroid = properties?.['centroid'] as { x?: unknown; y?: unknown } | undefined;
+    if (typeof centroid?.x !== 'number' || typeof centroid?.y !== 'number') return null;
+    if (!Number.isFinite(centroid.x) || !Number.isFinite(centroid.y)) return null;
+    return [centroid.x, centroid.y];
+  }
+
+  private zoomToCentroid(centroid: [number, number], zoom: number): void {
+    // nbic-map-component exposes no fly-to; use the OL view via the adopted zoom control.
+    const view = this.zoomControl?.getMap()?.getView();
+    if (view) {
+      view.animate({ center: centroid, zoom, duration: this.CLICK_ANIMATION_DURATION_MS });
+      return;
+    }
+    this.map?.setCenter(centroid);
+    this.map?.setZoom(zoom);
+  }
+
+  private setupMarkerCursor(): void {
+    const olMap = this.zoomControl?.getMap();
+    if (!olMap) return;
+
+    this.markerCursorKey = olMap.on('pointermove', (evt) => {
+      const overMarker = olMap.forEachFeatureAtPixel(evt.pixel, (feature) => (feature?.get('centroid') != null ? true : undefined), {
+        hitTolerance: 5,
+        layerFilter: (layer) => {
+          const id = layer?.get('id') as string | undefined;
+          return id === this.COUNTIES_LAYER_ID || id === this.MUNICIPALITIES_LAYER_ID;
+        },
+      });
+
+      const target = olMap.getTargetElement();
+      if (overMarker) {
+        target.style.cursor = 'pointer';
+        this.markerCursorActive = true;
+      } else if (this.markerCursorActive) {
+        target.style.cursor = '';
+        this.markerCursorActive = false;
+      }
+    });
+  }
+
+  private markerCursorKey?: EventsKey;
+  private markerCursorActive = false;
 
   private setupAreaMarkerLayers(): void {
     this.map.addLayer({
@@ -470,6 +543,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private rebuildWithExtent(filter: LocationSearchFilter, extent: [number, number, number, number]): void {
+    this.fetchGeneration++;
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
 
@@ -543,39 +617,36 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     pendingFetches.push({ dataZoomLevel, apiZoomLevel });
   }
 
-  private handlePointerClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
+  private handleLocationClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
     const features = payload.features as PointerClickFeature[];
-    if(!features) {
+    if (!features) {
       this.showObservationList.set(false);
       return;
     }
 
     const hasRelevantFeature = features.some(
-      ({ layerId }) =>
-        layerId === this.LOCATIONS_LAYER_ID ||
-        layerId === this.LOCATION_POLYGONS_LAYER_ID
+      ({ layerId }) => layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID,
     );
 
-    if(!hasRelevantFeature) {
+    if (!hasRelevantFeature) {
       this.showObservationList.set(false);
       return;
     }
 
-    this.clickCoordinates.set(payload.clickCoordinate.map(coordinate => Math.round(coordinate)));
+    this.clickCoordinates.set(payload.clickCoordinate.map((coordinate) => Math.round(coordinate)));
 
     const locationIds = features
       .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
       .flatMap(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature])
-      .map(( member ) => ( member.getProperties() as LocationFeatureProperties).id);
+      .map((member) => (member.getProperties() as LocationFeatureProperties).id);
 
     const polygonLocationIds = features
-      .filter(( { layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .filter(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
       .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
 
     const ids = [...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined);
     this.locationClick$.next(ids);
   }
-
 
   // ─── Async pipelines ───────────────────────────────────────────────
 
@@ -610,6 +681,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   ): Observable<void> {
     const cachedGeometries = this.geometryCacheByApiZoom.get(dataZoomLevel);
     const selectionKey = this.areaSelectionKey(filter);
+    const generation = this.fetchGeneration;
+    const requestHadAttributeFilters = this.hasActiveAttributeFilters();
 
     if (cachedGeometries) {
       const cacheKey = this.countsCacheKey(dataZoomLevel, selectionKey);
@@ -629,6 +702,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             } else if (existingCache && response.etag) {
               existingCache.etag = response.etag;
             }
+            if (generation !== this.fetchGeneration) return;
             const counts = this.countsCache.get(cacheKey)?.counts ?? new Map();
             const merged = this.mergeCountsIntoAreas(cachedGeometries, counts, filter);
             const geojson = this.areasService.buildAreaGeoJson(merged, extent);
@@ -653,8 +727,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (visible) this.loadFetchStart();
       return this.areasService.getAreaMarkers(olZoom, filter).pipe(
         tap((areas) => {
-          // Geometri-cachen tømmes aldri, så den må kun fylles med et komplett, ufiltrert sett
-          if (selectionKey === this.EMPTY_SELECTION_KEY && !this.hasActiveAttributeFilters()) {
+          if (selectionKey === this.EMPTY_SELECTION_KEY && !requestHadAttributeFilters) {
             this.geometryCacheByApiZoom.set(dataZoomLevel, areas);
           }
           const countsMap = this.countsFromAreas(areas);
@@ -662,6 +735,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             counts: countsMap,
             etag: null,
           });
+          if (generation !== this.fetchGeneration) return;
           const merged = this.mergeCountsIntoAreas(areas, countsMap, filter);
           const geojson = this.areasService.buildAreaGeoJson(merged, extent);
           this.applyGeoJsonToLayer(apiZoomLevel, geojson);
@@ -683,9 +757,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .pipe(
         debounceTime(300),
         switchMap(({ extent, filter }) => {
+          const generation = this.fetchGeneration;
           this.loadFetchStart();
           const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap((geojson) => this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson)),
+            tap((geojson) => {
+              if (generation === this.fetchGeneration) {
+                this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson);
+              }
+            }),
             catchError((err: unknown) => {
               this.logger.error('Failed to load location points:', 'MapComponent', err);
               return EMPTY;
@@ -696,7 +775,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.loadFetchStart();
           const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
             tap((geojson) => {
-              if (this.mapVisible) {
+              if (this.mapVisible && generation === this.fetchGeneration) {
                 this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
               }
             }),
@@ -794,7 +873,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     return areas.filter(
       (a) =>
-        countyFids.has(a.fid) || municipalityFids.has(a.fid) || oceanAreaFids.has(a.fid) || (a.parentFid && countyFids.has(a.parentFid)),
+        a.fid != null &&
+        (countyFids.has(a.fid) ||
+          municipalityFids.has(a.fid) ||
+          oceanAreaFids.has(a.fid) ||
+          (a.parentFid != null && countyFids.has(a.parentFid))),
     );
   }
 
@@ -808,15 +891,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const selectedFids = new Set([...(filter.countyIds ?? []), ...(filter.municipalityIds ?? []), ...(filter.oceanAreaIds ?? [])]);
 
     return this.filterCachedAreasBySelection(areas, filter)
-      .map((a) => ({ ...a, observationCount: counts.get(a.fid) ?? 0 }))
-      .filter((a) => (a.observationCount ?? 0) > 0 || selectedFids.has(a.fid));
+      .map((a) => ({ ...a, observationCount: (a.fid != null ? counts.get(a.fid) : undefined) ?? 0 }))
+      .filter((a) => (a.observationCount ?? 0) > 0 || (a.fid != null && selectedFids.has(a.fid)));
   }
 
   /**
    * Bruker de forhåndsberegnede antallene som følger med geometriene.
    */
   private countsFromAreas(areas: AreaMarkerDto[]): Map<string, number> {
-    return new Map(areas.map((a) => [a.fid, a.observationCount ?? 0]));
+    const counts = new Map<string, number>();
+    for (const a of areas) {
+      if (a.fid != null) counts.set(a.fid, a.observationCount ?? 0);
+    }
+    return counts;
   }
 
   private updateSelectedAreaOverlays(): void {
@@ -830,7 +917,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     const parentCountyFids =
       municipalityIds.length > 0
-        ? [...new Set(municipalityAreas.filter((a) => municipalityIds.includes(a.fid) && a.parentFid).map((a) => a.parentFid))]
+        ? [
+            ...new Set(
+              municipalityAreas
+                .filter((a) => a.fid != null && municipalityIds.includes(a.fid))
+                .map((a) => a.parentFid)
+                .filter((fid): fid is string => fid != null),
+            ),
+          ]
         : [];
 
     const countyLevelFids = [...new Set([...countyIds, ...selectedOceanAreaFids, ...parentCountyFids])];
@@ -875,6 +969,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.visibilityObserver?.disconnect();
+    if (this.markerCursorKey) unByKey(this.markerCursorKey);
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
