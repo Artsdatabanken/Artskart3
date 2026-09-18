@@ -1,4 +1,11 @@
-import { createMap, MapEvents, MapEventPayload, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import {
+  createMap,
+  MapEvents,
+  MapEventPayload,
+  NbicMapComponent,
+  nbicMapPresets,
+} from '@artsdatabanken/nbic-map-component';
+import { Style, Circle as CircleStyle, Fill, Stroke, Text } from 'ol/style';
 import {
   AfterViewInit,
   Component,
@@ -18,6 +25,8 @@ import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil,
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { AreaMarkerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
+import { LanguageService } from '@shared/services/languages/language.service';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
@@ -97,6 +106,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
   private readonly translate = inject(TranslateService);
+  private readonly languageService = inject(LanguageService);
 
   /**
    * Observasjonsattributtfiltre som påvirker antall per område.
@@ -449,11 +459,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         keepSingleAsCluster: true,
         countField: 'observationCount',
         style: {
-          type: 'simple',
-          options: {
-            circle: { radius: 17, fillColor: '#005B72', strokeColor: 'white', strokeWidth: 1 },
-            text: { fillColor: 'white', font: 'bold 12px sans-serif' },
-          },
+          type: 'raw',
+          options: { instance: this.createLocationClusterStyleFn() },
         },
       },
     });
@@ -467,6 +474,28 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
     });
+  }
+
+  private createLocationClusterStyleFn(): (feature: Feature) => Style {
+    const image = new CircleStyle({
+      radius: 17,
+      fill: new Fill({ color: '#005B72' }),
+      stroke: new Stroke({ color: 'white', width: 1 }),
+    });
+
+    return (feature: Feature): Style => {
+      const members = (feature.get('features') as Feature[] | undefined) ?? [];
+      const total = members.reduce((sum, member) => {
+        const value = Number(member.get('observationCount'));
+        return sum + (Number.isFinite(value) ? value : 1);
+      }, 0) || members.length || 1;
+      const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
+
+      return new Style({
+        image,
+        text: new Text({ text: label, font: 'bold 12px sans-serif', fill: new Fill({ color: 'white' }) }),
+      });
+    };
   }
 
   private setupCameraChangePipeline(): void {
