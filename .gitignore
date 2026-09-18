@@ -77,3 +77,9 @@ TestResults/
 .codeium/
 .playwright-mcp/
 .sisyphus/
+
+# Ytelsessuite (Scripts/PerfSuite) - maaleresultater og oppdagede testdata.
+# Resultatene er maskin- og databaseavhengige, saa de sammenlignes lokalt.
+# Vurder aa sjekke inn en baseline senere hvis vi vil dele tall paa tvers.
+Scripts/PerfSuite/results/
+Scripts/PerfSuite/fixtures.json

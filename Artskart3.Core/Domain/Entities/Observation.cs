@@ -37,6 +37,29 @@ public partial class Observation : BaseEntity
 
     public int? DatasetOrgId { get; set; }
 
+    // Denormaliserte filterkolonner, speilet fra ObservationEntityIndex.
+    //
+    // De tre var allerede denormalisert på indekstabellen, men manglet her — så
+    // områdetellingene filtrerte på en kolonne mens listevisningen utledet det
+    // samme fra tagger, mediefiler og atferdstabellen, per rad, hver gang.
+    //
+    // Målt på et selektivt filter (RegistrationStatusId = 2, 0,32 % av tabellen):
+    // 1548 ms med tagger mot 89 ms med kolonnen. Kostnaden lå i 193 510 oppslag
+    // i klyngeindeksen, ikke i selve predikatet.
+    //
+    // VEDLIKEHOLD: kolonnene må oppdateres der kildene endres — tagger, medie-
+    // filer og atferd. Gjør de ikke det, driver de stille fra hverandre, og
+    // filtrene svarer feil uten at noe feiler.
+
+    /// <summary>1 = funnet, 2 = ikke påvist (TagId 5), 3 = ikke gjenfunnet (TagId 6).</summary>
+    public byte RegistrationStatusId { get; set; }
+
+    /// <summary>Utledet av MediaFile. Erstatter MediaFiles.Any() i filtrene.</summary>
+    public bool HasMediaFiles { get; set; }
+
+    /// <summary>Verifisert 1:1 mot ObservationBehaviors. Null når observasjonen ikke har atferd.</summary>
+    public byte? BehaviorId { get; set; }
+
     public int BasisOfRecordId { get; set; }
 
     public DateTime? DatetimeIdentified { get; set; }

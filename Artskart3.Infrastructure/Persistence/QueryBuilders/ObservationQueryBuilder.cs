@@ -4,7 +4,6 @@ using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 
@@ -125,40 +124,41 @@ public static class ObservationQueryBuilder
         if (filter.CategoryIds?.Any() == true)
             query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
 
+        // Atferd — denormalisert kolonne. Verdiene filtreres til tinyint-området
+        // FØR castet: C# caster unchecked, så (byte)257 ville blitt 1.
         if (filter.BehaviorIds?.Any() == true)
-            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+        {
+            var behaviorIds = filter.BehaviorIds
+                .Where(id => id is >= byte.MinValue and <= byte.MaxValue)
+                .Select(id => (byte)id)
+                .ToList();
+
+            query = behaviorIds.Count == 0
+                ? query.Where(o => false)
+                : query.Where(o => o.BehaviorId.HasValue && behaviorIds.Contains(o.BehaviorId.Value));
+        }
 
         if (filter.BasisOfRecordIds?.Any() == true)
             query = query.Where(o => filter.BasisOfRecordIds.Contains(o.BasisOfRecordId));
 
-        // Registreringsstatus er ikke en egen kolonne, men utledes av tagger.
-        // Verdiene speiler SearchRepository.ApplyCommonFilters én-til-én:
-        //   1 = funnet (alt som verken er «ikke gjenfunnet» eller «ikke registrert»)
-        //   2 = ikke registrert (Absent)
-        //   3 = ikke gjenfunnet (NotRecovered)
-        // Merk at 1 er et NEGATIVT vilkår. Manglet filteret i eksporten, fikk man
-        // altså med nettopp de radene brukeren hadde filtrert bort.
+        // Registreringsstatus er nå en denormalisert kolonne, ikke utledet av
+        // tagger. Verdiene er uendret og speiler SearchRepository én-til-én:
+        //   1 = funnet, 2 = ikke registrert (Absent), 3 = ikke gjenfunnet
+        // Kolonnen fylles av samme CASE som ObservationEntityIndex bruker.
+        //
+        // At 1 tidligere var et NEGATIVT vilkår er nettopp poenget med kolonnen:
+        // manglet filteret i eksporten, fikk man med de radene brukeren hadde
+        // filtrert bort. Nå er alle tre likestilte likhetspredikater.
         if (filter.RegistrationStatusId.HasValue)
         {
-            switch (filter.RegistrationStatusId.Value)
-            {
-                case 1:
-                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
-                    break;
-                case 2:
-                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
-                    break;
-                case 3:
-                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
-                    break;
-            }
+            var registrationStatusId = (byte)filter.RegistrationStatusId.Value;
+            query = query.Where(o => o.RegistrationStatusId == registrationStatusId);
         }
 
         if (filter.WithImages.HasValue)
         {
-            query = filter.WithImages.Value
-                ? query.Where(o => o.MediaFiles.Any())
-                : query.Where(o => !o.MediaFiles.Any());
+            var withImages = filter.WithImages.Value;
+            query = query.Where(o => o.HasMediaFiles == withImages);
         }
 
         return query;

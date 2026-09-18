@@ -183,10 +183,14 @@ public class SearchRepositoryTests
         var foundObservation = CreateObservation(1, 1);
         var absentObservation = CreateObservation(2, 2);
         absentObservation.Tags.Add(absentTag);
+        absentObservation.RegistrationStatusId = 2;
         var notRecoveredObservation = CreateObservation(3, 3);
         notRecoveredObservation.Tags.Add(notRecoveredTag);
+        notRecoveredObservation.RegistrationStatusId = 3;
         var otherTagObservation = CreateObservation(4, 4);
         otherTagObservation.Tags.Add(validatedTag);
+        // Validated er ikke en registreringsstatus - observasjonen er fortsatt «funnet».
+        otherTagObservation.RegistrationStatusId = 1;
 
         SeedObservations(context,
             foundObservation,
@@ -216,6 +220,7 @@ public class SearchRepositoryTests
 
         var absentObservation = CreateObservation(1, 1);
         absentObservation.Tags.Add(absentTag);
+        absentObservation.RegistrationStatusId = 2;
         var foundObservation = CreateObservation(2, 2);
 
         SeedObservations(context, absentObservation, foundObservation);
@@ -242,6 +247,7 @@ public class SearchRepositoryTests
 
         var notRecoveredObservation = CreateObservation(1, 1);
         notRecoveredObservation.Tags.Add(notRecoveredTag);
+        notRecoveredObservation.RegistrationStatusId = 3;
         var foundObservation = CreateObservation(2, 2);
 
         SeedObservations(context, notRecoveredObservation, foundObservation);
@@ -544,6 +550,9 @@ public class SearchRepositoryTests
         new()
         {
             Id = id,
+            // Speiler databasens DEFAULT (1) paa kolonnen: 99,67 % av radene er
+            // «funnet». Uten dette ville hver test maattet sette den selv.
+            RegistrationStatusId = 1,
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,

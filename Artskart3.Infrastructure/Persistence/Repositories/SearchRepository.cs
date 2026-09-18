@@ -13,7 +13,6 @@ using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -144,6 +143,18 @@ public class SearchRepository : ISearchRepository
     }
 
 
+    /// <summary>
+    /// Sant når filteret peker på ett eller flere geografiske områder.
+    ///
+    /// Institusjon er bevisst IKKE med: den ligger som denormalisert kolonne på
+    /// Observation og trenger ingen oppslagstabell.
+    /// </summary>
+    private static bool HasAreaFilter(IObservationFilter filter) =>
+        filter.MunicipalityIds?.Length > 0 ||
+        filter.CountyIds?.Length > 0 ||
+        filter.RestrictedAreaIds?.Length > 0 ||
+        filter.OceanAreaIds?.Length > 0;
+
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
         // Taggen plukkes opp av RecompileHintInterceptor, som legger på
@@ -152,26 +163,249 @@ public class SearchRepository : ISearchRepository
                             .AsNoTracking()
                             .TagWith(RecompileHintInterceptor.Tag);
 
+        var take = filter.IsPaginated
+            ? filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier
+            : SearchConstants.DefaultMaxObservations;
+        var skip = filter.IsPaginated
+            ? (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value
+            : 0;
+
+        if (HasAreaFilter(filter))
+        {
+            // OMRÅDEFILTER: la ObservationEntityIndex drive spørringen.
+            //
+            // Skrevet mot Observation blir områdefilteret et EXISTS mot
+            // indekstabellen, og sorteringen på DateTimeCollected tvinger
+            // optimalisereren til å velge mellom to dårlige planer: sortere alle
+            // treff i området (millioner av rader), eller scanne datoindeksen på
+            // Observation og probe EXISTS per rad til TOP-en er fylt.
+            //
+            // Målt: den andre planen ga 161 regresjoner da IX_Observation_ListView
+            // gjorde den billig nok til å bli valgt. «havomraade:tung +
+            // verneomraade:tung» gikk fra 4446 til 11 788 ms.
+            //
+            // Indekstabellen har både DateTimeCollected og alle filterkolonnene.
+            // Med IX_OEI_AreaListView, nøklet (EntityTypeId, EntityId,
+            // DateTimeCollected DESC, ObservationId DESC), kommer radene ut ferdig
+            // sortert innenfor hvert område — og da kan TOP-en stoppe tidlig.
+            var ids = await GetAreaFilteredObservationIdsAsync(filter, skip, take, cancellationToken);
+            if (ids.Count == 0)
+            {
+                return [];
+            }
+
+            // Projeksjonen hentes fra Observation for de få radene vi endte med.
+            // Sorteringsnøkkelen er den samme, og DateTimeCollected er identisk i
+            // begge tabellene, så rekkefølgen blir den samme som indekstabellen ga.
+            query = query.Where(o => ids.Contains(o.Id))
+                         .OrderByDescending(o => o.DateTimeCollected)
+                         .ThenByDescending(o => o.Id);
+
+            return await ProjectObservationsAsync(query, cancellationToken);
+        }
+
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
         query = ApplyCommonFilters(query, filter);
 
         query = query.OrderByDescending(o => o.DateTimeCollected)
                      .ThenByDescending(o => o.Id);
 
-        if (filter.IsPaginated)
+        if (skip > 0)
         {
-            var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
-            if (skip > 0)
-            {
-                query = query.Skip(skip);
-            }
-            query = query.Take(filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier);
+            query = query.Skip(skip);
         }
-        else
+        query = query.Take(take);
+
+        return await ProjectObservationsAsync(query, cancellationToken);
+    }
+
+    /// <summary>
+    /// Henter de N neste observasjons-IDene i datosortert rekkefølge, drevet av
+    /// ObservationEntityIndex i stedet for Observation.
+    ///
+    /// HVORFOR EGEN STI
+    /// Områdefilteret er en mange-til-mange-relasjon og kan ikke bli en kolonne på
+    /// Observation. Skrevet som EXISTS mot indekstabellen må optimalisereren velge
+    /// mellom å sortere alle treff i området, eller å scanne datoindeksen og probe
+    /// per rad. Begge er dårlige når området er stort og de øvrige filtrene smale.
+    ///
+    /// Her er området i stedet NØKKELEN vi seeker på, og dato er neste
+    /// nøkkelkolonne — så radene kommer ferdig sortert og TOP-en stopper tidlig.
+    ///
+    /// DISTINCT er nødvendig, ikke defensivt: verneområder overlapper, og velges
+    /// både en kommune og et fylke, treffer samme observasjon to rader. Uten den
+    /// ville en observasjon dukket opp flere ganger i lista.
+    /// </summary>
+    private async Task<List<int>> GetAreaFilteredObservationIdsAsync(
+        ObservationSearchFilterDto filter, int skip, int take, CancellationToken cancellationToken)
+    {
+        var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+        var countyIds       = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+        var restrictedIds   = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+        var oceanIds        = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+        var query = _context.Set<ObservationEntityIndex>()
+            .AsNoTracking()
+            .TagWith(RecompileHintInterceptor.Tag)
+            .Where(idx =>
+                (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+                (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+                // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
+                // i løsningen. Uten denne grenen ville et fylkesvalg på Svalbard
+                // gitt treff på kartet og tom liste.
+                (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+                (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+                (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
+
+        query = ApplyListViewFiltersToEntityIndex(query, filter);
+
+        // DateTimeCollected er med i utvalget fordi DISTINCT og ORDER BY må se de
+        // samme kolonnene. Verdien er denormalisert fra Observation, så den er lik
+        // på alle rader for samme observasjon — DISTINCT slår dem derfor riktig
+        // sammen.
+        var paged = query
+            .Select(idx => new { idx.ObservationId, idx.DateTimeCollected })
+            .Distinct()
+            .OrderByDescending(x => x.DateTimeCollected)
+            .ThenByDescending(x => x.ObservationId);
+
+        var result = skip > 0
+            ? paged.Skip(skip).Take(take)
+            : paged.Take(take);
+
+        return await result.Select(x => x.ObservationId).ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Speiler ApplyCommonFilters, men mot ObservationEntityIndex.
+    ///
+    /// Alle filtrene listevisningen bruker finnes som denormaliserte kolonner på
+    /// indekstabellen. Avviker denne fra ApplyCommonFilters, gir de to stiene
+    /// ulike resultater for samme filter — derfor står de side om side og bør
+    /// endres sammen.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> ApplyListViewFiltersToEntityIndex(
+        IQueryable<ObservationEntityIndex> query, ObservationSearchFilterDto filter)
+    {
+        if (filter.TaxonGroupIds?.Any() == true)
         {
-            query = query.Take(SearchConstants.DefaultMaxObservations);
+            var taxonGroupIds = filter.TaxonGroupIds.ToList();
+            query = query.Where(idx => taxonGroupIds.Contains(idx.TaxonGroupId));
         }
 
+        if (filter.TaxonIds?.Any() == true)
+        {
+            query = ApplyTaxonFilterToEntityIndex(query, filter.TaxonIds);
+        }
+
+        if (filter.CategoryIds?.Any() == true)
+        {
+            var categoryIds = filter.CategoryIds.ToList();
+            query = query.Where(idx => idx.CategoryId.HasValue && categoryIds.Contains(idx.CategoryId.Value));
+        }
+
+        if (filter.OrganizationIds?.Any() == true)
+        {
+            var orgIds = filter.OrganizationIds;
+            query = query.Where(idx => idx.InstitutionOrgId.HasValue && orgIds.Contains(idx.InstitutionOrgId.Value));
+        }
+
+        if (filter.BehaviorIds?.Any() == true)
+        {
+            // Samme tinyint-vakt som de andre stiene: C# caster unchecked, så
+            // (byte)257 ville blitt 1.
+            var behaviorIds = filter.BehaviorIds
+                .Where(id => id is >= byte.MinValue and <= byte.MaxValue)
+                .Select(id => (byte)id)
+                .ToList();
+
+            query = behaviorIds.Count == 0
+                ? query.Where(idx => false)
+                : query.Where(idx => idx.BehaviorId.HasValue && behaviorIds.Contains(idx.BehaviorId.Value));
+        }
+
+        if (filter.BasisOfRecordIds?.Any() == true)
+        {
+            var basisOfRecordIds = filter.BasisOfRecordIds.ToList();
+            query = query.Where(idx => basisOfRecordIds.Contains(idx.BasisOfRecordId));
+        }
+
+        if (filter.RegistrationStatusId.HasValue)
+        {
+            var registrationStatusId = (byte)filter.RegistrationStatusId.Value;
+            query = query.Where(idx => idx.RegistrationStatusId == registrationStatusId);
+        }
+
+        if (filter.WithImages.HasValue)
+        {
+            var withImages = filter.WithImages.Value;
+            query = query.Where(idx => idx.HasMediaFiles == withImages);
+        }
+
+        if (filter.CoordinatePrecision?.From.HasValue == true)
+        {
+            var from = filter.CoordinatePrecision.From.Value;
+            query = query.Where(idx => idx.CoordinatePrecisionInMeters >= from);
+        }
+
+        if (filter.CoordinatePrecision?.To.HasValue == true)
+        {
+            var to = filter.CoordinatePrecision.To.Value;
+            query = query.Where(idx => idx.CoordinatePrecisionInMeters <= to);
+        }
+
+        if (filter.Period?.From.HasValue == true)
+        {
+            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            query = query.Where(idx => idx.DateTimeCollected >= fromDate);
+        }
+
+        if (filter.Period?.To.HasValue == true)
+        {
+            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
+            query = query.Where(idx => idx.DateTimeCollected <= toDate);
+        }
+
+        if (filter.Period?.Months?.Any() == true)
+        {
+            var months = filter.Period.Months;
+            query = query.Where(idx => idx.DateTimeCollected.HasValue && months.Contains(idx.DateTimeCollected.Value.Month));
+        }
+
+        if (filter.DatasetOrgId.HasValue)
+        {
+            var datasetOrgId = filter.DatasetOrgId.Value;
+            query = query.Where(idx => idx.DatasetOrgId == datasetOrgId);
+        }
+
+        // Prosjekt er ikke denormalisert — datasett er ikke 1:1, så koblingen må
+        // være en egen tabell. Semi-join, som i områdetellingene.
+        if (filter.ProjectOrgId.HasValue)
+        {
+            var projectOrgId = filter.ProjectOrgId.Value;
+            query = query.Where(idx => _context.Set<ObservationProject>()
+                .Any(d => d.ObservationId == idx.ObservationId && d.ProjectOrgId == projectOrgId));
+        }
+
+        if (filter.ObservationIds?.Any() == true)
+        {
+            var observationIds = filter.ObservationIds;
+            query = query.Where(idx => observationIds.Contains(idx.ObservationId));
+        }
+
+        return query;
+    }
+
+    /// <summary>
+    /// Projiserer et allerede filtrert og begrenset observasjonssett til DTO-er.
+    ///
+    /// Delt mellom de to stiene i GetObservationsAsync — uten deling ville
+    /// områdestien og den vanlige stien kunne drifte fra hverandre i hvilke felt
+    /// de fyller.
+    /// </summary>
+    private async Task<List<ObservationDto>> ProjectObservationsAsync(
+        IQueryable<Observation> query, CancellationToken cancellationToken)
+    {
         // Merk: Subspørringene for Institution og MunicipalityId ser ut som korrelerte N+1-spørringer,
         // men EF Core kompilerer hele LINQ-uttrykket til én enkelt SQL-setning med skalare subselects.
         // ObservationEntityIndex har PK på (ObservationId, EntityTypeId, EntityId), så hver
@@ -332,9 +566,26 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.InstitutionOrgId.HasValue && orgIds.Contains(o.InstitutionOrgId.Value));
         }
 
+        // Atferd — denormalisert kolonne i stedet for semi-join mot Behaviors.
+        // Verifisert 1:1 mot ObservationBehaviors i BackfillAll seksjon E4.
+        //
+        // Verdiene filtreres til tinyint-området FØR castet, som i
+        // ComputeFilteredAreaCounts. C# caster unchecked, så (byte)257 blir 1:
+        // uten dette ville behaviorIds=[257] gitt treff på atferd 1. Før denne
+        // endringen sammenlignet listevisningen rå int og fant korrekt ingenting,
+        // så vakten er det som bevarer oppførselen.
         if (filter.BehaviorIds?.Any() == true)
         {
-            query = query.Where(o => o.Behaviors.Any(b => filter.BehaviorIds.Contains(b.Id)));
+            var behaviorIds = filter.BehaviorIds
+                .Where(id => id is >= byte.MinValue and <= byte.MaxValue)
+                .Select(id => (byte)id)
+                .ToList();
+
+            // Alle oppgitte IDer var utenfor tinyint-området. Da finnes ingen
+            // matchende rader — returner tomt, aldri ufiltrert.
+            query = behaviorIds.Count == 0
+                ? query.Where(o => false)
+                : query.Where(o => o.BehaviorId.HasValue && behaviorIds.Contains(o.BehaviorId.Value));
         }
 
         if (filter.BasisOfRecordIds?.Any() == true)
@@ -343,20 +594,22 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => basisOfRecordIds.Contains(o.BasisOfRecordId));
         }
 
+        // Registreringsstatus — denormalisert kolonne, ikke lenger utledet av
+        // tagger per rad. Verdiene er de samme: 1 = funnet, 2 = ikke påvist
+        // (TagId 5), 3 = ikke gjenfunnet (TagId 6), og kolonnen fylles av samme
+        // CASE som seksjon C i BackfillAll bruker på ObservationEntityIndex.
+        //
+        // Målt på verdi 2 (193 510 observasjoner, 0,32 %): 1548 ms med taggene,
+        // 89 ms med kolonnen. Kostnaden lå i oppslagene semi-joinen tvang fram,
+        // ikke i predikatet.
+        //
+        // Verdi 1 var billig også før — med sortert indeks fyller den TOP-en på
+        // de første radene, så anti-joinen evalueres noen hundre ganger, ikke 61
+        // millioner. Den er med her for konsistens, ikke for ytelse.
         if (filter.RegistrationStatusId.HasValue)
         {
-            switch (filter.RegistrationStatusId.Value)
-            {
-                case 1:
-                    query = query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Absent || t.Id == (int)TagEnum.NotRecovered));
-                    break;
-                case 2:
-                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Absent));
-                    break;
-                case 3:
-                    query = query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered));
-                    break;
-            }
+            var registrationStatusId = (byte)filter.RegistrationStatusId.Value;
+            query = query.Where(o => o.RegistrationStatusId == registrationStatusId);
         }
 
         if (filter.CoordinatePrecision?.From.HasValue == true)
@@ -406,11 +659,13 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => observationIds.Contains(o.Id));
         }
 
+        // Bilder — denormalisert kolonne i stedet for MediaFiles.Any(). Samme
+        // grep og samme grunn som registreringsstatus: semi-joinen tvang fram
+        // oppslag per kandidatrad.
         if (filter.WithImages.HasValue)
         {
-            query = filter.WithImages.Value
-                ? query.Where(o => o.MediaFiles.Any())
-                : query.Where(o => !o.MediaFiles.Any());
+            var withImages = filter.WithImages.Value;
+            query = query.Where(o => o.HasMediaFiles == withImages);
         }
 
         if (filter.Period?.Months?.Any() == true)

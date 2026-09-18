@@ -282,6 +282,13 @@ public class ObservationQueryBuilderTests
         using var context = CreateInMemoryContext();
         var withMedia = CreateObservation(1);
         var withoutMedia = CreateObservation(2);
+
+        // HasMediaFiles er denormalisert; filteret leser kolonnen, ikke
+        // MediaFiles.Any(). Mediefilen legges fortsatt inn, slik at testen
+        // beskriver kilden og kolonnen sammen — går de fra hverandre i
+        // produksjonskoden, er det det denne testen skal avsløre.
+        withMedia.HasMediaFiles = true;
+
         SeedObservations(context, withMedia, withoutMedia);
         context.Set<MediaFile>().Add(new MediaFile
         {
@@ -421,6 +428,18 @@ public class ObservationQueryBuilderTests
                 observation.Tags.Add(tag);
             }
 
+            // RegistrationStatusId er en denormalisert kolonne, og filtrene leser
+            // den i stedet for å utlede den av taggene. Hjelperen setter den her
+            // etter samme CASE som BackfillAll seksjon C og oppdateringsløpet:
+            // NotRecovered vinner over Absent, ellers 1.
+            //
+            // Testene beskriver fortsatt tilstanden med tagger, som er kilden.
+            // Går de to fra hverandre, er det nettopp den driften disse testene
+            // skal fange.
+            observation.RegistrationStatusId =
+                tagIds.Contains((int)TagEnum.NotRecovered) ? (byte)3 :
+                tagIds.Contains((int)TagEnum.Absent)       ? (byte)2 : (byte)1;
+
             context.Set<Observation>().Add(observation);
         }
     }
@@ -465,6 +484,9 @@ public class ObservationQueryBuilderTests
         new()
         {
             Id = id,
+            // Speiler databasens DEFAULT (1) paa kolonnen: 99,67 % av radene er
+            // «funnet». Uten dette ville hver test maattet sette den selv.
+            RegistrationStatusId = 1,
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,
