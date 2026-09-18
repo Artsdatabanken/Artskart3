@@ -11,11 +11,8 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import {
-  AreaMarkerDto,
-  AreaMarkerFeature,
-  LocationPolygonDto,
-} from '@shared/models/area/area-marker.model';
+import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-marker.model';
+import { AreaMarkerDto } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { ApiClientService } from '../api-client.service';
@@ -66,7 +63,7 @@ function parseRing(ringStr: string): number[][] | null {
  * @example "MULTIPOLYGON (((1 2, 3 4, 5 6, 1 2)),((7 8, 9 10, 11 12, 7 8)))" =>
  *   { type: 'MultiPolygon', coordinates: [[[[1,2],[3,4],[5,6],[1,2]]],[[[7,8],[9,10],[11,12],[7,8]]]] }
  */
-function parseWkt(wkt: string | undefined): ParsedGeometry | null {
+function parseWkt(wkt: string | null | undefined): ParsedGeometry | null {
   if (!wkt) return null;
 
   try {
@@ -344,18 +341,15 @@ export class AreasService {
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(validation.normalized!);
     const body = this.buildFilterBody(filter);
 
-    return this.apiClientService
-      .postJson<string>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body, { responseType: 'text' })
-      .pipe(
-        map((responseText) => {
-          const areas = this.apiClientService.parseJsonResponse<AreaMarkerDto[]>(responseText, AreasService.SERVICE_NAME);
-          this.loggerService.info(
-            `Retrieved ${Array.isArray(areas) ? areas.length : 0} areas for zoom level ${apiZoomLevel}`,
-            AreasService.SERVICE_NAME,
-          );
-          return Array.isArray(areas) ? areas : [];
-        }),
-      );
+    return this.apiClientService.postJson<AreaMarkerDto[]>(`${this.areasBaseEndpoint}?zoomLevel=${apiZoomLevel}`, body).pipe(
+      map((areas) => {
+        this.loggerService.info(
+          `Retrieved ${Array.isArray(areas) ? areas.length : 0} areas for zoom level ${apiZoomLevel}`,
+          AreasService.SERVICE_NAME,
+        );
+        return Array.isArray(areas) ? areas : [];
+      }),
+    );
   }
 
   /**
@@ -384,18 +378,16 @@ export class AreasService {
     const body = this.buildFilterBody(filter, extent);
 
     return this.apiClientService.postJson<LocationPolygonDto[]>(this.locationPolygonsEndpoint, body).pipe(
-      map(polygons => {
+      map((polygons) => {
         if (!Array.isArray(polygons)) {
           return JSON.stringify({ type: 'FeatureCollection', features: [] });
         }
 
-        const features = polygons
-          .map(p => this.createPolygonFeature(p))
-          .filter((f): f is AreaMarkerFeature => f !== null);
+        const features = polygons.map((p) => this.createPolygonFeature(p)).filter((f): f is AreaMarkerFeature => f !== null);
 
         this.loggerService.info(`Retrieved ${features.length} location polygon features`, AreasService.SERVICE_NAME);
         return JSON.stringify({ type: 'FeatureCollection', features });
-      })
+      }),
     );
   }
 
@@ -433,15 +425,13 @@ export class AreasService {
   ): Observable<{ counts: AreaCountDto[] | null; etag: string | null; notModified: boolean }> {
     const body = this.buildFilterBody(filter);
 
-    return this.apiClientService
-      .postJsonWithETag<AreaCountDto[]>(`${this.areaCountsEndpoint}?zoomLevel=${apiZoomLevel}`, body, etag)
-      .pipe(
-        map(response => ({
-          counts: response.body ?? null,
-          etag: response.etag,
-          notModified: response.notModified,
-        })),
-      );
+    return this.apiClientService.postJsonWithETag<AreaCountDto[]>(`${this.areaCountsEndpoint}?zoomLevel=${apiZoomLevel}`, body, etag).pipe(
+      map((response) => ({
+        counts: response.body ?? null,
+        etag: response.etag,
+        notModified: response.notModified,
+      })),
+    );
   }
 
   /**
@@ -454,7 +444,7 @@ export class AreasService {
     const features: unknown[] = [];
 
     for (const area of areas) {
-      if (!fidSet.has(area.fid)) continue;
+      if (!area.fid || !fidSet.has(area.fid)) continue;
       const parsed = parseWkt(area.wktsPolygon);
       if (!parsed) continue;
 
@@ -565,25 +555,19 @@ export class AreasService {
       const count = area.observationCount ?? 0;
       const formattedCount = AbbreviateNumberHelper.format(count);
 
+      const dbCentroid: [number, number] | null =
+        area.centroid?.x != null && area.centroid?.y != null ? [area.centroid.x, area.centroid.y] : null;
+
+      // Hele områdets centroid — brukes ved klikk (zoom/pan), aldri den klipte visnings-centroiden.
+      // DB-centroid kan være null; da beregnes den fra hele polygonet.
+      const fullRing =
+        parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0];
+      const areaCentroid = dbCentroid ?? this.calculateCentroid(fullRing);
+
       // Bruk DB-centroid når hele området er synlig, ellers beregn centroid av synlig del
       const fullyVisible = bbox[0] >= extent[0] && bbox[1] >= extent[1] && bbox[2] <= extent[2] && bbox[3] <= extent[3];
 
-      let centroid: [number, number];
-      if (fullyVisible) {
-        centroid = area.centroid
-          ? [area.centroid.x, area.centroid.y]
-          : this.calculateCentroid(
-              parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
-            );
-      } else {
-        centroid =
-          calculateClippedCentroid(parsed, extent) ??
-          (area.centroid
-            ? [area.centroid.x, area.centroid.y]
-            : this.calculateCentroid(
-                parsed.type === 'MultiPolygon' ? (parsed.coordinates as number[][][][])[0][0] : (parsed.coordinates as number[][][])[0],
-              ));
-      }
+      const centroid: [number, number] = fullyVisible ? areaCentroid : (calculateClippedCentroid(parsed, extent) ?? areaCentroid);
 
       // Polygon/MultiPolygon boundary feature
       features.push({
@@ -612,6 +596,7 @@ export class AreasService {
           areaTypeId: area.areaTypeId,
           observationCount: count,
           fid: area.fid,
+          centroid: { x: areaCentroid[0], y: areaCentroid[1] },
           'nbic:style': {
             pointRadius: 20,
             fillColor: '#005A71',
