@@ -39,9 +39,7 @@ export class FilterStateService {
   readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
-    this.selectedCategoryIds.update((ids) =>
-      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
-    );
+    this.selectedCategoryIds.update((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
   addCategory(id: number): void {
@@ -55,14 +53,16 @@ export class FilterStateService {
     });
   }
 
+  removeCategories(ids: ReadonlySet<number>): void {
+    this.selectedCategoryIds.update((current) => current.filter((id) => !ids.has(id)));
+  }
+
   clearCategories(): void {
     this.selectedCategoryIds.set([]);
   }
 
   toggleCounty(fid: string): void {
-    this.selectedCountyIds.update((ids) =>
-      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
-    );
+    this.selectedCountyIds.update((ids) => (ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid]));
   }
 
   addCounty(fid: string): void {
@@ -77,9 +77,7 @@ export class FilterStateService {
   }
 
   toggleMunicipality(fid: string): void {
-    this.selectedMunicipalityIds.update((ids) =>
-      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
-    );
+    this.selectedMunicipalityIds.update((ids) => (ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid]));
   }
 
   addMunicipality(fid: string): void {
@@ -94,9 +92,7 @@ export class FilterStateService {
   }
 
   toggleInstitution(id: number): void {
-    this.selectedInstitutionIds.update((ids) =>
-      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
-    );
+    this.selectedInstitutionIds.update((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
   addInstitution(id: number): void {
@@ -115,9 +111,7 @@ export class FilterStateService {
   }
 
   toggleBehavior(id: number): void {
-    this.selectedBehaviorIds.update((ids) =>
-      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
-    );
+    this.selectedBehaviorIds.update((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
   addBehavior(id: number): void {
@@ -136,9 +130,7 @@ export class FilterStateService {
   }
 
   toggleBasisOfRecord(id: number): void {
-    this.selectedBasisOfRecordIds.update((ids) =>
-      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
-    );
+    this.selectedBasisOfRecordIds.update((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
   addBasisOfRecord(id: number): void {
@@ -165,9 +157,7 @@ export class FilterStateService {
   }
 
   toggleTaxonGroup(id: number): void {
-    this.selectedTaxonGroupIds.update((ids) =>
-      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
-    );
+    this.selectedTaxonGroupIds.update((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
   }
 
   addTaxonGroup(id: number): void {
@@ -186,9 +176,7 @@ export class FilterStateService {
   }
 
   toggleOceanArea(fid: string): void {
-    this.selectedOceanAreaIds.update((ids) =>
-      ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid],
-    );
+    this.selectedOceanAreaIds.update((ids) => (ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid]));
   }
 
   clearOceanAreas(): void {
@@ -217,6 +205,14 @@ export class FilterStateService {
     this.selectedOceanAreaIds.set([]);
   }
 
+  clearMunicipalities(): void {
+    this.selectedMunicipalityIds.set([]);
+  }
+
+  removeCounties(fids: ReadonlySet<string>): void {
+    this.selectedCountyIds.update((ids) => ids.filter((id) => !fids.has(id)));
+  }
+
   setCoordinatePrecision(from: number | null, to: number | null): void {
     this.coordinatePrecisionFrom.set(from);
     this.coordinatePrecisionTo.set(to);
@@ -233,18 +229,20 @@ export class FilterStateService {
   }
 
   toggleMonth(month: number): void {
-    this.selectedMonths.update((months) =>
-      months.includes(month) ? months.filter((m) => m !== month) : [...months, month],
-    );
+    this.selectedMonths.update((months) => (months.includes(month) ? months.filter((m) => m !== month) : [...months, month]));
   }
 
   clearMonths(): void {
     this.selectedMonths.set([]);
   }
 
-  clearPeriod(): void {
+  clearPeriodYears(): void {
     this.periodFrom.set(null);
     this.periodTo.set(null);
+  }
+
+  clearPeriod(): void {
+    this.clearPeriodYears();
     this.clearMonths();
   }
 
