@@ -141,8 +141,8 @@ public class SearchServiceTests
     {
         var markers = new List<AreaMarkerDto>
         {
-            new() { Fid = "03", ObservationCount = 100 },
-            new() { Fid = "11", ObservationCount = 200 },
+            new() { Id = 1, DocumentId = "03", Fid = "03", Name = "Oslo", AreaTypeId = 2, ParentFid = "", ObservationCount = 100, WktsPolygon = null, Centroid = null },
+            new() { Id = 2, DocumentId = "11", Fid = "11", Name = "Vestland", AreaTypeId = 2, ParentFid = "", ObservationCount = 200, WktsPolygon = null, Centroid = null },
         };
         _repositoryMock
             .Setup(r => r.GetAreaMarkersAsync(1, null, It.IsAny<CancellationToken>()))
@@ -161,7 +161,7 @@ public class SearchServiceTests
     {
         var markers = new List<AreaMarkerDto>
         {
-            new() { Fid = "03", ObservationCount = 100 },
+            new() { Id = 1, DocumentId = "03", Fid = "03", Name = "Oslo", AreaTypeId = 2, ParentFid = "", ObservationCount = 100, WktsPolygon = null, Centroid = null },
         };
         _repositoryMock
             .Setup(r => r.GetAreaMarkersAsync(1, null, It.IsAny<CancellationToken>()))
