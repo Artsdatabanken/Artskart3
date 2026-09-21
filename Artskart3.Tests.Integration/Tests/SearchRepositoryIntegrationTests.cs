@@ -39,6 +39,13 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     private const int TestTaxonNameMissingObservationId = 960005;
     private const int TestObservationTaxonGroupOneId = 970001;
     private const int TestObservationTaxonGroupTwoId = 970002;
+
+    /// <summary>
+    /// Områdeid for indeksradene til grunnoppsettets observasjoner. Ligger bevisst
+    /// utenfor 981xxx-rekkevidden CompleteFilter-testene bruker, og ingen Area i
+    /// grunnoppsettet har numerisk Fid, så radene påvirker ikke områdetellingene.
+    /// </summary>
+    private const int TestLocationsAreaEntityId = 970010;
     // CompleteFilter: samling er en Organization-ID, ikke lenger en kode-streng.
     private const int CollectionOne = 1;
     private const int CollectionTwo = 2;
@@ -846,13 +853,16 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         _context.Set<Location>().AddRange(_locationOne, _locationTwo, _locationThree);
         await _context.SaveChangesAsync();
 
-        _context.Set<Observation>().AddRange(
+        var observations = new[]
+        {
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 1),
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 2),
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 3),
             CreateObservation(_locationTwo.Id, TestObservationTaxonGroupTwoId, TestCategoryTwoId, TestBasisOfRecordTwoId, CollectionTwo, 100, 4),
             CreateObservation(_locationTwo.Id, TestObservationTaxonGroupTwoId, TestCategoryTwoId, TestBasisOfRecordTwoId, CollectionTwo, 100, 5),
-            CreateObservation(_locationThree.Id, TestObservationTaxonGroupOneId, TestCategoryTwoId, TestBasisOfRecordOneId, CollectionOne, 500, 6));
+            CreateObservation(_locationThree.Id, TestObservationTaxonGroupOneId, TestCategoryTwoId, TestBasisOfRecordOneId, CollectionOne, 500, 6),
+        };
+        _context.Set<Observation>().AddRange(observations);
 
         _context.Set<Area>().AddRange(
             CreateArea("Repo kommune A", TestAreaTypeMunicipalityId, 10, 10),
@@ -861,6 +871,34 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             CreateArea("Repo fylke A", TestAreaTypeCountyId, 20, 7),
             CreateArea("Repo felles område", TestAreaTypeMunicipalityId, 30, 10),
             CreateArea("Repo felles område", TestAreaTypeCountyId, 40, 7));
+
+        await _context.SaveChangesAsync();
+
+        // ObservationEntityIndex speiler BackfillAll seksjon C/D/E: én rad per
+        // observasjon per område, med filterkolonnene kopiert fra observasjonen.
+        //
+        // Lokasjonssøket grupperer på ObservationEntityIndex.LocationId og rører ikke
+        // Observation i det hele tatt — uten radene her returnerer GetLocationsAsync
+        // tomt uansett hva som står i Observation. Filterkolonnene må være de samme,
+        // ellers filtrerer testene på noe annet enn det de seeder.
+        //
+        // Legges til etter lagringen fordi Observation.Id er identity-generert.
+        _context.Set<ObservationEntityIndex>().AddRange(observations.Select(o => new ObservationEntityIndex
+        {
+            ObservationId = o.Id,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = TestLocationsAreaEntityId,
+            TaxonGroupId = o.TaxonGroupId,
+            CategoryId = o.CategoryId,
+            BasisOfRecordId = o.BasisOfRecordId,
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
+            DateTimeCollected = o.DateTimeCollected,
+            RegistrationStatusId = o.RegistrationStatusId,
+            HasMediaFiles = o.HasMediaFiles,
+            BehaviorId = o.BehaviorId,
+            DatasetOrgId = o.DatasetOrgId,
+            LocationId = o.LocationId,
+        }));
 
         await _context.SaveChangesAsync();
     }

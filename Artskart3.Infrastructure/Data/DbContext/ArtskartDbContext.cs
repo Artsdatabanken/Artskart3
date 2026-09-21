@@ -511,6 +511,18 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
 
+            // De denormaliserte filterkolonnene. Defaultene må stå her, ikke bare i
+            // AddObservationDenormalisedFilterColumns: integrasjonstestene bygger
+            // skjemaet med EnsureCreated() fra modellen, og uten default feiler enhver
+            // INSERT som ikke nevner kolonnen — slik seed_data.sql ikke gjør.
+            //
+            // Verdiene speiler DF_Observation_RegistrationStatusId og
+            // DF_Observation_HasMediaFiles i migrasjonen. RegistrationStatusId 1 er
+            // "funnet", den nøytrale verdien 99,7 % av radene har. BehaviorId er
+            // nullable og trenger ingen default.
+            entity.Property(e => e.RegistrationStatusId).HasDefaultValue((byte)1);
+            entity.Property(e => e.HasMediaFiles).HasDefaultValue(false);
+
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
             // ObservationId-er fra typeaheaden og seeker på den clustered indeksen.

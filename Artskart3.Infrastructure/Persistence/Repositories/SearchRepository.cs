@@ -1018,6 +1018,35 @@ public class SearchRepository : ISearchRepository
     private async Task<Dictionary<(int entityTypeId, int entityId), int>> ComputeFilteredAreaCounts(
         List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
     {
+        // To uavhengige lister kombinert med AND, ikke et eksakt parsett. Det er
+        // bevisst, og det er målt — ikke skriv om til en OR per områdetype.
+        //
+        // Formelt er dette et kryssprodukt: er Svalbard 2101 med i utvalget,
+        // treffer predikatet også (kommune, 2101). To grunner til at det er
+        // ufarlig:
+        //
+        // 1. Det kan ikke gi galt svar. CountResolver slår bare opp par som
+        //    faktisk ligger i filteredAreas, og grupperingen på
+        //    (EntityTypeId, EntityId) gjør at et bredere predikat kan legge til
+        //    nøkler — aldri endre en eksisterende.
+        // 2. Det oppstår ingen ekstra celler heller. Bare områdetype 1, 2, 4 og
+        //    6 når hit (3 og 5 har ZoomLevel 0), og ingen Fid finnes i to av dem.
+        //    Fylke er tosifret, kommune firesifret, Svalbard i den reserverte
+        //    2100-blokken. Målt til null kollisjoner på begge zoomnivåene.
+        //
+        // Den eksakte varianten — (EntityTypeId = t AND EntityId IN (…)) OR … —
+        // ble prøvd og er 4,4x tregere: 1217 ms mot 279 ms på zoomnivå 2 med 367
+        // områder. Columnstore predicate pushdown håndterer ikke disjunksjonen,
+        // så OR-en blir et residualt Filter over skannet i stedet for å presses
+        // ned i det: 16,5 millioner rader ut av Index Scan mot 1,17 millioner.
+        // Å legge det brede predikatet foran som prefilter hjalp ikke — hele
+        // uttrykket havner i Filter-operatoren uansett.
+        //
+        // Det som gjenstår er en latent skjørhet, ikke en feil: får en ny
+        // utdatatype et id-område som overlapper en eksisterende, begynner
+        // spørringen å aggregere celler ingen har bedt om. Fortsatt riktig svar,
+        // bare bortkastet arbeid. Luk det da ved å gi utdatatyper adskilte
+        // id-rom, ikke ved å bygge om predikatet.
         var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
         var entityIds = areas
             .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
