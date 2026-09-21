@@ -28,17 +28,13 @@ export class AreaService {
   readonly counties = computed(() => {
     const response = this.areaResponse();
     if (!response?.counties) return [];
-    return (response.counties.areas ?? []).filter(
-      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
-    );
+    return (response.counties.areas ?? []).filter((a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent);
   });
 
   readonly municipalities = computed(() => {
     const response = this.areaResponse();
     if (!response?.municipalities) return [];
-    return (response.municipalities.areas ?? []).filter(
-      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
-    );
+    return (response.municipalities.areas ?? []).filter((a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent);
   });
 
   readonly countyGroups = computed<CountyGroup[]>(() => {
@@ -48,27 +44,21 @@ export class AreaService {
 
     return counties.map((county) => ({
       county,
-      municipalities: municipalities.filter(
-        (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
-      ),
+      municipalities: municipalities.filter((m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0')),
     }));
   });
 
   readonly svalbardBjornoyaAndJanMayenAreas = computed<(AreaDto & { fid: string })[]>(() => {
     const response = this.areaResponse();
     if (!response?.svalbardBjørnøyaAndJanMayen) return [];
-    return (response.svalbardBjørnøyaAndJanMayen.areas ?? []).filter(
-      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
-    );
+    return (response.svalbardBjørnøyaAndJanMayen.areas ?? []).filter((a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent);
   });
 
   readonly oceanAreaGroup = computed<CountyGroup | null>(() => {
     const response = this.areaResponse();
     const oceanAreas = response?.oceanAreas;
     if (!oceanAreas) return null;
-    const areas = (oceanAreas.areas ?? []).filter(
-      (a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent,
-    );
+    const areas = (oceanAreas.areas ?? []).filter((a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent);
     if (areas.length === 0) return null;
     return {
       county: { id: oceanAreas.id, name: oceanAreas.name, fid: 'ocean', isCurrent: true },
@@ -94,17 +84,13 @@ export class AreaService {
     const allGroups: CountyGroup[] = [
       ...counties.map((county) => ({
         county,
-        municipalities: allMunicipalities.filter(
-          (m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0'),
-        ),
+        municipalities: allMunicipalities.filter((m) => m.fid.padStart(4, '0').substring(0, 2) === county.fid.padStart(2, '0')),
       })),
     ];
 
     for (const group of allGroups) {
       const groupMunicipalities = group.municipalities;
-      const selectedInGroup = groupMunicipalities.filter((m) =>
-        selectedMunicipalities.includes(m.fid!),
-      );
+      const selectedInGroup = groupMunicipalities.filter((m) => selectedMunicipalities.includes(m.fid!));
 
       if (selectedInGroup.length === 0) continue;
 
@@ -116,5 +102,32 @@ export class AreaService {
     }
 
     return { countyIds, municipalityIds };
+  });
+
+  readonly mainlandSelectionCount = computed(() => {
+    const selectedMunicipalities = this.filterState.selectedMunicipalityIds();
+    const selectedCounties = this.filterState.selectedCountyIds();
+    const groups = this.countyGroups();
+    if (groups.length === 0) {
+      return selectedMunicipalities.length + selectedCounties.length;
+    }
+    let count = 0;
+    for (const group of groups) {
+      const municipalityFids = group.municipalities.map((m) => m.fid!);
+      const selected = municipalityFids.filter((fid) => selectedMunicipalities.includes(fid)).length;
+      if (selected > 0) {
+        count += selected === municipalityFids.length ? 1 : selected;
+      } else if (group.county.fid && selectedCounties.includes(group.county.fid)) {
+        count += 1;
+      }
+    }
+    return count;
+  });
+
+  readonly svalbardBjornoyaAndJanMayenSelectionCount = computed(() => {
+    const areas = this.svalbardBjornoyaAndJanMayenAreas();
+    if (areas.length === 0) return 0;
+    const fids = new Set(areas.map((a) => a.fid));
+    return this.filterState.selectedCountyIds().filter((fid) => fids.has(fid)).length;
   });
 }
