@@ -520,8 +520,47 @@ public class SearchRepositoryTests
     private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
         context.Set<Location>().AddRange(locations);
 
-    private static void SeedObservations(ArtskartDbContext context, params Observation[] observations) =>
+    /// <summary>
+    /// Legger inn observasjonene OG den tilhørende raden i ObservationEntityIndex.
+    ///
+    /// Lokasjonssøket leser fra indekstabellen, ikke fra Observation, fordi
+    /// aggregeringen da kan gå i batch mode mot columnstore. Uten en indeksrad
+    /// per observasjon ville testene her sett en tom database.
+    ///
+    /// Kolonnene kopieres fra observasjonen, slik seksjon C, D og E i BackfillAll
+    /// gjør i produksjon. Det gjør seederen til en levende beskrivelse av den
+    /// invarianten: leser repositoriet en kolonne som backfillen ikke fyller,
+    /// feiler testene her.
+    ///
+    /// Én rad per observasjon, av typen Municipality. Ekte data har én rad per
+    /// område observasjonen ligger i — derfor teller repositoriet distinkte
+    /// ObservationId og ikke rader. Områdefiltre dekkes av integrasjonstestene,
+    /// som har ekte indeksdata.
+    /// </summary>
+    private static void SeedObservations(ArtskartDbContext context, params Observation[] observations)
+    {
         context.Set<Observation>().AddRange(observations);
+
+        var indexRows = observations.Select(o => new ObservationEntityIndex
+        {
+            ObservationId = o.Id,
+            EntityTypeId = (int)Artskart3.Core.Domain.Enums.ObservationIndexEntityType.Municipality,
+            EntityId = 1,
+            LocationId = o.LocationId,
+            TaxonGroupId = o.TaxonGroupId,
+            CategoryId = o.CategoryId,
+            BasisOfRecordId = o.BasisOfRecordId,
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
+            DateTimeCollected = o.DateTimeCollected,
+            RegistrationStatusId = o.RegistrationStatusId,
+            HasMediaFiles = o.HasMediaFiles,
+            BehaviorId = o.BehaviorId,
+            InstitutionOrgId = o.InstitutionOrgId,
+            DatasetOrgId = o.DatasetOrgId
+        });
+
+        context.Set<ObservationEntityIndex>().AddRange(indexRows);
+    }
 
     private static Location CreateLocation(int id, string locality) =>
         new()

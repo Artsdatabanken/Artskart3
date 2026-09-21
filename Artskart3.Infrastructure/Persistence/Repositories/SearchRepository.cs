@@ -284,8 +284,70 @@ public class SearchRepository : ISearchRepository
     /// ulike resultater for samme filter — derfor står de side om side og bør
     /// endres sammen.
     /// </summary>
+    /// <summary>
+    /// Områdefilteret mot indekstabellen, som EXISTS mot radene for de valgte
+    /// områdene.
+    ///
+    /// Kan ikke bli et kolonnepredikat: en observasjon har én rad per områdetype,
+    /// og filteret er en OR på tvers av dem. Ytterspørringen står på kommuneraden
+    /// for å få én rad per observasjon, så områdevalget må slås opp på søsterrader.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> ApplyAreaFilterToEntityIndex(
+        IQueryable<ObservationEntityIndex> query, IObservationFilter filter)
+    {
+        var hasMunicipality = filter.MunicipalityIds?.Length > 0;
+        var hasCounty = filter.CountyIds?.Length > 0;
+        var hasRestricted = filter.RestrictedAreaIds?.Length > 0;
+        var hasOcean = filter.OceanAreaIds?.Length > 0;
+
+        if (!hasMunicipality && !hasCounty && !hasRestricted && !hasOcean)
+        {
+            return query;
+        }
+
+        var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+        var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+        var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+        var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+        return query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
+            geo.ObservationId == idx.ObservationId && (
+                (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
+                (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
+                // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
+                // i løsningen.
+                (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(geo.EntityId)) ||
+                (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
+                (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId)))));
+    }
+
+    /// <summary>
+    /// Kartutsnittet mot indekstabellen.
+    ///
+    /// Samme form som ApplyEnvelopeFilter: LocationId hentes fra Location, som har
+    /// IX_EastNorth. Forskjellen er at predikatet nå treffer den denormaliserte
+    /// LocationId-kolonnen og ikke krever en join tilbake til Observation.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> ApplyEnvelopeFilterToEntityIndex(
+        IQueryable<ObservationEntityIndex> query, EnvelopeDto? envelope)
+    {
+        if (envelope == null) return query;
+
+        var minX = (int)envelope.MinX;
+        var maxX = (int)envelope.MaxX;
+        var minY = (int)envelope.MinY;
+        var maxY = (int)envelope.MaxY;
+
+        var locationIds = _context.Set<Location>()
+            .Where(l => l.East >= minX && l.East <= maxX &&
+                        l.North >= minY && l.North <= maxY)
+            .Select(l => l.Id);
+
+        return query.Where(idx => idx.LocationId.HasValue && locationIds.Contains(idx.LocationId.Value));
+    }
+
     private IQueryable<ObservationEntityIndex> ApplyListViewFiltersToEntityIndex(
-        IQueryable<ObservationEntityIndex> query, ObservationSearchFilterDto filter)
+        IQueryable<ObservationEntityIndex> query, IObservationFilter filter)
     {
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -450,13 +512,48 @@ public class SearchRepository : ISearchRepository
         {
             filter ??= new LocationSearchFilterDto();
 
-            var query = _context.Set<Observation>().AsNoTracking();
-            query = ApplyCommonFilters(query, filter);
-            query = ApplyEnvelopeFilter(query, filter.Envelope);
-
             var maxResults = filter.MaxResults > 0 && filter.MaxResults <= SearchConstants.MaxLocationResults
                 ? filter.MaxResults
                 : SearchConstants.DefaultMaxLocations;
+
+            // Aggregeringen drives av ObservationEntityIndex, ikke Observation.
+            //
+            // GROUP BY LocationId over titalls millioner rader er nøyaktig det
+            // columnstore er laget for. Mot Observation kjørte den i row mode:
+            // målt på Oslo-utsnittet 11 166 ms og 84 sekunder CPU, mot 1415 ms
+            // for samme arbeidsmengde og gruppeantall i batch mode.
+            //
+            // Indekstabellen har alle filterkolonnene fra før, og LocationId er
+            // lagt til nettopp for at joinen tilbake til Observation skal kunne
+            // droppes — den kostet 3,7 av de 5,1 sekundene i mellomvarianten.
+            //
+            // FLERE RADER PER OBSERVASJON: en observasjon har én rad per område
+            // den ligger i — kommune, fylke, eventuelt verneområde og havområde.
+            // Derfor telles distinkte ObservationId, ikke rader.
+            //
+            // Å forankre på kommuneraden i stedet ville gitt én rad per
+            // observasjon og et billigere COUNT(*), men det er FEIL: 4 374 852
+            // observasjoner har lokalitet uten å ha en kommunerad — de ligger i
+            // havet, på Svalbard eller utenfor kommunegrensene. De ville falt
+            // stille ut av lokasjonssøket. Verifiseringen fanget det på
+            // havområdefilteret: 22 lokasjoner der fasiten er 14 358.
+            //
+            // COUNT(DISTINCT) er heller ikke dyrere her — målt 1081 ms mot
+            // 1147 for å deduplisere først, og 2749 for å plukke én rad per
+            // observasjon med en korrelert MIN(EntityTypeId).
+            //
+            // EntityTypeId 101 er institusjonsrader, ikke områder. De fjernes i
+            // oppryddingssteget, men filtreres bort her for sikkerhets skyld —
+            // finnes de, ville de ikke endret antallet distinkte observasjoner,
+            // bare gitt mer å lese.
+            var indexQuery = _context.Set<ObservationEntityIndex>()
+                .AsNoTracking()
+                .Where(idx => idx.EntityTypeId != (int)ObservationIndexEntityType.Institution
+                              && idx.LocationId != null);
+
+            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter);
+            indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, filter);
+            indexQuery = ApplyEnvelopeFilterToEntityIndex(indexQuery, filter.Envelope);
 
             // Gruppér kun på LocationId — koordinatene hentes etter at Take har
             // begrenset resultatet.
@@ -467,11 +564,25 @@ public class SearchRepository : ISearchRepository
             // til 2332 ms / 10 855 ms CPU mot 36 ms / 104 ms CPU for samme spørring med
             // joinen etter grupperingen. Kostnaden var flat uansett kartutsnitt — også
             // et tomt utsnitt uten treff brukte ~1,7 s.
-            var aggregated = query
-                .Where(o => o.LocationId != null)
-                .GroupBy(o => o.LocationId!.Value)
-                .Select(g => new { LocationId = g.Key, ObservationCount = g.Count() })
+            // ORDER BY er ikke kosmetikk: uten den returnerer Take(maxResults) et
+            // vilkårlig utvalg, og samme utsnitt kan gi ulike svar mellom kall.
+            // Målt kostnad er 3 % (8992 mot 8696 ms), så determinismen er billig.
+            //
+            // ThenBy(LocationId) er det som faktisk gjør den deterministisk.
+            // Sortering på antall alene holder ikke: for Oslo-utsnittet uten
+            // filtre ligger grenseverdien ved TOP 100 000 på to observasjoner, og
+            // 42 308 lokasjoner har nøyaktig to. Kuttet går altså midt i en gruppe
+            // med like verdier, og hvilke som kom med var opp til planen.
+            // LocationId er unik, så sorteringen blir total.
+            var aggregated = indexQuery
+                .GroupBy(idx => idx.LocationId!.Value)
+                .Select(g => new
+                {
+                    LocationId = g.Key,
+                    ObservationCount = g.Select(idx => idx.ObservationId).Distinct().Count()
+                })
                 .OrderByDescending(x => x.ObservationCount)
+                .ThenBy(x => x.LocationId)
                 .Take(maxResults);
 
             var locationModels = await aggregated
