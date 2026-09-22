@@ -226,7 +226,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.locationClick$
         .pipe(
           switchMap((ids) =>
-            this.observationService.getObservationByLocation(ids).pipe(
+            this.observationService.getObservationByLocation(ids, this.attributeFilter()).pipe(
               catchError((err: unknown) => {
                 this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
                 this.showObservationList.set(false);

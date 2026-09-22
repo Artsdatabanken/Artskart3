@@ -64,7 +64,7 @@ public class ObservationControllerTests
             .ReturnsAsync(Enumerable.Empty<ObservationListInfoDto>());
         var sut = CreateSut();
 
-        await sut.GetObservationsByLocations(locationIds, cancellationToken);
+        await sut.GetObservationsByLocations(locationIds);
 
         _serviceMock.Verify(s => s.GetObservationsByLocations(locationIds, cancellationToken), Times.Once);
     }

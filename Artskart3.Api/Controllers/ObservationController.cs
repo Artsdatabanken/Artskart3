@@ -28,17 +28,10 @@ public class ObservationController(IObservationService observationService, ILogg
     }
 
     [HttpPost]
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations(IEnumerable<int> locationIds, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations([FromBody] ObservationLocationRequestDto request,
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationsByLocations(locationIds, cancellationToken);
-            return observations;
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to get observations by location.");
-            throw;
-        }
+        IEnumerable<ObservationListInfoDto> observations = await observationService.GetObservationsByLocations(request, cancellationToken);
+        return observations;
     }
 }
