@@ -204,6 +204,31 @@ public class SearchRepository : ISearchRepository
         }).ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(ObservationLocationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        request.Filter ??= new ObservationSearchFilterDto();
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, request.Filter);
+        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value));
+
+        IEnumerable<ObservationListInfoDto> observationListInfoDtos = await query.Select(o => new ObservationListInfoDto
+        {
+            Id = o.Id,
+            PreferredPopularName = o.Taxon.PreferredPopularName,
+            ScientificName = o.Taxon.ValidScientificName,
+            DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName)
+                .Replace("<i>", "").Replace("</i>", ""),
+            Author = o.Taxon.ValidScientificNameAuthorship,
+            TaxonGroupId = o.TaxonGroupId,
+            TaxonGroupName = o.Taxon.TaxonGroup.Name,
+            LocationId = o.LocationId,
+            CategoryId = o.CategoryId,
+            CategoryName = o.Category != null ? o.Category.Name : string.Empty,
+            RegistrationType = o.Tags.Select(t => t.Name),
+            Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
+        }).ToListAsync(cancellationToken);
+        return observationListInfoDtos;
+    }
 
 
     /// <summary>

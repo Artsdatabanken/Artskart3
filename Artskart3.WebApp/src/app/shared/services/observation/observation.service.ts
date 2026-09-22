@@ -12,14 +12,13 @@ import {
 })
 export class ObservationService {
   private readonly http = inject(HttpClient);
-  private readonly SearchObservationEndpoint = '/api/Search/Observation';
-  private readonly ObservationControllerEndpoint = '/api/Observation';
+  private readonly SearchObservationEndpoint = '/api/Search/';
 
   searchObservations(filter: ObservationSearchFilter): Observable<PagedObservationResponse> {
-    return this.http.post<PagedObservationResponse>(this.SearchObservationEndpoint, filter);
+    return this.http.post<PagedObservationResponse>(`${this.SearchObservationEndpoint + "Observation"}`, filter);
   }
 
   getObservationByLocation(ids: number[], filter: ObservationSearchFilter): Observable<ObservationListInfoDto[]> {
-    return this.http.post<ObservationListInfoDto[]>(`${this.ObservationControllerEndpoint}`, {Ids: ids, Filter: filter});
+    return this.http.post<ObservationListInfoDto[]>(`${this.SearchObservationEndpoint + "ObservationList"}`, {Ids: ids, Filter: filter});
   }
 }

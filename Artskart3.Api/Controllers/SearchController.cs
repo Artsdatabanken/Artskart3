@@ -169,6 +169,24 @@ public class SearchController : ControllerBase
         }
     }
 
+    [HttpPost("ObservationList")]
+    [Produces("application/json")]
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations([FromBody] ObservationLocationRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        request.Filter ??= new ObservationSearchFilterDto();
+        try
+        {
+            IEnumerable<ObservationListInfoDto> observations =
+                await _searchService.GetObservationsByLocations(request, cancellationToken);
+            return observations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av observasjoner på lokasjon(er): {Ids} med filter: {Filter}", request.Ids, request.Filter);
+            throw;
+        }
+    }
 
     /// <summary>
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
