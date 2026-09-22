@@ -221,7 +221,9 @@ public class SearchControllerTests
 
         var result = await _sut.GetObservationsByLocations(request);
 
-        result.Should().BeEquivalentTo(observations);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
+        resultList.Should().BeEquivalentTo(observations);
         _serviceMock.Verify(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -243,9 +245,11 @@ public class SearchControllerTests
 
         var result = await _sut.GetObservationsByLocations(request);
 
-        result.Should().BeEquivalentTo(observations);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
+        resultList.Should().BeEquivalentTo(observations);
         _serviceMock.Verify(s => s.GetObservationsByLocations(
-            It.Is<ObservationsByLocationRequestDto>(r => r.Filter != null),
+            It.Is<ObservationsByLocationRequestDto>(r => r.Ids.SequenceEqual(new List<int> { 123 }.AsReadOnly())),
             It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -277,7 +281,9 @@ public class SearchControllerTests
 
         var result = await _sut.GetObservationsByLocations(request);
 
-        result.Should().BeEmpty();
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
+        resultList.Should().BeEmpty();
     }
 
     [Fact]
@@ -298,7 +304,9 @@ public class SearchControllerTests
 
         var result = await _sut.GetObservationsByLocations(request);
 
-        result.Should().BeEquivalentTo(observations);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
+        resultList.Should().BeEquivalentTo(observations);
         _serviceMock.Verify(s => s.GetObservationsByLocations(
                 It.Is<ObservationsByLocationRequestDto>(r =>
                     r.Filter != null
