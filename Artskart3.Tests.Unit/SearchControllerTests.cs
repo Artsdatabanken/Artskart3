@@ -198,6 +198,117 @@ public class SearchControllerTests
         await act.Should().ThrowAsync<Exception>();
     }
 
+        // -----------------------------------------------------------------------
+    // GetObservationsByLocations
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetObservationsByLocations_WithValidRequest_ReturnsObservations()
+    {
+        var observations = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "Species A" },
+            new() { Id = 2, DisplayName = "Species B" }
+        };
+        var request = new ObservationLocationRequestDto
+        {
+            Ids = [123, 456],
+            Filter = new ObservationSearchFilterDto()
+        };
+        _serviceMock
+            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(observations);
+
+        var result = await _sut.GetObservationsByLocations(request);
+
+        result.Should().BeEquivalentTo(observations);
+        _serviceMock.Verify(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsByLocations_WithNullFilter_UsesDefaultFilter()
+    {
+        var observations = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "Species A" }
+        };
+        var request = new ObservationLocationRequestDto
+        {
+            Ids = [123],
+            Filter = null
+        };
+        _serviceMock
+            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(observations);
+
+        var result = await _sut.GetObservationsByLocations(request);
+
+        result.Should().BeEquivalentTo(observations);
+        _serviceMock.Verify(s => s.GetObservationsByLocations(
+            It.Is<ObservationLocationRequestDto>(r => r.Filter != null),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsByLocations_WhenServiceThrows_Throws()
+    {
+        var request = new ObservationLocationRequestDto { Ids = [123] };
+        _serviceMock
+            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB error"));
+
+        var act = () => _sut.GetObservationsByLocations(request);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetObservationsByLocations_WithEmptyIds_ReturnsEmpty()
+    {
+        var request = new ObservationLocationRequestDto
+        {
+            Ids = [],
+            Filter = new ObservationSearchFilterDto()
+        };
+        _serviceMock
+            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ObservationListInfoDto>());
+
+        var result = await _sut.GetObservationsByLocations(request);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetObservationsByLocations_WithActiveFilter_ReturnsObservations()
+    {
+        var observations = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "Species A" }
+        };
+        var request = new ObservationLocationRequestDto
+        {
+            Ids = [123],
+            Filter = new ObservationSearchFilterDto { TaxonGroupIds = [1] }
+        };
+        _serviceMock
+            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(observations);
+
+        var result = await _sut.GetObservationsByLocations(request);
+
+        result.Should().BeEquivalentTo(observations);
+        _serviceMock.Verify(s => s.GetObservationsByLocations(
+                It.Is<ObservationLocationRequestDto>(r =>
+                    r.Filter != null
+                    && r.Filter.TaxonGroupIds != null
+                    && r.Filter.TaxonGroupIds.Length == 1
+                    && r.Filter.TaxonGroupIds[0] == 1),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     // -----------------------------------------------------------------------
     // GetAreaCounts
     // -----------------------------------------------------------------------
