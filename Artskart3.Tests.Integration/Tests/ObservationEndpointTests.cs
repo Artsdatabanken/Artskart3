@@ -122,7 +122,7 @@ public class ObservationEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetObservationsByLocations_WithValidIds_Returns200WithJsonArray()
     {
-        var requestDto = new ObservationLocationRequestDto { Ids = [953202] };
+        var requestDto = new ObservationsByLocationRequestDto { Ids = [953202] };
         var response = await _client.PostAsJsonAsync("/api/Search/ObservationList", requestDto);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);

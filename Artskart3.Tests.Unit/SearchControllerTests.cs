@@ -210,7 +210,7 @@ public class SearchControllerTests
             new() { Id = 1, DisplayName = "Species A" },
             new() { Id = 2, DisplayName = "Species B" }
         };
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = [123, 456],
             Filter = new ObservationSearchFilterDto()
@@ -232,20 +232,20 @@ public class SearchControllerTests
         {
             new() { Id = 1, DisplayName = "Species A" }
         };
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = [123],
             Filter = null
         };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(observations);
 
         var result = await _sut.GetObservationsByLocations(request);
 
         result.Should().BeEquivalentTo(observations);
         _serviceMock.Verify(s => s.GetObservationsByLocations(
-            It.Is<ObservationLocationRequestDto>(r => r.Filter != null),
+            It.Is<ObservationsByLocationRequestDto>(r => r.Filter != null),
             It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -253,9 +253,9 @@ public class SearchControllerTests
     [Fact]
     public async Task GetObservationsByLocations_WhenServiceThrows_Throws()
     {
-        var request = new ObservationLocationRequestDto { Ids = [123] };
+        var request = new ObservationsByLocationRequestDto { Ids = [123] };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DB error"));
 
         var act = () => _sut.GetObservationsByLocations(request);
@@ -266,7 +266,7 @@ public class SearchControllerTests
     [Fact]
     public async Task GetObservationsByLocations_WithEmptyIds_ReturnsEmpty()
     {
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = [],
             Filter = new ObservationSearchFilterDto()
@@ -287,7 +287,7 @@ public class SearchControllerTests
         {
             new() { Id = 1, DisplayName = "Species A" }
         };
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = [123],
             Filter = new ObservationSearchFilterDto { TaxonGroupIds = [1] }
@@ -300,7 +300,7 @@ public class SearchControllerTests
 
         result.Should().BeEquivalentTo(observations);
         _serviceMock.Verify(s => s.GetObservationsByLocations(
-                It.Is<ObservationLocationRequestDto>(r =>
+                It.Is<ObservationsByLocationRequestDto>(r =>
                     r.Filter != null
                     && r.Filter.TaxonGroupIds != null
                     && r.Filter.TaxonGroupIds.Length == 1

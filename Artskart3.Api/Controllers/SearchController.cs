@@ -171,15 +171,15 @@ public class SearchController : ControllerBase
 
     [HttpPost("ObservationList")]
     [Produces("application/json")]
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationsByLocations([FromBody] ObservationLocationRequestDto request,
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<ObservationListInfoDto>))]
+    public async Task<ActionResult<IEnumerable<ObservationListInfoDto>>> GetObservationsByLocations([FromBody] ObservationsByLocationRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        request.Filter ??= new ObservationSearchFilterDto();
         try
         {
             IEnumerable<ObservationListInfoDto> observations =
                 await _searchService.GetObservationsByLocations(request, cancellationToken);
-            return observations;
+            return Ok(observations);
         }
         catch (Exception ex)
         {

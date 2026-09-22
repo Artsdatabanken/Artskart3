@@ -218,7 +218,7 @@ public class SearchServiceTests
     public async Task GetObservationsByLocations_ForwardsRequestToRepository_ReturnsResults()
     {
         // Arrange
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = new[] { 123, 456 },
             Filter = new ObservationSearchFilterDto {}
@@ -231,7 +231,7 @@ public class SearchServiceTests
         };
 
         _repositoryMock
-            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act
@@ -246,7 +246,7 @@ public class SearchServiceTests
     public async Task GetObservationsByLocations_WithActiveFilter_ForwardsRequestToRepository_ReturnsResults()
     {
         // Arrange: create a request with an active filter (TaxonGroupIds set)
-        var request = new ObservationLocationRequestDto
+        var request = new ObservationsByLocationRequestDto
         {
             Ids = new[] { 123, 456 },
             Filter = new ObservationSearchFilterDto
@@ -262,7 +262,7 @@ public class SearchServiceTests
         };
 
         _repositoryMock
-            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act
@@ -277,10 +277,10 @@ public class SearchServiceTests
     public async Task GetObservationsByLocations_WhenRepositoryThrows_PropagatesException()
     {
         // Arrange
-        var request = new ObservationLocationRequestDto { Ids = new[] { 1 } };
+        var request = new ObservationsByLocationRequestDto { Ids = new[] { 1 } };
 
         _repositoryMock
-            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetObservationByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DB fail"));
 
         // Act

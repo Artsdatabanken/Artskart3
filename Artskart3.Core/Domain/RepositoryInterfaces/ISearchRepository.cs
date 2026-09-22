@@ -9,7 +9,7 @@ public interface ISearchRepository
     Task<List<LocationModel>> GetLocationsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(ObservationLocationRequestDto request, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(ObservationsByLocationRequestDto request, CancellationToken cancellationToken = default);
     Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<AreaCountDto>> GetAreaCountsAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
