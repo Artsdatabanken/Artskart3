@@ -4,6 +4,7 @@ namespace Artskart3.Core.Domain.BusinessModels;
 
 public class NotificationModel
 {
+    public string Id { get; set; } = string.Empty;
     public AlertType Type { get; set; }
     public string Heading { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
