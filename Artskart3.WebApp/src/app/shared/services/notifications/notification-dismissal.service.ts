@@ -23,24 +23,22 @@ export class NotificationDismissalService {
   private readonly dismissedKeys = signal<ReadonlySet<string>>(this.readDismissedKeys());
 
   isDismissed(notification: NotificationModel): boolean {
-    return this.dismissedKeys().has(this.keyFor(notification));
+    const key = notification.id;
+    return key != null && this.dismissedKeys().has(key);
   }
 
   dismiss(notification: NotificationModel): void {
-    const key = this.keyFor(notification);
+    const key = notification.id;
+    if (key == null) {
+      return;
+    }
+
     const updated = new Set(this.dismissedKeys()).add(key);
     this.dismissedKeys.set(updated);
 
     if (this.hasNecessaryConsent()) {
       this.writeCookie(updated);
     }
-  }
-
-  // Backend does not provide a stable id, so identity is derived from the fields that define a notification.
-  private keyFor(notification: NotificationModel): string {
-    return [notification.heading, notification.startDisplayDate, notification.endDisplayDate]
-      .map(value => value ?? '')
-      .join('|');
   }
 
   private hasNecessaryConsent(): boolean {

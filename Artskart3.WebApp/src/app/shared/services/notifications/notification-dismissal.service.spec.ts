@@ -9,6 +9,7 @@ interface CookieInformationTestWindow {
 }
 
 const notification: NotificationModel = {
+  id: '11111111-1111-1111-1111-111111111111',
   heading: 'Planned maintenance',
   startDisplayDate: '2026-01-01',
   endDisplayDate: '2026-01-31',
@@ -78,7 +79,25 @@ describe('NotificationDismissalService', () => {
     setConsent(true);
     service.dismiss(notification);
 
-    const other: NotificationModel = { ...notification, heading: 'Different notice' };
+    const other: NotificationModel = { ...notification, id: '22222222-2222-2222-2222-222222222222' };
     expect(service.isDismissed(other)).toBe(false);
+  });
+
+  it('should still treat a notification as dismissed when its content changes but the id stays the same', () => {
+    setConsent(true);
+    service.dismiss(notification);
+
+    const edited: NotificationModel = { ...notification, heading: 'Updated heading' };
+    expect(service.isDismissed(edited)).toBe(true);
+  });
+
+  it('should ignore notifications without an id', () => {
+    const withoutId: NotificationModel = { ...notification, id: undefined };
+    setConsent(true);
+
+    service.dismiss(withoutId);
+
+    expect(service.isDismissed(withoutId)).toBe(false);
+    expect(document.cookie).not.toContain('artskart.notifications.dismissed');
   });
 });
