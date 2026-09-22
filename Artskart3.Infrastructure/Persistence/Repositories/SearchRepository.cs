@@ -272,6 +272,41 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
+    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationResults.
+    /// Samme gruppering som GetLocationsAsync, men uten koordinat-join — brukes av
+    /// frontend til å velge mellom områdelag og direkte lokasjonsklustering.
+    /// </summary>
+    public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            var query = _context.Set<Observation>().AsNoTracking();
+            query = ApplyCommonFilters(query, filter);
+            query = ApplyEnvelopeFilter(query, filter.Envelope);
+
+            var locationIds = await query
+                .Where(o => o.LocationId != null)
+                .GroupBy(o => o.LocationId!.Value)
+                .Select(g => g.Key)
+                .Take(SearchConstants.MaxLocationResults + 1)
+                .ToListAsync(cancellationToken);
+
+            var truncated = locationIds.Count > SearchConstants.MaxLocationResults;
+            return new LocationCountDto
+            {
+                Count = truncated ? SearchConstants.MaxLocationResults : locationIds.Count,
+                Truncated = truncated,
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new ApplicationException("An unexpected error occurred while counting locations. Please contact support if the problem persists.", ex);
+        }
+    }
+
+    /// <summary>
     /// Legger til felles filterpredikater (taksongruppe, kategori, område, atferd, etc.) på en observasjonsspørring.
     /// Brukes av både lokasjons- og områdemarkørspørringer.
     /// </summary>
