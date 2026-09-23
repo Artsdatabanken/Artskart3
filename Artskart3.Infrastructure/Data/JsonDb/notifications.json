@@ -6,9 +6,9 @@
       "heading": "Tjenesten er midlertidig utilgjengelig",
       "description": "Artskart er for øyeblikket utilgjengelig på grunn av nødvedlikehold. Vi beklager ulempene og jobber med å gjenopprette tjenesten så snart som mulig.",
       "startDateTime": "2026-08-20T06:00:00",
-      "endDateTime": "2026-09-15T18:00:00",
-      "startDisplayDate": "2026-08-19",
-      "endDisplayDate": "2026-09-15",
+      "endDateTime": "2026-11-15T18:00:00",
+      "startDisplayDate": "2026-09-19",
+      "endDisplayDate": "2026-11-15",
       "canClose": false
     },
     {
@@ -17,9 +17,9 @@
       "heading": "Planlagt vedlikehold",
       "description": "Artskart vil gjennomgå planlagte oppdateringer natt til tirsdag. Noen funksjoner kan være midlertidig utilgjengelige i dette tidsrommet.",
       "startDateTime": "2026-08-01T22:00:00",
-      "endDateTime": "2026-09-15T04:00:00",
-      "startDisplayDate": "2026-07-28",
-      "endDisplayDate": "2026-09-15",
+      "endDateTime": "2026-11-15T04:00:00",
+      "startDisplayDate": "2026-09-24",
+      "endDisplayDate": "2026-11-15",
       "canClose": true
     },
     {
@@ -29,8 +29,8 @@
       "description": "En ny versjon av Artskart er nå tilgjengelig med forbedret søkefunksjonalitet og feilrettinger. Les mer i endringsloggen.",
       "startDateTime": null,
       "endDateTime": null,
-      "startDisplayDate": "2026-08-15",
-      "endDisplayDate": "2026-10-30",
+      "startDisplayDate": "2026-09-15",
+      "endDisplayDate": "2026-11-30",
       "canClose": true
     }
   ]
