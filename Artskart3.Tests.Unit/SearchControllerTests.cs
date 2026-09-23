@@ -199,87 +199,87 @@ public class SearchControllerTests
     }
 
         // -----------------------------------------------------------------------
-    // GetObservationsByLocations
+    // GetObservationListInfo
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task GetObservationsByLocations_WithValidRequest_ReturnsObservations()
+    public async Task GetObservationListInfo_WithValidRequest_ReturnsObservations()
     {
         var observations = new List<ObservationListInfoDto>
         {
             new() { Id = 1, DisplayName = "Species A" },
             new() { Id = 2, DisplayName = "Species B" }
         };
-        var request = new ObservationsByLocationRequestDto
+        var request = new ObservationListInfoRequestDto
         {
             Ids = [123, 456],
             Filter = new ObservationSearchFilterDto()
         };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationListInfo(request, It.IsAny<CancellationToken>()))
             .ReturnsAsync(observations);
 
-        var result = await _sut.GetObservationsByLocations(request);
+        var result = await _sut.GetObservationListInfo(request);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
         resultList.Should().BeEquivalentTo(observations);
-        _serviceMock.Verify(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()), Times.Once);
+        _serviceMock.Verify(s => s.GetObservationListInfo(request, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task GetObservationsByLocations_WithNullFilter_UsesDefaultFilter()
+    public async Task GetObservationListInfo_WithNullFilter_UsesDefaultFilter()
     {
         var observations = new List<ObservationListInfoDto>
         {
             new() { Id = 1, DisplayName = "Species A" }
         };
-        var request = new ObservationsByLocationRequestDto
+        var request = new ObservationListInfoRequestDto
         {
             Ids = [123],
             Filter = null
         };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(observations);
 
-        var result = await _sut.GetObservationsByLocations(request);
+        var result = await _sut.GetObservationListInfo(request);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
         resultList.Should().BeEquivalentTo(observations);
-        _serviceMock.Verify(s => s.GetObservationsByLocations(
-            It.Is<ObservationsByLocationRequestDto>(r => r.Ids.SequenceEqual(new List<int> { 123 }.AsReadOnly())),
+        _serviceMock.Verify(s => s.GetObservationListInfo(
+            It.Is<ObservationListInfoRequestDto>(r => r.Ids.SequenceEqual(new List<int> { 123 }.AsReadOnly())),
             It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task GetObservationsByLocations_WhenServiceThrows_Throws()
+    public async Task GetObservationListInfo_WhenServiceThrows_Throws()
     {
-        var request = new ObservationsByLocationRequestDto { Ids = [123] };
+        var request = new ObservationListInfoRequestDto { Ids = [123] };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(It.IsAny<ObservationsByLocationRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DB error"));
 
-        var act = () => _sut.GetObservationsByLocations(request);
+        var act = () => _sut.GetObservationListInfo(request);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
-    public async Task GetObservationsByLocations_WithEmptyIds_ReturnsEmpty()
+    public async Task GetObservationListInfo_WithEmptyIds_ReturnsEmpty()
     {
-        var request = new ObservationsByLocationRequestDto
+        var request = new ObservationListInfoRequestDto
         {
             Ids = [],
             Filter = new ObservationSearchFilterDto()
         };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationListInfo(request, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ObservationListInfoDto>());
 
-        var result = await _sut.GetObservationsByLocations(request);
+        var result = await _sut.GetObservationListInfo(request);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
@@ -287,28 +287,28 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task GetObservationsByLocations_WithActiveFilter_ReturnsObservations()
+    public async Task GetObservationListInfo_WithActiveFilter_ReturnsObservations()
     {
         var observations = new List<ObservationListInfoDto>
         {
             new() { Id = 1, DisplayName = "Species A" }
         };
-        var request = new ObservationsByLocationRequestDto
+        var request = new ObservationListInfoRequestDto
         {
             Ids = [123],
             Filter = new ObservationSearchFilterDto { TaxonGroupIds = [1] }
         };
         _serviceMock
-            .Setup(s => s.GetObservationsByLocations(request, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetObservationListInfo(request, It.IsAny<CancellationToken>()))
             .ReturnsAsync(observations);
 
-        var result = await _sut.GetObservationsByLocations(request);
+        var result = await _sut.GetObservationListInfo(request);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var resultList = okResult.Value as IEnumerable<ObservationListInfoDto>;
         resultList.Should().BeEquivalentTo(observations);
-        _serviceMock.Verify(s => s.GetObservationsByLocations(
-                It.Is<ObservationsByLocationRequestDto>(r =>
+        _serviceMock.Verify(s => s.GetObservationListInfo(
+                It.Is<ObservationListInfoRequestDto>(r =>
                     r.Filter != null
                     && r.Filter.TaxonGroupIds != null
                     && r.Filter.TaxonGroupIds.Length == 1

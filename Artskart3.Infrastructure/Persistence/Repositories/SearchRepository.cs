@@ -204,7 +204,7 @@ public class SearchRepository : ISearchRepository
         }).ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationByLocations(ObservationsByLocationRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
     {
         var filter = request.Filter ?? new ObservationSearchFilterDto();
         var query = _context.Set<Observation>().AsNoTracking();
