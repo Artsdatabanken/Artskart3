@@ -12,6 +12,9 @@ const COOKIE_NAME = 'artskart.notifications.dismissed';
 const COOKIE_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 const NECESSARY_CONSENT_CATEGORY = 'cookie_cat_necessary';
 
+// Limit antall avviste varslinger for å holde cookien under 4KB
+const MAX_DISMISSED_KEYS = 50;
+
 /** Remembers dismissed notifications across sessions via a cookie, when the user has consented to necessary cookies. */
 @Injectable({
   providedIn: 'root',
@@ -33,11 +36,17 @@ export class NotificationDismissalService {
       return;
     }
 
-    const updated = new Set(this.dismissedKeys()).add(key);
-    this.dismissedKeys.set(updated);
+    const currentKeys = [...this.dismissedKeys()];
+    
+    // Legg til den nye nøkkelen og behold bare de nyeste MAX_DISMISSED_KEYS
+    const updated = [...currentKeys, key]
+      .slice(-MAX_DISMISSED_KEYS);
+    
+    // Oppdater signal med det trimmede settet
+    this.dismissedKeys.set(new Set(updated));
 
     if (this.hasNecessaryConsent()) {
-      this.writeCookie(updated);
+      this.writeCookie(new Set(updated));
     }
   }
 
