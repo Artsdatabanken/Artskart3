@@ -1,6 +1,7 @@
 {
   "notifications": [
     {
+      "id": "e6d68797-a0cf-4747-be95-3c4577a94d4f",
       "type": "Danger",
       "heading": "Tjenesten er midlertidig utilgjengelig",
       "description": "Artskart er for øyeblikket utilgjengelig på grunn av nødvedlikehold. Vi beklager ulempene og jobber med å gjenopprette tjenesten så snart som mulig.",
@@ -11,6 +12,7 @@
       "canClose": false
     },
     {
+      "id": "91bad0b1-48f5-4fb8-8f19-e04fc0739686",
       "type": "Warning",
       "heading": "Planlagt vedlikehold",
       "description": "Artskart vil gjennomgå planlagte oppdateringer natt til tirsdag. Noen funksjoner kan være midlertidig utilgjengelige i dette tidsrommet.",
@@ -21,6 +23,7 @@
       "canClose": true
     },
     {
+      "id": "7b89dc22-dca5-478d-bec0-1d2af0ea6776",
       "type": "Info",
       "heading": "Ny versjon tilgjengelig",
       "description": "En ny versjon av Artskart er nå tilgjengelig med forbedret søkefunksjonalitet og feilrettinger. Les mer i endringsloggen.",

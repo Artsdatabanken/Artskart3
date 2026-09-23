@@ -1447,6 +1447,7 @@ export interface components {
             envelope?: components["schemas"]["EnvelopeDto"];
         };
         NotificationModel: {
+            id?: string;
             type?: components["schemas"]["AlertType"];
             heading?: string;
             description?: string;
