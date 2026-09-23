@@ -313,17 +313,6 @@ adb-checkbox::part(control) {
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.22);
 }
 
-.empty-search-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--adb-text-subtle, #4d4d4d);
-  flex-shrink: 0;
-}
-
-:host-context([data-theme='dark']) .empty-search-icon {
-  color: var(--adb-text-default, #f5f5f5);
-}
-
 .project-name-suggestion:hover,
 .project-name-suggestion:focus {
   background-color: var(--adb-background-secondary);
