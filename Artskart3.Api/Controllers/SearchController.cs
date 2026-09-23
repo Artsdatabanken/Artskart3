@@ -161,6 +161,27 @@ public class SearchController : ControllerBase
                 return validationError!;
             }
 
+            // Det ufiltrerte svaret er identisk hver gang og er det eneste frontend ber om
+            // her — to kall per sidelast, ett per zoomnivå. Det serveres derfor ferdig
+            // serialisert og ferdig gzippet, så kallet koster overføring og ingenting annet.
+            //
+            // Content-Encoding settes selv. Komprimeringsmellomvaren hopper over svar som
+            // allerede har headeren, så bytene pakkes ikke på nytt. Vary er nødvendig for
+            // at mellomliggende cacher ikke skal servere gzip til en klient som ikke tok imot.
+            if (filter is null || !filter.HasActiveFilters)
+            {
+                var payload = await _searchService.GetAreaMarkersPayloadAsync(zoomLevel, cancellationToken);
+                Response.Headers.Vary = "Accept-Encoding";
+
+                if (Request.Headers.AcceptEncoding.ToString().Contains("gzip", StringComparison.OrdinalIgnoreCase))
+                {
+                    Response.Headers.ContentEncoding = "gzip";
+                    return File(payload.Gzip, "application/json");
+                }
+
+                return File(payload.Raw, "application/json");
+            }
+
             var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
             _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
             return Ok(areas.ToArray());

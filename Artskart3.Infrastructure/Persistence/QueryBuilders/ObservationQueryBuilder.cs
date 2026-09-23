@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
@@ -37,8 +38,11 @@ public static class ObservationQueryBuilder
         if (filter.TaxonIds?.Any() != true)
             return query;
 
+        // Samme normalisering som i SearchRepository: eksporten må filtrere identisk
+        // med søket. Etterkommere som allerede er dekket av et annet valgt takson
+        // fjernes — deres UNION-gren ville bare gjentatt rader grenen over ga.
         IQueryable<int>? combinedQuery = null;
-        foreach (var taxonId in filter.TaxonIds)
+        foreach (var taxonId in taxonHierarchy.RemoveRedundantDescendants(filter.TaxonIds)!)
         {
             var subquery = GetObservationIdsByTaxonHierarchy(context, taxonHierarchy, taxonId);
             combinedQuery = combinedQuery == null ? subquery : combinedQuery.Union(subquery);

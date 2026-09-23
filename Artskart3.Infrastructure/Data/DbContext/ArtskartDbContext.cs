@@ -1026,6 +1026,45 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
         });
 
+        // -------------------------------------------------------------------
+        // Områdebuffer — forhåndsberegnede antall per filter
+        //
+        // Klyngenøklene speiler oppslagsretningen nøyaktig: dimensjon og bøtte
+        // først, utdatacellen sist. Et oppslag blir dermed ett sammenhengende
+        // rekkeviddesøk, og intervalldimensjonene (periode, koordpresisjon) får
+        // bøtteintervallet sitt langs nøkkelen i stedet for som restledd.
+        //
+        // Sidekomprimering settes i migrasjonen — EF Core har ingen parameter for
+        // DATA_COMPRESSION. Uten den er toernivået ~0,9 GB.
+        // -------------------------------------------------------------------
+        modelBuilder.Entity<AreaCountCacheLevel1>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.EntityTypeId, e.EntityId });
+            entity.ToTable("AreaCountCacheLevel1");
+        });
+
+        modelBuilder.Entity<AreaCountCacheLevel2>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionPairId, e.BucketA, e.BucketB, e.EntityTypeId, e.EntityId });
+            entity.ToTable("AreaCountCacheLevel2");
+        });
+
+        modelBuilder.Entity<AreaCountCacheBucketMember>(entity =>
+        {
+            // (DimensionId, MemberId, BucketId), ikke (DimensionId, BucketId, MemberId):
+            // oppslaget går alltid «gitt verneområde 575, hvilke bøtter inneholder det».
+            entity.HasKey(e => new { e.DimensionId, e.MemberId, e.BucketId });
+            entity.ToTable("AreaCountCacheBucketMember");
+        });
+
+        modelBuilder.Entity<AreaCountCacheState>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("AreaCountCacheState");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
+        });
+
         modelBuilder.Entity<ObservationProject>(entity =>
         {
             entity.HasKey(e => new { e.ObservationId, e.ProjectOrgId });

@@ -32,13 +32,9 @@
 
 .PARAMETER Level
     Quick     enkeltfiltre og oppslag. Minutter.
-    Standard  + alle dimensjonspar, 40 tripler, brukerreiser. Titalls minutter.
-    Full      + par ogsaa paa lette nivaaer, 150 tripler, flere endepunkter. Timer.
+    Standard  + alle dimensjonspar, 60 tripler, 30 kvadrupler, brukerreiser. Titalls minutter.
+    Full      + par ogsaa paa lette nivaaer, 300 tripler, 120 kvadrupler, flere endepunkter. Timer.
 
-.PARAMETER IncludeAreaCounts
-    Tar med AreaCounts-endepunktet. AV som standard: det har fem minutters
-    minnecache per filter, saa i en lang kjoering maaler gjentatte treff cachen
-    og ikke databasen. Restart API-et foerst hvis du bruker flagget.
 
 .PARAMETER Compare
     Sti til en tidligere resultatfil. Etter kjoeringen skrives en regresjonstabell.
@@ -90,10 +86,8 @@ param(
     # Kjoer bare case der noekkel, lag eller dimensjon inneholder denne teksten.
     [string] $Only,
 
-    [ValidateSet('enkelt', 'par', 'trippel', 'reise', 'oppslag')]
+    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'oppslag')]
     [string[]] $Layer,
-
-    [switch] $IncludeAreaCounts,
 
     # Bygger testdataene paa nytt. Gjoer gamle baselinjer usammenlignbare.
     [switch] $RefreshFixtures,
@@ -158,7 +152,7 @@ $fixtures = Get-PerfFixtureSet -Path $fixturePath -Refresh:$RefreshFixtures -Tax
 $cases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $Level -Seed $Seed)
 
 $endpoints = @(New-PerfEndpointMatrix -Level $Level -Envelopes $fixtures.envelopes `
-    -IncludeAreaCounts:$IncludeAreaCounts -ResultsPerPage $ResultsPerPage)
+    -ResultsPerPage $ResultsPerPage)
 
 if ($Layer)  { $cases = @($cases | Where-Object { $Layer -contains $_.Layer }) }
 if ($Only)   { $cases = @($cases | Where-Object { $_.CaseKey -like "*$Only*" -or $_.Layer -like "*$Only*" -or $_.Dimensions -like "*$Only*" }) }
@@ -168,10 +162,14 @@ if ($cases.Count -eq 0) {
     exit 1
 }
 
-# Oppslagscasene kjoerer ett kall hver; resten kjoerer ett per endepunkt.
-$oppslagCount = @($cases | Where-Object Layer -eq 'oppslag').Count
-$filterCount  = $cases.Count - $oppslagCount
-$totalRuns    = ($filterCount * $endpoints.Count) + $oppslagCount
+# Oppslagscasene kjoerer ett kall hver. Resten kjoerer ett per endepunkt, bortsett
+# fra endepunkter merket OnlyUnfiltered — de kjoerer bare for ingen-filter-caset.
+$oppslagCount    = @($cases | Where-Object Layer -eq 'oppslag').Count
+$filterCount     = $cases.Count - $oppslagCount
+$ufiltrertCount  = @($cases | Where-Object CaseKey -eq 'ingen-filter').Count
+$alltid          = @($endpoints | Where-Object { -not $_.OnlyUnfiltered }).Count
+$bareUfiltrert   = $endpoints.Count - $alltid
+$totalRuns       = ($filterCount * $alltid) + ($ufiltrertCount * $bareUfiltrert) + $oppslagCount
 
 Write-Host ''
 Write-Host 'Matrise:' -ForegroundColor Cyan
@@ -180,8 +178,17 @@ $cases | Group-Object Layer | Sort-Object Name | ForEach-Object {
 }
 Write-Host ("  {0,-10} {1,4} varianter: {2}" -f 'endepunkt', $endpoints.Count,
     (@($endpoints | ForEach-Object { "$($_.Endpoint)/$($_.Variant)" }) -join ', '))
-Write-Host ("  {0,-10} {1,4} maalinger x {2} kjoeringer = {3} kall" -f `
-    'totalt', $totalRuns, $Runs, ($totalRuns * $Runs)) -ForegroundColor Yellow
+# Antall kall er ikke lenger maalinger x Runs: AreaCounts kjoerer én gang per case
+# uansett -Runs, fordi kjoering 2 ville maalt minnecachen.
+$kallTotalt = $oppslagCount * $Runs
+foreach ($ep in $endpoints) {
+    $antall = if ($ep.OnlyUnfiltered) { $ufiltrertCount } else { $filterCount }
+    $kjoeringer = if ($ep.Runs) { [Math]::Min($ep.Runs, $Runs) } else { $Runs }
+    $kallTotalt += $antall * $kjoeringer
+}
+
+Write-Host ("  {0,-10} {1,4} maalinger, {2} kall totalt" -f `
+    'totalt', $totalRuns, $kallTotalt) -ForegroundColor Yellow
 
 if ($ListOnly) {
     Write-Host ''
@@ -236,10 +243,17 @@ foreach ($case in $cases) {
     }
 
     # Oppslagscasene er GET uten filterkropp og kjoeres én gang, ikke per endepunkt.
+    #
+    # Endepunkter merket OnlyUnfiltered kjoeres bare for ingen-filter-caset.
+    # AreaMarkers er det eneste i dag: frontend henter det ufiltrert to ganger per
+    # sidelast og aldri med filter, saa filtrerte maalinger der ville beskrevet en
+    # kallform som ikke finnes. Se New-PerfEndpointMatrix.
     $planned = if ($case.Layer -eq 'oppslag') {
         @(@{ Endpoint = 'Lookup'; Variant = 'get'; Path = $case.LookupPath; Extra = $null })
-    } else {
+    } elseif ($case.CaseKey -eq 'ingen-filter') {
         $endpoints
+    } else {
+        @($endpoints | Where-Object { -not $_.OnlyUnfiltered })
     }
 
     foreach ($ep in $planned) {
@@ -260,8 +274,13 @@ foreach ($case in $cases) {
         # som starter inne i Measure-PerfRequest.
         $idxFoer = if ($sporIndekser) { Get-PerfIndexSnapshot } else { $null }
 
+        # Endepunktet kan overstyre antall kjoeringer. AreaCounts setter Runs = 1:
+        # det har fem minutters minnecache per filter, saa kjoering 2 og utover
+        # maaler cachen. ColdMs fra foerste kall er det eneste ekte tallet der.
+        $runsForEndpoint = if ($ep.Runs) { [Math]::Min($ep.Runs, $Runs) } else { $Runs }
+
         $m = Measure-PerfRequest -Path $ep.Path -Method $method -Body $body `
-            -Runs $Runs -TimeoutSec $CaseTimeoutSec
+            -Runs $runsForEndpoint -TimeoutSec $CaseTimeoutSec
 
         $idxEtter  = if ($sporIndekser) { Get-PerfIndexSnapshot } else { $null }
         $indekser  = Get-PerfIndexDelta -Before $idxFoer -After $idxEtter

@@ -11,6 +11,7 @@ using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using RobotsTxt;
 
@@ -202,6 +203,24 @@ try
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
     builder.Services.Configure<PaginationOptions>(builder.Configuration.GetSection(PaginationOptions.SectionName));
+    builder.Services.Configure<AreaCountCacheOptions>(builder.Configuration.GetSection(AreaCountCacheOptions.SectionName));
+
+    // Responskomprimering. Svarene er store og svært komprimerbare: AreaMarkers på
+    // zoomnivå 2 er 20,7 MB rå og 7,26 MB gzippet — 65 % mindre. Zoomnivå 1 går fra
+    // 3,9 til 1,38 MB. GeoJSON og WKT er tekst med mye repetisjon.
+    //
+    // EnableForHttps: BREACH/CRIME utnytter at komprimering lekker informasjon når et
+    // svar blander en hemmelighet med noe angriperen styrer. Disse endepunktene
+    // returnerer observasjonsdata og geometri — ingen tokens, ingen sesjonsdata — så
+    // det gjelder ikke her. Legges det senere til et endepunkt som returnerer noe
+    // hemmelig, må det unntas.
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+        options.Providers.Add<BrotliCompressionProvider>();
+        options.Providers.Add<GzipCompressionProvider>();
+        options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/geo+json"]);
+    });
     builder.Services.AddScoped<SlowQueryLoggingFilter>();
 
     logger.LogInformation("Configuring health checks...");
@@ -211,6 +230,10 @@ try
     var app = builder.Build();
 
     app.UseForwardedHeaders();
+
+    // Tidlig i pipelinen, foer noe skriver til svaret. Hopper over svar som allerede
+    // har Content-Encoding satt (se AreaMarkers, som serverer ferdig gzippede bytes).
+    app.UseResponseCompression();
 
     // Auto-apply pending migrations only if enabled in configuration
     var autoMigrateDb = Convert.ToBoolean(builder.Configuration["Database:AutoMigrate"] ?? "false");

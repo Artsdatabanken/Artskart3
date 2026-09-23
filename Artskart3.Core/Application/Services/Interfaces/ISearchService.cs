@@ -10,6 +10,13 @@ public interface ISearchService
     Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<AreaMarkerDto>> GetAreaMarkersAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ferdig serialisert og gzippet svar for det ufiltrerte områdesøket på zoomnivå 1 og 2.
+    /// Gjelder kun den ufiltrerte formen — det er den eneste frontend ber om, og den
+    /// eneste som er identisk mellom kall. Se <see cref="AreaMarkersPayloadDto"/>.
+    /// </summary>
+    Task<AreaMarkersPayloadDto> GetAreaMarkersPayloadAsync(int zoomLevel, CancellationToken cancellationToken = default);
     Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
     Task<AreaCountsResultDto> GetAreaCountsAsync(int zoomLevel, LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default);
 }

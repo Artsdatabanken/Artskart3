@@ -6,6 +6,7 @@ using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Extensions;
@@ -26,13 +27,28 @@ public class SearchRepository : ISearchRepository
     private readonly IAreaHierarchyService _areaHierarchy;
     private readonly ITaxonHierarchyService _taxonHierarchy;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy, ITaxonHierarchyService taxonHierarchy)
+    /// <summary>
+    /// Områdebufferen. Valgfri med vilje: null betyr «tell som før», og det er riktig
+    /// oppførsel både for enhetstester som ikke bryr seg om bufferen og for et miljø
+    /// der den ikke er tatt i bruk. Den kan bare gjøre tellingen raskere, aldri
+    /// nødvendig for at noe skal virke.
+    /// </summary>
+    private readonly IAreaCountCacheService? _areaCountCache;
+
+    public SearchRepository(
+        IArtsKartDbContext context,
+        ILogger<SearchRepository> logger,
+        IOptions<PaginationOptions> paginationOptions,
+        IAreaHierarchyService areaHierarchy,
+        ITaxonHierarchyService taxonHierarchy,
+        IAreaCountCacheService? areaCountCache = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
         _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
+        _areaCountCache = areaCountCache;
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -630,9 +646,11 @@ public class SearchRepository : ISearchRepository
 
         if (filter.TaxonIds?.Any() == true)
         {
-            // Hierarkisk filtrering via ObservationTaxonHierarchy — inkluderer alle etterkommere
+            // Hierarkisk filtrering via ObservationTaxonHierarchy — inkluderer alle etterkommere.
+            // Etterkommere som allerede er dekket av et annet valgt takson fjernes først:
+            // deres UNION-gren ville bare gjentatt rader grenen over allerede ga.
             IQueryable<int>? combinedQuery = null;
-            foreach (var taxonId in filter.TaxonIds)
+            foreach (var taxonId in _taxonHierarchy.RemoveRedundantDescendants(filter.TaxonIds)!)
             {
                 var subquery = GetObservationIdsByTaxonHierarchy(taxonId);
                 combinedQuery = combinedQuery == null ? subquery : combinedQuery.Union(subquery);
@@ -802,25 +820,36 @@ public class SearchRepository : ISearchRepository
     /// Laster områder for et gitt zoomnivå, inkludert havområder og Svalbard/Bjørnøya/Jan Mayen
     /// når de er i filteret eller vi laster zoomnivå 1 uten filtre (for prefetch av geometrier).
     /// </summary>
-    private async Task<List<Area>> LoadAreasForZoomLevel(int zoomLevel, LocationSearchFilterDto? filter, CancellationToken cancellationToken)
+    /// <summary>
+    /// Laster områdene for et zoomnivå.
+    ///
+    /// includeGeometry = false utelater WktPolygon og Centroid. Områdetellingene trenger
+    /// dem ikke — de grupperer på Fid og returnerer bare tall — men de utgjør 15 MB på
+    /// zoomnivå 2, og EF må materialisere hver av dem til et geometriobjekt.
+    ///
+    /// Målt på AreaCounts: zoomnivå 1 (25 områder, 2 MB geometri) 61 ms mot zoomnivå 2
+    /// (357 områder, 15 MB) 231 ms. Differansen skalerer med geometri som aldri brukes.
+    /// </summary>
+    private async Task<List<Area>> LoadAreasForZoomLevel(
+        int zoomLevel, LocationSearchFilterDto? filter, CancellationToken cancellationToken, bool includeGeometry = true)
     {
-        var hasFilters = filter?.HasActiveFilters == true;
+        var query = _context.Set<Area>().AsNoTracking();
 
         // Havområder og Svalbard/Bjørnøya/Jan Mayen finnes kun med zoomnivå 1 i databasen,
         // men skal vises på både zoomnivå 1 og 2 (cross-level areas)
         if (zoomLevel is 1 or 2)
         {
-            return await _context.Set<Area>()
+            return await SelectAreas(query
                 .Where(a => a.IsCurrent == true && (
                     a.ZoomLevel == zoomLevel ||
                     a.AreaTypeId == (int)Artskart3.Core.Domain.Enums.AreaType.OceanArea ||
                     a.AreaTypeId == (int)Artskart3.Core.Domain.Enums.AreaType.SvalbardBjørnøyaAndJanMayen
-                ))
+                )), includeGeometry)
                 .ToListAsync(cancellationToken);
         }
 
-        var areas = await _context.Set<Area>()
-            .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true)
+        var areas = await SelectAreas(query
+            .Where(a => a.ZoomLevel == zoomLevel && a.IsCurrent == true), includeGeometry)
             .ToListAsync(cancellationToken);
 
         // Havområder kan ha et annet zoomnivå — last inn separat når de er i filteret
@@ -830,8 +859,8 @@ public class SearchRepository : ISearchRepository
             var missingOceanFids = filter.OceanAreaIds.Where(fid => !loadedFids.Contains(fid)).ToArray();
             if (missingOceanFids.Length > 0)
             {
-                var oceanAreas = await _context.Set<Area>()
-                    .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid))
+                var oceanAreas = await SelectAreas(query
+                    .Where(a => a.IsCurrent && missingOceanFids.Contains(a.Fid)), includeGeometry)
                     .ToListAsync(cancellationToken);
                 areas.AddRange(oceanAreas);
             }
@@ -839,6 +868,29 @@ public class SearchRepository : ISearchRepository
 
         return areas;
     }
+
+    /// <summary>
+    /// Feltene som faktisk leses nedstrøms. Uten geometri projiseres det til en
+    /// Area-instans med bare disse — resten står som default, og ingen av dem leses.
+    ///
+    /// Holdes bevisst eksplisitt: legger noen til et felt i markør-stien uten å ta det
+    /// med her, blir det stille null i tellestien i stedet for en kompileringsfeil.
+    /// </summary>
+    private static IQueryable<Area> SelectAreas(IQueryable<Area> query, bool includeGeometry) =>
+        includeGeometry
+            ? query
+            : query.Select(a => new Area
+            {
+                Id = a.Id,
+                Fid = a.Fid,
+                Name = a.Name,
+                AreaTypeId = a.AreaTypeId,
+                ParentFid = a.ParentFid,
+                ZoomLevel = a.ZoomLevel,
+                ObservationCount = a.ObservationCount,
+                DocumentId = a.DocumentId,
+                IsCurrent = a.IsCurrent,
+            });
 
     /// <summary>
     /// Filtrerer områder og beregner observasjonsantall basert på aktive filtre.
@@ -858,11 +910,16 @@ public class SearchRepository : ISearchRepository
             filter.MunicipalityIds?.Length > 0 ||
             filter.OceanAreaIds?.Length > 0);
 
+        // Sann bare når områdelista faktisk ble kortere. Se ComputeFilteredAreaCounts:
+        // en uendret liste trenger ikke id-filteret i spørringen i det hele tatt.
+        var areasAreNarrowed = false;
+
         if (hasAreaSelection)
         {
             var filtered = FilterAreasBySelection(areas, filter!);
             if (filtered.Count > 0)
             {
+                areasAreNarrowed = filtered.Count < areas.Count;
                 areas = filtered;
             }
             else if (!needsDynamicCounts)
@@ -874,7 +931,15 @@ public class SearchRepository : ISearchRepository
         // Steg 2: Bestem tellemåte
         if (needsDynamicCounts)
         {
-            dynamicCounts = await ComputeFilteredAreaCounts(areas, filter!, cancellationToken);
+            // Bufferen svarer bare på filtre den faktisk dekker; null betyr «tell som
+            // før». Den kan altså aldri gi et dårligere svar enn tellingen — i verste
+            // fall koster den ett raskt oppslag mot en liten tabell før vi teller
+            // likevel. Se AreaCountCacheService for hva som dekkes.
+            dynamicCounts = null;
+            if (_areaCountCache is not null)
+                dynamicCounts = await _areaCountCache.TryGetCountsAsync(filter!, areas, areasAreNarrowed, cancellationToken);
+
+            dynamicCounts ??= await ComputeFilteredAreaCounts(areas, filter!, areasAreNarrowed, cancellationToken);
         }
         else if (hasAreaSelection)
         {
@@ -956,7 +1021,9 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
-            var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken);
+            // Uten geometri: endepunktet returnerer Fid og antall, og rører aldri
+            // polygonene. Se LoadAreasForZoomLevel for målingene.
+            var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken, includeGeometry: false);
             var (filteredAreas, countResolver) = await FilterAndComputeCounts(areas, filter, cancellationToken);
 
             return filteredAreas
@@ -1016,10 +1083,11 @@ public class SearchRepository : ISearchRepository
     /// Faller tilbake til subquery for filtre som ikke er denormalisert (atferd, prosjekt, etc.).
     /// </summary>
     private async Task<Dictionary<(int entityTypeId, int entityId), int>> ComputeFilteredAreaCounts(
-        List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
+        List<Area> areas, LocationSearchFilterDto filter, bool areasAreNarrowed, CancellationToken cancellationToken)
     {
-        // To uavhengige lister kombinert med AND, ikke et eksakt parsett. Det er
-        // bevisst, og det er målt — ikke skriv om til en OR per områdetype.
+        // Når id-lista sendes, er den en egen liste kombinert med typefilteret med AND,
+        // ikke et eksakt parsett. Det er bevisst, og det er målt — ikke skriv om til en
+        // OR per områdetype.
         //
         // Formelt er dette et kryssprodukt: er Svalbard 2101 med i utvalget,
         // treffer predikatet også (kommune, 2101). To grunner til at det er
@@ -1048,15 +1116,37 @@ public class SearchRepository : ISearchRepository
         // bare bortkastet arbeid. Luk det da ved å gi utdatatyper adskilte
         // id-rom, ikke ved å bygge om predikatet.
         var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
-        var entityIds = areas
-            .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToArray();
 
         var query = _context.Set<ObservationEntityIndex>()
-            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId) && entityIds.Contains(idx.EntityId));
+            .Where(idx => entityTypeIds.Contains(idx.EntityTypeId));
+
+        // ID-LISTA SENDES BARE NÅR DEN BETYR NOE
+        //
+        // Er områdelista ikke innsnevret av et område­valg, er den ALLE områdene for de
+        // aktuelle typene — 357 kommuner av 357, 15 fylker av 15. Predikatet
+        // «EntityId IN (alle id-ene)» fjerner da ingen rader, og typefilteret alene gir
+        // nøyaktig samme resultat.
+        //
+        // Å sende den likevel er dyrt, og kostnaden ligger ikke i databasen: EF
+        // ekspanderer kolleksjonen til én navngitt parameter per id. Målt på zoomnivå 2
+        // ga det 400 entityIds-parametere, ~440 totalt og 13 943 tegn spørringstekst —
+        // 1969 ms for et kall der SQL Server brukte 1,0 ms på tellingen og 1,7 ms på
+        // områdelastingen. Resten gikk med til uttrykkstre, SQL-generering og
+        // parameterbinding i EF.
+        //
+        // Cellene som kommer ekstra ut — områdetyper som ikke vises på dette zoomnivået
+        // — leses aldri: CountResolver slår bare opp par som finnes i filteredAreas.
+        if (areasAreNarrowed)
+        {
+            var entityIds = areas
+                .Select(a => _areaHierarchy.FidToEntityId(a.Fid))
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToArray();
+
+            query = query.Where(idx => entityIds.Contains(idx.EntityId));
+        }
 
         // Denormaliserte filtre — anvendes direkte på indekstabellen
         if (filter.TaxonGroupIds?.Any() == true)
@@ -1227,6 +1317,12 @@ public class SearchRepository : ISearchRepository
     private IQueryable<ObservationEntityIndex> ApplyTaxonFilterToEntityIndex(
         IQueryable<ObservationEntityIndex> query, int[] taxonIds)
     {
+        // Fjern etterkommere som allerede er dekket av et annet valgt takson. Endrer
+        // ikke treffmengden — OR-en under evalueres på én rad — men holder utvalget på
+        // ett rangnivå der det er mulig, slik områdebufferen kan svare uten å
+        // dobbelttelle. Se TaxonFilterNormalization.
+        taxonIds = _taxonHierarchy.RemoveRedundantDescendants(taxonIds)!;
+
         // Grupper etter hvilken denormalisert kolonne som skal brukes
         var speciesIds = new List<int>();
         var genusIds = new List<int>();

@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
+        services.AddScoped<IAreaCountCacheService, AreaCountCacheService>();
         // Add other application services here
         return services;
     }

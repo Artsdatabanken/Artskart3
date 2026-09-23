@@ -69,8 +69,8 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 | `-Level` | Innhold | Størrelsesorden |
 |---|---|---|
 | `Quick` | Enkeltfiltre + oppslag, 2 endepunkter | minutter |
-| `Standard` | + alle dimensjonspar, 40 tripler, brukerreiser, 4 endepunkter | titalls minutter |
-| `Full` | + par også på lette nivåer, 150 tripler, 7 endepunkter | timer |
+| `Standard` | + alle dimensjonspar, 60 tripler, 30 kvadrupler, brukerreiser | titalls minutter |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler, 9 endepunkter | timer |
 
 Er du usikker på hvor lang tid det tar hos deg, start med
 `-Level Full -TimeBudgetMinutes 30`. Suiten stopper pent når budsjettet er brukt
@@ -98,11 +98,26 @@ fortsatt er brukbar:
 | `enkelt` | Hvert nivå av hver dimensjon alene, pluss referansen uten filter |
 | `par` | Alle dimensjonspar |
 | `trippel` | Deterministisk utvalg av tre dimensjoner |
+| `kvadruppel` | Deterministisk utvalg av fire |
 | `reise` | Håndplukkede, realistiske brukerflyter med 3–8 filtre |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` side 1 og side 50,
-`AreaMarkers` z1/z2, `Locations` med to kartutsnitt).
+`AreaCounts` z1/z2, `Locations` med to kartutsnitt). `AreaMarkers` kjøres bare
+for referansen uten filter — se under.
+
+Lagene deler seg også etter hvilken kodesti de treffer. Målt på `Full`:
+
+| Sti | Case |
+|---|---|
+| Områdebuffer (1–2 bufrbare filtre) | 220 |
+| Database — blokkert filter | 419 |
+| Database — tre eller flere filtre | 142 |
+
+«Blokkert» betyr at filteret ikke kan besvares fra områdebufferen uansett hvor få
+filtre som er satt. Det gjelder `kommune`, `fylke`, `havomraade`, `katalognr` og
+takson under ordensnivå. Den største databasegruppen er altså ikke triplene, men
+blokkerte filtre på ett og to nivå.
 
 ## Hvorfor testdataene er frosset
 
@@ -119,15 +134,24 @@ Av samme grunn er utvalget av tripler deterministisk (`-Seed`). Endrer du seeden
 endrer du matrisen, og sammenligningen mot gamle kjøringer mister de casene som
 falt ut.
 
-## AreaCounts
+## AreaCounts og AreaMarkers
 
-`AreaCounts` er utelatt som standard. Endepunktet har fem minutters minnecache
-per filter i `SearchService`, så i en lang kjøring måler gjentatte treff cachen og
-ikke databasen. Ta det med bevisst med `-IncludeAreaCounts`, og restart API-et
-først.
+`AreaCounts` er metrikken for tellestien. Den kjører samme
+`FilterAndComputeCounts` som `AreaMarkers`, men uten geometri — altså uten
+polygonlasting, WKT-konvertering og 21 MB serialisering oppå det vi vil måle.
 
-`AreaMarkers` cacher bare det ufiltrerte tilfellet, så filtrerte kall der er
-alltid ferske.
+Endepunktet har fem minutters minnecache per filter i `SearchService`, så bare
+**første** kall per filter måler databasen. Derfor kjører suiten det med
+`Runs = 1`. Hvert case har sitt eget filter, så første kall er alltid kaldt, og
+`Measure-PerfRequest` faller tilbake til den kalde tiden når det ikke finnes varme
+kjøringer. Både `ColdMs` og `WarmMs` blir dermed det kalde tallet, og `Compare.ps1`
+sammenligner riktig uten særbehandling.
+
+`AreaMarkers` kjøres **bare ufiltrert**. Frontend henter det nøyaktig to ganger per
+sidelast, ett kall per zoomnivå (`prefetchAreaGeometries`), og legger geometrien i
+en klientside cache som aldri tømmes. Alle senere filterendringer går til
+`AreaCounts`. Filtrert `AreaMarkers` forekommer ikke, og 1012 slike målinger ble
+fjernet fra suiten.
 
 ## Indekssporing
 

@@ -13,11 +13,17 @@
     Matrisen bygges i lag, og lagene kjoeres i rekkefoelge. Det gjoer en avbrutt
     kjoering brukbar: enkeltfiltrene er ferdig maalt lenge foer triplene starter.
 
-      enkelt  - hvert nivaa av hver dimensjon alene
-      par     - alle dimensjonspar, paa tunge og lette nivaaer
-      trippel - deterministisk utvalg av tre dimensjoner
-      reise   - haandplukkede, realistiske brukerflyter med mange filtre
-      oppslag - typeahead-endepunktene, som ikke tar filterkropp
+      enkelt     - hvert nivaa av hver dimensjon alene
+      par        - alle dimensjonspar, paa tunge og lette nivaaer
+      trippel    - deterministisk utvalg av tre dimensjoner
+      kvadruppel - deterministisk utvalg av fire
+      reise      - haandplukkede, realistiske brukerflyter med mange filtre
+      oppslag    - typeahead-endepunktene, som ikke tar filterkropp
+
+    Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
+    ett og to filtre; trippel og kvadruppel gaar garantert til databasen. Enkelt- og
+    par-laget er blandet, fordi kommune, fylke, havomraade, katalognr og takson under
+    ordensniva blokkerer bufferen uansett hvor faa filtre som er satt.
 
     Utvalget av tripler er deterministisk (fast seed i Get-PerfShuffledSample).
     Uten det ville kjoering N ikke kunne sammenlignes med N-1, som er hele poenget.
@@ -136,8 +142,14 @@ function New-PerfCaseMatrix {
     # --- Lag 3: tripler -----------------------------------------------------
     # Alle tripler ville vaert over 600 kombinasjoner ganget med endepunktene.
     # Vi trekker et deterministisk utvalg i stedet.
+    #
+    # Tre eller flere filtre er den ENE stien omraadebufferen aldri dekker: den har
+    # ett- og toernivaa, ikke tre. Blokkerte filtre (kommune, fylke, havomraade,
+    # katalognr, takson under ordensniva) gaar ogsaa til databasen, men de finnes
+    # allerede i mengde blant enkelt- og par-casene. Rene "for mange filtre"-case
+    # var derimot bare 51 av 519, saa utvalget er doblet.
     if ($Level -ne 'Quick') {
-        $antallTripler = if ($Level -eq 'Full') { 150 } else { 40 }
+        $antallTripler = if ($Level -eq 'Full') { 300 } else { 60 }
 
         $alleTripler = [System.Collections.Generic.List[object]]::new()
         for ($i = 0; $i -lt $dims.Count; $i++) {
@@ -167,7 +179,47 @@ function New-PerfCaseMatrix {
         }
     }
 
-    # --- Lag 4: realistiske brukerflyter ------------------------------------
+    # --- Lag 4: kvadrupler --------------------------------------------------
+    # Fire dimensjoner. Samme begrunnelse som triplene, men lenger ut: her er
+    # tellingen garantert databasedrevet, og filtrene skjaerer hverandre saa smalt
+    # at optimalisereren maa velge rekkefoelge paa predikatene. Det er der
+    # bitmap-selektiviteten historisk har bommet.
+    #
+    # Eget seed-tillegg slik at utvalget ikke blir de samme dimensjonene som
+    # triplene bare med én til paa slutten.
+    if ($Level -ne 'Quick') {
+        $antallKvadrupler = if ($Level -eq 'Full') { 120 } else { 30 }
+
+        $alleKvadrupler = [System.Collections.Generic.List[object]]::new()
+        for ($i = 0; $i -lt $dims.Count; $i++) {
+            for ($j = $i + 1; $j -lt $dims.Count; $j++) {
+                for ($k = $j + 1; $k -lt $dims.Count; $k++) {
+                    for ($l = $k + 1; $l -lt $dims.Count; $l++) {
+                        $alleKvadrupler.Add(@($dims[$i], $dims[$j], $dims[$k], $dims[$l]))
+                    }
+                }
+            }
+        }
+
+        $valgteKvad = Get-PerfShuffledSample -Items $alleKvadrupler.ToArray() `
+            -Count $antallKvadrupler -Seed ($Seed + 1)
+
+        $n = 0
+        foreach ($kvad in $valgteKvad) {
+            $rolle = if ($n % 2 -eq 0) { 'tung' } else { 'lett' }
+            $n++
+
+            $tiers = @($kvad | ForEach-Object {
+                (Get-PerfTierByRole -Dimension $_ -Role $rolle) ?? ($_.tiers[0])
+            })
+            if (@($tiers | Where-Object { $_ }).Count -lt 4) { continue }
+
+            $case = New-PerfCase -Layer 'kvadruppel' -Tiers $tiers
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
+    # --- Lag 5: realistiske brukerflyter ------------------------------------
     # Haandplukket, i motsetning til resten. Disse skal ligne det brukerne
     # faktisk gjoer, og er de casene det er verdt aa se paa foerst i rapporten.
     if ($Level -ne 'Quick') {
@@ -231,15 +283,30 @@ function New-PerfEndpointMatrix {
     <#
         Hvilke endepunkter hvert filter kjoeres mot.
 
-        AreaCounts er utelatt som standard. Endepunktet har fem minutters
-        minnecache per filter (SearchService), saa i en lang kjoering maaler
-        gjentatte treff cachen og ikke databasen. Ta det med bevisst med
-        -IncludeAreaCounts, og helst etter en omstart av API-et.
+        AREAMARKERS KJOERES BARE UFILTRERT
+        Frontend henter AreaMarkers noeyaktig to ganger per sidelast, ufiltrert,
+        ett kall per zoomnivaa (prefetchAreaGeometries). Geometrien legges saa i en
+        klientside cache som aldri toemmes, og alle senere filterendringer gaar til
+        AreaCounts. Filtrert AreaMarkers forekommer ikke.
+
+        Suiten maalte tidligere 1012 filtrerte AreaMarkers-kall. De maalte riktignok
+        tellestien, men med geometrilasting, WKT-konvertering og 21 MB serialisering
+        oppaa - stoey som skjulte det vi faktisk ville maale. Merket OnlyUnfiltered
+        kjoerer dem bare for ingen-filter-caset.
+
+        AREACOUNTS ER METRIKKEN FOR TELLESTIEN
+        Samme FilterAndComputeCounts som AreaMarkers, uten geometri. Endepunktet har
+        fem minutters minnecache per filter (SearchService), saa bare FOERSTE kall
+        per filter maaler databasen; kjoering 2 og utover maaler cachen.
+
+        Derfor Runs = 1. Hvert case har sitt eget filter, saa foerste kall er alltid
+        kaldt. Measure-PerfRequest faller tilbake til den kalde tiden naar det ikke
+        finnes varme kjoeringer, saa BAADE ColdMs og WarmMs blir det kalde tallet -
+        og Compare.ps1, som sammenligner paa WarmMs, trenger ingen endring.
     #>
     param(
         [ValidateSet('Quick', 'Standard', 'Full')] [string] $Level = 'Standard',
         [object] $Envelopes,
-        [switch] $IncludeAreaCounts,
         [int]    $ResultsPerPage = 10
     )
 
@@ -254,7 +321,8 @@ function New-PerfEndpointMatrix {
               Extra = @{ pageNumber = 1; resultsPerPage = $ResultsPerPage } })
 
     # Kartmarkoerene paa laveste zoom — faerrest celler, mest aggregering per celle.
-    $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z1'; Path = '/api/Search/AreaMarkers?zoomLevel=1'; Extra = @{} })
+    $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z1'; Path = '/api/Search/AreaMarkers?zoomLevel=1'; Extra = @{}; OnlyUnfiltered = $true })
+    $m.Add(@{ Endpoint = 'AreaCounts';  Variant = 'z1'; Path = '/api/Search/AreaCounts?zoomLevel=1';  Extra = @{}; Runs = 1 })
 
     if ($Level -ne 'Quick') {
         $m.Add(@{ Endpoint = 'Observation'; Variant = 'side50'
@@ -267,7 +335,8 @@ function New-PerfEndpointMatrix {
     }
 
     if ($Level -eq 'Full') {
-        $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z2'; Path = '/api/Search/AreaMarkers?zoomLevel=2'; Extra = @{} })
+        $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z2'; Path = '/api/Search/AreaMarkers?zoomLevel=2'; Extra = @{}; OnlyUnfiltered = $true })
+        $m.Add(@{ Endpoint = 'AreaCounts';  Variant = 'z2'; Path = '/api/Search/AreaCounts?zoomLevel=2';  Extra = @{}; Runs = 1 })
 
         $m.Add(@{ Endpoint = 'Locations'; Variant = 'oslo'
                   Path = '/api/Search/Locations'
@@ -276,10 +345,6 @@ function New-PerfEndpointMatrix {
         $m.Add(@{ Endpoint = 'Observation'; Variant = 'side1-stor'
                   Path = '/api/Search/Observation'
                   Extra = @{ pageNumber = 1; resultsPerPage = 100 } })
-    }
-
-    if ($IncludeAreaCounts) {
-        $m.Add(@{ Endpoint = 'AreaCounts'; Variant = 'z1'; Path = '/api/Search/AreaCounts?zoomLevel=1'; Extra = @{} })
     }
 
     return $m

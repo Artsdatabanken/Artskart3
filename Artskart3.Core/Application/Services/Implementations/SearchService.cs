@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -57,6 +58,41 @@ public class SearchService : ISearchService
         }
 
         return await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
+    }
+
+    /// <summary>
+    /// JSON-innstillingene MÅ speile dem MVC bruker (Program.cs: AddControllers().AddJsonOptions).
+    /// Serialiseringen skjer her framfor i rammeverket, så et avvik ville gitt klienten
+    /// et annet format enn den får fra alle andre endepunkter — f.eks. PascalCase-nøkler.
+    /// AreaMarkersPayloadMatcherTests vokter det.
+    /// </summary>
+    private static readonly JsonSerializerOptions PayloadJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+    };
+
+    /// <inheritdoc />
+    public async Task<AreaMarkersPayloadDto> GetAreaMarkersPayloadAsync(int zoomLevel, CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"areas_payload_zoom_{zoomLevel}";
+        if (_cache.TryGetValue(cacheKey, out AreaMarkersPayloadDto? cached))
+            return cached!;
+
+        // Går via GetAreaMarkersAsync slik at DTO-cachen deles med den vanlige stien —
+        // to bufre over samme data ville kunne komme i utakt.
+        var areas = (await GetAreaMarkersAsync(zoomLevel, null, cancellationToken)).ToArray();
+
+        var raw = JsonSerializer.SerializeToUtf8Bytes(areas, PayloadJsonOptions);
+
+        using var buffer = new MemoryStream();
+        using (var gzip = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            gzip.Write(raw, 0, raw.Length);
+        }
+
+        var payload = new AreaMarkersPayloadDto(raw, buffer.ToArray());
+        _cache.Set(cacheKey, payload, AreasCacheDuration);
+        return payload;
     }
 
     public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
