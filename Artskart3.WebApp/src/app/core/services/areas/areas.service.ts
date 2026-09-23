@@ -12,7 +12,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-marker.model';
-import { AreaMarkerDto } from '@shared/types/api.types';
+import { AreaMarkerDto, LocationCountResult } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { ApiClientService } from '../api-client.service';
@@ -327,6 +327,11 @@ export class AreasService {
   private readonly areaCountsEndpoint = '/api/Search/AreaCounts';
   private readonly locationsEndpoint = '/api/Search/Locations';
   private readonly locationPolygonsEndpoint = '/api/Search/LocationPolygons';
+  private readonly locationCountEndpoint = '/api/Search/LocationCount';
+
+  getLocationCount(filter?: LocationSearchFilter): Observable<LocationCountResult> {
+    return this.apiClientService.postJson<LocationCountResult>(this.locationCountEndpoint, this.buildFilterBody(filter));
+  }
 
   /**
    * Henter områdemarkører fra API for gitt zoomnivå.

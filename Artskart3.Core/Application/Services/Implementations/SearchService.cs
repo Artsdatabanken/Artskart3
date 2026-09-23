@@ -28,6 +28,12 @@ public class SearchService : ISearchService
         return await _searchRepository.GetLocationsAsync(filter, cancellationToken);
     }
 
+    public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        filter ??= new LocationSearchFilterDto();
+        return await _searchRepository.GetLocationCountAsync(filter, cancellationToken);
+    }
+
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
         return await _searchRepository.GetObservationsAsync(filter, cancellationToken);

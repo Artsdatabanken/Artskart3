@@ -933,6 +933,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Search/LocationCount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LocationSearchFilterDto"];
+                    "text/json": components["schemas"]["LocationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["LocationSearchFilterDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationCountDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/Observation": {
         parameters: {
             query?: never;
@@ -1363,6 +1404,11 @@ export interface components {
             /** Format: int32 */
             observationCount?: null | number;
         };
+        LocationCountDto: {
+            /** Format: int32 */
+            count: number;
+            truncated: boolean;
+        };
         LocationPolygonDto: {
             /** Format: int32 */
             locationId?: number;
@@ -1401,6 +1447,7 @@ export interface components {
             envelope?: components["schemas"]["EnvelopeDto"];
         };
         NotificationModel: {
+            id?: string;
             type?: components["schemas"]["AlertType"];
             heading?: string;
             description?: string;
