@@ -41,6 +41,7 @@ import { ObservationService } from '@shared/services/observation/observation.ser
 import { ObservationListComponent } from '@shared/components/observation-list.component/observation-list.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
+import {SearchFilterService} from '@shared/services/search-filter/search-filter.service';
 
 @Component({
   selector: 'app-map',
@@ -102,6 +103,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
   private readonly translate = inject(TranslateService);
+  private readonly searchFilterService = inject(SearchFilterService);
 
   /**
    * Observasjonsattributtfiltre som påvirker antall per område.
@@ -226,7 +228,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.locationClick$
         .pipe(
           switchMap((ids) =>
-            this.observationService.getObservationByLocation(ids, this.attributeFilter()).pipe(
+            this.observationService.getObservationByLocation(ids, this.searchFilterService.observationFilter()).pipe(
               catchError((err: unknown) => {
                 this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
                 this.showObservationList.set(false);

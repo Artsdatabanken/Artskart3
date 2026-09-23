@@ -15,10 +15,10 @@ export class ObservationService {
   private readonly SearchObservationEndpoint = '/api/Search/';
 
   searchObservations(filter: ObservationSearchFilter): Observable<PagedObservationResponse> {
-    return this.http.post<PagedObservationResponse>(`${this.SearchObservationEndpoint + "Observation"}`, filter);
+    return this.http.post<PagedObservationResponse>(`${this.SearchObservationEndpoint}Observation`, filter);
   }
 
   getObservationByLocation(ids: number[], filter: ObservationSearchFilter): Observable<ObservationListInfoDto[]> {
-    return this.http.post<ObservationListInfoDto[]>(`${this.SearchObservationEndpoint + "ObservationList"}`, {Ids: ids, Filter: filter});
+    return this.http.post<ObservationListInfoDto[]>(`${this.SearchObservationEndpoint}ObservationList`, {Ids: ids, Filter: filter});
   }
 }
