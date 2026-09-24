@@ -7,11 +7,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--adb-spacing-sm, 8px);
+  gap: var(--adb-spacing-sm);
   width: 306px;
   height: 238px;
   border-radius: var(--radius-md, 8px);
-  background: rgba(38, 47, 49, 0.50);
+  background: rgba(38, 47, 49, 0.5);
   color: #ffffff;
   pointer-events: none;
 }
@@ -39,9 +39,9 @@
 
 .loading-indicator__text {
   white-space: nowrap;
-  font-family: var(--adb-font-family-primary, Arial, sans-serif);
-  font-size: var(--adb-font-size-sm, 0.875rem);
-  font-weight: var(--adb-font-weight-semibold, 600);
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-4);
+  font-weight: var(--adb-font-weight-medium);
   line-height: 1.2;
   color: #ffffff;
 }

@@ -35,10 +35,10 @@ html {
 body {
   font-family: var(--adb-font-family-primary);
   font-size: var(--adb-font-size-base);
-  font-weight: var(--adb-font-weight-regular);
+  font-weight: var(--adb-font-weight-primary);
   line-height: var(--adb-font-line-height);
-  color: var(--adb-text-primary);
-  background-color: var(--adb-background-default);
+  color: var(--adb-text-base-primary);
+  background-color: var(--adb-background-primary);
 }
 
 h1,
@@ -47,7 +47,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: var(--adb-font-weight-bold);
+  font-weight: var(--adb-font-weight-heavy);
   line-height: 1.2;
   margin-bottom: var(--adb-spacing-md);
 }
@@ -81,12 +81,12 @@ p {
 }
 
 a {
-  color: var(--adb-text-accent);
+  color: var(--adb-text-accent-primary);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--adb-text-hover);
+  color: var(--adb-text-accent-hover);
   text-decoration: underline;
 }
 
@@ -105,7 +105,7 @@ button {
 input,
 textarea,
 select {
-  border: 1px solid var(--adb-border-subtle);
+  border: 1px solid var(--adb-border-base-subtle);
   border-radius: var(--adb-border-radius);
   padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
 }
@@ -114,7 +114,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--adb-border-accent);
+  border-color: var(--adb-border-accent-primary);
 }
 
 input:disabled,
