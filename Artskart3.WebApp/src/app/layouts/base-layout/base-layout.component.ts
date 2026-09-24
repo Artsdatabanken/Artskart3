@@ -1,16 +1,16 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
-import { SharedModule } from '../../shared/shared.module';
+import { AlertComponent } from '../../shared/components/alert/alert.component';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { NotificationsComponent } from '../../shared/components/notifications/notifications.component';
 
 @Component({
   selector: 'app-base-layout',
   imports: [
-    CommonModule,
     RouterOutlet,
-    SharedModule,
-    TranslateModule,
+    AlertComponent,
+    HeaderComponent,
+    NotificationsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './base-layout.component.html',

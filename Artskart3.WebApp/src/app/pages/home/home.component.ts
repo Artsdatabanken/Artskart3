@@ -3,7 +3,8 @@ import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, takeUntil } from 'rxjs';
-import { SharedModule } from '../../shared/shared.module';
+import { ResizablePanelComponent } from '../../shared/components/resizable-panel/resizable-panel.component';
+import { MapComponent } from '../../shared/components/map.component/map.component';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
@@ -21,7 +22,7 @@ const SKIP_EXPORT_INFO_KEY = 'artskart.export.skipInfoModal';
 
 @Component({
   selector: 'app-home',
-  imports: [SharedModule, TranslateModule, ListViewComponent, SidebarComponent, ModalComponent, FormsModule, FormatNumberPipe, FormatFileSizePipe],
+  imports: [TranslateModule, ResizablePanelComponent, MapComponent, ListViewComponent, SidebarComponent, ModalComponent, FormsModule, FormatNumberPipe, FormatFileSizePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
