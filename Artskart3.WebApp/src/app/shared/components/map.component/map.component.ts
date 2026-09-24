@@ -3,8 +3,7 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
-  Output,
-  EventEmitter,
+  output,
   ViewChild,
   OnDestroy,
   inject,
@@ -44,14 +43,13 @@ import { ObservationListInfoDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map',
-  standalone: true,
   imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
-  @Output() mapReadyAction = new EventEmitter<boolean>();
+  readonly mapReadyAction = output<boolean>();
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';
   private readonly COUNTIES_LAYER_ID = 'area-markers-counties';

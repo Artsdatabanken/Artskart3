@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, HostListener } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -24,7 +24,9 @@ const SKIP_EXPORT_INFO_KEY = 'artskart.export.skipInfoModal';
   selector: 'app-home',
   imports: [TranslateModule, ResizablePanelComponent, MapComponent, ListViewComponent, SidebarComponent, ModalComponent, FormsModule, FormatNumberPipe, FormatFileSizePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:resize)': 'onWindowResize()',
+  },
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -164,7 +166,6 @@ export class HomeComponent {
     return this.isMobileViewport();
   }
 
-  @HostListener('window:resize')
   onWindowResize(): void {
     this.viewportTick.update((tick) => tick + 1);
   }
