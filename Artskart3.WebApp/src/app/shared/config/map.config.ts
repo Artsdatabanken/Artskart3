@@ -9,5 +9,5 @@ export const MAP_CONFIG = {
 
   // Zoom
   minZoom: 0,
-  maxZoom: 18,
+  maxZoom: 22,
 };

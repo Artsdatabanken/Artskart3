@@ -306,6 +306,30 @@ describe('SidebarComponent', () => {
       expect(filterState.periodFrom()).toBeNull();
       expect(filterState.periodTo()).toBe(2020);
     });
+
+    it('should clear period inputs when the period filter is cleared externally', () => {
+      component.periodFromInput.set('1900');
+      component.periodToInput.set('2020');
+      component.onApplyPeriod();
+
+      filterState.clearPeriodYears();
+
+      expect(component.periodFromInput()).toBe('');
+      expect(component.periodToInput()).toBe('');
+    });
+  });
+
+  describe('coordinate precision filtering', () => {
+    it('should clear coordinate precision inputs when the filter is cleared externally', () => {
+      component.coordinatePrecisionFromInput.set('10');
+      component.coordinatePrecisionToInput.set('100');
+      component.onApplyCoordinatePrecision();
+
+      filterState.clearCoordinatePrecision();
+
+      expect(component.coordinatePrecisionFromInput()).toBe('');
+      expect(component.coordinatePrecisionToInput()).toBe('');
+    });
   });
   // MERK: her laa tester for de tre *Unresolved-computedene. De ble fjernet sammen
   // med varselteksten de drev - se kommentaren i sidebar.component.ts. Testene under

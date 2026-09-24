@@ -10,6 +10,7 @@ Endepunktet `GET /api/notifications` leser filen ved hver forespørsel, så en e
 
 ```json
 {
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "type": "Info",
   "heading": "Kort overskrift for varselet",
   "description": "Lengre forklarende tekst som vises til brukeren.",
@@ -25,6 +26,7 @@ Endepunktet `GET /api/notifications` leser filen ved hver forespørsel, så en e
 
 | Felt | Type | Påkrevd | Beskrivelse |
 |---|---|---|---|
+| `id` | tekst (GUID) | Ja | Unik identifikator for varselet. Må være unik blant alle varsler i filen. Generer en ny GUID (f.eks. i PowerShell: `[guid]::NewGuid()`) når du legger til et nytt varsel. Denne endres ikke når du redigerer et eksisterende varsel. |
 | `type` | tekst | Ja | Type varsel. Gyldige verdier: `Danger`, `Warning`, `Info`, `Success`, `Neutral`. Se [`AlertType`](../../../Artskart3.Core/Domain/Enums/AlertType.cs). Styrer ikon/farge i frontend. |
 | `heading` | tekst | Ja | Kort overskrift på varselet. |
 | `description` | tekst | Ja | Utfyllende tekst som vises sammen med overskriften. |
