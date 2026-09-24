@@ -209,7 +209,9 @@ public class SearchRepository : ISearchRepository
         var filter = request.Filter ?? new ObservationSearchFilterDto();
         var query = _context.Set<Observation>().AsNoTracking();
         query = ApplyCommonFilters(query, filter);
-        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value)).Take(2500);
+        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value)).Take(SearchConstants.MaxRegistrationsObservationList)
+            .OrderByDescending(o => o.DateTimeCollected)
+            .ThenByDescending(o => o.Id);;
 
         IEnumerable<ObservationListInfoDto> observationListInfoDtos = await query.Select(o => new ObservationListInfoDto
         {
