@@ -775,87 +775,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/Observation/{locationId}/{observationId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    locationId: number;
-                    observationId: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ObservationDto"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/Observation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": number[];
-                    "text/json": number[];
-                    "application/*+json": number[];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": components["schemas"]["ObservationListInfoDto"][];
-                        "application/json": components["schemas"]["ObservationListInfoDto"][];
-                        "text/json": components["schemas"]["ObservationListInfoDto"][];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/Search/SearchTaxons": {
         parameters: {
             query?: never;
@@ -1005,6 +924,47 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PagedObservationResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Search/ObservationList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ObservationListInfoRequestDto"];
+                    "text/json": components["schemas"]["ObservationListInfoRequestDto"];
+                    "application/*+json": components["schemas"]["ObservationListInfoRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObservationListInfoDto"][];
                     };
                 };
             };
@@ -1498,6 +1458,10 @@ export interface components {
             locationId?: null | number;
             registrationType?: null | string[];
             collector?: null | string;
+        };
+        ObservationListInfoRequestDto: {
+            ids?: number[];
+            filter?: components["schemas"]["ObservationSearchFilterDto"];
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
