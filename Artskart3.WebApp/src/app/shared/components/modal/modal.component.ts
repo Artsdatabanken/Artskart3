@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   CUSTOM_ELEMENTS_SCHEMA,
   ElementRef,
@@ -16,7 +15,6 @@ export type ModalVariant = 'prompt' | 'info';
   selector: 'app-modal',
   imports: [TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './modal.component.html',
   styleUrl: './modal.component.css',
   host: {
