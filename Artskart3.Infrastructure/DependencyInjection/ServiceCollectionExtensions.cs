@@ -18,7 +18,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ILookupRepository, LookupRepository>();
         services.AddScoped<IMapLayerRepository, MapLayerRepository>();
-        services.AddScoped<IObservationRepository, ObservationRepository>();
         // Add other repositories here
         return services;
     }
