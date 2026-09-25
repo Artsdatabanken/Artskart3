@@ -62,11 +62,11 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   padding: var(--adb-spacing-3xsm);
   flex-wrap: nowrap;
   margin-top: var(--adb-spacing-2xsm);
-  --adb-border-default: var(--adb-neutrals-sand-100);
+  --adb-border-default: var(--adb-color-neutrals-sand-100);
 }
 
 :host-context([data-theme='dark']) .coordinate-precision-filter {
-  --adb-border-default: var(--adb-neutrals-ocean-80);
+  --adb-border-default: var(--adb-color-neutrals-ocean-80);
   padding-top: var(--adb-spacing-2xsm);
 }
 
