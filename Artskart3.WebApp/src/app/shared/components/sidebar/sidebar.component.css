@@ -157,15 +157,6 @@ adb-checkbox::part(control) {
   gap: var(--adb-spacing-xsm);
 }
 
-.category-name {
-  color: var(--adb-text-base-primary);
-  font-family: var(--adb-font-family-primary);
-  font-size: var(--adb-font-size-base);
-  font-style: normal;
-  font-weight: var(--adb-font-weight-primary);
-  line-height: var(--adb-font-line-height);
-}
-
 /* Other find properties filter (Andre funnegenskaper) */
 .other-properties-filter {
   display: flex;
