@@ -268,22 +268,16 @@ adb-checkbox::part(control) {
   border: 1px solid var(--adb-border-base-primary);
   border-radius: var(--adb-border-radius);
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
-  color: var(--adb-text-subtle, #4d4d4d);
-  font-size: var(--adb-font-size-sm, 0.875rem);
+  color: var(--adb-text-base-secondary);
+  font-size: var(--adb-font-size-4);
   font-family: var(--font-family-secondary);
-  font-weight: var(--adb-font-weight-regular);
+  font-weight: var(--adb-font-weight-primary);
   line-height: 1.5;
 }
 
 :host-context([data-theme='dark']) .project-name-empty,
 :host-context([data-theme='dark']) .dataset-name-empty {
-  background: var(--adb-surface-secondary, #10242b);
-  border-color: var(--adb-border-default, #4b5f67);
-  color: var(--adb-text-default, #f5f5f5);
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.22);
-  color: var(--adb-text-base-secondary);
-  font-size: var(--adb-font-size-4);
-  line-height: 1.5;
 }
 
 .empty-search-icon {
