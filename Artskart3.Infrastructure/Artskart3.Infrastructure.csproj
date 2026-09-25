@@ -35,4 +35,10 @@
     <EmbeddedResource Include="..\Scripts\BackfillAll.sql" Link="Scripts\BackfillAll.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\JsonDb\notifications.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

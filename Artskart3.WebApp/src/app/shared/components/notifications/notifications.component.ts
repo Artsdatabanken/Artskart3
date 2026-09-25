@@ -1,5 +1,5 @@
 import '@artsdatabanken/components';
-import { ChangeDetectionStrategy, Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DateRangePipe } from '../../pipes/date-range.pipe';
 import { AlertVariant } from '../../services/alert/alert.service';
@@ -19,7 +19,6 @@ const ALERT_TYPE_VARIANT: Record<number, AlertVariant> = {
   selector: 'app-notifications',
   imports: [DateRangePipe, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './notifications.component.html',
   styleUrl: './notifications.component.css',
 })

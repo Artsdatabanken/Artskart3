@@ -1,4 +1,12 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
+  inject,
+  signal,
+  computed,
+  linkedSignal,
+} from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -26,7 +34,6 @@ const MinProjectNameSearchLength = 1;
   selector: 'app-sidebar',
   imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })
@@ -190,10 +197,6 @@ export class SidebarComponent {
 
   onClearFilter(): void {
     this.filterState.clearAll();
-    this.coordinatePrecisionFromInput.set('');
-    this.coordinatePrecisionToInput.set('');
-    this.periodFromInput.set('');
-    this.periodToInput.set('');
   }
 
   isMunicipalitySelected(fid: string): boolean {
@@ -304,9 +307,14 @@ export class SidebarComponent {
     this.taxonTreeOpened.set(true);
   }
 
-  // Coordinate precision filter
-  readonly coordinatePrecisionFromInput = signal('');
-  readonly coordinatePrecisionToInput = signal('');
+  readonly coordinatePrecisionFromInput = linkedSignal(() => {
+    const value = this.filterState.coordinatePrecisionFrom();
+    return value == null ? '' : String(value);
+  });
+  readonly coordinatePrecisionToInput = linkedSignal(() => {
+    const value = this.filterState.coordinatePrecisionTo();
+    return value == null ? '' : String(value);
+  });
 
   onCoordinatePrecisionFromChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -342,8 +350,14 @@ export class SidebarComponent {
   }
 
   // Period filter
-  readonly periodFromInput = signal('');
-  readonly periodToInput = signal('');
+  readonly periodFromInput = linkedSignal(() => {
+    const value = this.filterState.periodFrom();
+    return value == null ? '' : String(value);
+  });
+  readonly periodToInput = linkedSignal(() => {
+    const value = this.filterState.periodTo();
+    return value == null ? '' : String(value);
+  });
 
   onPeriodFromChange(event: Event): void {
     const input = event.target as HTMLInputElement;

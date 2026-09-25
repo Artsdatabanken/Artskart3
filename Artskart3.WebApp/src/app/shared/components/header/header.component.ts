@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import { Component, input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
@@ -21,15 +21,14 @@ interface CookieInformationWindow {
 
 @Component({
   selector: 'app-header',
-  standalone: true,
   imports: [CommonModule, RouterModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
 })
 export class HeaderComponent implements OnInit, OnDestroy {
-  @Input() projectName = 'Artskart';
-  @Input() menuItems: MenuItem[] = [];
+  readonly projectName = input('Artskart');
+  readonly menuItems = input<MenuItem[]>([]);
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;

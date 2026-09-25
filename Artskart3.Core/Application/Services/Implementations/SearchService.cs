@@ -39,6 +39,12 @@ public class SearchService : ISearchService
         return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
     }
 
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
+    {
+        IEnumerable<ObservationListInfoDto> observations = await _searchRepository.GetObservationListInfo(request, cancellationToken);
+        return observations;
+    }
+
     public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default)
     {
         var alltaxons = await _searchRepository.GetTaxonsAsync(name, maxCount, cancellationToken);
