@@ -91,6 +91,35 @@ public class SearchController : ControllerBase
     }
 
     /// <summary>
+    /// Returns the number of distinct locations matching the filter, capped at
+    /// <see cref="SearchConstants.MaxLocationResults"/>. Used by the map to choose between
+    /// pre-aggregated area layers and direct location clustering.
+    /// </summary>
+    [HttpPost("LocationCount")]
+    [Produces("application/json")]
+    public async Task<ActionResult<LocationCountDto>> GetLocationCount([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            if (!ValidateLocationSearchFilter(filter, out var validationError))
+            {
+                // validationError skal aldri være null når en validering feiler
+                return validationError!;
+            }
+
+            var result = await _searchService.GetLocationCountAsync(filter, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonsantall");
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
     /// Searches for observations using optional filters.
     /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
     /// When pagination parameters are omitted, returns a flat list capped at <see cref="SearchConstants.DefaultMaxObservations"/> (20) results.

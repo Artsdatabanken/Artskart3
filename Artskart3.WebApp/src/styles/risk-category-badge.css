@@ -30,7 +30,7 @@ table .risk-category-container {
 
 .risk-category-label {
   font-size: var(--adb-font-size-3);
-  color: var(--adb-text-primary);
+  color: var(--adb-text-base-primary);
   min-width: inherit;
 }
 

@@ -20,6 +20,7 @@ export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
 export type NotificationModel = components['schemas']['NotificationModel'];
 export type ObservationListInfoDto = components['schemas']['ObservationListInfoDto'];
+export type LocationCountResult = components['schemas']['LocationCountDto'];
 
 export type SpeciesDto = components['schemas']['SpeciesDto'];
 export type VernacularNameDto = components['schemas']['VernacularNameDto'];

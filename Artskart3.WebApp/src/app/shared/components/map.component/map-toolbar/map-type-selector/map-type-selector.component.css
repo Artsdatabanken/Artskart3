@@ -5,31 +5,31 @@
 adb-icon-button {
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  --adb-focus-outer: #262F31;
+  --adb-focus-outer: #262f31;
 }
 
 .map-types-dropdown {
   position: absolute;
-  top: calc(-20% + var(--adb-spacing-xsm, 8px));
+  top: calc(-20% + var(--adb-spacing-xsm));
   right: 40px;
   width: 200px;
   display: flex;
   flex-direction: column;
-  gap: var(--adb-spacing-md, 12px);
-  padding: var(--adb-spacing-xsm, 8px);
-  background: var(--adb-background-default, white);
-  border: 1px solid var(--adb-border-default);
-  border-radius: var(--adb-border-radius-md, 8px);
+  gap: var(--adb-spacing-md);
+  padding: var(--adb-spacing-xsm);
+  background: var(--adb-background-primary);
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-border-radius);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   z-index: 1000;
 }
 
 .map-types-header {
   width: 100%;
-  padding: 0 var(--adb-spacing-xsm, 8px);
-  color: var(--adb-text-primary);
+  padding: 0 var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
 }
 
 adb-radio-group {
-  margin-left: var(--adb-spacing-xsm, 4px);
+  margin-left: var(--adb-spacing-xsm);
 }

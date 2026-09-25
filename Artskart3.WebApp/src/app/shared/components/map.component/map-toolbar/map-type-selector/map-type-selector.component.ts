@@ -1,18 +1,17 @@
-import { Component, Output, EventEmitter, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import { Component, output, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MAP_TYPE_OPTIONS } from '../../../../config/map/map-layer.config';
 
 @Component({
   selector: 'app-map-type-selector',
-  standalone: true,
   imports: [CommonModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-type-selector.component.html',
   styleUrl: './map-type-selector.component.css',
 })
 export class MapTypeSelectorComponent {
-  @Output() mapTypeSelected = new EventEmitter<string>();
+  readonly mapTypeSelected = output<string>();
 
   readonly mapTypeOptions = MAP_TYPE_OPTIONS;
   isMapTypesOpen = false;

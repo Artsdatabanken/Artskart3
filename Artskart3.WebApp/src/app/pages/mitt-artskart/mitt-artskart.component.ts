@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, CUSTOM_ELEMENTS_SCHEMA, effect, untracked, OnDestroy } from '@angular/core';
+import { Component, inject, CUSTOM_ELEMENTS_SCHEMA, effect, untracked, OnDestroy } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ExportService } from '../../shared/services/export/export.service';
@@ -12,7 +12,6 @@ import { apiErrorMessage } from '../../shared/utils/api-error';
   selector: 'app-mitt-artskart',
   imports: [LocaleDateTimePipe, FormatFileSizePipe, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mitt-artskart.component.html',
   styleUrl: './mitt-artskart.component.css',
 })

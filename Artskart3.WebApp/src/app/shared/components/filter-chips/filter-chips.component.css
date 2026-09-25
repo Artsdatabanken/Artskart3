@@ -1,18 +1,18 @@
 .filter-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--adb-spacing-3xsm, 4px);
-  padding: 0 var(--adb-spacing-sm, 12px);
+  gap: var(--adb-spacing-3xsm);
+  padding: 0 var(--adb-spacing-sm);
 }
 
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--adb-spacing-3xsm);
-  background-color: var(--adb-surface-primary);
+  background-color: var(--adb-surface-base-primary);
   max-width: 18rem;
   padding: var(--adb-spacing-3xsm) var(--adb-spacing-xsm);
-  border: 2px solid var(--adb-border-accent);
+  border: 2px solid var(--adb-border-accent-primary);
   border-radius: var(--adb-border-radius);
   font-size: var(--adb-font-size-4);
   white-space: nowrap;
