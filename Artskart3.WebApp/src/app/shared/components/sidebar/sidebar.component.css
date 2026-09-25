@@ -270,7 +270,14 @@ adb-checkbox::part(control) {
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
   color: var(--adb-text-base-secondary);
   font-size: var(--adb-font-size-4);
+  font-family: var(--font-family-secondary);
+  font-weight: var(--adb-font-weight-primary);
   line-height: 1.5;
+}
+
+:host-context([data-theme='dark']) .project-name-empty,
+:host-context([data-theme='dark']) .dataset-name-empty {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.22);
 }
 
 .empty-search-icon {
