@@ -173,11 +173,9 @@ adb-checkbox::part(control) {
   gap: var(--adb-spacing-sm);
   padding: var(--adb-spacing-3xsm);
   margin-top: var(--adb-spacing-2xsm);
-  --adb-border-default: var(--adb-neutrals-sand-100);
 }
 
 :host-context([data-theme='dark']) .other-properties-filter {
-  --adb-border-default: var(--adb-neutrals-ocean-80);
   padding-top: var(--adb-spacing-2xsm);
 }
 
@@ -198,6 +196,12 @@ adb-checkbox::part(control) {
 
 .search-input-wrapper {
   position: relative;
+}
+
+.other-properties-search {
+  display: block;
+  width: 100%;
+  --adb-search-width: 100%;
 }
 
 .search-input-icon {
@@ -237,14 +241,9 @@ adb-checkbox::part(control) {
 }
 
 .project-name-suggestions {
-  position: absolute;
-  top: calc(100% + var(--adb-spacing-2xsm));
-  left: 0;
-  right: 0;
-  z-index: 20;
   max-height: 12rem;
   overflow-y: auto;
-  margin: 0;
+  margin: var(--adb-spacing-2xsm) 0 0;
   padding: var(--adb-spacing-2xsm) 0;
   list-style: none;
   background-color: var(--adb-surface-base-primary);
@@ -273,11 +272,6 @@ adb-checkbox::part(control) {
 
 .project-name-empty,
 .dataset-name-empty {
-  position: absolute;
-  top: calc(100% + var(--adb-spacing-2xsm));
-  left: 0;
-  right: 0;
-  z-index: 20;
   display: flex;
   align-items: center;
   gap: var(--adb-spacing-2xsm);
