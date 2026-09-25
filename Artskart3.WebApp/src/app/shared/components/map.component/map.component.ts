@@ -576,6 +576,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       fill: new Fill({ color: '#005B72' }),
       stroke: new Stroke({ color: 'white', width: 1 }),
     });
+    const styleCache = new Map<string, Style>();
 
     return (feature: Feature): Style => {
       const members = (feature.get('features') as Feature[] | undefined) ?? [];
@@ -585,10 +586,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       }, 0) || members.length || 1;
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
-      return new Style({
-        image,
-        text: new Text({ text: label, font: 'bold 12px sans-serif', fill: new Fill({ color: 'white' }) }),
-      });
+      let style = styleCache.get(label);
+      if (!style) {
+        style = new Style({
+          image,
+          text: new Text({ text: label, font: 'bold 12px sans-serif', fill: new Fill({ color: 'white' }) }),
+        });
+        styleCache.set(label, style);
+      }
+      return style;
     };
   }
 
