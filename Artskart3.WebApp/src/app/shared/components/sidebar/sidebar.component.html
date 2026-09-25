@@ -48,7 +48,7 @@
                     <span class="risk-category-circle-small" [class]="category.code">
                       <span class="risk-category-tag-label-small">{{ category.code }}</span>
                     </span>
-                    <span class="category-name">{{ category.name }}</span>
+                    <span>{{ category.name }}</span>
                   </span>
                   @if (category.observationCount !== null && category.observationCount !== undefined) {
                     <span slot="counter">{{ category.observationCount | formatNumber: translate.currentLang }}</span>
