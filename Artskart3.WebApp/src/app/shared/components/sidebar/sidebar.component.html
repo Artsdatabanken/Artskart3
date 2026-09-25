@@ -300,20 +300,18 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
       <div class="other-properties-filter">
-        <label class="other-properties-label">
+        <div class="other-properties-label">
           {{ 'sidebar.project' | translate }}
           <div class="search-input-wrapper">
-            <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-            <input
-              type="text"
-              class="other-properties-input"
-              autocomplete="off"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded="{{ showProjectSuggestions() }}"
-              aria-controls="dataset-suggestions"
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
+              [attr.label]="'sidebar.project' | translate"
+              [attr.placeholder]="'sidebar.project' | translate"
               [value]="projectName()"
-              (input)="onProjectNameChange($event)"
+              (adb-input)="onProjectNameChange($any($event).detail.value)"
+              (adb-clear)="onProjectNameChange('')"
               (focus)="onProjectNameFocus()"
               (blur)="onProjectNameBlur()"
             />
@@ -336,23 +334,21 @@
               }
             }
           </div>
-        </label>
+        </div>
 
         <div class="other-properties-row">
-          <label class="other-properties-label">
+          <div class="other-properties-label">
             {{ 'sidebar.dataset' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                autocomplete="off"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded="{{ showDatasetSuggestions() }}"
-                aria-controls="collection-suggestions"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
+                [attr.label]="'sidebar.dataset' | translate"
+                [attr.placeholder]="'sidebar.dataset' | translate"
                 [value]="datasetName()"
-                (input)="onDatasetNameChange($event)"
+                (adb-input)="onDatasetNameChange($any($event).detail.value)"
+                (adb-clear)="onDatasetNameChange('')"
                 (focus)="onDatasetNameFocus()"
                 (blur)="onDatasetNameBlur()"
               />
@@ -375,21 +371,19 @@
                 }
               }
             </div>
-          </label>
-          <label class="other-properties-label">
+          </div>
+          <div class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                autocomplete="off"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded="{{ showCatalogNumberSuggestions() }}"
-                aria-controls="catalog-number-suggestions"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
+                [attr.label]="'sidebar.catalogNumber' | translate"
+                [attr.placeholder]="'sidebar.catalogNumber' | translate"
                 [value]="catalogNumber()"
-                (input)="onCatalogNumberChange($event)"
+                (adb-input)="onCatalogNumberChange($any($event).detail.value)"
+                (adb-clear)="onCatalogNumberChange('')"
                 (focus)="onCatalogNumberFocus()"
                 (blur)="onCatalogNumberBlur()"
               />
@@ -408,7 +402,7 @@
                 </ul>
               }
             </div>
-          </label>
+          </div>
         </div>
 
         <div class="other-properties-image-filter">

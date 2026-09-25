@@ -403,9 +403,7 @@ export class SidebarComponent {
   // Felles for alle tre: å skrive i feltet nullstiller den valgte ID-en. Uten
   // det ville teksten og filteret kunne peke på hver sin ting — brukeren ser
   // «Fugler», men filteret står fortsatt på forrige valg.
-  onProjectNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
+  onProjectNameChange(value: string): void {
     this.projectSearchTerm.set(value);
     this.filterState.setProjectName(value);
     this.filterState.setProjectOrgId(null);
@@ -433,9 +431,7 @@ export class SidebarComponent {
     this.projectSearchTerm.set(organization.name ?? '');
   }
 
-  onDatasetNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
+  onDatasetNameChange(value: string): void {
     this.datasetSearchTerm.set(value);
     this.filterState.setDatasetName(value);
     this.filterState.setDatasetOrgId(null);
@@ -462,11 +458,10 @@ export class SidebarComponent {
     this.datasetSearchTerm.set(organization.name ?? '');
   }
 
-  onCatalogNumberChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setCatalogNumber(input.value);
+  onCatalogNumberChange(value: string): void {
+    this.filterState.setCatalogNumber(value);
     this.filterState.setCatalogObservationIds([]);
-    this.catalogNumberSearch$.next(input.value);
+    this.catalogNumberSearch$.next(value);
   }
 
   onCatalogNumberFocus(): void {

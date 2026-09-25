@@ -339,15 +339,9 @@ describe('SidebarComponent', () => {
   // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
   // teksten og filteret på hver sin ting.
   describe('typeahead - endring nullstiller valgt id', () => {
-    function typeInto(handler: (e: Event) => void, value: string): void {
-      const input = document.createElement('input');
-      input.value = value;
-      handler.call(component, { target: input } as unknown as Event);
-    }
-
     it('should clear projectOrgId when the text is edited', () => {
       filterState.setProjectOrgId(14842);
-      typeInto(component.onProjectNameChange, 'Kart');
+      component.onProjectNameChange('Kart');
 
       expect(filterState.projectName()).toBe('Kart');
       expect(filterState.projectOrgId()).toBeNull();
@@ -355,10 +349,44 @@ describe('SidebarComponent', () => {
 
     it('should clear datasetOrgId when the text is edited', () => {
       filterState.setDatasetOrgId(26435);
-      typeInto(component.onDatasetNameChange, 'Aqu');
+      component.onDatasetNameChange('Aqu');
 
       expect(filterState.datasetName()).toBe('Aqu');
       expect(filterState.datasetOrgId()).toBeNull();
+    });
+
+    it('should clear project filters when adb-search emits adb-clear', () => {
+      filterState.setProjectName('Kartlegging');
+      filterState.setProjectOrgId(14842);
+
+      const searchElements = fixture.nativeElement.querySelectorAll('adb-search');
+      const projectSearch = searchElements[1] as HTMLElement;
+      projectSearch.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.projectName()).toBe('');
+      expect(filterState.projectOrgId()).toBeNull();
+    });
+
+    it('should clear dataset filters when adb-search emits adb-clear', () => {
+      filterState.setDatasetName('Aqua Kompetanse AS');
+      filterState.setDatasetOrgId(26435);
+
+      const datasetSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[1] as HTMLElement;
+      datasetSearch?.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.datasetName()).toBe('');
+      expect(filterState.datasetOrgId()).toBeNull();
+    });
+
+    it('should clear catalog filters when adb-search emits adb-clear', () => {
+      filterState.setCatalogNumber('NHM-123');
+      filterState.setCatalogObservationIds([101, 102]);
+
+      const catalogSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[2] as HTMLElement;
+      catalogSearch?.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.catalogNumber()).toBe('');
+      expect(filterState.catalogObservationIds()).toEqual([]);
     });
   });
 

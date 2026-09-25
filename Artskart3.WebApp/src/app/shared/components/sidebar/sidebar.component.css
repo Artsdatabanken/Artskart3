@@ -61,6 +61,12 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-xsm);
   padding: var(--adb-spacing-3xsm);
   flex-wrap: nowrap;
+  margin-top: var(--adb-spacing-2xsm);
+  --adb-border-default: var(--adb-color-neutrals-sand-100);
+}
+
+:host-context([data-theme='dark']) .coordinate-precision-filter {
+  --adb-border-default: var(--adb-color-neutrals-ocean-80);
   padding-top: var(--adb-spacing-2xsm);
 }
 
@@ -116,8 +122,7 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-2xsm);
 }
 
-/* Re-assert counter padding/alignment stripped by the global * { margin: 0; padding: 0 }
-   reset, which overrides adb-checkbox's own ::slotted rules. */
+/* Right-align the counter badge (its own padding is already provided by adb-checkbox) */
 adb-checkbox [slot='counter'] {
   padding: 0 var(--adb-spacing-2xsm);
   margin-inline-start: auto;
@@ -158,6 +163,10 @@ adb-checkbox::part(control) {
   flex-direction: column;
   gap: var(--adb-spacing-sm);
   padding: var(--adb-spacing-3xsm);
+  margin-top: var(--adb-spacing-2xsm);
+}
+
+:host-context([data-theme='dark']) .other-properties-filter {
   padding-top: var(--adb-spacing-2xsm);
 }
 
@@ -178,8 +187,12 @@ adb-checkbox::part(control) {
 
 .search-input-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+}
+
+.other-properties-search {
+  display: block;
+  width: 100%;
+  --adb-search-width: 100%;
 }
 
 .search-input-icon {
@@ -219,14 +232,9 @@ adb-checkbox::part(control) {
 }
 
 .project-name-suggestions {
-  position: absolute;
-  top: calc(100% + var(--adb-spacing-2xsm));
-  left: 0;
-  right: 0;
-  z-index: 20;
   max-height: 12rem;
   overflow-y: auto;
-  margin: 0;
+  margin: var(--adb-spacing-2xsm) 0 0;
   padding: var(--adb-spacing-2xsm) 0;
   list-style: none;
   background-color: var(--adb-surface-base-primary);
@@ -255,11 +263,6 @@ adb-checkbox::part(control) {
 
 .project-name-empty,
 .dataset-name-empty {
-  position: absolute;
-  top: calc(100% + var(--adb-spacing-2xsm));
-  left: 0;
-  right: 0;
-  z-index: 20;
   display: flex;
   align-items: center;
   gap: var(--adb-spacing-2xsm);
