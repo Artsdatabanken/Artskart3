@@ -7,7 +7,7 @@
   border-radius: 1rem;
   max-height: calc(80vh - var(--home-header-height));
   overflow: auto;
-  background-color: var(--adb-background-default, #fff);
+  background-color: var(--adb-background-primary);
   top: 0;
   left: 0;
 }
@@ -28,7 +28,7 @@
 
 /* Remove bottom border on nested (non-top-level) accordion items */
 adb-accordion-item adb-accordion adb-accordion-item {
-  --adb-border-accent: transparent;
+  --adb-border-accent-primary: transparent;
 }
 
 .filter {
@@ -36,16 +36,16 @@ adb-accordion-item adb-accordion adb-accordion-item {
 }
 
 adb-accordion {
-  --adb-border-default: transparent;
-  --adb-border-accent: transparent;
+  --adb-border-base-primary: transparent;
+  --adb-border-accent-primary: transparent;
 }
 
 adb-accordion-item adb-accordion {
-  --adb-border-default: transparent;
+  --adb-border-base-primary: transparent;
 }
 
 .click-coordinates {
-  color: var(--text-base-text-secondary, #616B6D);
+  color: var(--text-base-text-secondary, #616b6d);
 
   /* typography/paragraph/sm */
   font-family: var(--font-family-primary, Chivo);

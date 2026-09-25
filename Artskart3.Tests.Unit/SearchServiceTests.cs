@@ -213,4 +213,80 @@ public class SearchServiceTests
         // Repository kalles kun én gang — andre kall er cachet
         _repositoryMock.Verify(r => r.GetAreaCountsAsync(1, It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task GetObservationsListInfo_ForwardsRequestToRepository_ReturnsResults()
+    {
+        // Arrange
+        var request = new ObservationListInfoRequestDto
+        {
+            Ids = new[] { 123, 456 },
+            Filter = new ObservationSearchFilterDto {}
+        };
+
+        var expected = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "A" },
+            new() { Id = 2, DisplayName = "B" }
+        };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _sut.GetObservationListInfo(request);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+        _repositoryMock.Verify(r => r.GetObservationListInfo(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsListInfo_WithActiveFilter_ForwardsRequestToRepository_ReturnsResults()
+    {
+        // Arrange: create a request with an active filter (TaxonGroupIds set)
+        var request = new ObservationListInfoRequestDto
+        {
+            Ids = new[] { 123, 456 },
+            Filter = new ObservationSearchFilterDto
+            {
+                TaxonGroupIds = new[] { 1 }
+            }
+        };
+
+        var expected = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "A" },
+            new() { Id = 2, DisplayName = "B" }
+        };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _sut.GetObservationListInfo(request);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+        _repositoryMock.Verify(r => r.GetObservationListInfo(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsListInfo_WhenRepositoryThrows_PropagatesException()
+    {
+        // Arrange
+        var request = new ObservationListInfoRequestDto { Ids = new[] { 1 } };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB fail"));
+
+        // Act
+        var act = () => _sut.GetObservationListInfo(request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB fail");
+    }
 }

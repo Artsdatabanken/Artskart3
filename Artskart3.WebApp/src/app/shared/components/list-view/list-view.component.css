@@ -14,7 +14,7 @@
 .status-message {
   padding: var(--adb-spacing-lg);
   text-align: center;
-  color: var(--adb-text-secondary);
+  color: var(--adb-text-base-secondary);
 
   &.error {
     color: var(--adb-text-brand-1);
@@ -32,7 +32,7 @@
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--adb-font-size-3);
-  border: 2px solid var(--adb-border-default);
+  border: 2px solid var(--adb-border-base-primary);
   border-top: none;
 
   th,
@@ -53,26 +53,26 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--adb-surface-secondary);
-    color: var(--adb-text-primary);
-    font-weight: var(--adb-font-weight-regular);
+    background: var(--adb-surface-base-secondary);
+    color: var(--adb-text-base-primary);
+    font-weight: var(--adb-font-weight-primary);
     font-size: var(--adb-font-size-3);
     white-space: nowrap;
-    border-top: 2px solid var(--adb-border-default);
-    border-bottom: 1px solid var(--adb-border-default);
-    box-shadow: 0 1px 0 0 var(--adb-border-default);
+    border-top: 2px solid var(--adb-border-base-primary);
+    border-bottom: 1px solid var(--adb-border-base-primary);
+    box-shadow: 0 1px 0 0 var(--adb-border-base-primary);
   }
 
   tbody tr {
-    border-bottom: 1px solid var(--adb-border-default);
-    font-weight: var(--adb-font-weight-regular);
+    border-bottom: 1px solid var(--adb-border-base-primary);
+    font-weight: var(--adb-font-weight-primary);
 
     &:nth-child(odd) td {
-      background: var(--adb-surface-primary);
+      background: var(--adb-surface-base-primary);
     }
 
     &:nth-child(even) td {
-      background: var(--adb-background-default);
+      background: var(--adb-background-primary);
     }
 
     &:hover td {
@@ -83,7 +83,7 @@
 
 .empty-message {
   text-align: center;
-  color: var(--adb-text-secondary);
+  color: var(--adb-text-base-secondary);
   padding: var(--adb-spacing-lg);
 }
 
