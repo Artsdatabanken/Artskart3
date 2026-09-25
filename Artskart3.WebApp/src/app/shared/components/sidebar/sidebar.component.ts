@@ -1,6 +1,5 @@
 import {
   Component,
-  ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
   DestroyRef,
   inject,
@@ -35,7 +34,6 @@ const MinProjectNameSearchLength = 1;
   selector: 'app-sidebar',
   imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })

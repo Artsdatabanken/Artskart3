@@ -120,9 +120,10 @@ public class ObservationEndpointTests : IAsyncLifetime
     // /api/Observation
     // -----------------------------------------------------------------------
     [Fact]
-    public async Task GetObservationsByLocations_WithValidIds_Returns200WithJsonArray()
+    public async Task GetObservationListInfo_WithValidIds_Returns200WithJsonArray()
     {
-        var response = await _client.PostAsJsonAsync("/api/Observation", new[] { 953202 });
+        var requestDto = new ObservationListInfoRequestDto { Ids = [953202] };
+        var response = await _client.PostAsJsonAsync("/api/Search/ObservationList", requestDto);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
@@ -130,17 +131,5 @@ public class ObservationEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
         doc.RootElement.GetArrayLength().Should().BeGreaterThan(0);
-    }
-
-    [Fact]
-    public async Task GetObservationDetails_WithValidId_Returns200WithObservation()
-    {
-        var response = await _client.GetAsync("/api/Observation/953202/8368071");
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
-        var json = await response.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(json);
-        doc.RootElement.GetProperty("id").GetInt32().Should().Be(8368071);
     }
 }

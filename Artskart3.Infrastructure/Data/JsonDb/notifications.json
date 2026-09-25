@@ -17,9 +17,9 @@
       "heading": "Planlagt vedlikehold",
       "description": "Artskart vil gjennomgå planlagte oppdateringer natt til tirsdag. Noen funksjoner kan være midlertidig utilgjengelige i dette tidsrommet.",
       "startDateTime": "2026-08-01T22:00:00",
-      "endDateTime": "2026-11-15T04:00:00",
+      "endDateTime": "2026-10-12T04:00:00",
       "startDisplayDate": "2026-09-24",
-      "endDisplayDate": "2026-11-15",
+      "endDisplayDate": "2026-10-12",
       "canClose": true
     },
     {
@@ -30,7 +30,18 @@
       "startDateTime": null,
       "endDateTime": null,
       "startDisplayDate": "2026-09-15",
-      "endDisplayDate": "2026-11-30",
+      "endDisplayDate": "2026-10-12",
+      "canClose": true
+    },
+    {
+      "id": "5d484919-c81d-4f4e-82a7-aec429530558",
+      "type": "Neutral",
+      "heading": "[TEST] Utløpt varsel - skal IKKE vises",
+      "description": "Dette er et testvarsel med endDisplayDate satt i fortiden. Brukes for å verifisere at utløpte varsler ikke dukker opp i portalen.",
+      "startDateTime": "2026-01-01T00:00:00",
+      "endDateTime": "2026-01-02T00:00:00",
+      "startDisplayDate": "2026-01-01",
+      "endDisplayDate": "2026-01-02",
       "canClose": true
     }
   ]
