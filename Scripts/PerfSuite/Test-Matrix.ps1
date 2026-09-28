@@ -123,14 +123,36 @@ $fixtures = [PSCustomObject]@{
 
 Write-Host "`nMatrisestoerrelse ($($fixtures.dimensions.Count) dimensjoner):" -ForegroundColor Cyan
 
+# Maalingene kan ikke lenger regnes ut som case x endepunkt: hvert endepunkt kan
+# snevre inn hvilke case det gjelder for. Vi teller det samme veien Run.ps1 gjoer.
+function Measure-PerfMatrixSize {
+    param($Cases, $Endpoints)
+    $filterCases = @($Cases | Where-Object Layer -ne 'oppslag')
+    $n = @($Cases | Where-Object Layer -eq 'oppslag').Count
+    foreach ($ep in $Endpoints) {
+        $n += @($filterCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count
+    }
+    return $n
+}
+
 foreach ($level in @('Quick', 'Standard', 'Full')) {
     $c   = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $level)
     $eps = @(New-PerfEndpointMatrix -Level $level -Envelopes $fixtures.envelopes)
-    $opp = @($c | Where-Object Layer -eq 'oppslag').Count
 
-    Write-Host ("  {0,-9} {1,4} case x {2} endepunkt = {3,5} maalinger  ({4})" -f `
-        $level, $c.Count, $eps.Count, ((($c.Count - $opp) * $eps.Count) + $opp),
+    Write-Host ("  {0,-9} {1,4} case x {2,2} endepunkt = {3,5} maalinger  ({4})" -f `
+        $level, $c.Count, $eps.Count, (Measure-PerfMatrixSize -Cases $c -Endpoints $eps),
         ((@($c | Group-Object Layer | Sort-Object Name | ForEach-Object { "$($_.Name) $($_.Count)" }) -join ', ')))
+}
+
+# Per endepunkt paa Full — det er her et feilstavet utsnittsnavn eller en
+# CaseKeys-liste som ikke treffer noe ville vist seg som en tom kolonne.
+$fullCases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Full')
+$fullEps   = @(New-PerfEndpointMatrix -Level 'Full' -Envelopes $fixtures.envelopes)
+$fullFilter = @($fullCases | Where-Object Layer -ne 'oppslag')
+Write-Host "`nMaalinger per endepunkt (Full):" -ForegroundColor Cyan
+foreach ($ep in $fullEps) {
+    $n = @($fullFilter | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count
+    Write-Host ("  {0,-28} {1,5}" -f "$($ep.Endpoint)/$($ep.Variant)", $n)
 }
 
 # ---------------------------------------------------------------------------
@@ -214,6 +236,70 @@ foreach ($ep in $eps) {
     foreach ($k in $ep.Extra.Keys)    { $body[$k] = $ep.Extra[$k] }
 }
 Assert-Perf 'Ingen lekkasje i kroppen' (($case.Filter | ConvertTo-Json -Compress -Depth 6) -eq $foer) 'filteret ble mutert'
+
+# ---------------------------------------------------------------------------
+# Lokasjonsutsnittene
+# ---------------------------------------------------------------------------
+
+Write-Host "`nLokasjonsutsnitt:" -ForegroundColor Cyan
+
+$filterCases = @($cases | Where-Object Layer -ne 'oppslag')
+
+# Et endepunkt uten case maaler ingenting. Det skjer stille hvis et utsnittsnavn
+# er feilstavet (Write-Warning i matrisen) eller CaseKeys peker paa case som ikke
+# finnes — begge ville bare gitt faerre tall i rapporten, ikke en feilmelding.
+$tomme = @()
+foreach ($ep in $eps) {
+    $n = @($filterCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count
+    if ($n -eq 0) { $tomme += "$($ep.Endpoint)/$($ep.Variant)" }
+}
+Assert-Perf 'Alle endepunkter maaler noe' ($tomme.Count -eq 0) ($tomme -join ', ')
+
+# Frontend henter lokasjoner foerst fra zoom 11, og det stoerste utsnittet
+# endepunktet da faar er 185 x 103 km. Maaler vi over det, maaler vi en kallform
+# som ikke finnes — det var nettopp feilen med de gamle norge- og trondelag-
+# utsnittene. Litt slakk for at utsnittene er hentet fra kartet for haand.
+$maksBredde = 190000
+$maksHoyde  = 110000
+$forStore = @()
+foreach ($ep in @($eps | Where-Object { $_.Extra.envelope })) {
+    $e = $ep.Extra.envelope
+    $b = $e.maxX - $e.minX
+    $h = $e.maxY - $e.minY
+    if ($b -gt $maksBredde -or $h -gt $maksHoyde) {
+        $forStore += "$($ep.Endpoint)/$($ep.Variant) ($([int]($b/1000)) x $([int]($h/1000)) km)"
+    }
+}
+Assert-Perf 'Ingen utsnitt over zoom 11-taket' ($forStore.Count -eq 0) ($forStore -join ', ')
+
+# LocationPolygons skal kjoere paa noeyaktig samme utsnitt som Locations. Ellers
+# kan ikke en regresjon plasseres: ligger den i lokasjonssoeket eller i
+# polygonhentingen?
+$locV  = @($eps | Where-Object Endpoint -eq 'Locations'        | ForEach-Object Variant | Sort-Object)
+$polyV = @($eps | Where-Object Endpoint -eq 'LocationPolygons' | ForEach-Object Variant | Sort-Object)
+Assert-Perf 'LocationPolygons foelger Locations' (($locV -join ',') -eq ($polyV -join ',')) `
+    "Locations: $($locV -join ','); Polygons: $($polyV -join ',')"
+
+# Samme gating paa begge — ellers maaler de to endepunktene ulike case og kan
+# ikke sammenlignes case for case.
+$ulik = @()
+foreach ($v in $locV) {
+    $a = @($eps | Where-Object { $_.Endpoint -eq 'Locations'        -and $_.Variant -eq $v })[0]
+    $b = @($eps | Where-Object { $_.Endpoint -eq 'LocationPolygons' -and $_.Variant -eq $v })[0]
+    if ((($a.Layers -join ',') -ne ($b.Layers -join ',')) -or
+        (($a.CaseKeys -join ',') -ne ($b.CaseKeys -join ','))) { $ulik += $v }
+}
+Assert-Perf 'Samme gating paa begge lokasjonsendepunkter' ($ulik.Count -eq 0) ($ulik -join ', ')
+
+# CaseKeys-listene maa treffe ekte case. En skrivefeil her ville bare gitt
+# faerre maalinger, i stillhet.
+$alleKeys = @($cases.CaseKey)
+$ukjente  = @()
+foreach ($ep in @($eps | Where-Object { $_.CaseKeys })) {
+    foreach ($k in $ep.CaseKeys) { if ($alleKeys -notcontains $k) { $ukjente += $k } }
+}
+$ukjente = @($ukjente | Sort-Object -Unique)
+Assert-Perf 'CaseKeys peker paa ekte case' ($ukjente.Count -eq 0) ($ukjente -join ', ')
 
 # ---------------------------------------------------------------------------
 # Oppdagelseshjelperne

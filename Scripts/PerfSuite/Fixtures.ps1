@@ -25,11 +25,67 @@
     (TOP-en maa lese langt ned i klyngeindeksen foer den er fylt).
 #>
 
-# Kartutsnitt i EPSG:25833 (UTM 33N). Brukes av Locations-endepunktet.
-$script:PerfEnvelopes = @{
-    norge     = @{ minX =  -80000; maxX = 1120000; minY = 6440000; maxY = 7950000 }
-    trondelag = @{ minX =  200000; maxX =  400000; minY = 6950000; maxY = 7150000 }
-    oslo      = @{ minX =  240000; maxX =  280000; minY = 6630000; maxY = 6670000 }
+# Kartutsnitt i EPSG:25833 (UTM 33N). Brukes av Locations og LocationPolygons.
+#
+# HVORFOR AKKURAT DISSE
+# Frontend henter lokasjoner foerst fra OpenLayers-zoom 11 (ZoomConfig, ApiZoomLevel
+# .LocationPoints). Det stoerste utsnittet endepunktet noen gang faar er dermed
+# 185 x 103 km — maalt i kartet, ikke antatt. Alt over det er en kallform som ikke
+# finnes.
+#
+# De gamle utsnittene var norge (1200 x 1510 km) og trondelag (200 x 200 km), begge
+# over taket, pluss oslo paa 40 km. Verre: omraadefixturene laa ingen steder i
+# naerheten av oslo-utsnittet — Farsund, Trondelag, Nordland og Troms ga alle NULL
+# lokasjoner der. 419 av 777 oslo-case maalte altsaa et tomt svar, og fylke:tung
+# brukte 2005 ms paa aa returnere ingenting.
+#
+# TO GRUPPER
+# store  - fire utsnitt der endepunktet har mest aa gjoere. oslo, trondheim og
+#          trollheimen ligger over MaxResults og returnerer 100 000 rader uansett
+#          hvor mange lokasjoner utsnittet inneholder. kristiansand ligger like
+#          under, og er det eneste store utsnittet der TOP-en faktisk maa rangere
+#          alle gruppene i stedet for bare aa kutte.
+#          trondheim og trollheimen er hentet rett fra kartet; oslo har samme
+#          stoerrelse, sentrert paa tyngdepunktet til lokasjonene i kommunen.
+# stige  - tolv mindre utsnitt valgt slik at de gir ca. 50 000, 10 000, 1 000 og
+#          100 lokasjoner, tre av hver. De maaler hvordan endepunktet skalerer med
+#          tetthet, ikke med filter.
+#
+# Alle utsnitt er disjunkte, saa ingen maaling kan lese data en tidligere maaling
+# nettopp varmet opp. Eneste unntak er trollheimen/trondheim, som overlapper fordi
+# begge er hentet direkte fra kartet.
+#
+# Lokasjonstallene er hvor mange lokasjoner som FINNES i utsnittet, ikke hvor mange
+# endepunktet returnerer. MaxResults er 100 000 (LocationSearchFilterDto), saa alt
+# over det kuttes. Tallene er maalt mot Artskart3IndexProdLikeTestMigrations og
+# staar som dokumentasjon - de brukes ikke av koden.
+$script:PerfEnvelopes = [ordered]@{
+    # store: tre paa zoom 11-takstoerrelsen (185 x 103 km), alle over MaxResults
+    oslo         = @{ minX =  170566; maxX =  355820; minY = 6599473; maxY = 6702091 }  # 967 649 lok, kuttes
+    trondheim    = @{ minX =  191505; maxX =  376758; minY = 6987009; maxY = 7089626 }  # 274 481, kuttes
+    trollheimen  = @{ minX =  148449; maxX =  297444; minY = 6946372; maxY = 7028906 }  # 158 550, kuttes
+    # ... og ett like under taket, saa vi ogsaa maaler et stort svar som IKKE kuttes
+    kristiansand = @{ minX =   40000; maxX =  120000; minY = 6400000; maxY = 6480000 }  #  90 278
+
+    # stige: ca. 50 000 lokasjoner
+    telemark50k  = @{ minX =  200000; maxX =  240000; minY = 6520000; maxY = 6560000 }  #  49 939
+    innlandet50k = @{ minX =  240000; maxX =  280000; minY = 6760000; maxY = 6800000 }  #  46 557
+    ostfold50k   = @{ minX =  300000; maxX =  320000; minY = 6560000; maxY = 6580000 }  #  45 076
+
+    # stige: ca. 10 000
+    salten10k    = @{ minX =  400000; maxX =  440000; minY = 7520000; maxY = 7560000 }  #  10 046
+    ostfold10k   = @{ minX =  270000; maxX =  275000; minY = 6570000; maxY = 6575000 }  #  10 024
+    valdres10k   = @{ minX =  120000; maxX =  160000; minY = 6760000; maxY = 6800000 }  #   9 955
+
+    # stige: ca. 1 000
+    gudbrand1k   = @{ minX =  200000; maxX =  210000; minY = 6800000; maxY = 6810000 }  #   1 001
+    varanger1k   = @{ minX = 1070000; maxX = 1075000; minY = 7855000; maxY = 7860000 }  #   1 000
+    agder1k      = @{ minX =   50000; maxX =   60000; minY = 6570000; maxY = 6580000 }  #   1 000
+
+    # stige: ca. 100
+    mjosa100     = @{ minX =  208000; maxX =  210000; minY = 6838000; maxY = 6840000 }  #     101
+    namdal100    = @{ minX =  330000; maxX =  331000; minY = 7112000; maxY = 7113000 }  #     100
+    telemark100  = @{ minX =  126000; maxX =  127000; minY = 6593000; maxY = 6594000 }  #     100
 }
 
 function ConvertTo-PerfHashtable {
@@ -429,6 +485,14 @@ function Get-PerfFixtureSet {
     <#
         Laster fixtures fra disk, eller bygger dem hvis fila mangler eller
         -Refresh er satt.
+
+        UTSNITTENE FRYSES IKKE
+        Frysingen finnes fordi de oppdagede dataene - tyngste institusjon, letteste
+        art - kan bytte identitet naar databasen vokser, og da ville sammenligningen
+        maalt noe annet enn den tror. Kartutsnittene er ikke oppdaget: de er faste
+        konstanter i denne fila. Leses de fra den lagrede JSON-en i stedet, blir en
+        endring her stille ignorert til noen kjoerer -RefreshFixtures - som samtidig
+        forkaster alle baselinjer. Derfor overstyres de alltid fra $PerfEnvelopes.
     #>
     param(
         [Parameter(Mandatory)] [string] $Path,
@@ -442,6 +506,12 @@ function Get-PerfFixtureSet {
         Write-Host ("Bruker lagrede fixtures fra {0} (laget {1}, {2} dimensjoner, {3} nivaaer)" -f `
             (Split-Path -Leaf $Path), $fixtures.createdUtc, $fixtures.dimensions.Count, $antall) -ForegroundColor DarkGray
         Write-Host '  Kjoer med -RefreshFixtures for aa bygge dem paa nytt (forkaster sammenlignbarhet med gamle baselinjer).' -ForegroundColor DarkGray
+
+        # Samme JSON-runde som resten av fixtures har vaert gjennom, slik at
+        # ConvertTo-PerfHashtable ser samme form uansett hvor de kom fra.
+        $ferske = $script:PerfEnvelopes | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+        $fixtures | Add-Member -NotePropertyName 'envelopes' -NotePropertyValue $ferske -Force
+        Write-Host ("  Kartutsnitt fra Fixtures.ps1: {0}" -f $script:PerfEnvelopes.Count) -ForegroundColor DarkGray
         return $fixtures
     }
 

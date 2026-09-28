@@ -36,4 +36,23 @@ public interface IAreaHierarchyService
     /// Batch-konvertering av verneområde-Fid-er til EntityId-er. Ignorerer ugyldige Fid-er.
     /// </summary>
     int[] RestrictedAreaFidsToEntityIds(string[]? fids);
+
+    /// <summary>
+    /// Boksen som omslutter alle observasjonslokasjoner i området, eller null hvis
+    /// området ikke har observasjoner med lokasjon.
+    /// </summary>
+    AreaBounds? GetAreaBounds(int entityTypeId, int entityId);
+
+    /// <summary>
+    /// Beholder bare de områdene som kan ha en observasjonslokasjon innenfor
+    /// kartutsnittet. Et område hvis lokasjoner ikke når utsnittet kan ikke bidra
+    /// til svaret, og er bare arbeid for databasen.
+    ///
+    /// Samme ID kan gjelde flere områdetyper — fylkes-ID-er slås opp mot både
+    /// fylke og Svalbard — og da beholdes ID-en hvis minst én av typene når fram.
+    ///
+    /// Er utfallet tomt mens inndata ikke var det, kan kallet svare tomt uten å
+    /// spørre databasen i det hele tatt.
+    /// </summary>
+    int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds);
 }

@@ -66,11 +66,19 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 
 ## Nivåer
 
-| `-Level` | Innhold | Størrelsesorden |
-|---|---|---|
-| `Quick` | Enkeltfiltre + oppslag, 2 endepunkter | minutter |
-| `Standard` | + alle dimensjonspar, 60 tripler, 30 kvadrupler, brukerreiser | titalls minutter |
-| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler, 9 endepunkter | timer |
+Nivåene er en trapp, tenkt brukt slik: **`Quick`** for en kjapp bekreftelse på at
+en ytelsesendring virker, **`Standard`** hvis det ser bra ut, **`Full`** når noe
+skal dokumenteres eller en baselinje settes.
+
+| `-Level` | Innhold | Målinger | Tid |
+|---|---|---|---|
+| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 266 | **~3 min** |
+| `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 475 | **~27 min** |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 6 758 | **~2,6 t** |
+
+Tidene er målt, ikke gjettet: 330 ekte kall mot
+`Artskart3IndexProdLikeTestMigrations`, med egne prøver for hver av de tunge
+endepunktvariantene. De vil variere med maskin og datamengde.
 
 Er du usikker på hvor lang tid det tar hos deg, start med
 `-Level Full -TimeBudgetMinutes 30`. Suiten stopper pent når budsjettet er brukt
@@ -103,8 +111,11 @@ fortsatt er brukbar:
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` side 1 og side 50,
-`AreaCounts` z1/z2, `Locations` med to kartutsnitt). `AreaMarkers` kjøres bare
-for referansen uten filter — se under.
+`AreaCounts` z1/z2, `Locations` og `LocationPolygons` med 16 kartutsnitt).
+Et endepunkt kan snevre inn hvilke case det gjelder for, med `Layers` eller
+`CaseKeys` — se `Test-PerfEndpointRunsCase`. `AreaMarkers` bruker det til å kjøre
+bare for referansen uten filter; lokasjonsutsnittene til å slippe å gjenta hele
+filtermatrisen 16 ganger.
 
 Lagene deler seg også etter hvilken kodesti de treffer. Målt på `Full`:
 
@@ -152,6 +163,89 @@ sidelast, ett kall per zoomnivå (`prefetchAreaGeometries`), og legger geometrie
 en klientside cache som aldri tømmes. Alle senere filterendringer går til
 `AreaCounts`. Filtrert `AreaMarkers` forekommer ikke, og 1012 slike målinger ble
 fjernet fra suiten.
+
+## Lokasjonsutsnittene
+
+Frontend henter lokasjoner først fra OpenLayers-zoom 11 (`ZoomConfig`,
+`ApiZoomLevel.LocationPoints`). Det største utsnittet endepunktet noen gang får
+er dermed **185 × 103 km**, målt i kartet.
+
+De gamle utsnittene lå over det taket: `norge` var 1200 × 1510 km og `trondelag`
+200 × 200 km. Verre var at områdefixturene ikke lå i nærheten av `oslo`-utsnittet
+på 40 km — Farsund, Trøndelag, Nordland og Troms ga alle **null** lokasjoner der.
+419 av 777 oslo-case målte altså et tomt svar, og `fylke:tung` brukte 2005 ms på
+å returnere ingenting.
+
+16 utsnitt i to grupper:
+
+Tallene er hvor mange lokasjoner som **finnes** i utsnittet, ikke hvor mange
+endepunktet returnerer. `MaxResults` er 100 000, så alt over det kuttes.
+
+| Gruppe | Utsnitt | Lokasjoner | Returnerer |
+|---|---|---|---|
+| store, zoom 11-takstørrelse (185 × 103 km) | `oslo` | 967 649 | 100 000 |
+| | `trondheim` | 274 481 | 100 000 |
+| | `trollheimen` (148 × 83 km) | 158 550 | 100 000 |
+| store, under `MaxResults` (80 × 80 km) | `kristiansand` | 90 278 | 90 278 |
+| stige ~50 000 | `telemark50k`, `innlandet50k`, `ostfold50k` | 45–50 000 | alt |
+| stige ~10 000 | `salten10k`, `ostfold10k`, `valdres10k` | ~10 000 | alt |
+| stige ~1 000 | `gudbrand1k`, `varanger1k`, `agder1k` | ~1 000 | alt |
+| stige ~100 | `mjosa100`, `namdal100`, `telemark100` | ~100 | alt |
+
+`kristiansand` er det eneste store utsnittet som ikke kuttes. De tre andre
+returnerer 100 000 rader uansett hvor mange lokasjoner de inneholder, så
+forskjellen mellom dem er aggregeringsarbeid, ikke svarstørrelse. Uten et stort
+utsnitt under taket ville vi aldri målt tilfellet der `TOP`-en må rangere alle
+gruppene i stedet for bare å kutte — og en endring i `MaxResults` ville vist seg
+først der.
+
+Alle er disjunkte, så ingen måling kan lese data en tidligere måling nettopp
+varmet opp. Eneste unntak er `trollheimen`/`trondheim`, som overlapper fordi
+begge er hentet rett fra kartet.
+
+Utsnittene er ikke likeverdige. 16 utsnitt × 2 endepunkter × 777 case ville gitt
+24 864 målinger — over fire ganger hele kjøringen, for to endepunkter. Derfor har
+hvert utsnitt en rolle, og rollen endrer seg med nivået. Tallene er case per
+endepunkt; ganger to, siden `Locations` og `LocationPolygons` kjører likt.
+
+| Utsnitt | Lokasjoner | `Quick` | `Standard` | `Full` |
+|---|---|---|---|---|
+| `oslo` | 967 649 | 6 faste | `enkelt` (93) | alle (777) |
+| `trondheim` | 274 481 | — | 10 faste | `enkelt` + `par` (349) |
+| `trollheimen` | 158 550 | — | 10 faste | `enkelt` (93) |
+| `kristiansand` | 90 278 | 6 faste | 10 faste | `enkelt` (93) |
+| `telemark50k` | 49 939 | 6 faste | 10 faste | 10 faste |
+| `innlandet50k`, `ostfold50k` | ~46 000 | — | 10 faste | 10 faste |
+| `salten10k` | 10 046 | 6 faste | 10 faste | 10 faste |
+| `ostfold10k`, `valdres10k` | ~10 000 | — | 10 faste | 10 faste |
+| `gudbrand1k` | 1 001 | 6 faste | 10 faste | 10 faste |
+| `varanger1k`, `agder1k` | 1 000 | — | 10 faste | 10 faste |
+| `mjosa100` | 101 | 6 faste | 10 faste | 10 faste |
+| `namdal100`, `telemark100` | 100 | — | 10 faste | 10 faste |
+
+`Quick` tar **ett utsnitt fra hvert tetthetsnivå** — over taket, under taket,
+50 000, 10 000, 1 000 og 100. En forbedring som bare slår inn på store svar,
+eller bare på små, skal synes med én gang. De seks faste casene er referansen,
+det verste områdefilteret (`fylke:tung` gir en OR mellom områdetype 2 og 6 som
+columnstore ikke kan pushe ned), to brede listefiltre, taksonhierarkiet, og ett
+selektivt som fanger regresjoner i den raske stien.
+
+`Standard` tar alle 16 utsnitt, men bare `oslo` får hele `enkelt`-laget. Stigen
+skal svare på hvordan endepunktet skalerer med antall lokasjoner — der er 777
+filtervarianter per utsnitt støy, ikke signal.
+
+Før dette kjørte `Quick` ingen lokasjoner i det hele tatt, og `Standard` hoppet
+rett til de fire tyngste utsnittene.
+
+`LocationPolygons` kjører på nøyaktig samme utsnitt og samme case som
+`Locations`. Ellers kan ikke en regresjon plasseres — ligger den i lokasjons-
+søket eller i polygonhentingen?
+
+Kartutsnittene **fryses ikke** i `fixtures.json`, i motsetning til resten.
+Frysingen finnes fordi oppdagede data kan bytte identitet når databasen vokser.
+Utsnittene er faste konstanter i `Fixtures.ps1`, og leses de fra den lagrede
+JSON-en i stedet, blir en endring stille ignorert til noen kjører
+`-RefreshFixtures` — som samtidig forkaster alle baselinjer.
 
 ## Indekssporing
 

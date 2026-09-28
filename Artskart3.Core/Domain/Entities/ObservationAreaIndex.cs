@@ -18,6 +18,23 @@ public class ObservationEntityIndex
     public int? CoordinatePrecisionInMeters { get; set; }
 
     /// <summary>
+    /// Innsamlingsmåned, denormalisert fra Observation.
+    ///
+    /// Måneden ligger implisitt i DateTimeCollected, men DATEPART(month, ...) er
+    /// ikke sargbart: columnstore må da levere alle 133 mill. rader ut av
+    /// scanningen og beregne funksjonen per rad før filteret slår til. Målt på
+    /// Oslo-utsnittet 4271 ms mot 1550 for et sargbart datointervall — og det
+    /// til tross for at månedsfilteret slipper gjennom FÆRRE rader (50,3 mot
+    /// 126,6 mill.). Estimatet bommet 40x, siden optimizeren ikke kan estimere
+    /// en funksjon på en kolonne.
+    ///
+    /// Verdien er NULL nøyaktig når DateTimeCollected er NULL (958 912 rader),
+    /// så kolonnen gir samme svar som før — verifisert til 22 688 357 treff for
+    /// sommermånedene med begge formene. Dette er en ren ytelsesendring.
+    /// </summary>
+    public byte? MonthCollected { get; set; }
+
+    /// <summary>
     /// Denormalisert fra Observation.LocationId.
     ///
     /// Uten den måtte lokasjonssøket joine tilbake til Observation bare for å få

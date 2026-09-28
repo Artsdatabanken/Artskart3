@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260920125430_AddObservationEntityIndexLocationId")]
-    partial class AddObservationEntityIndexLocationId
+    [Migration("20260920125459_BackfillObservationEntityIndexLocationIdAndMonth")]
+    partial class BackfillObservationEntityIndexLocationIdAndMonth
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

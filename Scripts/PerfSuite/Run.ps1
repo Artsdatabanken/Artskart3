@@ -162,14 +162,24 @@ if ($cases.Count -eq 0) {
     exit 1
 }
 
-# Oppslagscasene kjoerer ett kall hver. Resten kjoerer ett per endepunkt, bortsett
-# fra endepunkter merket OnlyUnfiltered — de kjoerer bare for ingen-filter-caset.
-$oppslagCount    = @($cases | Where-Object Layer -eq 'oppslag').Count
-$filterCount     = $cases.Count - $oppslagCount
-$ufiltrertCount  = @($cases | Where-Object CaseKey -eq 'ingen-filter').Count
-$alltid          = @($endpoints | Where-Object { -not $_.OnlyUnfiltered }).Count
-$bareUfiltrert   = $endpoints.Count - $alltid
-$totalRuns       = ($filterCount * $alltid) + ($ufiltrertCount * $bareUfiltrert) + $oppslagCount
+# Oppslagscasene kjoerer ett kall hver. Resten kjoerer ett per endepunkt — men et
+# endepunkt kan snevre inn hvilke case det gjelder for, via Layers eller CaseKeys.
+# AreaMarkers kjoerer bare ufiltrert, og lokasjonsutsnittene har hver sin rolle.
+# Se Test-PerfEndpointRunsCase i Cases.ps1.
+$oppslagCases = @($cases | Where-Object Layer -eq 'oppslag')
+$filterCases  = @($cases | Where-Object Layer -ne 'oppslag')
+$oppslagCount = $oppslagCases.Count
+
+# Regnes ut én gang her og gjenbrukes i kalltellingen under, slik at tallene
+# suiten skriver ut og tallene den faktisk kjoerer ikke kan komme i utakt.
+$epCaseCount = @{}
+foreach ($ep in $endpoints) {
+    $epCaseCount["$($ep.Endpoint)/$($ep.Variant)"] =
+        @($filterCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count
+}
+
+$totalRuns = $oppslagCount
+foreach ($ep in $endpoints) { $totalRuns += $epCaseCount["$($ep.Endpoint)/$($ep.Variant)"] }
 
 Write-Host ''
 Write-Host 'Matrise:' -ForegroundColor Cyan
@@ -182,7 +192,7 @@ Write-Host ("  {0,-10} {1,4} varianter: {2}" -f 'endepunkt', $endpoints.Count,
 # uansett -Runs, fordi kjoering 2 ville maalt minnecachen.
 $kallTotalt = $oppslagCount * $Runs
 foreach ($ep in $endpoints) {
-    $antall = if ($ep.OnlyUnfiltered) { $ufiltrertCount } else { $filterCount }
+    $antall = $epCaseCount["$($ep.Endpoint)/$($ep.Variant)"]
     $kjoeringer = if ($ep.Runs) { [Math]::Min($ep.Runs, $Runs) } else { $Runs }
     $kallTotalt += $antall * $kjoeringer
 }
@@ -244,16 +254,16 @@ foreach ($case in $cases) {
 
     # Oppslagscasene er GET uten filterkropp og kjoeres én gang, ikke per endepunkt.
     #
-    # Endepunkter merket OnlyUnfiltered kjoeres bare for ingen-filter-caset.
-    # AreaMarkers er det eneste i dag: frontend henter det ufiltrert to ganger per
-    # sidelast og aldri med filter, saa filtrerte maalinger der ville beskrevet en
-    # kallform som ikke finnes. Se New-PerfEndpointMatrix.
+    # Ellers avgjoer endepunktet selv om det gjelder for caset. AreaMarkers kjoerer
+    # bare ufiltrert — frontend henter det ufiltrert to ganger per sidelast og aldri
+    # med filter, saa filtrerte maalinger ville beskrevet en kallform som ikke
+    # finnes. Lokasjonsutsnittene har hver sin rolle av samme grunn: full
+    # filtermatrise paa alle 16 ville vaert fire ganger hele kjoeringen.
+    # Se Test-PerfEndpointRunsCase og New-PerfEndpointMatrix i Cases.ps1.
     $planned = if ($case.Layer -eq 'oppslag') {
         @(@{ Endpoint = 'Lookup'; Variant = 'get'; Path = $case.LookupPath; Extra = $null })
-    } elseif ($case.CaseKey -eq 'ingen-filter') {
-        $endpoints
     } else {
-        @($endpoints | Where-Object { -not $_.OnlyUnfiltered })
+        @($endpoints | Where-Object { Test-PerfEndpointRunsCase -Endpoint $_ -Case $case })
     }
 
     foreach ($ep in $planned) {

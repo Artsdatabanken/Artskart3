@@ -183,8 +183,8 @@ try
         });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         // Legger OPTION (RECOMPILE) på listevisningens spørring. Se
-        // RecompileHintInterceptor for hvorfor den trenger plan per kjøring.
-        options.AddInterceptors(new Artskart3.Infrastructure.Data.Interceptors.RecompileHintInterceptor());
+        // QueryHintInterceptor for hvorfor den trenger plan per kjøring.
+        options.AddInterceptors(new Artskart3.Infrastructure.Data.Interceptors.QueryHintInterceptor());
     });
 
     builder.Services.AddRepositories();

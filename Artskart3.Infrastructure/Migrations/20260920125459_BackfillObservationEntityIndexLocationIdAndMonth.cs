@@ -37,7 +37,7 @@ namespace Artskart3.Infrastructure.Migrations;
 /// suppressTransaction: backfillen og indeksbygget tar til sammen langt over
 /// timeout-grensen. I én transaksjon ville et avbrudd rullet tilbake alt.
 /// </summary>
-public partial class BackfillObservationEntityIndexLocationId : Migration
+public partial class BackfillObservationEntityIndexLocationIdAndMonth : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
@@ -90,13 +90,20 @@ BEGIN
 
         -- Oppfyllbart predikat: treffer bare rader der kilden har en verdi
         -- indeksen mangler, saa raden matcher ikke etter oppdateringen.
+        --
+        -- Per kolonne, ikke paa tvers: skrives det (A IS NULL OR B IS NULL) AND
+        -- (kilde.A IS NOT NULL OR kilde.B IS NOT NULL), matcher en rad som bare
+        -- mangler den ene kolonnen fortsatt etter oppdateringen. Mot columnstore
+        -- er det dyrt - hver UPDATE markerer den gamle raden i delete-bitmappen
+        -- og legger en ny versjon i delta store.
         UPDATE idx
-        SET idx.LocationId = o.LocationId
+        SET idx.LocationId     = o.LocationId,
+            idx.MonthCollected = CAST(o.MonthCollected AS TINYINT)
         FROM dbo.ObservationEntityIndex idx
         INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
         WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
-          AND idx.LocationId IS NULL
-          AND o.LocationId IS NOT NULL
+          AND ((idx.LocationId IS NULL     AND o.LocationId IS NOT NULL)
+            OR (idx.MonthCollected IS NULL AND o.MonthCollected IS NOT NULL))
         OPTION (RECOMPILE);
 
         SET @Rows = @@ROWCOUNT;
@@ -125,7 +132,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes
                WHERE name = 'IX_OEI_Columnstore'
                  AND object_id = OBJECT_ID('dbo.ObservationEntityIndex'))
 BEGIN
-    RAISERROR('Oppretter IX_OEI_Columnstore med LocationId (10-30 min)...', 0, 1) WITH NOWAIT;
+    RAISERROR('Oppretter IX_OEI_Columnstore med LocationId og MonthCollected (10-30 min)...', 0, 1) WITH NOWAIT;
 
     CREATE NONCLUSTERED COLUMNSTORE INDEX IX_OEI_Columnstore
     ON dbo.ObservationEntityIndex
@@ -134,7 +141,7 @@ BEGIN
          HasMediaFiles, DateTimeCollected, CoordinatePrecisionInMeters,
          SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId,
          InstitutionOrgId, DatasetOrgId, BehaviorId,
-         LocationId)
+         LocationId, MonthCollected)
     WITH (MAXDOP = 4);
 
     RAISERROR('IX_OEI_Columnstore opprettet.', 0, 1) WITH NOWAIT;

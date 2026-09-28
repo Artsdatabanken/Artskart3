@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 
 namespace Artskart3.Tests.Unit;
@@ -27,4 +28,16 @@ internal sealed class StubAreaHierarchyService : IAreaHierarchyService
     public int[] RestrictedAreaFidsToEntityIds(string[]? fids) =>
         fids?.Select(f => RestrictedAreaFidToEntityId(f)).Where(id => id.HasValue).Select(id => id!.Value).ToArray()
         ?? Array.Empty<int>();
+    /// <summary>
+    /// Omraadeboksene lastes fra databasen i den ekte tjenesten. Her holdes de i en
+    /// dictionary testen kan fylle; tom betyr "ingen luking", som er samme
+    /// oppfoersel som tjenesten har foer foerste last.
+    /// </summary>
+    public Dictionary<(int EntityTypeId, int EntityId), AreaBounds> Bounds { get; } = new();
+
+    public AreaBounds? GetAreaBounds(int entityTypeId, int entityId)
+        => Bounds.TryGetValue((entityTypeId, entityId), out var b) ? b : null;
+
+    public int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds)
+        => AreaBoundsPruner.Prune(entityIds, envelope, Bounds, entityTypeIds);
 }
