@@ -36,6 +36,8 @@ import { Feature, ImageTile } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import Point from 'ol/geom/Point';
+import WKT from 'ol/format/WKT';
+import { transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
@@ -50,6 +52,7 @@ import { ObservationListComponent } from '@shared/components/observation-list.co
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import {SearchFilterService} from '@shared/services/search-filter/search-filter.service';
+import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
@@ -105,6 +108,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     extent: [number, number, number, number];
   }>();
   private locationClick$ = new Subject<number[]>();
+  private readonly observationDismiss$ = new Subject<void>();
+  private selectionGeneration = 0;
   private locationCountFetch$ = new Subject<LocationSearchFilter>();
 
   private readonly areasService = inject(AreasService);
@@ -193,7 +198,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   public showObservationList = signal(false);
   public observationList = signal<ObservationListInfoDto[]>([]);
-  public clickCoordinates = signal<number[]>([]);
+  readonly observationSelection = signal<ObservationSelection | null>(null);
+  readonly observationRequestState = signal<ObservationRequestState>('ready');
+
+  private readonly _onObservationFilterChange = effect(() => {
+    this.searchFilterService.observationFilter();
+    untracked(() => this.closeObservationList());
+  });
 
   private readonly locationCountResult = signal<LocationCountResult | null>(null);
 
@@ -237,26 +248,44 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.handleLocationClick(payload);
         this.handleAreaMarkerClick(payload.features as PointerClickFeature[] | null);
       });
-      this.locationClick$
-        .pipe(
-          switchMap((ids) =>
-            this.observationService.getObservationByLocation(ids, this.searchFilterService.observationFilter()).pipe(
-              catchError((err: unknown) => {
-                this.logger.error('Failed to fetch observations for locations', ids.toString(), err);
-                this.showObservationList.set(false);
-                return EMPTY;
-              }),
-            ),
-          ),
-          takeUntil(this.destroy$),
-        )
-        .subscribe((observations) => {
-          this.observationList.set(observations);
-          this.showObservationList.set(true);
-        });
+      this.setupObservationRequests();
     } catch (error: unknown) {
       this.logger.error('Failed to initialize map:', 'MapComponent', error);
     }
+  }
+
+  private setupObservationRequests(): void {
+    this.locationClick$.pipe(
+      tap(() => {
+        this.observationList.set([]);
+        this.observationRequestState.set('loading');
+        this.showObservationList.set(true);
+      }),
+      switchMap((ids) => this.observationService.getObservationByLocation(ids, this.searchFilterService.observationFilter()).pipe(
+        takeUntil(this.observationDismiss$),
+        catchError((err: unknown) => {
+          this.logger.error('Failed to fetch observations for locations', 'MapComponent', err);
+          this.observationRequestState.set('error');
+          return EMPTY;
+        }),
+      )),
+      takeUntil(this.destroy$),
+    ).subscribe((observations) => {
+      this.observationList.set(observations);
+      this.observationRequestState.set('ready');
+    });
+  }
+
+  closeObservationList(): void {
+    this.observationDismiss$.next();
+    this.showObservationList.set(false);
+    this.observationSelection.set(null);
+    this.observationList.set([]);
+  }
+
+  retryObservations(): void {
+    const selection = this.observationSelection();
+    if (selection) this.locationClick$.next([...selection.locationIds]);
   }
 
   private setupBaseMapLayers(): void {
@@ -767,7 +796,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private handleLocationClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
     const features = payload.features as PointerClickFeature[];
     if (!features) {
-      this.showObservationList.set(false);
+      this.closeObservationList();
       return;
     }
 
@@ -776,11 +805,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     );
 
     if (!hasRelevantFeature) {
-      this.showObservationList.set(false);
+      this.closeObservationList();
       return;
     }
-
-    this.clickCoordinates.set(payload.clickCoordinate.map((coordinate) => Math.round(coordinate)));
 
     const memberGroups = features
       .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
@@ -788,7 +815,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     const largeCluster = memberGroups.find((members) => members.length > ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS);
     if (largeCluster && this.zoomToClusterMembers(largeCluster)) {
-      this.showObservationList.set(false);
+      this.closeObservationList();
       return;
     }
 
@@ -800,7 +827,25 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .filter(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
       .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
 
-    const ids = [...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined);
+    const ids = [...new Set([...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined))];
+    if (!ids.length) {
+      this.closeObservationList();
+      return;
+    }
+    const projection = this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection;
+    const polygon = features.find(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)?.feature;
+    const singleFeature = ids.length === 1 ? polygon ?? memberGroups.flat()[0] : undefined;
+    const geometry = singleFeature?.getGeometry();
+    const isPolygon = geometry?.getType() === 'Polygon' || geometry?.getType() === 'MultiPolygon';
+    const point = geometry instanceof Point ? geometry.getCoordinates() : payload.clickCoordinate;
+    this.observationSelection.set({
+      key: ++this.selectionGeneration,
+      locationIds: ids,
+      kind: ids.length > 1 ? 'selection' : isPolygon ? 'polygon' : 'point',
+      geometryLabel: isPolygon && geometry
+        ? new WKT().writeGeometry(geometry, { featureProjection: projection, dataProjection: 'EPSG:25833', decimals: 0 })
+        : `UTM33 ${transform(point, projection, 'EPSG:25833').map((coordinate) => Math.round(coordinate)).join(', ')}`,
+    });
     this.locationClick$.next(ids);
   }
 

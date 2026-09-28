@@ -13,6 +13,11 @@ import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.s
 import type { LocationCountResult } from '@shared/types/api.types';
 import { FilterStateService } from '@shared/services/filter-state/filter-state.service';
 import type { Signal } from '@angular/core';
+import { Feature } from 'ol';
+import Point from 'ol/geom/Point';
+import Polygon from 'ol/geom/Polygon';
+import { ObservationService } from '@shared/services/observation/observation.service';
+import { ObservationListInfoDto } from '@shared/types/api.types';
 
 describe('MapComponent', () => {
   let component: MapComponent;
@@ -33,6 +38,74 @@ describe('MapComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('observation selection', () => {
+    const access = () => component as unknown as {
+      handleLocationClick: (payload: unknown) => void;
+      setupObservationRequests: () => void;
+      locationClick$: Subject<number[]>;
+    };
+    const point = (id: number) => new Feature({ geometry: new Point([353063, 7201367]), id });
+    const click = (features: { layerId: string; feature: Feature }[]) =>
+      access().handleLocationClick({ features, clickCoordinate: [353000, 7201300] });
+
+    it('uses feature coordinates instead of pointer coordinates', () => {
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      expect(component.observationSelection()?.geometryLabel).toBe('UTM33 353063, 7201367');
+    });
+
+    it('deduplicates location IDs and prefers polygon geometry over its point', () => {
+      const polygon = new Feature({ id: 1, geometry: new Polygon([[[1, 2], [3, 4], [5, 6], [1, 2]]]) });
+      click([{ layerId: 'area-markers-locations', feature: point(1) }, { layerId: 'location-polygons', feature: polygon }]);
+      expect(component.observationSelection()?.locationIds).toEqual([1]);
+      expect(component.observationSelection()?.kind).toBe('polygon');
+      expect(component.observationSelection()?.geometryLabel).toBe('POLYGON((1 2,3 4,5 6,1 2))');
+    });
+
+    it('represents multiple locations as a selection', () => {
+      click([{ layerId: 'area-markers-locations', feature: point(1) }, { layerId: 'area-markers-locations', feature: point(2) }]);
+      expect(component.observationSelection()?.kind).toBe('selection');
+    });
+
+    it('cancels stale and dismissed requests and retries a failed current selection', () => {
+      const first = new Subject<ObservationListInfoDto[]>();
+      const second = new Subject<ObservationListInfoDto[]>();
+      const service = TestBed.inject(ObservationService);
+      const request = vi.spyOn(service, 'getObservationByLocation')
+        .mockReturnValueOnce(first).mockReturnValueOnce(second)
+        .mockReturnValueOnce(throwError(() => new Error('Failed')))
+        .mockReturnValueOnce(of([{ id: 4 }]));
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      expect(component.observationRequestState()).toBe('loading');
+      click([{ layerId: 'area-markers-locations', feature: point(2) }]);
+      expect(first.observed).toBe(false);
+      first.next([{ id: 1 }]);
+      expect(component.observationList()).toEqual([]);
+      component.closeObservationList();
+      expect(second.observed).toBe(false);
+      second.next([{ id: 2 }]);
+      expect(component.showObservationList()).toBe(false);
+      click([{ layerId: 'area-markers-locations', feature: point(3) }]);
+      expect(component.observationRequestState()).toBe('error');
+      component.retryObservations();
+      expect(component.observationRequestState()).toBe('ready');
+      expect(component.observationList()).toEqual([{ id: 4 }]);
+      expect(request).toHaveBeenLastCalledWith([3], expect.anything());
+    });
+
+    it('dismisses and cancels the selection when search filters change', async () => {
+      const pending = new Subject<ObservationListInfoDto[]>();
+      vi.spyOn(TestBed.inject(ObservationService), 'getObservationByLocation').mockReturnValue(pending);
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      TestBed.inject(FilterStateService).selectedCategoryIds.set([12]);
+      await fixture.whenStable();
+      expect(component.showObservationList()).toBe(false);
+      expect(component.observationSelection()).toBeNull();
+      expect(pending.observed).toBe(false);
+    });
   });
 
   describe('applyGeoJsonToLayer', () => {
@@ -765,7 +838,7 @@ describe('MapComponent', () => {
 
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
-        zoomControl?: { getMap: () => { getView: () => { getZoom: () => number; fit: (e: unknown, o: unknown) => void; animate: (o: unknown) => void } } | null };
+        zoomControl?: { getMap: () => { getView: () => { getZoom: () => number; getProjection: () => string; fit: (e: unknown, o: unknown) => void; animate: (o: unknown) => void } } | null };
         locationClick$: Subject<number[]>;
       };
 
@@ -776,7 +849,7 @@ describe('MapComponent', () => {
     const setupView = (zoom: number) => {
       fitSpy = vi.fn<(e: unknown, o: unknown) => void>();
       animateSpy = vi.fn<(o: unknown) => void>();
-      accessPrivate(component).zoomControl = { getMap: () => ({ getView: () => ({ getZoom: () => zoom, fit: fitSpy, animate: animateSpy }) }) };
+      accessPrivate(component).zoomControl = { getMap: () => ({ getView: () => ({ getZoom: () => zoom, getProjection: () => MAP_CONFIG.projection, fit: fitSpy, animate: animateSpy }) }) };
       clickedIds = [];
       accessPrivate(component).locationClick$.subscribe((ids) => clickedIds.push(ids));
     };

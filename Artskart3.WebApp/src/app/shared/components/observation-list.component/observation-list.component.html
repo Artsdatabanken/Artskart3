@@ -1,40 +1,47 @@
-<div class="observation-list">
-  <div class="header">
-    <div class="click-coordinates">UTM33 {{ clickCoordinates().join(", ") }}</div>
-    <div class="observation-count">{{ 'observationList.registrations' | translate: {number: observationList().length} }} </div>
-    <adb-dropdown class="filter" variant="tertiary" icon="sort" label="{{ 'observationList.' + currentFilter() | translate }}">
-      @for (filter of filters; track filter)
-      {
-        <adb-dropdown-item [attr.value]="filter" (click)="setFilter(filter)" [selected]="filter === currentFilter()">{{ 'observationList.' + filter | translate}}</adb-dropdown-item>
-      }
-    </adb-dropdown>
-  </div>
-  @if(this.topLevelFilter().length === 0) {
-    <div>
-      {{ 'listView.noResults' | translate }}
+<section class="observation-list" [attr.aria-label]="'observationList.title' | translate">
+  <header class="header">
+    <div class="geometry" [attr.title]="selection().geometryLabel">
+      {{ 'observationList.' + selection().kind | translate }}: {{ selection().geometryLabel }}
     </div>
-  }
-  @for (topLevelGroup of topLevelFilter(); track topLevelGroup.groupKeyId) {
-    <adb-accordion>
-      <adb-accordion-item [attr.heading]="topLevelGroup.groupKeyId">
-        @for (registrationType of topLevelGroup.registrationTypes; track registrationType.registrationKeyId) {
-          <adb-accordion>
-            <adb-accordion-item [attr.heading]="registrationType.registrationKeyId">
-              @for (species of registrationType.species; track species.speciesKeyId) {
-                <adb-accordion>
-                  <adb-accordion-item [attr.heading]="species.speciesKeyId">
-                    @for (registration of species.registrations; track $index) {
-                      <div>
-                        {{registration}}
-                      </div>
-                    }
-                  </adb-accordion-item>
-                </adb-accordion>
-              }
-            </adb-accordion-item>
-          </adb-accordion>
+    @if (selection().kind === 'selection') {
+      <div><strong>{{ 'observationList.selection' | translate }}</strong></div>
+    } @else if (location(); as place) {
+      @if (place.name || place.areas) {
+        <div><strong>{{ place.name }}</strong>{{ place.name && place.areas ? ', ' : '' }}{{ place.areas }}</div>
+      }
+    }
+    @if (requestState() === 'ready') {
+      <div>{{ 'observationList.registrations' | translate: { number: observationList().length } }}</div>
+    }
+    <div class="filter">
+      <button type="button" class="grouping-trigger" ngMenuTrigger [menu]="groupingMenu">
+        <adb-icon name="sort" />
+        <span>{{ 'observationList.' + currentFilter() | translate }}</span>
+      </button>
+      <div ngMenu #groupingMenu="ngMenu" class="grouping-menu" [hidden]="!groupingMenu.visible()"
+        [attr.aria-label]="'observationList.grouping' | translate" (itemSelected)="setGrouping($event)">
+        @for (filter of filters; track filter) {
+          <button type="button" ngMenuItem [value]="filter" role="menuitemradio" [attr.aria-checked]="filter === currentFilter()">
+            {{ 'observationList.' + filter | translate }}
+          </button>
         }
-      </adb-accordion-item>
-    </adb-accordion>
+      </div>
+    </div>
+  </header>
+  @switch (requestState()) {
+    @case ('loading') {
+      <p role="status">{{ 'observationList.loading' | translate }}</p>
+    }
+    @case ('error') {
+      <p role="alert">{{ 'observationList.error' | translate }}</p>
+      <button type="button" class="retry" (click)="retry.emit()">{{ 'observationList.retry' | translate }}</button>
+    }
+    @case ('ready') {
+      @if (groups().length) {
+        <app-observation-tree [nodes]="groups()" [resetKey]="resetKey()" />
+      } @else {
+        <p role="status">{{ 'listView.noResults' | translate }}</p>
+      }
+    }
   }
-</div>
+</section>

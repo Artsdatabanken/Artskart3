@@ -1,12 +1,4 @@
-import {
-  Component,
-  CUSTOM_ELEMENTS_SCHEMA,
-  DestroyRef,
-  inject,
-  signal,
-  computed,
-  linkedSignal,
-} from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, signal, computed, linkedSignal } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -26,13 +18,21 @@ import { FilterStateService, ImageFilterOption } from '../../services/filter-sta
 import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
 import { SpeciesSearchComponent } from '../species-search/species-search.component';
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 1;
 
 @Component({
   selector: 'app-sidebar',
-  imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
+  imports: [
+    TranslateModule,
+    FormatNumberPipe,
+    FilterChipsComponent,
+    SpeciesSearchComponent,
+    TaxonTreeComponent,
+    RiskCategoryBadgeComponent,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',

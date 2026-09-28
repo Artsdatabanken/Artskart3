@@ -1442,6 +1442,10 @@ export interface components {
         ObservationListInfoDto: {
             /** Format: int32 */
             id?: number;
+            /** Format: int32 */
+            taxonId?: number;
+            /** Format: date-time */
+            dateTimeCollected?: null | string;
             preferredPopularName?: null | string;
             scientificName?: null | string;
             displayName?: string;
@@ -1452,10 +1456,16 @@ export interface components {
             /** Format: int32 */
             categoryId?: null | number;
             categoryName?: null | string;
+            categoryCode?: null | string;
+            /** Format: int32 */
+            categoryTypeId?: null | number;
             institutionId?: null | string;
             institutionName?: null | string;
             /** Format: int32 */
             locationId?: null | number;
+            locality?: null | string;
+            municipalityName?: null | string;
+            countyName?: null | string;
             registrationType?: null | string[];
             collector?: null | string;
         };
