@@ -1,10 +1,15 @@
 export class AbbreviateNumberHelper {
-  static format(num: number): string {
+  static format(num: number, lang?: string): string {
+    const isNorwegian = lang === 'no';
+    const decimalSeparator = isNorwegian ? ',' : '.';
+    const unitSeparator = isNorwegian ? ' ' : '';
     if (num >= 1000000) {
-      return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      const value = (num / 1000000).toFixed(1).replace(/\.0$/, '');
+      return `${value.replace('.', decimalSeparator)}${unitSeparator}M`;
     }
     if (num >= 1000) {
-      return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      const value = (num / 1000).toFixed(1).replace(/\.0$/, '');
+      return `${value.replace('.', decimalSeparator)}${unitSeparator}k`;
     }
     return String(num);
   }
