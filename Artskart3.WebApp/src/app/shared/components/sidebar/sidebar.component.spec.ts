@@ -5,6 +5,8 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { TranslateModule } from '@ngx-translate/core';
 import { SidebarComponent } from './sidebar.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { By } from '@angular/platform-browser';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 describe('SidebarComponent', () => {
   let component: SidebarComponent;
@@ -81,6 +83,12 @@ describe('SidebarComponent', () => {
     await flushAll();
     const accordion = fixture.nativeElement.querySelector('adb-accordion');
     expect(accordion).toBeTruthy();
+  });
+
+  it('renders red-list and alien-species categories with the shared badge', async () => {
+    await flushAll();
+    const badges = fixture.debugElement.queryAll(By.directive(RiskCategoryBadgeComponent));
+    expect(badges.map((badge) => badge.injector.get(RiskCategoryBadgeComponent).code())).toEqual(['CR', 'SE']);
   });
 
   it('should set accordion heading from translation key', async () => {
