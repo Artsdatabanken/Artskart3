@@ -1,4 +1,11 @@
-import { createMap, MapEvents, MapEventPayload, NbicMapComponent, nbicMapPresets } from '@artsdatabanken/nbic-map-component';
+import {
+  createMap,
+  MapEvents,
+  MapEventPayload,
+  NbicMapComponent,
+  nbicMapPresets,
+} from '@artsdatabanken/nbic-map-component';
+import { Style, Circle as CircleStyle, Fill, Stroke, Text } from 'ol/style';
 import {
   AfterViewInit,
   Component,
@@ -19,6 +26,8 @@ import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.s
 import { LocationCountResult } from '@shared/types/api.types';
 import { AreaMarkerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
+import { LanguageService } from '@shared/services/languages/language.service';
 import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
@@ -101,6 +110,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly filterState = inject(FilterStateService);
   private readonly areaService = inject(AreaService);
   private readonly translate = inject(TranslateService);
+  private readonly languageService = inject(LanguageService);
   private readonly searchFilterService = inject(SearchFilterService);
 
   /**
@@ -317,19 +327,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private listenForLanguageChanges(): void {
-    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.zoomControl?.updateLabels({
-        zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-        zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+    this.translate.onLangChange
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.zoomControl?.updateLabels({
+          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+        });
+        this.fullscreenControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+        });
+        this.geolocationControl?.updateLabels({
+          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+        });
+        this.rebuildAllLayers();
       });
-      this.fullscreenControl?.updateLabels({
-        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-      });
-      this.geolocationControl?.updateLabels({
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-      });
-    });
   }
 
   private onMapReady(): void {
@@ -541,11 +554,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         keepSingleAsCluster: false,
         countField: 'observationCount',
         style: {
-          type: 'simple',
-          options: {
-            circle: { radius: 14, fillColor: '#005A71', strokeColor: '#D2DDE0', strokeWidth: 1.5 },
-            text: { fillColor: 'white', font: '10px Chivo, system-ui, sans-serif' },
-          },
+          type: 'raw',
+          options: { instance: this.createLocationClusterStyleFn() },
         },
       },
     });
@@ -558,6 +568,34 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndex: 90,
       zIndexPinned: true,
     });
+  }
+
+  private createLocationClusterStyleFn(): (feature: Feature) => Style {
+    const image = new CircleStyle({
+      radius: 17,
+      fill: new Fill({ color: '#005B72' }),
+      stroke: new Stroke({ color: 'white', width: 1 }),
+    });
+    const styleCache = new Map<string, Style>();
+
+    return (feature: Feature): Style => {
+      const members = (feature.get('features') as Feature[] | undefined) ?? [];
+      const total = members.reduce((sum, member) => {
+        const value = Number(member.get('observationCount'));
+        return sum + (Number.isFinite(value) ? value : 1);
+      }, 0) || members.length || 1;
+      const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
+
+      let style = styleCache.get(label);
+      if (!style) {
+        style = new Style({
+          image,
+          text: new Text({ text: label, font: 'bold 12px sans-serif', fill: new Fill({ color: 'white' }) }),
+        });
+        styleCache.set(label, style);
+      }
+      return style;
+    };
   }
 
   private setupCameraChangePipeline(): void {
