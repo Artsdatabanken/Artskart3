@@ -7,7 +7,12 @@ import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import { ObservationTreeComponent } from '../observation-tree/observation-tree.component';
 import {
-  buildObservationTree, hasUnknownCategory, ObservationGrouping, ObservationRequestState, ObservationSelection,
+  buildObservationTree,
+  hasUnknownCategory,
+  observationTreeIds,
+  ObservationGrouping,
+  ObservationRequestState,
+  ObservationSelection,
 } from './observation-list.model';
 
 @Component({
@@ -22,6 +27,7 @@ export class ObservationListComponent {
   readonly selection = input.required<ObservationSelection>();
   readonly requestState = input<ObservationRequestState>('ready');
   readonly retry = output<void>();
+  readonly observationActivated = output<number>();
   readonly filters: ObservationGrouping[] = ['taxonGroup', 'location', 'redList', 'alienSpecies'];
   readonly currentFilter = signal<ObservationGrouping>('taxonGroup');
 
@@ -33,12 +39,15 @@ export class ObservationListComponent {
   readonly groups = computed(() => {
     const language = this.languageChange()?.lang ?? this.translate.getCurrentLang();
     return buildObservationTree(
-      this.observationList(), this.currentFilter(), language,
+      this.observationList(),
+      this.currentFilter(),
+      language,
       (key) => this.translate.instant(key),
       (date) => this.datePipe.transform(date, language),
     );
   });
   readonly resetKey = computed(() => `${this.selection().key}/${this.currentFilter()}`);
+  readonly orderedObservationIds = computed(() => observationTreeIds(this.groups()));
   readonly location = computed(() => {
     if (this.selection().locationIds.length !== 1) return null;
     const observations = this.observationList();
@@ -52,7 +61,12 @@ export class ObservationListComponent {
   constructor() {
     effect(() => {
       const unknown = this.observationList().filter(hasUnknownCategory);
-      if (unknown.length) this.logger.warn('Unknown observation assessment metadata', 'ObservationList', unknown.map((o) => o.id));
+      if (unknown.length)
+        this.logger.warn(
+          'Unknown observation assessment metadata',
+          'ObservationList',
+          unknown.map((o) => o.id),
+        );
     });
   }
 

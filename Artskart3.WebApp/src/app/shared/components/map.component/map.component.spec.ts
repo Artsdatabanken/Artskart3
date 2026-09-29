@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideTranslateService } from '@ngx-translate/core';
+import { provideRouter } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
 
 import { NbicMapComponent } from '@artsdatabanken/nbic-map-component';
@@ -18,6 +19,78 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ObservationListInfoDto } from '@shared/types/api.types';
+import { SharedMapService } from '@shared/services/shared-map.service';
+
+describe('MapComponent lifecycle', () => {
+  let fixture: ComponentFixture<MapComponent>;
+  let component: MapComponent;
+  const lifecycle = () =>
+    component as unknown as {
+      initializeMap(): void;
+      onMapReady(): void;
+    };
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    await TestBed.configureTestingModule({
+      imports: [MapComponent],
+      providers: [provideTranslateService(), provideRouter([]), { provide: SharedMapService, useValue: { getNibToken: () => '' } }],
+    }).compileComponents();
+    fixture = TestBed.createComponent(MapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('still initializes once after the configured delay while alive', () => {
+    const initialize = vi.spyOn(lifecycle(), 'initializeMap').mockImplementation(() => undefined);
+    vi.advanceTimersByTime(MAP_CONFIG.initDelay - 1);
+    expect(initialize).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(initialize).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(MAP_CONFIG.initDelay);
+    expect(initialize).toHaveBeenCalledOnce();
+  });
+
+  it('cancels pending initialization when destroyed before the delay expires', async () => {
+    const initialize = vi.spyOn(lifecycle(), 'initializeMap');
+    const emit = vi.spyOn(component.mapReadyAction, 'emit');
+    const warn = vi.spyOn(console, 'warn');
+    fixture.destroy();
+    await vi.advanceTimersByTimeAsync(MAP_CONFIG.initDelay + 100);
+    expect(initialize).not.toHaveBeenCalled();
+    expect(component.map).toBeUndefined();
+    expect(emit).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
+  });
+
+  it('ignores late initialization and ready callbacks after destruction', () => {
+    const emit = vi.spyOn(component.mapReadyAction, 'emit');
+    const warn = vi.spyOn(console, 'warn');
+    fixture.destroy();
+    lifecycle().initializeMap();
+    lifecycle().onMapReady();
+    expect(component.map).toBeUndefined();
+    expect(emit).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
+  });
+
+  it('disposes an initialized map without reactivating it on a late ready callback', () => {
+    const map = { destroy: vi.fn(), activateHoverInfo: vi.fn() };
+    Object.assign(component, { map });
+    const emit = vi.spyOn(component.mapReadyAction, 'emit');
+    fixture.destroy();
+    lifecycle().onMapReady();
+    expect(map.destroy).toHaveBeenCalledOnce();
+    expect(map.activateHoverInfo).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+});
 
 describe('MapComponent', () => {
   let component: MapComponent;
@@ -27,9 +100,8 @@ describe('MapComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MapComponent, MapToolbarComponent],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
-      providers: [provideTranslateService()]
-    })
-    .compileComponents();
+      providers: [provideTranslateService(), provideRouter([])],
+    }).compileComponents();
 
     fixture = TestBed.createComponent(MapComponent);
     component = fixture.componentInstance;
@@ -40,12 +112,67 @@ describe('MapComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  describe('observation highlighting', () => {
+    it.each([true, false])('updates and clears only the highlight with an OL view available: %s', async (withView) => {
+      const map = { updateGeoJSONLayer: vi.fn(), setCenter: vi.fn(), setZoom: vi.fn() };
+      const view = { centerOn: vi.fn(), setCenter: vi.fn(), setZoom: vi.fn(), animate: vi.fn(), fit: vi.fn() };
+      Object.assign(component, {
+        map,
+        mapReady: true,
+        mapVisible: true,
+        zoomControl: withView ? { getMap: () => ({ getView: () => view, getSize: () => [1000, 800] }) } : undefined,
+      });
+
+      for (const [east, north] of [
+        [353063, 7201367],
+        [400000, 7300000],
+      ]) {
+        component.highlightObservation({ east, north });
+        await fixture.whenStable();
+        expect(map.updateGeoJSONLayer).toHaveBeenLastCalledWith(
+          'observation-details-highlight',
+          JSON.stringify({
+            type: 'FeatureCollection',
+            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [east, north] }, properties: {} }],
+          }),
+          { mode: 'replace', dataProjection: 'EPSG:25833' },
+        );
+      }
+
+      component.highlightObservation(null);
+      await fixture.whenStable();
+      expect(map.updateGeoJSONLayer).toHaveBeenLastCalledWith(
+        'observation-details-highlight',
+        '{"type":"FeatureCollection","features":[]}',
+        { mode: 'replace', dataProjection: 'EPSG:25833' },
+      );
+      expect(map.setCenter).not.toHaveBeenCalled();
+      expect(map.setZoom).not.toHaveBeenCalled();
+      for (const cameraAction of Object.values(view)) expect(cameraAction).not.toHaveBeenCalled();
+    });
+
+    it('waits for a ready, visible map before updating the highlight', () => {
+      const updateGeoJSONLayer = vi.fn();
+      Object.assign(component, { map: { updateGeoJSONLayer }, mapReady: false, mapVisible: true });
+      const point = { east: 353063, north: 7201367 };
+      component.highlightObservation(point);
+      expect(updateGeoJSONLayer).not.toHaveBeenCalled();
+      Object.assign(component, { mapReady: true, mapVisible: false });
+      component.highlightObservation(point);
+      expect(updateGeoJSONLayer).not.toHaveBeenCalled();
+      Object.assign(component, { mapVisible: true });
+      component.highlightObservation(point);
+      expect(updateGeoJSONLayer).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('observation selection', () => {
-    const access = () => component as unknown as {
-      handleLocationClick: (payload: unknown) => void;
-      setupObservationRequests: () => void;
-      locationClick$: Subject<number[]>;
-    };
+    const access = () =>
+      component as unknown as {
+        handleLocationClick: (payload: unknown) => void;
+        setupObservationRequests: () => void;
+        locationClick$: Subject<number[]>;
+      };
     const point = (id: number) => new Feature({ geometry: new Point([353063, 7201367]), id });
     const click = (features: { layerId: string; feature: Feature }[]) =>
       access().handleLocationClick({ features, clickCoordinate: [353000, 7201300] });
