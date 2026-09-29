@@ -9,6 +9,7 @@ import { Style, Circle as CircleStyle, Fill, Stroke, Text } from 'ol/style';
 import {
   AfterViewInit,
   Component,
+  DestroyRef,
   ElementRef,
   output,
   ViewChild,
@@ -18,6 +19,7 @@ import {
   effect,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
@@ -48,10 +50,10 @@ import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
-import { ObservationListComponent } from '@shared/components/observation-list.component/observation-list.component';
+import { ObservationPanelComponent } from '../observation-panel/observation-panel.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
-import { ObservationListInfoDto } from '@shared/types/api.types';
-import {SearchFilterService} from '@shared/services/search-filter/search-filter.service';
+import { ObservationListInfoDto, ObservationPointDto } from '@shared/types/api.types';
+import { SearchFilterService } from '@shared/services/search-filter/search-filter.service';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
@@ -59,13 +61,18 @@ import TileWMS from 'ol/source/TileWMS';
 
 @Component({
   selector: 'app-map',
-  imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, ObservationPanelComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
+  readonly detailsOpened = output<void>();
+  readonly observationPanel = viewChild(ObservationPanelComponent);
+  private activeObservationPoint: ObservationPointDto | null = null;
+  private observationFilterInitialized = false;
+  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';
   private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
@@ -95,6 +102,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private lastValidExtent: [number, number, number, number] | null = null;
   private mapVisible = true;
   private visibilityObserver?: ResizeObserver;
+  private initializationTimer?: ReturnType<typeof setTimeout>;
 
   private readonly pendingAreaDataRequests = signal(0);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
@@ -121,6 +129,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly translate = inject(TranslateService);
   private readonly languageService = inject(LanguageService);
   private readonly searchFilterService = inject(SearchFilterService);
+  private readonly destroyRef = inject(DestroyRef);
 
   /**
    * Observasjonsattributtfiltre som påvirker antall per område.
@@ -203,7 +212,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private readonly _onObservationFilterChange = effect(() => {
     this.searchFilterService.observationFilter();
-    untracked(() => this.closeObservationList());
+    untracked(() => {
+      this.closeObservationList(this.observationFilterInitialized);
+      this.observationFilterInitialized = true;
+    });
   });
 
   private readonly locationCountResult = signal<LocationCountResult | null>(null);
@@ -216,12 +228,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private locationCountPending = false;
 
   ngAfterViewInit(): void {
-    setTimeout(() => this.initializeMap(), MAP_CONFIG.initDelay);
+    this.initializationTimer = setTimeout(() => {
+      this.initializationTimer = undefined;
+      this.initializeMap();
+    }, MAP_CONFIG.initDelay);
   }
 
   private initializeMap(): void {
     try {
-      if (!this.mapEl?.nativeElement) return;
+      if (this.destroyRef.destroyed || !this.mapEl?.nativeElement) return;
 
       this.map = createMap(this.mapEl.nativeElement, {
         version: 1,
@@ -255,32 +270,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private setupObservationRequests(): void {
-    this.locationClick$.pipe(
-      tap(() => {
-        this.observationList.set([]);
-        this.observationRequestState.set('loading');
-        this.showObservationList.set(true);
-      }),
-      switchMap((ids) => this.observationService.getObservationByLocation(ids, this.searchFilterService.observationFilter()).pipe(
-        takeUntil(this.observationDismiss$),
-        catchError((err: unknown) => {
-          this.logger.error('Failed to fetch observations for locations', 'MapComponent', err);
-          this.observationRequestState.set('error');
-          return EMPTY;
+    this.locationClick$
+      .pipe(
+        tap(() => {
+          this.observationList.set([]);
+          this.observationRequestState.set('loading');
+          this.showObservationList.set(true);
         }),
-      )),
-      takeUntil(this.destroy$),
-    ).subscribe((observations) => {
-      this.observationList.set(observations);
-      this.observationRequestState.set('ready');
-    });
+        switchMap((ids) =>
+          this.observationService.getObservationByLocation(ids, this.searchFilterService.observationFilter()).pipe(
+            takeUntil(this.observationDismiss$),
+            catchError((err: unknown) => {
+              this.logger.error('Failed to fetch observations for locations', 'MapComponent', err);
+              this.observationRequestState.set('error');
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((observations) => {
+        this.observationList.set(observations);
+        this.observationRequestState.set('ready');
+      });
   }
 
-  closeObservationList(): void {
+  closeObservationList(dismissDetails = true): void {
+    if (dismissDetails) this.observationPanel()?.dismiss(true);
     this.observationDismiss$.next();
     this.showObservationList.set(false);
     this.observationSelection.set(null);
     this.observationList.set([]);
+  }
+
+  highlightObservation(point: ObservationPointDto | null): void {
+    this.activeObservationPoint = point;
+    if (!this.mapReady || !this.mapVisible) return;
+    const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
+    this.map.updateGeoJSONLayer(
+      this.OBSERVATION_HIGHLIGHT_ID,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: coordinates ? [{ type: 'Feature', geometry: { type: 'Point', coordinates }, properties: {} }] : [],
+      }),
+      { mode: 'replace', dataProjection: 'EPSG:25833' },
+    );
   }
 
   retryObservations(): void {
@@ -379,11 +413,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private onMapReady(): void {
+    if (this.destroyRef.destroyed) return;
     this.mapReady = true;
     this.mapReadyAction.emit(true);
     if (!this.map) return;
     this.map.activateHoverInfo();
     this.setupAreaMarkerLayers();
+    this.highlightObservation(this.activeObservationPoint);
     this.setupMarkerCursor();
     this.setupCountsFetchPipeline();
     this.setupLocationsFetchPipeline();
@@ -544,6 +580,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupAreaMarkerLayers(): void {
     this.map.addLayer({
+      id: this.OBSERVATION_HIGHLIGHT_ID,
+      kind: 'vector',
+      source: { type: 'memory' },
+      pickable: false,
+      zIndex: 110,
+      zIndexPinned: true,
+      style: { type: 'simple', options: { circle: { radius: 11, fillColor: '#005A71', strokeColor: '#F8AE00', strokeWidth: 5 } } },
+    });
+    this.map.addLayer({
       id: this.COUNTIES_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
@@ -702,7 +747,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (visible === this.mapVisible) return;
       this.mapVisible = visible;
       if (visible) {
-        requestAnimationFrame(() => this.cameraChanged$.next());
+        requestAnimationFrame(() => {
+          if (this.destroyRef.destroyed) return;
+          this.highlightObservation(this.activeObservationPoint);
+          this.cameraChanged$.next();
+        });
       }
     });
     this.visibilityObserver.observe(el);
@@ -834,17 +883,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
     const projection = this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection;
     const polygon = features.find(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)?.feature;
-    const singleFeature = ids.length === 1 ? polygon ?? memberGroups.flat()[0] : undefined;
+    const singleFeature = ids.length === 1 ? (polygon ?? memberGroups.flat()[0]) : undefined;
     const geometry = singleFeature?.getGeometry();
     const isPolygon = geometry?.getType() === 'Polygon' || geometry?.getType() === 'MultiPolygon';
     const point = geometry instanceof Point ? geometry.getCoordinates() : payload.clickCoordinate;
+    this.observationPanel()?.dismiss(true);
     this.observationSelection.set({
       key: ++this.selectionGeneration,
       locationIds: ids,
       kind: ids.length > 1 ? 'selection' : isPolygon ? 'polygon' : 'point',
-      geometryLabel: isPolygon && geometry
-        ? new WKT().writeGeometry(geometry, { featureProjection: projection, dataProjection: 'EPSG:25833', decimals: 0 })
-        : `UTM33 ${transform(point, projection, 'EPSG:25833').map((coordinate) => Math.round(coordinate)).join(', ')}`,
+      geometryLabel:
+        isPolygon && geometry
+          ? new WKT().writeGeometry(geometry, { featureProjection: projection, dataProjection: 'EPSG:25833', decimals: 0 })
+          : `UTM33 ${transform(point, projection, 'EPSG:25833')
+              .map((coordinate) => Math.round(coordinate))
+              .join(', ')}`,
     });
     this.locationClick$.next(ids);
   }
@@ -1235,6 +1288,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private cleanup(): void {
+    clearTimeout(this.initializationTimer);
+    this.initializationTimer = undefined;
+    this.mapReady = false;
+    this.activeObservationPoint = null;
     this.destroy$.next();
     this.destroy$.complete();
     this.visibilityObserver?.disconnect();
