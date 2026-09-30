@@ -253,6 +253,7 @@
   "mapSearch": {
     "placeSearchPlaceholder": "Søk etter stedsnavn",
     "searchResults": "Søkeresultater for stedsnavn",
+    "searchResultsAnnouncement": "Treff: {{count}}",
     "noSearchResults": "Ingen treff"
   },
   "design": {

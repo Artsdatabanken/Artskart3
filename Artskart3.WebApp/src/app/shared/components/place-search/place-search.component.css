@@ -7,25 +7,41 @@
   width: min(400px, 90vw);
 }
 
-.place-search-field {
+.search-field {
   width: 100%;
 }
 
-.place-autocomplete-list {
-  margin: var(--adb-spacing-3xsm) 0 0 0;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Autocomplete dropdown */
+.autocomplete-list {
+  position: fixed;
+  margin: 0;
   padding: 0;
   list-style: none;
-  width: 100%;
+  width: max-content;
+  max-width: min(600px, 90vw);
   background: var(--adb-surface-base-primary);
   border: 1px solid var(--adb-border-base-primary);
   border-radius: var(--adb-border-radius);
   box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
   max-height: 300px;
   overflow-y: auto;
+  z-index: 1000;
   color: var(--adb-text-accent-primary);
 }
 
-.place-autocomplete-item {
+.autocomplete-item {
   display: flex;
   flex-direction: row;
   align-items: baseline;
@@ -34,26 +50,35 @@
   cursor: pointer;
 }
 
-.place-autocomplete-item:hover {
+.autocomplete-item:hover {
   background: var(--adb-background-secondary);
 }
 
-.place-name {
+.autocomplete-item--active {
+  background: var(--adb-background-secondary);
+  outline: 2px solid var(--adb-border-base-strong);
+  outline-offset: -2px;
+}
+
+.autocomplete-name {
   font-weight: 600;
   font-size: var(--adb-font-size-4);
 }
 
-.place-type {
+.autocomplete-type {
   font-size: var(--adb-font-size-2);
   color: var(--adb-text-base-secondary);
 }
 
-.place-municipality {
+.autocomplete-location {
   font-size: var(--adb-font-size-2);
   color: var(--adb-text-base-secondary);
   margin-left: auto;
 }
 
-.place-autocomplete-no-results {
+.autocomplete-no-results {
   padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+  font-size: var(--adb-font-size-4);
+  color: var(--adb-text-base-secondary);
+  font-style: italic;
 }

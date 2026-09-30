@@ -253,6 +253,7 @@
   "mapSearch": {
     "placeSearchPlaceholder": "Search for place names",
     "searchResults": "Place search results",
+    "searchResultsAnnouncement": "Results: {{count}}",
     "noSearchResults": "No results"
   },
   "design": {
