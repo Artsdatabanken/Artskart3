@@ -5,7 +5,8 @@ import {
   NbicMapComponent,
   nbicMapPresets,
 } from '@artsdatabanken/nbic-map-component';
-import { Style, Circle as CircleStyle, Fill, Stroke, Text } from 'ol/style';
+import type { Style } from 'ol/style';
+import type { FeatureLike } from 'ol/Feature';
 import {
   AfterViewInit,
   Component,
@@ -58,6 +59,7 @@ import { ObservationRequestState, ObservationSelection } from '../observation-li
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
 @Component({
   selector: 'app-map',
@@ -81,6 +83,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private featureStyles?: MapFeatureStyles;
+  private hoveredLocationIds = new Set<number>();
+  private hoveredAreaKey: string | null = null;
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -209,6 +214,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   public observationList = signal<ObservationListInfoDto[]>([]);
   readonly observationSelection = signal<ObservationSelection | null>(null);
   readonly observationRequestState = signal<ObservationRequestState>('ready');
+  private readonly selectedLocationIds = computed(
+    () => new Set(this.showObservationList() ? (this.observationSelection()?.locationIds ?? []) : []),
+  );
+  private readonly _redrawSelection = effect(() => {
+    this.selectedLocationIds();
+    untracked(() => this.redrawLocationStyles());
+  });
 
   private readonly _onObservationFilterChange = effect(() => {
     this.searchFilterService.observationFilter();
@@ -238,6 +250,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     try {
       if (this.destroyRef.destroyed || !this.mapEl?.nativeElement) return;
 
+      this.featureStyles = new MapFeatureStyles(getComputedStyle(this.mapEl.nativeElement));
       this.map = createMap(this.mapEl.nativeElement, {
         version: 1,
         id: MAP_CONFIG.mapId,
@@ -408,6 +421,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
           deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
         });
+        this.featureStyles?.clearMarkerCache();
+        this.redrawLocationStyles();
         this.rebuildAllLayers();
       });
   }
@@ -417,7 +432,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.mapReady = true;
     this.mapReadyAction.emit(true);
     if (!this.map) return;
-    this.map.activateHoverInfo();
     this.setupAreaMarkerLayers();
     this.highlightObservation(this.activeObservationPoint);
     this.setupMarkerCursor();
@@ -525,6 +539,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!olMap) return;
 
     this.markerCursorKey = olMap.on('pointermove', (evt) => {
+      if (evt.dragging) {
+        this.clearMarkerHover();
+        return;
+      }
+      this.updateMarkerHover(olMap, evt.pixel);
       const cursor = this.resolveCursorAtPixel(olMap, evt.pixel);
       const target = olMap.getTargetElement();
       if (cursor) {
@@ -535,6 +554,89 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.markerCursorActive = false;
       }
     });
+    this.markerMoveStartKey = olMap.on('movestart', () => this.clearMarkerHover());
+    this.markerViewport = olMap.getViewport();
+    this.markerViewport.addEventListener('pointerleave', this.clearMarkerHover);
+  }
+
+  private updateMarkerHover(olMap: OlMap, pixel: Pixel): void {
+    let areaKey: string | null = null;
+    let locationIds: number[] = [];
+    olMap.forEachFeatureAtPixel(
+      pixel,
+      (feature, layer) => {
+        const layerId: unknown = layer?.get('id');
+        if (layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID) {
+          locationIds = this.locationIdsForFeature(feature);
+          return true;
+        }
+        if (typeof layerId === 'string' && feature.getGeometry()?.getType() === 'Point' && feature.get('centroid')) {
+          areaKey = this.areaMarkerKey(layerId, feature);
+          return true;
+        }
+        return undefined;
+      },
+      { hitTolerance: 5, layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) },
+    );
+    this.setMarkerHover(locationIds, areaKey);
+  }
+
+  private isInteractiveLayer(id: unknown): boolean {
+    return (
+      id === this.COUNTIES_LAYER_ID ||
+      id === this.MUNICIPALITIES_LAYER_ID ||
+      id === this.LOCATIONS_LAYER_ID ||
+      id === this.LOCATION_POLYGONS_LAYER_ID
+    );
+  }
+
+  private setMarkerHover(locationIds: number[], areaKey: string | null): void {
+    const ids = new Set(locationIds);
+    if (
+      areaKey === this.hoveredAreaKey &&
+      ids.size === this.hoveredLocationIds.size &&
+      [...ids].every((id) => this.hoveredLocationIds.has(id))
+    ) return;
+
+    const areaChanged = areaKey !== this.hoveredAreaKey;
+    this.hoveredLocationIds = ids;
+    this.hoveredAreaKey = areaKey;
+    this.redrawLocationStyles();
+    if (areaChanged && this.mapReady && this.featureStyles) {
+      this.map.getLayerById(this.COUNTIES_LAYER_ID)?.changed();
+      this.map.getLayerById(this.MUNICIPALITIES_LAYER_ID)?.changed();
+    }
+  }
+
+  private readonly clearMarkerHover = (): void => {
+    this.setMarkerHover([], null);
+    if (this.markerCursorActive) {
+      const target = this.zoomControl?.getMap()?.getTargetElement();
+      if (target) target.style.cursor = '';
+      this.markerCursorActive = false;
+    }
+  };
+
+  private redrawLocationStyles(): void {
+    if (!this.mapReady || !this.featureStyles) return;
+    this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
+    this.map.getLayerById(this.LOCATION_POLYGONS_LAYER_ID)?.changed();
+  }
+
+  private locationIdsForFeature(feature: FeatureLike): number[] {
+    const members: unknown = feature.get('features');
+    const features = Array.isArray(members) ? members.filter((member): member is Feature => member instanceof Feature) : [feature];
+    return features.map((member): unknown => member.get('id')).filter((id): id is number => typeof id === 'number' && Number.isFinite(id));
+  }
+
+  private locationFeatureState(feature: FeatureLike): MapFeatureState {
+    const ids = this.locationIdsForFeature(feature);
+    if (ids.some((id) => this.selectedLocationIds().has(id))) return 'selected';
+    return ids.some((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+  }
+
+  private areaMarkerKey(layerId: string, feature: FeatureLike): string {
+    return `${layerId}/${feature.get('fid') ?? feature.get('id')}`;
   }
 
   private resolveCursorAtPixel(olMap: OlMap, pixel: Pixel): string {
@@ -563,12 +665,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         hitTolerance: 5,
         layerFilter: (layer) => {
           const id = layer?.get('id') as string | undefined;
-          return (
-            id === this.COUNTIES_LAYER_ID ||
-            id === this.MUNICIPALITIES_LAYER_ID ||
-            id === this.LOCATIONS_LAYER_ID ||
-            id === this.LOCATION_POLYGONS_LAYER_ID
-          );
+          return this.isInteractiveLayer(id);
         },
       },
     );
@@ -576,9 +673,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private markerCursorKey?: EventsKey;
+  private markerMoveStartKey?: EventsKey;
+  private markerViewport?: HTMLElement;
   private markerCursorActive = false;
 
   private setupAreaMarkerLayers(): void {
+    const styles = this.featureStyles;
+    if (!styles) throw new Error('Map feature styles must be initialized before adding layers');
     this.map.addLayer({
       id: this.OBSERVATION_HIGHLIGHT_ID,
       kind: 'vector',
@@ -586,7 +687,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: false,
       zIndex: 110,
       zIndexPinned: true,
-      style: { type: 'simple', options: { circle: { radius: 11, fillColor: '#005A71', strokeColor: '#F8AE00', strokeWidth: 5 } } },
+      style: { type: 'raw', options: { instance: () => styles.marker('observation', 'selected') } },
     });
     this.map.addLayer({
       id: this.COUNTIES_LAYER_ID,
@@ -596,6 +697,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndex: 50,
       zIndexPinned: true,
       maxZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
+      style: this.areaMarkerStyle(this.COUNTIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
@@ -607,6 +709,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
       maxZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
+      style: this.areaMarkerStyle(this.MUNICIPALITIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
@@ -626,14 +729,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 100,
       zIndexPinned: true,
+      style: {
+        type: 'raw',
+        options: { instance: (feature: FeatureLike) => styles.marker('location', this.locationFeatureState(feature)) },
+      },
       cluster: {
         enabled: true,
-        distance: 40,
-        keepSingleAsCluster: false,
+        distance: 60,
+        keepSingleAsCluster: true,
         countField: 'observationCount',
         style: {
           type: 'raw',
-          options: { instance: this.createLocationClusterStyleFn() },
+          options: { instance: this.createLocationClusterStyleFn(styles) },
         },
       },
     });
@@ -645,18 +752,28 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 90,
       zIndexPinned: true,
+      style: { type: 'raw', options: { instance: (feature: FeatureLike) => styles.polygon(this.locationFeatureState(feature)) } },
     });
   }
 
-  private createLocationClusterStyleFn(): (feature: Feature) => Style {
-    const image = new CircleStyle({
-      radius: 17,
-      fill: new Fill({ color: '#005B72' }),
-      stroke: new Stroke({ color: 'white', width: 1 }),
-    });
-    const styleCache = new Map<string, Style>();
+  private areaMarkerStyle(layerId: string, styles: MapFeatureStyles) {
+    return {
+      type: 'raw' as const,
+      options: {
+        instance: (feature: FeatureLike) =>
+          feature.getGeometry()?.getType() === 'Point'
+            ? styles.marker(
+                'area',
+                this.hoveredAreaKey === this.areaMarkerKey(layerId, feature) ? 'hover' : 'default',
+                feature.get('observationCountDisplay'),
+              )
+            : undefined,
+      },
+    };
+  }
 
-    return (feature: Feature): Style => {
+  private createLocationClusterStyleFn(styles: MapFeatureStyles): (feature: Feature) => Style[] {
+    return (feature: Feature): Style[] => {
       const members = (feature.get('features') as Feature[] | undefined) ?? [];
       const total = members.reduce((sum, member) => {
         const value = Number(member.get('observationCount'));
@@ -664,15 +781,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       }, 0) || members.length || 1;
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
-      let style = styleCache.get(label);
-      if (!style) {
-        style = new Style({
-          image,
-          text: new Text({ text: label, font: 'bold 12px sans-serif', fill: new Fill({ color: 'white' }) }),
-        });
-        styleCache.set(label, style);
-      }
-      return style;
+      return styles.marker('cluster', this.locationFeatureState(feature), label);
     };
   }
 
@@ -746,6 +855,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const visible = width > 0 && height > 0;
       if (visible === this.mapVisible) return;
       this.mapVisible = visible;
+      if (!visible) this.clearMarkerHover();
       if (visible) {
         requestAnimationFrame(() => {
           if (this.destroyRef.destroyed) return;
@@ -758,6 +868,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private rebuildWithExtent(filter: LocationSearchFilter, extent: [number, number, number, number]): void {
+    this.clearMarkerHover();
     this.fetchGeneration++;
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
@@ -1031,6 +1142,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           const polygons$ = this.areasService.getLocationPolygons(extent, filter).pipe(
             tap((geojson) => {
               if (this.mapVisible && generation === this.fetchGeneration) {
+                this.clearMarkerHover();
                 this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
               }
             }),
@@ -1242,6 +1354,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // when the map becomes visible again (see setupVisibilityObserver).
     if (!this.map || !this.mapVisible) return;
 
+    this.clearMarkerHover();
     const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
     const layerId = isLocationPoints
       ? this.LOCATIONS_LAYER_ID
@@ -1296,6 +1409,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.destroy$.complete();
     this.visibilityObserver?.disconnect();
     if (this.markerCursorKey) unByKey(this.markerCursorKey);
+    if (this.markerMoveStartKey) unByKey(this.markerMoveStartKey);
+    this.markerViewport?.removeEventListener('pointerleave', this.clearMarkerHover);
+    this.clearMarkerHover();
+    this.featureStyles = undefined;
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
