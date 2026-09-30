@@ -1,5 +1,8 @@
 <div class="map-container">
-  <app-map-toolbar (iconClick)="onIconClick($event)"></app-map-toolbar>
+  <app-map-toolbar
+    (iconClick)="onIconClick($event)"
+    (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
+  ></app-map-toolbar>
   <div #mapEl class="map"></div>
   @if (showObservationList()) {
     <app-observation-list [observationList]="observationList()" [clickCoordinates]="clickCoordinates()"/>

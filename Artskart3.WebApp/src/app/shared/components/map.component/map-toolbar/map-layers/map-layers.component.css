@@ -1,0 +1,7 @@
+adb-checkbox {
+  margin-left: var(--adb-spacing-xsm, 4px);
+}
+
+.map-layers-empty {
+  color: var(--adb-text-base-secondary);
+}

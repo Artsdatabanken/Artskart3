@@ -18,6 +18,32 @@
   --home-open-gap: 24px;
 }
 
+.map-toolbar-menu-container {
+  position: relative;
+}
+
+.map-toolbar-menu-dropdown {
+  position: absolute;
+  top: calc(-20% + var(--adb-spacing-xsm, 8px));
+  right: 40px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-md, 12px);
+  padding: var(--adb-spacing-xsm, 8px);
+  background: var(--adb-surface-base-primary, white);
+  border: 1px solid var(--adb-border-base-subtle);
+  border-radius: var(--adb-border-radius-md, 8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+}
+
+.map-toolbar-menu-header {
+  width: 100%;
+  padding: 0 var(--adb-spacing-xsm, 8px);
+  color: var(--adb-text-base-primary);
+}
+
 /* ============================================================================
    RESET & BASE STYLES
    ============================================================================ */

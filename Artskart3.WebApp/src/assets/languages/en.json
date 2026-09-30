@@ -231,6 +231,8 @@
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",
+    "layersHeading": "Map layers",
+    "noLayers": "No map layers available",
     "filterAriaLabel": "Settings",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "My location",
@@ -247,6 +249,12 @@
       "landscape": "Landscape map",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
+    },
+    "mapLayers": {
+      "admGrenser": "Administrative boundaries",
+      "vern": "Protected areas",
+      "bioseksjoner": "Bioclimatic sections",
+      "biosoner": "Bioclimatic zones"
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
