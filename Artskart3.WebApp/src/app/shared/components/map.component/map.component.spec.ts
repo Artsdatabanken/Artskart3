@@ -84,6 +84,59 @@ describe('MapComponent', () => {
     });
   });
 
+  describe('onPlaceSelected', () => {
+    let animateSpy: ReturnType<typeof vi.fn<(opts: unknown) => void>>;
+    let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;
+
+    const place = {
+      stedsNummer: 12345,
+      name: 'Testplassen',
+      navneObjektType: 'By',
+      recommendedZoom: 14,
+      east: 250000,
+      north: 7100000,
+      coordinateSystem: 25833,
+      municipalities: [],
+      counties: [],
+      alternativeNames: [],
+    };
+
+    beforeEach(() => {
+      animateSpy = vi.fn<(opts: unknown) => void>();
+      updateGeoJSONLayerSpy = vi.fn();
+      (component as unknown as { zoomControl?: unknown }).zoomControl = {
+        getMap: () => ({ getView: () => ({ animate: animateSpy }) }),
+      };
+      component.map = { updateGeoJSONLayer: updateGeoJSONLayerSpy } as unknown as NbicMapComponent;
+    });
+
+    it('should animate to the place coordinates and recommended zoom', () => {
+      component.onPlaceSelected(place);
+
+      expect(animateSpy).toHaveBeenCalledWith({
+        center: [place.east, place.north],
+        zoom: place.recommendedZoom,
+        duration: (component as unknown as { CLICK_ANIMATION_DURATION_MS: number }).CLICK_ANIMATION_DURATION_MS,
+      });
+    });
+
+    it('should render a marker for the selected place on the marker layer', () => {
+      component.onPlaceSelected(place);
+
+      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
+        'place-search-marker',
+        expect.stringContaining('"Testplassen"'),
+        { mode: 'replace' },
+      );
+    });
+
+    it('should not throw when the map is not set', () => {
+      component.map = undefined as unknown as NbicMapComponent;
+
+      expect(() => component.onPlaceSelected(place)).not.toThrow();
+    });
+  });
+
   describe('counts fetch pipeline error resilience', () => {
     let areasService: AreasService;
     let updateGeoJSONLayerSpy: ReturnType<typeof vi.fn>;

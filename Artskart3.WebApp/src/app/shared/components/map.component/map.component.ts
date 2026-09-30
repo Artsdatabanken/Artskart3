@@ -69,6 +69,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
+  private readonly PLACE_SEARCH_MARKER_LAYER_ID = 'place-search-marker';
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -414,6 +415,33 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   onPlaceSelected(place: PlaceSearchResultDto): void {
     // Backend returns coordinates in EPSG:25833, matching MAP_CONFIG.projection — no transform needed.
     this.zoomToCentroid([place.east, place.north], place.recommendedZoom);
+    this.showPlaceSearchMarker(place);
+  }
+
+  private showPlaceSearchMarker(place: PlaceSearchResultDto): void {
+    if (!this.map || !this.mapVisible) return;
+
+    const geojson = JSON.stringify({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: place.stedsNummer,
+          geometry: { type: 'Point', coordinates: [place.east, place.north] },
+          properties: {
+            name: place.name,
+            'nbic:style': {
+              pointRadius: 9,
+              fillColor: '#C1272D',
+              strokeColor: 'white',
+              strokeWidth: 2,
+            },
+          },
+        },
+      ],
+    });
+
+    this.map.updateGeoJSONLayer(this.PLACE_SEARCH_MARKER_LAYER_ID, geojson, { mode: 'replace' });
   }
 
   private zoomToClusterMembers(members: Feature<Point>[]): boolean {
@@ -573,6 +601,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { type: 'memory' },
       pickable: true,
       zIndex: 90,
+      zIndexPinned: true,
+    });
+
+    this.map.addLayer({
+      id: this.PLACE_SEARCH_MARKER_LAYER_ID,
+      kind: 'vector',
+      source: { type: 'memory' },
+      pickable: false,
+      zIndex: 110,
       zIndexPinned: true,
     });
   }
