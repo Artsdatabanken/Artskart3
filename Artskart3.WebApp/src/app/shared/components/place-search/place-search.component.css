@@ -1,0 +1,59 @@
+:host {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: min(400px, 90vw);
+}
+
+.place-search-field {
+  width: 100%;
+}
+
+.place-autocomplete-list {
+  margin: var(--adb-spacing-3xsm) 0 0 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  background: var(--adb-surface-base-primary);
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-border-radius);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  color: var(--adb-text-accent-primary);
+}
+
+.place-autocomplete-item {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--adb-spacing-3xsm);
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+  cursor: pointer;
+}
+
+.place-autocomplete-item:hover {
+  background: var(--adb-background-secondary);
+}
+
+.place-name {
+  font-weight: 600;
+  font-size: var(--adb-font-size-4);
+}
+
+.place-type {
+  font-size: var(--adb-font-size-2);
+  color: var(--adb-text-base-secondary);
+}
+
+.place-municipality {
+  font-size: var(--adb-font-size-2);
+  color: var(--adb-text-base-secondary);
+  margin-left: auto;
+}
+
+.place-autocomplete-no-results {
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+}

@@ -50,10 +50,12 @@ import { ObservationListComponent } from '@shared/components/observation-list.co
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import {SearchFilterService} from '@shared/services/search-filter/search-filter.service';
+import { PlaceSearchComponent } from '../place-search/place-search.component';
+import { PlaceSearchResultDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map',
-  imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule, PlaceSearchComponent],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -407,6 +409,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
     this.map?.setCenter(centroid);
     this.map?.setZoom(zoom);
+  }
+
+  onPlaceSelected(place: PlaceSearchResultDto): void {
+    // Backend returns coordinates in EPSG:25833, matching MAP_CONFIG.projection — no transform needed.
+    this.zoomToCentroid([place.east, place.north], place.recommendedZoom);
   }
 
   private zoomToClusterMembers(members: Feature<Point>[]): boolean {

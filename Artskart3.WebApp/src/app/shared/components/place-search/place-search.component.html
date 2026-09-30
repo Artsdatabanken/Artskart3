@@ -1,0 +1,36 @@
+<div class="place-search-field">
+  <adb-search
+    size="sm"
+    variant="with-button"
+    button-variant="filled"
+    [attr.placeholder]="'mapSearch.placeSearchPlaceholder' | translate"
+    [attr.label]="'mapSearch.placeSearchPlaceholder' | translate"
+    (adb-input)="onSearchInput($event)"
+    (adb-clear)="onSearchClear()"
+  ></adb-search>
+</div>
+@if (showAutocomplete()) {
+  <ul class="place-autocomplete-list" role="listbox" [attr.aria-label]="'mapSearch.searchResults' | translate">
+    @for (place of placeResults(); track place.stedsNummer) {
+      <li
+        class="place-autocomplete-item"
+        role="option"
+        tabindex="0"
+        (click)="onPlaceSelect(place)"
+        (keydown.enter)="onPlaceSelect(place)"
+        (keydown.space)="onPlaceSelect(place); $event.preventDefault()"
+      >
+        <span class="place-name">{{ place.name }}</span>
+        <span class="place-type">{{ place.navneObjektType }}</span>
+        @if (place.municipalities.length) {
+          <span class="place-municipality">{{ place.municipalities.join(', ') }}</span>
+        }
+      </li>
+    }
+  </ul>
+}
+@if (showNoResults()) {
+  <div class="place-autocomplete-list place-autocomplete-no-results">
+    {{ 'mapSearch.noSearchResults' | translate }}
+  </div>
+}

@@ -250,6 +250,11 @@
     },
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },
+  "mapSearch": {
+    "placeSearchPlaceholder": "Søk etter stedsnavn",
+    "searchResults": "Søkeresultater for stedsnavn",
+    "noSearchResults": "Ingen treff"
+  },
   "design": {
     "heading1": "H1 Overskrift 1",
     "heading2": "H2 Overskrift 2",

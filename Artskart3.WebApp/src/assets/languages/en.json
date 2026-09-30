@@ -250,6 +250,11 @@
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
+  "mapSearch": {
+    "placeSearchPlaceholder": "Search for place names",
+    "searchResults": "Place search results",
+    "noSearchResults": "No results"
+  },
   "design": {
     "heading1": "H1 Heading 1",
     "heading2": "H2 Heading 2",

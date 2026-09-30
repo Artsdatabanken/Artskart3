@@ -52,3 +52,22 @@ export interface TaxonTreeNodeDto {
 export type TaxonAncestryDto = components['schemas']['TaxonAncestryDto'];
 export type TaxonAncestryLevelDto = components['schemas']['TaxonAncestryLevelDto'];
 
+/** Normalisert stedsnavntreff returnert av backend etter søk mot Geonorge. */
+export interface PlaceSearchResultDto {
+  stedsNummer: number;
+  name: string;
+  navneObjektType: string;
+  recommendedZoom: number;
+  east: number;
+  north: number;
+  coordinateSystem: number;
+  municipalities: string[];
+  counties: string[];
+  alternativeNames: PlaceNameAlternativeDto[];
+}
+
+export interface PlaceNameAlternativeDto {
+  name: string;
+  language?: string | null;
+}
+
