@@ -9,6 +9,11 @@ public class PlaceSearchResultDto
     public int StedsNummer { get; set; }
     public string Name { get; set; } = string.Empty;
     public string NavneObjektType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Anbefalt kartzoom-nivå basert på stedsnavntypen, se <see cref="Artskart3.Core.Application.ExternalModels.NavneTyper"/>.
+    /// </summary>
+    public int RecommendedZoom { get; set; }
     public double East { get; set; }
     public double North { get; set; }
     public int CoordinateSystem { get; set; }

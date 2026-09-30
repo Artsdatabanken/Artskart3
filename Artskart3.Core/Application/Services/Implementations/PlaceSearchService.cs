@@ -46,6 +46,7 @@ public class PlaceSearchService : IPlaceSearchService
             ?? sted.Stedsnavn.FirstOrDefault()?.Skrivemate
             ?? string.Empty,
         NavneObjektType = sted.Navneobjekttype ?? string.Empty,
+        RecommendedZoom = NavneTyper.GetLevelForType(sted.Navneobjekttype),
         East = sted.Representasjonspunkt?.Ost ?? 0,
         North = sted.Representasjonspunkt?.Nord ?? 0,
         CoordinateSystem = sted.Representasjonspunkt?.Koordsys ?? 0,

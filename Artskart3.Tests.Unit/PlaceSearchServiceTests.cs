@@ -51,6 +51,7 @@ public class PlaceSearchServiceTests
         result[0].StedsNummer.Should().Be(307915);
         result[0].Name.Should().Be("Oslo");
         result[0].NavneObjektType.Should().Be("By");
+        result[0].RecommendedZoom.Should().Be(3);
         result[0].East.Should().Be(261000);
         result[0].North.Should().Be(6649000);
         result[0].CoordinateSystem.Should().Be(25833);
@@ -92,6 +93,31 @@ public class PlaceSearchServiceTests
         var act = () => sut.SearchPlacesAsync("Oslo");
 
         await act.Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task SearchPlacesAsync_WithUnknownNavneobjekttype_FallsBackToDefaultZoom()
+    {
+        var response = new GeonorgeStedResponse
+        {
+            Navn =
+            [
+                new GeonorgeSted
+                {
+                    Stedsnummer = 42,
+                    Navneobjekttype = "UkjentType",
+                    Representasjonspunkt = new GeonorgeRepresentasjonspunkt { Ost = 1, Nord = 2, Koordsys = 25833 },
+                    Stedsnavn = [new GeonorgeSkrivemate { Skrivemate = "Ukjent", Navnestatus = "hovednavn" }]
+                }
+            ]
+        };
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, JsonSerializer.Serialize(response, JsonOptions));
+        var sut = CreateSut(handler);
+
+        var result = await sut.SearchPlacesAsync("Ukjent");
+
+        result.Should().ContainSingle();
+        result[0].RecommendedZoom.Should().Be(2);
     }
 
     [Fact]
