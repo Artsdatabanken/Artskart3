@@ -10,7 +10,7 @@ using Moq;
 
 namespace Artskart3.Tests.Unit;
 
-public class SearchControllerSpeciesTests
+public class SearchControllerPlaceSearchTests
 {
     private readonly Mock<ISearchService> _searchServiceMock = new();
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
@@ -27,11 +27,11 @@ public class SearchControllerSpeciesTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task SearchSpecies_WithEmptyOrNullSearch_ReturnsBadRequest(string? search)
+    public async Task SearchPlaces_WithEmptyOrNullSearch_ReturnsBadRequest(string? search)
     {
         var sut = CreateSut();
 
-        var result = await sut.SearchSpecies(search!);
+        var result = await sut.SearchPlaces(search!);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -41,87 +41,69 @@ public class SearchControllerSpeciesTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task SearchSpecies_WithValidSearch_ReturnsOkWithResults()
+    public async Task SearchPlaces_WithValidSearch_ReturnsOkWithResults()
     {
         var sut = CreateSut();
-        var expected = new List<SpeciesDto>
+        var expected = new List<PlaceSearchResultDto>
         {
-            new() { TaxonId = 79773, ScientificName = "Margaritifera margaritifera", Rank = "Species" }
+            new() { StedsNummer = 307915, Name = "Oslo", NavneObjektType = "By", East = 261000, North = 6649000, CoordinateSystem = 25833 }
         };
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("elvemusling", It.IsAny<CancellationToken>()))
+        _placeSearchServiceMock
+            .Setup(s => s.SearchPlacesAsync("Oslo", It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await sut.SearchSpecies("elvemusling");
+        var result = await sut.SearchPlaces("Oslo");
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(expected);
     }
 
     [Fact]
-    public async Task SearchSpecies_WithIntegerSearch_ReturnsOkWithResults()
+    public async Task SearchPlaces_WhenServiceReturnsEmpty_ReturnsOkWithEmptyList()
     {
         var sut = CreateSut();
-        var expected = new List<SpeciesDto>
-        {
-            new() { TaxonId = 79773, ScientificName = "Margaritifera margaritifera" }
-        };
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("79773", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
-
-        var result = await sut.SearchSpecies("79773");
-
-        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeEquivalentTo(expected);
-    }
-
-    [Fact]
-    public async Task SearchSpecies_WhenServiceReturnsEmpty_ReturnsOkWithEmptyList()
-    {
-        var sut = CreateSut();
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("finnesikke", It.IsAny<CancellationToken>()))
+        _placeSearchServiceMock
+            .Setup(s => s.SearchPlacesAsync("finnesikke", It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        var result = await sut.SearchSpecies("finnesikke");
+        var result = await sut.SearchPlaces("finnesikke");
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeAssignableTo<List<SpeciesDto>>()
+        okResult.Value.Should().BeAssignableTo<List<PlaceSearchResultDto>>()
             .Which.Should().BeEmpty();
     }
 
     // -----------------------------------------------------------------------
-    // Feilhåndtering – NorTaxa utilgjengelig (502)
+    // Feilhåndtering – Geonorge utilgjengelig (502)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task SearchSpecies_WhenHttpRequestExceptionThrown_Returns502()
+    public async Task SearchPlaces_WhenHttpRequestExceptionThrown_Returns502()
     {
         var sut = CreateSut();
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("elvemusling", It.IsAny<CancellationToken>()))
+        _placeSearchServiceMock
+            .Setup(s => s.SearchPlacesAsync("Oslo", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("Connection refused"));
 
-        var result = await sut.SearchSpecies("elvemusling");
+        var result = await sut.SearchPlaces("Oslo");
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(502);
     }
 
     // -----------------------------------------------------------------------
-    // Feilhåndtering – NorTaxa timeout (504)
+    // Feilhåndtering – Geonorge timeout (504)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task SearchSpecies_WhenTimeoutExceptionThrown_Returns504()
+    public async Task SearchPlaces_WhenTimeoutExceptionThrown_Returns504()
     {
         var sut = CreateSut();
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("elvemusling", It.IsAny<CancellationToken>()))
+        _placeSearchServiceMock
+            .Setup(s => s.SearchPlacesAsync("Oslo", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TaskCanceledException("Timeout", new TimeoutException()));
 
-        var result = await sut.SearchSpecies("elvemusling");
+        var result = await sut.SearchPlaces("Oslo");
 
         var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(504);
@@ -132,14 +114,14 @@ public class SearchControllerSpeciesTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task SearchSpecies_WhenUnexpectedExceptionThrown_Rethrows()
+    public async Task SearchPlaces_WhenUnexpectedExceptionThrown_Rethrows()
     {
         var sut = CreateSut();
-        _speciesServiceMock
-            .Setup(s => s.SearchSpeciesAsync("elvemusling", It.IsAny<CancellationToken>()))
+        _placeSearchServiceMock
+            .Setup(s => s.SearchPlacesAsync("Oslo", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Unexpected"));
 
-        var act = () => sut.SearchSpecies("elvemusling");
+        var act = () => sut.SearchPlaces("Oslo");
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }

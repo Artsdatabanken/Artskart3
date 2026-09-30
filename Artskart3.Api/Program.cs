@@ -199,6 +199,16 @@ try
         client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
     });
+
+    var geonorgeSection = builder.Configuration.GetSection(GeonorgeOptions.SectionName);
+    builder.Services.Configure<GeonorgeOptions>(geonorgeSection);
+    var geonorgeOptions = geonorgeSection.Get<GeonorgeOptions>() ?? new GeonorgeOptions();
+
+    builder.Services.AddHttpClient<IPlaceSearchService, PlaceSearchService>(client =>
+    {
+        client.BaseAddress = new Uri(geonorgeOptions.BaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(geonorgeOptions.TimeoutSeconds);
+    });
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

@@ -17,12 +17,13 @@ public class SearchControllerAdditionalTests
 {
     private readonly Mock<ISearchService> _serviceMock = new();
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
+    private readonly Mock<IPlaceSearchService> _placeSearchServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSearchServiceIsNull()
     {
-        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(null!, _speciesServiceMock.Object, _placeSearchServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("searchService");
@@ -31,16 +32,25 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSpeciesServiceIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(_serviceMock.Object, null!, _placeSearchServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("speciesService");
     }
 
     [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenPlaceSearchServiceIsNull()
+    {
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!, _loggerMock.Object, Options.Create(new PaginationOptions()));
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("placeSearchService");
+    }
+
+    [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _placeSearchServiceMock.Object, null!, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("logger");
@@ -95,7 +105,7 @@ public class SearchControllerAdditionalTests
 
     private SearchController CreateSut()
     {
-        var controller = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var controller = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _placeSearchServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
         var services = new ServiceCollection();
         services.AddMvcCore();
         services.AddLogging();

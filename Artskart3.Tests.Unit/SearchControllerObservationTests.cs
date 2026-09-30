@@ -14,6 +14,7 @@ public class SearchControllerObservationTests
 {
     private readonly Mock<ISearchService> _serviceMock = new();
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
+    private readonly Mock<IPlaceSearchService> _placeSearchServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
     // -----------------------------------------------------------------------
@@ -243,7 +244,7 @@ public class SearchControllerObservationTests
     // Helpers
     // -----------------------------------------------------------------------
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _placeSearchServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
     private static List<ObservationDto> CreateObservations(int count) =>
         CreateObservationsFromOffset(1, count);

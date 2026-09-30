@@ -17,13 +17,15 @@ public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
     private readonly ISpeciesService _speciesService;
+    private readonly IPlaceSearchService _placeSearchService;
     private readonly ILogger<SearchController> _logger;
     private readonly PaginationOptions _paginationOptions;
 
-    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, IPlaceSearchService placeSearchService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
         _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
+        _placeSearchService = placeSearchService ?? throw new ArgumentNullException(nameof(placeSearchService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions?.Value ?? throw new ArgumentNullException(nameof(paginationOptions));
     }
@@ -313,6 +315,48 @@ public class SearchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Feil ved artssøk med søkestreng: {Search}", search);
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
+    /// Søker etter stedsnavn via Geonorge Stedsnavn API.
+    /// Benytter Geonorges innebygde søk og rangering; ingen egen fuzzy-matching gjøres i backend.
+    /// </summary>
+    [HttpGet("SearchPlaces")]
+    [Produces("application/json")]
+    [ProducesResponseType(typeof(List<PlaceSearchResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+    public async Task<ActionResult<List<PlaceSearchResultDto>>> SearchPlaces(
+        [FromQuery] string search,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return BadRequest(new { error = "Search parameter is required." });
+        }
+
+        try
+        {
+            var results = await _placeSearchService.SearchPlacesAsync(search, cancellationToken);
+            _logger.LogInformation("Stedsnavnsøk for '{Search}' returnerte {Count} resultater", search, results.Count);
+            return Ok(results);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogWarning("Geonorge API timeout ved søk: {Search}", search);
+            return StatusCode(504, new { error = "Geonorge API did not respond within the timeout period." });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Geonorge API utilgjengelig ved søk: {Search}", search);
+            return StatusCode(502, new { error = "Unable to contact Geonorge API." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved stedsnavnsøk med søkestreng: {Search}", search);
             throw; // håndteres av global filter
         }
     }
