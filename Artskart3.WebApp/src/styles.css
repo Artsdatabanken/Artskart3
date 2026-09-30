@@ -33,7 +33,7 @@
   padding: var(--adb-spacing-xsm);
   background: var(--adb-surface-base-primary);
   border: 1px solid var(--adb-border-base-subtle);
-  border-radius: var(--adb-border-radius-sm);
+  border-radius: var(--adb-border-radius);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   z-index: 1000;
 }
