@@ -9,8 +9,8 @@ Noen viktige mål
 - Få en portal som er i henhold til Artsdatabankens designsystem og visuelle identitet
 
 ## Requirements
-* Node versjon 22.14 for Angular frontend
-* Angular CLI 21.1
+* Node.js 24 LTS (minst 24.15.0, som Angular 22 krever) for Angular frontend
+* Angular CLI 22.1
 * Visual Studio 2026 er nødvendig for .NET 10
 * [Docker Desktop](https://www.docker.com/products/docker-desktop/) — kreves for å kjøre integrasjonstester (Testcontainers starter en SQL Server-container automatisk)
 

@@ -27,7 +27,10 @@
     ]
   },
   "private": true,
-  "packageManager": "npm@10.9.2",
+  "devEngines": {
+    "runtime": { "name": "node", "version": ">=24.15.0", "onFail": "warn" },
+    "packageManager": { "name": "npm", "version": ">=11", "onFail": "warn" }
+  },
   "dependencies": {
     "@angular/common": "^22.1.4",
     "@angular/compiler": "^22.1.4",
