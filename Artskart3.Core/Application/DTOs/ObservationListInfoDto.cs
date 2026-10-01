@@ -3,6 +3,8 @@
 public class ObservationListInfoDto
 {
     public int Id { get; set; }
+    public int TaxonId { get; set; }
+    public DateTime? DateTimeCollected { get; set; }
     public string? PreferredPopularName { get; set; }
     public string? ScientificName { get; set; }
     public string DisplayName { get; set; } = null!;
@@ -11,9 +13,14 @@ public class ObservationListInfoDto
     public string? TaxonGroupName { get; set; }
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
+    public string? CategoryCode { get; set; }
+    public int? CategoryTypeId { get; set; }
     public string? InstitutionId { get; set; }
     public string? InstitutionName { get; set; }
     public int? LocationId { get; set; }
+    public string? Locality { get; set; }
+    public string? MunicipalityName { get; set; }
+    public string? CountyName { get; set; }
     public IEnumerable<string>? RegistrationType { get; set; }
     public string? Collector { get; set; }
 }
