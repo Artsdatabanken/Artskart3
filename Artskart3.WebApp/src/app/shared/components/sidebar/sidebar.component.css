@@ -275,11 +275,6 @@ adb-checkbox::part(control) {
   line-height: 1.5;
 }
 
-:host-context([data-theme='dark']) .project-name-empty,
-:host-context([data-theme='dark']) .dataset-name-empty {
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.22);
-}
-
 .empty-search-icon {
   color: var(--adb-text-base-secondary);
   flex-shrink: 0;
