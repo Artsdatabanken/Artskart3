@@ -99,13 +99,25 @@ public class QueryHintInterceptorTests
     }
 
     /// <summary>
-    /// Et tvunget planvalg ble prøvd og forkastet: det var 10x raskere på brede
-    /// filtre, men 260x tregere på smale — katalognr:tung gikk fra 9 ms til
-    /// 13 007 ms i Standard-kjøringen. Kommer et slikt hint tilbake, skal det
-    /// være et bevisst valg med nye målinger, ikke noe som sniker seg inn igjen.
+    /// INGEN SPØRRING SKAL FÅ ET TVUNGET PLANVALG HER.
+    ///
+    /// Det er prøvd to ganger og forkastet to ganger. For lokasjonssøket var en
+    /// tvungen loop join 10x raskere på brede filtre og 260x tregere på smale —
+    /// katalognr:tung gikk fra 9 til 13 007 ms. For polygonhentingen var den en
+    /// stor gevinst i snitt, men 68 708 ms mot 12 ms når to filtre til sammen
+    /// ikke traff noe.
+    ///
+    /// Polygonhentingen har ikke lenger noe hint i det hele tatt: den svarer fra
+    /// PolygonLocationStore, og databasestien brukes bare mens datasettet
+    /// bygges ved oppstart. Der er «aldri katastrofal» verdt mer enn «rask i
+    /// snitt».
+    ///
+    /// Kommer et planhint tilbake, skal det være et bevisst valg med målinger
+    /// fra HELE Full-nivået bak seg. Enkeltmålinger lyver her; det var nettopp
+    /// slik det slapp inn begge gangene.
     /// </summary>
     [Fact]
-    public void Ingen_tvungne_planvalg()
+    public void Ingen_spoerring_faar_tvunget_planvalg()
     {
         const string sql = """
             -- locations-search

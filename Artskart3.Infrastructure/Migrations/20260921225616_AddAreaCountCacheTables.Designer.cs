@@ -1546,6 +1546,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<byte?>("MonthCollected")
+                        .HasColumnType("tinyint");
+
                     b.Property<int?>("OrderTaxonId")
                         .HasColumnType("int");
 

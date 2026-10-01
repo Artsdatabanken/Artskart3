@@ -940,6 +940,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<Geometry>("Geometry")
                         .HasColumnType("geometry");
 
+                    b.Property<byte>("GeometryTypeId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tinyint")
+                        .HasComputedColumnSql("CAST(CASE [Geometry].STGeometryType()\n    WHEN 'Point'              THEN 1\n    WHEN 'Polygon'            THEN 2\n    WHEN 'MultiPolygon'       THEN 3\n    WHEN 'LineString'         THEN 4\n    WHEN 'MultiLineString'    THEN 5\n    WHEN 'GeometryCollection' THEN 6\n    ELSE 0\nEND AS TINYINT)", true);
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -982,9 +987,63 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "East" }, "IX_EastNorthGeom");
 
+                    b.HasIndex(new[] { "GeometryTypeId", "East", "North" }, "IX_Location_GeometryTypeEastNorth");
+
                     b.HasIndex(new[] { "LookupId" }, "IX_LookupId");
 
                     b.ToTable("Location", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationCountCacheLevel1", b =>
+                {
+                    b.Property<byte>("DimensionId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("East")
+                        .HasColumnType("int");
+
+                    b.Property<int>("North")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionId", "BucketId", "East", "North", "LocationId");
+
+                    b.ToTable("LocationCountCacheLevel1", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationCountCacheState", b =>
+                {
+                    b.Property<byte>("Id")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("BuiltAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SourceRows")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("LocationCountCacheState", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Maskeringsruter16x16km", b =>
@@ -1337,6 +1396,13 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex("MatchedScientificNameId");
 
                     b.HasIndex("ObservationQualityTypeId");
+
+                    b.HasIndex("RegistrationStatusId", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_RegistrationStatusRare")
+                        .HasFilter("[RegistrationStatusId] IN (2, 3)");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("RegistrationStatusId", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
 

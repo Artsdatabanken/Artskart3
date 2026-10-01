@@ -35,20 +35,36 @@ public class SearchRepository : ISearchRepository
     /// </summary>
     private readonly IAreaCountCacheService? _areaCountCache;
 
+    /// <summary>
+    /// Lokasjonsbufferen. Valgfri av samme grunn som områdebufferen: null betyr
+    /// «aggreger som før».
+    /// </summary>
+    private readonly ILocationCountCacheService? _locationCountCache;
+
+    /// <summary>
+    /// Hele polygondatasettet i minnet. Valgfri som bufferne: null betyr
+    /// «spør databasen», og det gjør den også før datasettet er ferdig bygget.
+    /// </summary>
+    private readonly IPolygonLocationStore? _polygonStore;
+
     public SearchRepository(
         IArtsKartDbContext context,
         ILogger<SearchRepository> logger,
         IOptions<PaginationOptions> paginationOptions,
         IAreaHierarchyService areaHierarchy,
         ITaxonHierarchyService taxonHierarchy,
-        IAreaCountCacheService? areaCountCache = null)
+        IAreaCountCacheService? areaCountCache = null,
+        ILocationCountCacheService? locationCountCache = null,
+        IPolygonLocationStore? polygonStore = null)
     {
+        _polygonStore = polygonStore;
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
         _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
         _areaCountCache = areaCountCache;
+        _locationCountCache = locationCountCache;
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -321,15 +337,40 @@ public class SearchRepository : ISearchRepository
         var restrictedIds = ids.Restricted;
         var oceanIds = ids.Ocean;
 
-        return query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
-            geo.ObservationId == idx.ObservationId && (
-                (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
-                (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
-                // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
-                // i løsningen.
-                (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(geo.EntityId)) ||
-                (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
-                (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId)))));
+        // FORANKRET PÅ OMRÅDERADEN, IKKE SLÅTT OPP SOM SØSTERRAD
+        //
+        // Hver rad i indekstabellen ER «observasjon X i område Y», med
+        // LocationId denormalisert på samme rad. Når filteret spør etter
+        // observasjoner i bestemte områder, er områderaden altså selve treffet
+        // — den trenger ikke slås opp.
+        //
+        // Før sto dette som EXISTS mot en søsterrad, og da måtte indekstabellen
+        // leses to ganger: én gang for alle radene, én gang til for å avgjøre
+        // hvilke observasjoner som kvalifiserte. Målt på Oslo-utsnittet:
+        //
+        //   7 fylker                              2593 → 1052 ms
+        //   kommune + verneområde + havområde     1444 → 1037 ms
+        //
+        // Områdefilteret var 1413 av 3070 ms i det tregeste lokasjonskallet.
+        //
+        // OVERLAPP DOBBELTTELLES IKKE. En observasjon i både kommune og
+        // havområde får to rader som begge treffer, men kalleren teller
+        // COUNT(DISTINCT ObservationId). Verifisert på et ekte overlapp —
+        // kommune 4215 og havområde 13 deler 301 observasjoner — der begge
+        // formene gir 71 305 lokasjoner og 2 439 265 observasjoner, null avvik.
+        //
+        // IKKE I KONFLIKT MED ADVARSELEN I GetLocationsAsync. Den gjelder å
+        // forankre på kommuneraden UTEN områdefilter; da faller havet, Svalbard
+        // og alt utenfor kommunegrensene stille ut. Med et områdefilter er det
+        // nettopp de valgte områdene vi vil ha, så forankringen er riktig.
+        return query.Where(idx =>
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+            // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
+            // i løsningen.
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
     }
 
     /// <summary>
@@ -629,6 +670,31 @@ public class SearchRepository : ISearchRepository
                 _logger.LogDebug(
                     "Ingen av de valgte områdene overlapper kartutsnittet. Returnerer tomt uten å spørre databasen.");
                 return [];
+            }
+
+            // LOKASJONSBUFFEREN FØRST
+            //
+            // Den svarer på filtre med null eller én dimensjon — som er der
+            // tiden faktisk går. Etter at områdefilteret og polygonstien var
+            // ryddet, var de tregeste kallene ikke lenger trege filtre, men
+            // aggregeringen selv: rundt to sekunder for Oslo-utsnittet nesten
+            // uansett filter. Det gulvet er det bufferen fjerner.
+            //
+            // null betyr «kan ikke besvares herfra» og er det normale utfallet
+            // for alt den ikke dekker. Da faller vi gjennom til aggregeringen
+            // under, uendret.
+            if (_locationCountCache is not null)
+            {
+                var buffret = await _locationCountCache
+                    .TryGetTopLocationsAsync(filter, maxResults, cancellationToken);
+
+                if (buffret is not null)
+                {
+                    _logger.LogInformation(
+                        "Location search answered from cache. Returned {LocationCount} locations", buffret.Count);
+
+                    return buffret;
+                }
             }
 
             // AGGREGERES FRA INDEKSTABELLEN, IKKE FRA OBSERVATION
@@ -1601,21 +1667,92 @@ public class SearchRepository : ISearchRepository
     /// Ved å hente LocationId-ene først treffer vi IX_EastNorth på Location (et lite
     /// sett), og slår deretter opp observasjonene via IX_Observation_LocationId.
     /// </summary>
-    private IQueryable<Observation> ApplyEnvelopeFilter(IQueryable<Observation> query, EnvelopeDto? envelope)
+    /// <summary>
+    /// Snevrer observasjonene inn til lokasjoner som er interessante for kallet.
+    ///
+    /// <paramref name="onlyPolygonLocations"/> settes av polygonhentingen, og det
+    /// er ikke en mikrooptimalisering: bare 73 888 av 5 100 794 lokasjoner har
+    /// Polygon eller MultiPolygon — 1,4 %.
+    ///
+    /// Uten den aggregerte polygonstien over ALLE lokasjoner, tok de 5000 med
+    /// flest observasjoner, og oppdaget så at bare 159 av dem hadde polygon.
+    /// Taket ble altså brukt opp av punktlokasjoner, og hvilke polygoner
+    /// brukeren fikk se var bestemt av observasjonstallet til lokasjoner som
+    /// ikke har polygon i det hele tatt.
+    ///
+    /// Målt på Oslo-utsnittet: 5808 ms og 159 polygoner, mot 1004 ms og 5000
+    /// når innsnevringen skjer før aggregeringen.
+    ///
+    /// At grensen skal telle polygoner står i dens egen begrunnelse —
+    /// SearchConstants: «geometry is expensive to transfer and render».
+    /// </summary>
+    private IQueryable<Observation> ApplyLocationFilter(
+        IQueryable<Observation> query, EnvelopeDto? envelope, bool onlyPolygonLocations)
     {
-        if (envelope == null) return query;
+        if (envelope == null && !onlyPolygonLocations) return query;
 
-        var minX = (int)envelope.MinX;
-        var maxX = (int)envelope.MaxX;
-        var minY = (int)envelope.MinY;
-        var maxY = (int)envelope.MaxY;
-
-        var locationIds = _context.Set<Location>()
-            .Where(l => l.East >= minX && l.East <= maxX &&
-                        l.North >= minY && l.North <= maxY)
-            .Select(l => l.Id);
+        var locationIds = LocationsForFilter(envelope, onlyPolygonLocations).Select(l => l.Id);
 
         return query.Where(o => o.LocationId != null && locationIds.Contains(o.LocationId.Value));
+    }
+
+    /// <summary>
+    /// Lokasjonene et kall kan treffe: innenfor kartutsnittet, og eventuelt
+    /// bare de som har en geometri å tegne.
+    ///
+    /// Skilt ut fordi polygonstien trenger dem som ytre tabell i en join, mens
+    /// lokasjonssøket bare trenger ID-ene i en subspørring.
+    /// </summary>
+    private IQueryable<Location> LocationsForFilter(EnvelopeDto? envelope, bool onlyPolygonLocations)
+    {
+        var locations = _context.Set<Location>().AsQueryable();
+
+        if (envelope != null)
+        {
+            var minX = (int)envelope.MinX;
+            var maxX = (int)envelope.MaxX;
+            var minY = (int)envelope.MinY;
+            var maxY = (int)envelope.MaxY;
+
+            locations = locations.Where(l => l.East >= minX && l.East <= maxX &&
+                                             l.North >= minY && l.North <= maxY);
+        }
+
+        if (onlyPolygonLocations)
+        {
+            // GeometryTypeId, ikke Geometry.GeometryType. Funksjonen måtte
+            // kalles per rad — 967 649 ganger for Oslo-utsnittet, for å finne
+            // 10 902 — og kostet 776 av 951 ms. Kolonnen er persistert og har
+            // typen som ledende indekskolonne, så utsnittssøket rører aldri de
+            // 5 024 795 punktlokasjonene: 951 → 37 ms, og hele
+            // polygonspørringen 1010 → 92 ms.
+            //
+            // LINJER ER MED, TROSS NAVNET
+            // Endepunktet heter LocationPolygons og DTO-en LocationPolygonDto,
+            // men transekter, elvestrekninger og kystlinjer er reelle
+            // geografiske utstrekninger på linje med polygonene — ikke
+            // usikkerhetsbokser. Det er dessuten flere linjelokasjoner (2 101,
+            // med 62 764 observasjoner) enn MultiPolygon-er (750), som alltid
+            // har vært med.
+            //
+            // Uten dem faller de mellom to stoler: punktlaget viser dem som ett
+            // punkt et sted på strekningen, siden Locations returnerer
+            // Latitude/Longitude fra Location-raden.
+            //
+            // Navnebyttet har egen task. Det er bedre å hente dem nå med feil
+            // navn enn å la dem være usynlige.
+            //
+            // GeometryCollection (9 lokasjoner) holdes utenfor: en samling kan
+            // inneholde hva som helst, og frontend måtte håndtert blandet
+            // innhold.
+            locations = locations.Where(l =>
+                l.GeometryTypeId == LocationGeometryType.Polygon ||
+                l.GeometryTypeId == LocationGeometryType.MultiPolygon ||
+                l.GeometryTypeId == LocationGeometryType.LineString ||
+                l.GeometryTypeId == LocationGeometryType.MultiLineString);
+        }
+
+        return locations;
     }
 
     /// <summary>
@@ -1649,14 +1786,31 @@ public class SearchRepository : ISearchRepository
     /// planvalg var 260x feil i den ene enden. Se
     /// QueryHintInterceptor.LocationsTag for målingene.
     /// </summary>
-    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter, AreaFilterIds areaIds)
+    private IQueryable<Observation> BuildLocationsQuery(
+        LocationSearchFilterDto filter, AreaFilterIds areaIds, bool onlyPolygonLocations = false)
     {
+        // Polygonstien drives FRA Location. Kandidatsettet er de 1,5 % av
+        // lokasjonene som ikke er punkt — 10 902 for Oslo-utsnittet mot
+        // 967 649 totalt.
+        //
+        // Ingen tagg og intet planhint her: denne stien brukes bare til
+        // PolygonLocationStore er bygget. Se GetLocationPolygonsAsync.
+        if (onlyPolygonLocations)
+        {
+            var polygonQuery = LocationsForFilter(filter.Envelope, onlyPolygonLocations: true)
+                .Join(_context.Set<Observation>(),
+                    l => (int?)l.Id, o => o.LocationId, (l, o) => o)
+                .AsNoTracking();
+
+            return ApplyCommonFilters(polygonQuery, filter, areaIds);
+        }
+
         var query = _context.Set<Observation>()
             .AsNoTracking()
             .TagWith(QueryHintInterceptor.LocationsTag);
 
         query = ApplyCommonFilters(query, filter, areaIds);
-        query = ApplyEnvelopeFilter(query, filter.Envelope);
+        query = ApplyLocationFilter(query, filter.Envelope, onlyPolygonLocations);
 
         return query;
     }
@@ -1702,19 +1856,51 @@ public class SearchRepository : ISearchRepository
                 return [];
             }
 
-            var query = BuildLocationsQuery(filter, areaIds);
             var polygonMaxResults = filter.MaxResults > 0
                 ? Math.Min(filter.MaxResults, SearchConstants.MaxPolygonResults)
                 : SearchConstants.DefaultMaxPolygons;
+
+            // MINNELAGERET FØRST — det svarer på ALLE filterkombinasjoner.
+            //
+            // Bufferen under dekker bare null eller ett filter, fordi den
+            // lagrer marginaler. Minnelageret skanner observasjonene direkte og
+            // har ikke den begrensningen; målt i Full-kjøringen gikk 152 av 266
+            // sekunder til nettopp de kombinasjonene bufferen måtte gi opp.
+            //
+            // Returnerer null til datasettet er ferdig bygget, og da går alt
+            // som før.
+            if (_polygonStore is not null)
+            {
+                var fraMinnet = _polygonStore.TryQuery(filter, polygonMaxResults);
+                if (fraMinnet is not null)
+                {
+                    _logger.LogDebug("Polygonsøket besvart fra minnet med {Count} polygoner.", fraMinnet.Count);
+                    return fraMinnet;
+                }
+            }
+
+            // NÅDDE VI HIT, ER MINNELAGERET IKKE KLART ENNÅ.
+            //
+            // Denne stien brukes bare i de ~37 sekundene datasettet bygges ved
+            // oppstart. Den er derfor holdt så enkel som mulig: ingen buffer,
+            // ingen selektivitetssonde, intet planhint. Alt det fantes for å
+            // gjøre databasestien rask nok til daglig bruk, og er fjernet med
+            // vilje — i et oppstartsvindu er «aldri katastrofal» verdt mer enn
+            // «rask i snitt», og den uhintede planen er nettopp det.
+            var query = BuildLocationsQuery(filter, areaIds, onlyPolygonLocations: true);
             var aggregated = await AggregateLocationObservations(query, polygonMaxResults, cancellationToken);
 
             if (aggregated.Count == 0) return [];
 
             var locationIds = aggregated.Select(x => x.LocationId).ToList();
 
+            // Typefilteret er allerede gjort i BuildLocationsQuery, så her
+            // hentes bare geometrien for de utvalgte. Å gjenta predikatet ville
+            // kalt STGeometryType() på nytt — funksjonen kolonnen finnes for å
+            // slippe.
             var locations = await _context.Set<Location>()
                 .AsNoTracking()
-                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && (l.Geometry.GeometryType == "Polygon" || l.Geometry.GeometryType == "MultiPolygon"))
+                .Where(l => locationIds.Contains(l.Id) && l.Geometry != null)
                 .Select(l => new { l.Id, l.Locality, l.Geometry })
                 .ToListAsync(cancellationToken);
 
@@ -1724,6 +1910,26 @@ public class SearchRepository : ISearchRepository
 
             var result = new List<LocationPolygonDto>();
 
+            // HVOR TIDEN GÅR HER — MÅLT 30.09 MED MIDLERTIDIG INSTRUMENTERING
+            // For oslo-utsnittet ufiltrert, 5 000 hentede og 4 452 returnerte
+            // polygoner, av en aksjonstid på 281 ms:
+            //
+            //   henting (SQL + EF/NTS-materialisering)    57 ms
+            //   AsText()                                 130 ms
+            //   rektangelsjekk                            11 ms
+            //   omsluttende boks                           2 ms
+            //   DTO-bygging                                0 ms
+            //   resten (JSON-serialisering av 6,26 MB)   ~85 ms
+            //
+            // AsText() alene er 46 % av kallet. En lagret WKT-kolonne ville
+            // fjernet både den og NTS-materialiseringen; målt på serversiden
+            // koster ferdig tekst ingenting ekstra å lese (55 ms mot 55 ms for
+            // binærformatet, tross 2,3 ganger så mange byte).
+            //
+            // Rektangel- og boksfilteret kjører dessuten ETTER hentingen, så
+            // 548 av de 5 000 geometriene konverteres og kastes. Med lagret
+            // WKT, lagret boks og et IsGridRectangle-flagg kunne hele
+            // filtreringen ligget i spørringen.
             foreach (var location in locations)
             {
                 var geo = location.Geometry!;
@@ -1759,23 +1965,10 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Returns true when the WKT string represents a rectangular polygon (exactly 5 coordinate pairs in the exterior ring).
+    /// Rektangelregelen ligger i LocationGeometryRules fordi minnelageret maa
+    /// bruke nøyaktig samme kode. Se kommentaren der.
     /// </summary>
-    private static bool IsRectangularPolygon(string? wkt)
-    {
-        if (string.IsNullOrEmpty(wkt)) return false;
-        var ringStart = wkt.IndexOf('(', wkt.IndexOf('(') + 1);
-        var ringEnd = wkt.IndexOf(')', ringStart);
-        if (ringStart < 0 || ringEnd < 0) return false;
-
-        var ring = wkt.AsSpan(ringStart + 1, ringEnd - ringStart - 1);
-        var commaCount = 0;
-        foreach (var ch in ring)
-        {
-            if (ch == ',') commaCount++;
-        }
-
-        return commaCount == 4;
-    }
+    private static bool IsRectangularPolygon(string? wkt) =>
+        LocationGeometryRules.IsRectangularPolygon(wkt);
 
 }

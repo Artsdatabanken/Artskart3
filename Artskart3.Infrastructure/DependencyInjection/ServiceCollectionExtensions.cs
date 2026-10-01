@@ -37,6 +37,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IAreaCountCacheService, AreaCountCacheService>();
+        services.AddScoped<ILocationCountCacheService, LocationCountCacheService>();
+
+        // Polygondatasettet i minnet. Singleton fordi det er ~360 MB som skal
+        // bygges én gang, og en egen bakgrunnstjeneste bygger det uten å holde
+        // igjen oppstarten.
+        services.AddSingleton<IPolygonLocationStore, PolygonLocationStore>();
+        services.AddHostedService<PolygonLocationStoreBuilder>();
         // Add other application services here
         return services;
     }

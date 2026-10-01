@@ -204,6 +204,7 @@ try
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
     builder.Services.Configure<PaginationOptions>(builder.Configuration.GetSection(PaginationOptions.SectionName));
     builder.Services.Configure<AreaCountCacheOptions>(builder.Configuration.GetSection(AreaCountCacheOptions.SectionName));
+    builder.Services.Configure<LocationCountCacheOptions>(builder.Configuration.GetSection(LocationCountCacheOptions.SectionName));
 
     // Responskomprimering. Svarene er store og svært komprimerbare: AreaMarkers på
     // zoomnivå 2 er 20,7 MB rå og 7,26 MB gzippet — 65 % mindre. Zoomnivå 1 går fra

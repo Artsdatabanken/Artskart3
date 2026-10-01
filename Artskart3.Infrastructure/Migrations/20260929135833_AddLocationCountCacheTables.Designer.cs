@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20260920125459_BackfillObservationEntityIndexLocationIdAndMonth")]
-    partial class BackfillObservationEntityIndexLocationIdAndMonth
+    [Migration("20260929135833_AddLocationCountCacheTables")]
+    partial class AddLocationCountCacheTables
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -115,6 +115,96 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "Name" }, "NonClusteredIndex-20180305-111522");
 
                     b.ToTable("Area", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.AreaCountCacheBucketMember", b =>
+                {
+                    b.Property<byte>("DimensionId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("MemberId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BucketId")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionId", "MemberId", "BucketId");
+
+                    b.ToTable("AreaCountCacheBucketMember", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.AreaCountCacheLevel1", b =>
+                {
+                    b.Property<byte>("DimensionId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionId", "BucketId", "EntityTypeId", "EntityId");
+
+                    b.ToTable("AreaCountCacheLevel1", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.AreaCountCacheLevel2", b =>
+                {
+                    b.Property<byte>("DimensionPairId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketA")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BucketB")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionPairId", "BucketA", "BucketB", "EntityTypeId", "EntityId");
+
+                    b.ToTable("AreaCountCacheLevel2", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.AreaCountCacheState", b =>
+                {
+                    b.Property<byte>("Id")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("BuiltAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SourceRows")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AreaCountCacheState", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.AreaType", b =>
@@ -853,6 +943,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<Geometry>("Geometry")
                         .HasColumnType("geometry");
 
+                    b.Property<byte>("GeometryTypeId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tinyint")
+                        .HasComputedColumnSql("CAST(CASE [Geometry].STGeometryType()\n    WHEN 'Point'              THEN 1\n    WHEN 'Polygon'            THEN 2\n    WHEN 'MultiPolygon'       THEN 3\n    WHEN 'LineString'         THEN 4\n    WHEN 'MultiLineString'    THEN 5\n    WHEN 'GeometryCollection' THEN 6\n    ELSE 0\nEND AS TINYINT)", true);
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -895,9 +990,63 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "East" }, "IX_EastNorthGeom");
 
+                    b.HasIndex(new[] { "GeometryTypeId", "East", "North" }, "IX_Location_GeometryTypeEastNorth");
+
                     b.HasIndex(new[] { "LookupId" }, "IX_LookupId");
 
                     b.ToTable("Location", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationCountCacheLevel1", b =>
+                {
+                    b.Property<byte>("DimensionId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("East")
+                        .HasColumnType("int");
+
+                    b.Property<int>("North")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionId", "BucketId", "East", "North", "LocationId");
+
+                    b.ToTable("LocationCountCacheLevel1", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationCountCacheState", b =>
+                {
+                    b.Property<byte>("Id")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("BuiltAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SourceRows")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("LocationCountCacheState", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Maskeringsruter16x16km", b =>
@@ -1172,7 +1321,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("HasMediaFiles")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("HashCode")
                         .HasColumnType("int");
@@ -1221,7 +1372,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<byte>("RegistrationStatusId")
-                        .HasColumnType("tinyint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)1);
 
                     b.Property<int>("TaxonGroupId")
                         .HasColumnType("int");

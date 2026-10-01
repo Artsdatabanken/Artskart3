@@ -381,7 +381,20 @@ function New-PerfFixtures {
 
         # Mange omraader samtidig er et vanlig brukervalg og gir et helt annet
         # predikat enn ett omraade: en IN-liste i stedet for én verdi.
-        $mange = @($spread.All | Select-Object -First 15 | ForEach-Object { "$($_.fid)" })
+        #
+        # ALDRI MER ENN HALVPARTEN AV DIMENSJONEN
+        # Med et fast tak paa 15 valgte fylke:mange ALLE 15 fylkene i Norge.
+        # Da var filteret semantisk nesten en no-op - det slapp gjennom
+        # 56 685 004 av 56 685 004 fylkesrader - men kostet 1700 ms oppaa
+        # gulvet, og caset laa som nummer 1, 2 og 3 paa lista over tregeste
+        # kall. Vi maalte og optimaliserte paa noe ingen bruker gjoer: aa velge
+        # alle fylker er det samme som aa ikke filtrere.
+        #
+        # Halvparten holder poenget - en lang IN-liste - uten aa degenerere.
+        # Kommuner (357) og verneomraader (3394) paavirkes ikke; det er bare
+        # fylke (15) og havomraade (4) som er smaa nok til aa treffe taket.
+        $maksMange = [Math]::Min(15, [Math]::Max(2, [int](@($spread.All).Count / 2)))
+        $mange = @($spread.All | Select-Object -First $maksMange | ForEach-Object { "$($_.fid)" })
         if ($mange.Count -gt 1) {
             # Noekkelen inneholder BEVISST ikke antallet. Het den "mange-x15" og
             # API-et en dag returnerte faerre omraader, ville noekkelen endret seg

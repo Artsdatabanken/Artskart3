@@ -1,3 +1,4 @@
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.Entities.Base;
 using NetTopologySuite.Geometries;
 
@@ -26,6 +27,14 @@ public partial class Location : BaseEntity
     public string? LocationId { get; set; }
 
     public Geometry? Geometry { get; set; }
+
+    /// <summary>
+    /// Geometritypen, beregnet og persistert i databasen fra Geometry.
+    ///
+    /// Databasen eier verdien — kolonnen er PERSISTED og kan ikke settes fra
+    /// koden. Se LocationGeometryType for hvorfor den finnes.
+    /// </summary>
+    public LocationGeometryType GeometryTypeId { get; private set; }
 
     public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();
 

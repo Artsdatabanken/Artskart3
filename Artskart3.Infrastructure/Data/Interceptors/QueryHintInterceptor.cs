@@ -50,6 +50,18 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
 
     /// <summary>
     /// Tagg → hintet den utløser. Rekkefølgen her blir rekkefølgen i OPTION-leddet.
+    ///
+    /// POLYGONHENTINGEN HADDE EN GANG SITT EGET HINT — DEN ER BORTE MED VILJE
+    /// Den ble drevet fra Location med tvungen loop join, og det var en stor
+    /// gevinst på brede filtre (regstatus:tung 10 799 → 1 135 ms). Men den var
+    /// katastrofal når to filtre til sammen ikke traff noe: 68 708 ms mot 12 ms
+    /// uten hintet. Det ble først forsøkt dempet med RECOMPILE, som bare flyttet
+    /// problemet, og deretter med en selektivitetssonde som virket.
+    ///
+    /// Alt det er nå overflødig: polygonsøket svarer fra PolygonLocationStore,
+    /// og databasestien brukes bare i de ~37 sekundene datasettet bygges ved
+    /// oppstart. I det vinduet er «aldri katastrofal» verdt mer enn «rask i
+    /// snitt», og den uhintede planen er nettopp det.
     /// </summary>
     private static readonly (string Tag, string Hint)[] Hints =
     [
@@ -98,7 +110,6 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
 
         if (treff.Length == 0)
             return text;
-
 
         // OPTION må stå aller sist i setningen, etter et eventuelt
         // OFFSET/FETCH-ledd. Et avsluttende semikolon ville kommet i veien.
