@@ -41,6 +41,8 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <!-- Geospatial -->
+    <PackageVersion Include="SkiaSharp" Version="4.153.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.0" />
     <PackageVersion Include="GeoJSON.Net" Version="1.4.1" />
     <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
 

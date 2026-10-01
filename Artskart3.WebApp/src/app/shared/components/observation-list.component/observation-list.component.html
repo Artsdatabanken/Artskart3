@@ -4,10 +4,15 @@
       {{ 'observationList.' + selection().kind | translate }}: {{ selection().geometryLabel }}
     </div>
     @if (selection().kind === 'selection') {
-      <div><strong>{{ 'observationList.selection' | translate }}</strong></div>
+      <div>
+        <strong>{{ 'observationList.selection' | translate }}</strong>
+      </div>
     } @else if (location(); as place) {
       @if (place.name || place.areas) {
-        <div><strong>{{ place.name }}</strong>{{ place.name && place.areas ? ', ' : '' }}{{ place.areas }}</div>
+        <div>
+          <strong>{{ place.name }}</strong
+          >{{ place.name && place.areas ? ', ' : '' }}{{ place.areas }}
+        </div>
       }
     }
     @if (requestState() === 'ready') {
@@ -18,8 +23,14 @@
         <adb-icon name="sort" />
         <span>{{ 'observationList.' + currentFilter() | translate }}</span>
       </button>
-      <div ngMenu #groupingMenu="ngMenu" class="grouping-menu" [hidden]="!groupingMenu.visible()"
-        [attr.aria-label]="'observationList.grouping' | translate" (itemSelected)="setGrouping($event)">
+      <div
+        ngMenu
+        #groupingMenu="ngMenu"
+        class="grouping-menu"
+        [hidden]="!groupingMenu.visible()"
+        [attr.aria-label]="'observationList.grouping' | translate"
+        (itemSelected)="setGrouping($event)"
+      >
         @for (filter of filters; track filter) {
           <button type="button" ngMenuItem [value]="filter" role="menuitemradio" [attr.aria-checked]="filter === currentFilter()">
             {{ 'observationList.' + filter | translate }}
@@ -38,7 +49,7 @@
     }
     @case ('ready') {
       @if (groups().length) {
-        <app-observation-tree [nodes]="groups()" [resetKey]="resetKey()" />
+        <app-observation-tree [nodes]="groups()" [resetKey]="resetKey()" (observationActivated)="observationActivated.emit($event)" />
       } @else {
         <p role="status">{{ 'listView.noResults' | translate }}</p>
       }

@@ -6,13 +6,29 @@ import { buildObservationTree, ObservationGrouping, registrationStatus } from '.
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 
 const record = (id: number, overrides: Partial<ObservationListInfoDto> = {}): ObservationListInfoDto => ({
-  id, taxonId: 1, preferredPopularName: 'Lav', scientificName: 'Lichen', displayName: 'Lav',
-  taxonGroupId: 1, taxonGroupName: 'Lav', locationId: 5, locality: 'Åsen',
-  categoryCode: 'VU', categoryTypeId: 1, dateTimeCollected: '2024-10-05', collector: 'Per',
+  id,
+  taxonId: 1,
+  preferredPopularName: 'Lav',
+  scientificName: 'Lichen',
+  displayName: 'Lav',
+  taxonGroupId: 1,
+  taxonGroupName: 'Lav',
+  locationId: 5,
+  locality: 'Åsen',
+  categoryCode: 'VU',
+  categoryTypeId: 1,
+  dateTimeCollected: '2024-10-05',
+  collector: 'Per',
   ...overrides,
 });
 const tree = (records: ObservationListInfoDto[], mode: ObservationGrouping = 'taxonGroup') =>
-  buildObservationTree(records, mode, 'no', (key) => key.split('.').at(-1)!, (date) => new LocaleDatePipe().transform(date, 'no'));
+  buildObservationTree(
+    records,
+    mode,
+    'no',
+    (key) => key.split('.').at(-1)!,
+    (date) => new LocaleDatePipe().transform(date, 'no'),
+  );
 
 describe('Observation grouping', () => {
   it('groups by IDs, preserves all records, and orders statuses and dates', () => {
@@ -48,9 +64,7 @@ describe('Observation grouping', () => {
       record(6, { categoryCode: 'EN', categoryTypeId: null }),
     ];
     const groups = tree(records, mode);
-    expect(groups.map((group) => group.id)).toEqual([
-      `${mode}/${mode === 'redList' ? 'VU' : 'SE'}`, `${mode}/${fallback}`,
-    ]);
+    expect(groups.map((group) => group.id)).toEqual([`${mode}/${mode === 'redList' ? 'VU' : 'SE'}`, `${mode}/${fallback}`]);
     expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(records.length);
     const defaultGroup = groups[1];
     expect(defaultGroup.count).toBe(5);
@@ -70,7 +84,8 @@ describe('Observation grouping', () => {
   });
 
   it('handles scientific and unknown values without losing observations', () => {
-    const species = tree([record(1, { displayName: '', preferredPopularName: null, collector: null, dateTimeCollected: 'invalid' })])[0].children[0].children[0];
+    const species = tree([record(1, { displayName: '', preferredPopularName: null, collector: null, dateTimeCollected: 'invalid' })])[0]
+      .children[0].children[0];
     expect(species.scientific).toBe(true);
     expect(species.label).toBe('Lichen');
     expect(species.children[0].label).toBe('unknownDate: unknownCollector');
@@ -80,13 +95,15 @@ describe('Observation grouping', () => {
   it.each(['taxonGroup', 'location', 'redList', 'alienSpecies'] as const)(
     'uses the backend display name for species under every registration status in %s',
     (mode) => {
-      const groups = tree([
-        record(1, { displayName: ' Selected name ', preferredPopularName: null }),
-        record(2, { displayName: 'Selected name', preferredPopularName: 'Other name', registrationType: ['NotRecovered'] }),
-        record(3, { displayName: 'Selected name', registrationType: ['Absent'] }),
-      ], mode);
-      expect(groups[0].children.map((status) => status.children[0].label))
-        .toEqual(['Selected name', 'Selected name', 'Selected name']);
+      const groups = tree(
+        [
+          record(1, { displayName: ' Selected name ', preferredPopularName: null }),
+          record(2, { displayName: 'Selected name', preferredPopularName: 'Other name', registrationType: ['NotRecovered'] }),
+          record(3, { displayName: 'Selected name', registrationType: ['Absent'] }),
+        ],
+        mode,
+      );
+      expect(groups[0].children.map((status) => status.children[0].label)).toEqual(['Selected name', 'Selected name', 'Selected name']);
     },
   );
 
@@ -119,10 +136,12 @@ describe('ObservationList', () => {
   });
 
   it('renders the tree and changes grouping without fetching data', async () => {
+    const root = fixture.nativeElement.querySelector('[role="tree"]');
     expect(fixture.nativeElement.querySelector('adb-accordion')).toBeNull();
     component.currentFilter.set('location');
     await fixture.whenStable();
     expect(component.groups()[0].label).toBe('Åsen');
+    expect(fixture.nativeElement.querySelector('[role="tree"]')).toBe(root);
   });
 
   it('selects grouping through the accessible menu and closes it', async () => {
