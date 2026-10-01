@@ -231,6 +231,8 @@
   },
   "mapToolbar": {
     "layersAriaLabel": "Lag",
+    "layersHeading": "Kartlag",
+    "noLayers": "Ingen kartlag tilgjengelig",
     "filterAriaLabel": "Innstillinger",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "Min posisjon",
@@ -247,6 +249,12 @@
       "landscape": "Landkart",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
+    },
+    "mapLayers": {
+      "admGrenser": "Administrative grenser",
+      "vern": "Verneområder",
+      "bioseksjoner": "Bioklimatiske seksjoner",
+      "biosoner": "Bioklimatiske soner"
     },
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },
