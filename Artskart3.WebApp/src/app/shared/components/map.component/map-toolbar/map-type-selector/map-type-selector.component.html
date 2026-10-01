@@ -1,10 +1,10 @@
-<div class="map-type-container">
+<div class="map-toolbar-menu-container">
   <adb-icon-button
     variant="secondary"
     (click)="toggleMapTypes()"
     [attr.aria-label]="getToggleButtonAriaLabel()"
-    [attr.aria-pressed]="isMapTypesOpen"
-    [attr.aria-expanded]="isMapTypesOpen"
+    [attr.aria-pressed]="isOpen"
+    [attr.aria-expanded]="isOpen"
     aria-haspopup="true"
   >
     <span class="sr-only">{{ getToggleButtonAriaLabel() }}</span>
@@ -13,9 +13,9 @@
     </svg>
   </adb-icon-button>
 
-  @if (isMapTypesOpen) {
-    <div class="map-types-dropdown" aria-labelledby="map-types-heading">
-      <div id="map-types-heading" class="map-types-header adb-heading-2xsm" role="heading" aria-level="2">{{ 'mapToolbar.mapTypeHeading' | translate }}</div>
+  @if (isOpen) {
+    <div class="map-toolbar-menu-dropdown" aria-labelledby="map-types-heading">
+      <div id="map-types-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">{{ 'mapToolbar.mapTypeHeading' | translate }}</div>
       <adb-radio-group
         name="mapType"
         [attr.value]="selectedLayerId"

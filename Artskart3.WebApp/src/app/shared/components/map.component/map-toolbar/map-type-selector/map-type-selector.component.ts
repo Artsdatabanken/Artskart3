@@ -1,32 +1,32 @@
-import { Component, output, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Output, EventEmitter, CUSTOM_ELEMENTS_SCHEMA, inject, Input } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MAP_TYPE_OPTIONS } from '../../../../config/map/map-layer.config';
 
 @Component({
   selector: 'app-map-type-selector',
-  imports: [CommonModule, TranslateModule],
+  imports: [TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-type-selector.component.html',
   styleUrl: './map-type-selector.component.css',
 })
 export class MapTypeSelectorComponent {
-  readonly mapTypeSelected = output<string>();
+  @Input() isOpen = false;
+  @Output() mapTypeSelected = new EventEmitter<string>();
+  @Output() mapTypesOpenChange = new EventEmitter<boolean>();
 
   readonly mapTypeOptions = MAP_TYPE_OPTIONS;
-  isMapTypesOpen = false;
   selectedLayerId = 'topografisk';
 
   private readonly translate = inject(TranslateService);
 
   toggleMapTypes(): void {
-    this.isMapTypesOpen = !this.isMapTypesOpen;
+    this.mapTypesOpenChange.emit(!this.isOpen);
   }
 
   selectMapType(layerId: string): void {
     this.selectedLayerId = layerId;
     this.mapTypeSelected.emit(layerId);
-    this.isMapTypesOpen = false;
+    this.mapTypesOpenChange.emit(false);
   }
 
   onRadioGroupChange(event: Event): void {

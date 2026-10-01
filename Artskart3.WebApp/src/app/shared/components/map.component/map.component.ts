@@ -50,6 +50,9 @@ import { ObservationListComponent } from '@shared/components/observation-list.co
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import {SearchFilterService} from '@shared/services/search-filter/search-filter.service';
+import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
+import TileLayer from 'ol/layer/Tile';
+import TileWMS from 'ol/source/TileWMS';
 
 @Component({
   selector: 'app-map',
@@ -67,6 +70,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
+  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -1162,6 +1166,29 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setLayerVisibility(layerId, true);
   }
 
+  onMapToolbarMenuItemChange({ layer, visible }: MapToolbarMenuItemChange): void {
+    const existing = this.mapOverlayLayers.get(layer.id);
+    if (existing) {
+      existing.setVisible(visible);
+      return;
+    }
+    if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
+
+    const overlay = new TileLayer({
+      source: new TileWMS({
+        url: layer.url,
+        params: {
+          LAYERS: layer.layers ?? undefined,
+          FORMAT: layer.format ?? 'image/png',
+          VERSION: layer.version ?? '1.3.0',
+        },
+        attributions: layer.attribution ?? undefined,
+      }),
+    });
+    this.mapOverlayLayers.set(layer.id, overlay);
+    this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+  }
+
   private cleanup(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -1170,6 +1197,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
+    this.mapOverlayLayers.clear();
     this.map?.destroy?.();
   }
 
