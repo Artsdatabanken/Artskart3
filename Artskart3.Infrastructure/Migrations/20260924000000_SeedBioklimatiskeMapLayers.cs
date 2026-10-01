@@ -14,9 +14,6 @@ public partial class SeedBioklimatiskeMapLayers : Migration
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.Sql(
-            "DELETE FROM [MapLayer] WHERE [Name] IN (N'Bioseksjoner', N'Biosoner');");
-
         migrationBuilder.InsertData(
             table: "MapLayer",
             columns: ["Name", "Type", "Url", "Layers", "Format", "Version", "Attribution", "CreatedAt", "UpdatedAt", "IsDeleted"],
