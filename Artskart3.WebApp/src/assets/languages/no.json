@@ -377,5 +377,16 @@
     "taxonGroup": "Artsgrupper",
     "category": "Kategorier",
     "location": "Lokaliteter"
+  },
+  "feedback": {
+    "tabLabel": "Gi tilbakemelding",
+    "heading": "Gi tilbakemelding",
+    "formLink": "Tilbakemeldingsskjema",
+    "employeesHeading": "For ansatte i Artsdatabanken",
+    "githubLink": "Gi tilbakemelding via GitHub",
+    "githubInfo": "Krever GitHub-konto. Har du ikke konto, send e-post til Kristian.",
+    "bugReportHeading": "Ved feilrapportering",
+    "bugReportInfo": "Beskriv hva du gjorde, hvilken nettleser du brukte og hva som gikk galt.",
+    "opensInNewTab": "(åpnes i ny fane)"
   }
 }
