@@ -1,6 +1,3 @@
-using Artskart3.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -8,8 +5,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Artskart3.Infrastructure.Migrations;
 
 /// <inheritdoc />
-[DbContext(typeof(ArtskartDbContext))]
-[Migration("20260924000000_SeedBioklimatiskeMapLayers")]
 public partial class SeedBioklimatiskeMapLayers : Migration
 {
     private static readonly DateTime SeededAt = new(2026, 9, 24);
@@ -19,9 +14,6 @@ public partial class SeedBioklimatiskeMapLayers : Migration
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.Sql(
-            "DELETE FROM [MapLayer] WHERE [Name] IN (N'Bioseksjoner', N'Biosoner');");
-
         migrationBuilder.InsertData(
             table: "MapLayer",
             columns: ["Name", "Type", "Url", "Layers", "Format", "Version", "Attribution", "CreatedAt", "UpdatedAt", "IsDeleted"],
