@@ -1535,6 +1535,7 @@ export interface components {
             scientificNameFormatted?: string;
             author?: string;
             rank?: string;
+            taxonGroupName?: null | string;
             preferredVernacularNames?: components["schemas"]["VernacularNameDto"][];
             vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][];
             scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][];
