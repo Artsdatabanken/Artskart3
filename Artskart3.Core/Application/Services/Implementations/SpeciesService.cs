@@ -4,6 +4,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.ExternalModels;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Options;
 
 namespace Artskart3.Core.Application.Services.Implementations;
@@ -12,22 +13,36 @@ public class SpeciesService : ISpeciesService
 {
     private readonly HttpClient _httpClient;
     private readonly NorTaxaOptions _options;
+    private readonly ILookupRepository _lookupRepository;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public SpeciesService(HttpClient httpClient, IOptions<NorTaxaOptions> options)
+    public SpeciesService(HttpClient httpClient, IOptions<NorTaxaOptions> options, ILookupRepository lookupRepository)
     {
         _httpClient = httpClient;
         _options = options.Value;
+        _lookupRepository = lookupRepository;
     }
 
     public async Task<List<SpeciesDto>> SearchSpeciesAsync(string searchInput, CancellationToken cancellationToken = default)
     {
-        if (int.TryParse(searchInput, out var taxonId) && taxonId > 0)
-        {
-            return await SearchByTaxonIdAsync(taxonId, cancellationToken);
-        }
+        var results = int.TryParse(searchInput, out var taxonId) && taxonId > 0
+            ? await SearchByTaxonIdAsync(taxonId, cancellationToken)
+            : await SearchByNameAsync(searchInput, cancellationToken);
 
-        return await SearchByNameAsync(searchInput, cancellationToken);
+        await AddTaxonGroupNamesAsync(results, cancellationToken);
+        return results;
+    }
+
+    private async Task AddTaxonGroupNamesAsync(List<SpeciesDto> results, CancellationToken cancellationToken)
+    {
+        if (results.Count == 0) return;
+
+        var taxonIds = results.Select(r => r.TaxonId).Distinct().ToList();
+        var groupNames = await _lookupRepository.GetTaxonGroupNamesByTaxonIdsAsync(taxonIds, cancellationToken);
+        foreach (var result in results)
+        {
+            result.TaxonGroupName = groupNames.GetValueOrDefault(result.TaxonId);
+        }
     }
 
     private async Task<List<SpeciesDto>> SearchByNameAsync(string name, CancellationToken cancellationToken)
