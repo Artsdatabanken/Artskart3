@@ -229,6 +229,14 @@
     "imageWith": "Med bilde",
     "imageWithout": "Uten bilde"
   },
+  "mapSearch": {
+    "placeholder": "Finn sted",
+    "resultsLabel": "Stedssøkeresultater",
+    "resultsAnnouncement": "Stedssøkeresultater: {{count}}",
+    "noResults": "Ingen steder funnet for \"{{query}}\".",
+    "loading": "Søker etter steder...",
+    "error": "Stedssøket mislyktes. Prøv igjen."
+  },
   "mapToolbar": {
     "layersAriaLabel": "Lag",
     "layersHeading": "Kartlag",

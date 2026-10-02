@@ -53,16 +53,23 @@ import {SearchFilterService} from '@shared/services/search-filter/search-filter.
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import { PlaceSearchComponent } from './place-search/place-search.component';
+import { PlaceSearchResult } from '../../types/place-search.types';
 
 @Component({
   selector: 'app-map',
-  imports: [CommonModule, MapToolbarComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, PlaceSearchComponent, ObservationListComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
+  readonly placeSelectedAction = output<PlaceSearchResult>();
+
+  onPlaceSelected(place: PlaceSearchResult): void {
+    this.placeSelectedAction.emit(place);
+  }
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';
   private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
