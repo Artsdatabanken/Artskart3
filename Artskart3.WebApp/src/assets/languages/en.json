@@ -229,6 +229,14 @@
     "imageWith": "With image",
     "imageWithout": "Without image"
   },
+  "mapSearch": {
+    "placeholder": "Find a place",
+    "resultsLabel": "Place search results",
+    "resultsAnnouncement": "Place search results: {{count}}",
+    "noResults": "No places found for \"{{query}}\".",
+    "loading": "Searching places...",
+    "error": "Place search failed. Try again."
+  },
   "mapToolbar": {
     "layersAriaLabel": "Layers",
     "layersHeading": "Map layers",

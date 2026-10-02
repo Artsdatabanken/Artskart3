@@ -1,0 +1,111 @@
+:host {
+  position: absolute;
+  inset-block-start: 16px;
+  inset-inline-start: 50%;
+  z-index: 120;
+  width: min(420px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+
+.search-field {
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: min(320px, calc(100vh - 100px));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--adb-surface-base-primary);
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-border-radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.16);
+  color: var(--adb-text-base-primary);
+  z-index: 1000;
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.autocomplete-item + .autocomplete-item {
+  border-block-start: 1px solid var(--adb-border-base-primary);
+}
+
+.autocomplete-item:hover,
+.autocomplete-item--active {
+  background: var(--adb-surface-base-secondary);
+}
+
+.autocomplete-item:focus-visible {
+  outline: 3px solid var(--adb-border-accent-primary);
+  outline-offset: -3px;
+}
+
+.autocomplete-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.autocomplete-name {
+  overflow: hidden;
+  font-size: var(--adb-font-size-4);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-location {
+  overflow: hidden;
+  color: var(--adb-text-base-secondary);
+  font-size: var(--adb-font-size-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-type {
+  flex: 0 0 auto;
+  max-width: 38%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: 4px;
+  color: var(--adb-text-base-secondary);
+  font-size: var(--adb-font-size-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-status {
+  padding: 12px;
+  color: var(--adb-text-base-secondary);
+  font-size: var(--adb-font-size-3);
+}
