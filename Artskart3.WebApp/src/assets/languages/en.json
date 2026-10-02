@@ -38,7 +38,7 @@
     "close": "Close"
   },
   "baseLayout": {
-    "searchPlaceholder": "Search in Artskart"
+    "searchPlaceholder": "Search for species"
   },
   "resizablePanel": {
     "resizeAriaLabel": "Resize filter panel"
