@@ -377,5 +377,16 @@
     "taxonGroup": "Taxon Groups",
     "category": "Categories",
     "location": "Locations"
+  },
+  "feedback": {
+    "tabLabel": "Give feedback",
+    "heading": "Give feedback",
+    "formLink": "Feedback form",
+    "employeesHeading": "For Artsdatabanken employees",
+    "githubLink": "Give feedback via GitHub",
+    "githubInfo": "Requires a GitHub account. If you don't have one, send an email to Kristian.",
+    "bugReportHeading": "When reporting bugs",
+    "bugReportInfo": "Describe what you did, which browser you used and what went wrong.",
+    "opensInNewTab": "(opens in a new tab)"
   }
 }
