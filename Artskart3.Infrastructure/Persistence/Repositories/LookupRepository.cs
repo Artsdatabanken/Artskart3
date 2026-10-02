@@ -368,6 +368,25 @@ public class LookupRepository : ILookupRepository
         }
     }
 
+    public async Task<Dictionary<int, string>> GetTaxonGroupNamesByTaxonIdsAsync(IReadOnlyCollection<int> taxonIds, CancellationToken cancellationToken = default)
+    {
+        if (taxonIds.Count == 0)
+            return [];
+
+        try
+        {
+            return await _context.Set<Taxon>()
+                .Where(t => taxonIds.Contains(t.Id) && !t.TaxonGroup.IsDeleted)
+                .Select(t => new { t.Id, t.TaxonGroup.Name })
+                .ToDictionaryAsync(t => t.Id, t => t.Name, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av taksongrupper for taksoner");
+            throw new ApplicationException("Feil ved henting av taksongrupper for taksoner", ex);
+        }
+    }
+
     public async Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default)
     {
         try
