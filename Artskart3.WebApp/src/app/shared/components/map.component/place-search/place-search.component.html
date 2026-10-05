@@ -1,0 +1,67 @@
+<div class="search-field" #searchField>
+  <adb-search
+    size="sm"
+    variant="with-button"
+    button-variant="filled"
+    [attr.placeholder]="'mapSearch.placeholder' | translate"
+    [attr.label]="'mapSearch.placeholder' | translate"
+    (adb-input)="onSearchInput($event)"
+    (adb-search)="onSearchSubmit()"
+    (adb-clear)="onSearchClear()"
+  ></adb-search>
+</div>
+
+<div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+  @if (showResults()) {
+    {{ 'mapSearch.resultsAnnouncement' | translate: { count: results().length } }}
+  } @else if (showNoResults()) {
+    {{ 'mapSearch.noResults' | translate: { query: searchTerm() } }}
+  } @else if (hasError()) {
+    {{ 'mapSearch.error' | translate }}
+  }
+</div>
+
+@if (showResults()) {
+  <ul
+    class="autocomplete-list"
+    role="listbox"
+    [attr.aria-label]="'mapSearch.resultsLabel' | translate"
+  >
+    @for (place of results(); track place.id; let index = $index) {
+      <li
+        class="autocomplete-item"
+        [class.autocomplete-item--active]="highlightedIndex() === index"
+        [id]="'place-option-' + index"
+        role="option"
+        [attr.aria-selected]="highlightedIndex() === index"
+        [attr.tabindex]="highlightedIndex() === index ? 0 : -1"
+        (click)="onPlaceSelect(place)"
+        (keydown.enter)="onPlaceSelect(place)"
+        (keydown.space)="onPlaceSelect(place); $event.preventDefault()"
+      >
+        <span class="autocomplete-main">
+          <span class="autocomplete-name">{{ place.name }}</span>
+          @if (getLocationLabel(place); as location) {
+            <span class="autocomplete-location">{{ location }}</span>
+          }
+        </span>
+        <span class="autocomplete-type">{{ place.placeType }}</span>
+      </li>
+    }
+  </ul>
+}
+
+@if (isLoading() || showNoResults() || hasError()) {
+  <div
+    class="autocomplete-list autocomplete-status"
+    role="status"
+  >
+    @if (isLoading()) {
+      {{ 'mapSearch.loading' | translate }}
+    } @else if (showNoResults()) {
+      {{ 'mapSearch.noResults' | translate: { query: searchTerm() } }}
+    } @else {
+      {{ 'mapSearch.error' | translate }}
+    }
+  </div>
+}
