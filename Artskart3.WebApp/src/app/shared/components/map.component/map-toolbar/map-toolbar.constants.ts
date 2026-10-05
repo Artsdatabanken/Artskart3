@@ -1,7 +1,8 @@
+import { MapLayerDto } from '@shared/types/map-layer.types';
 
-export enum ToolbarAction {
-  MAP = 'kart',
-  LAYERS = 'layers',
-  FILTER = 'filter',
-  POLYGON = 'polygon',
+export type MapToolbarMenu = 'mapTypes' | 'mapLayers';
+
+export interface MapToolbarMenuItemChange {
+  layer: MapLayerDto;
+  visible: boolean;
 }

@@ -178,6 +178,31 @@ public class SearchEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // POST /api/Search/LocationCount (GetLocationCount action)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetLocationCount_WithNoFilter_Returns200WithCountAndTruncated()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationCount", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.GetProperty("count").GetInt32().Should().BeGreaterThanOrEqualTo(0);
+        doc.RootElement.GetProperty("truncated").ValueKind.Should().BeOneOf(JsonValueKind.True, JsonValueKind.False);
+    }
+
+    [Fact]
+    public async Task GetLocationCount_WithInvertedPrecisionRange_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/LocationCount",
+            new { coordinatePrecision = new { from = 1000, to = 100 } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // -----------------------------------------------------------------------
     // POST /api/Search/AreaMarkers
     // -----------------------------------------------------------------------
 

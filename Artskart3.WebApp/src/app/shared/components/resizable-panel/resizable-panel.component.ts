@@ -1,33 +1,35 @@
-import { Component, Input, Output, EventEmitter, HostListener, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, signal, OnInit } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-resizable-panel',
-  standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [TranslateModule],
   templateUrl: './resizable-panel.component.html',
   styleUrl: './resizable-panel.component.css',
+  host: {
+    '(document:mousemove)': 'onMouseMove($event)',
+    '(document:mouseup)': 'onMouseUp()',
+  },
 })
 export class ResizablePanelComponent implements OnInit {
-  @Input() initialWidth = 358;
-  @Input() minWidth = 200;
-  @Input() maxWidth = 500;
-  @Input() isDraggable = true;
+  readonly initialWidth = input(358);
+  readonly minWidth = input(200);
+  readonly maxWidth = input(500);
+  readonly isDraggable = input(true);
 
-  @Output() widthChanged = new EventEmitter<number>();
+  readonly widthChanged = output<number>();
 
-  currentWidth = signal<number>(this.minWidth);
+  currentWidth = signal(0);
   isResizing = signal(false);
   private dragStartX = 0;
   private dragStartWidth = 0;
 
   ngOnInit() {
-    this.currentWidth.set(this.initialWidth);
+    this.currentWidth.set(this.initialWidth());
   }
 
   onResizeStart(event: MouseEvent) {
-    if (!this.isDraggable) return;
+    if (!this.isDraggable()) return;
 
     event.preventDefault();
     this.isResizing.set(true);
@@ -35,18 +37,16 @@ export class ResizablePanelComponent implements OnInit {
     this.dragStartWidth = this.currentWidth();
   }
 
-  @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
     if (!this.isResizing()) return;
 
     const delta = event.clientX - this.dragStartX;
     let newWidth = this.dragStartWidth + delta;
-    newWidth = Math.max(this.minWidth, Math.min(this.maxWidth, newWidth));
+    newWidth = Math.max(this.minWidth(), Math.min(this.maxWidth(), newWidth));
     this.currentWidth.set(newWidth);
     this.widthChanged.emit(newWidth);
   }
 
-  @HostListener('document:mouseup')
   onMouseUp() {
     if (this.isResizing()) {
       this.isResizing.set(false);

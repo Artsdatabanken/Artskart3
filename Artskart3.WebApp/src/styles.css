@@ -15,6 +15,33 @@
   --home-header-height: 80px;
   --home-handle-height: 56px;
   --home-mobile-breakpoint: 768px;
+  --home-open-gap: 24px;
+}
+
+.map-toolbar-menu-container {
+  position: relative;
+}
+
+.map-toolbar-menu-dropdown {
+  position: absolute;
+  top: calc(-20% + var(--adb-spacing-xsm));
+  right: 40px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-md);
+  padding: var(--adb-spacing-xsm);
+  background: var(--adb-surface-base-primary);
+  border: 1px solid var(--adb-border-base-subtle);
+  border-radius: var(--adb-border-radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+}
+
+.map-toolbar-menu-header {
+  width: 100%;
+  padding: 0 var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
 }
 
 /* ============================================================================
@@ -34,10 +61,10 @@ html {
 body {
   font-family: var(--adb-font-family-primary);
   font-size: var(--adb-font-size-base);
-  font-weight: var(--adb-font-weight-regular);
+  font-weight: var(--adb-font-weight-primary);
   line-height: var(--adb-font-line-height);
-  color: var(--adb-text-primary);
-  background-color: var(--adb-background-default);
+  color: var(--adb-text-base-primary);
+  background-color: var(--adb-background-primary);
 }
 
 h1,
@@ -46,7 +73,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: var(--adb-font-weight-bold);
+  font-weight: var(--adb-font-weight-heavy);
   line-height: 1.2;
   margin-bottom: var(--adb-spacing-md);
 }
@@ -80,12 +107,12 @@ p {
 }
 
 a {
-  color: var(--adb-text-accent);
+  color: var(--adb-text-accent-primary);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--adb-text-hover);
+  color: var(--adb-text-accent-hover);
   text-decoration: underline;
 }
 
@@ -104,7 +131,7 @@ button {
 input,
 textarea,
 select {
-  border: 1px solid var(--adb-border-subtle);
+  border: 1px solid var(--adb-border-base-subtle);
   border-radius: var(--adb-border-radius);
   padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
 }
@@ -113,7 +140,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--adb-border-accent);
+  border-color: var(--adb-border-accent-primary);
 }
 
 input:disabled,
