@@ -3,10 +3,10 @@
 ## Forutsetninger
 
 Sørg for at du har følgende installert:
-- **Node.js 22.14+** (påkrevd for Angular frontend)
-- **npm 10.9.2+** (angitt i package.json)
+- **Node.js 24 LTS, minst 24.15.0** (påkrevd for Angular 22)
+- **npm 11+** (følger med Node 24; angitt i package.json)
 - **Git** (for å klone repositorier)
-- **Angular**: 19+
+- **Angular**: 22
 - **Visual Studio 2026** (for .NET 10 backend)
 
 ## Oppsett: Klone begge repositorier

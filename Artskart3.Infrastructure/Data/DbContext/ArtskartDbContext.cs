@@ -58,6 +58,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<MigrationHistory> MigrationHistories { get; set; }
 
+    public virtual DbSet<MapLayer> MapLayers { get; set; }
+
     public virtual DbSet<Observation> Observations { get; set; }
 
     public virtual DbSet<ObservationDetail> ObservationDetails { get; set; }
@@ -271,6 +273,21 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.ToTable("FAB4Exclude");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        modelBuilder.Entity<MapLayer>(entity =>
+        {
+            entity.ToTable("MapLayer");
+
+            entity.HasIndex(e => e.Name, "IX_MapLayer_Name");
+
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Type).HasMaxLength(20);
+            entity.Property(e => e.Url).HasMaxLength(1000);
+            entity.Property(e => e.Layers).HasMaxLength(500);
+            entity.Property(e => e.Format).HasMaxLength(100);
+            entity.Property(e => e.Version).HasMaxLength(20);
+            entity.Property(e => e.Attribution).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<Filter>(entity =>

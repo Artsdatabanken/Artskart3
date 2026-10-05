@@ -499,6 +499,77 @@ public class SearchRepositoryTests
         result[0].Id.Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetObservationListInfo_WithValidRequest_ReturnsObservations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var location = CreateLocation(5000, "Test Locality");
+        SeedLocations(context, location);
+        context.Set<TaxonGroup>().Add(new TaxonGroup { Id = 1, Name = "Test group" });
+        context.Set<Taxon>().Add(CreateTaxon(1, "Test species", "Testus species"));
+        context.Set<TaxonName>().Add(new TaxonName { Id = 1, ScientificName = "Testus species" });
+        SeedObservations(context,
+            CreateObservation(1, 5000),  // locationId = 5000
+            CreateObservation(2, 5000),  // locationId = 5000
+            CreateObservation(3, 5000)); // locationId = 5000
+
+        await context.SaveChangesAsync();
+
+        var request = new ObservationListInfoRequestDto { Ids = [5000], Filter = null };
+        var result = (await sut.GetObservationListInfo(request)).ToList();
+
+        result.Should().HaveCount(3);
+    }
+
+    [Fact]
+    private async Task GetObservationListInfo_ReturnsEmptyRequestIds()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var location = CreateLocation(5000, "Test Locality");
+        SeedLocations(context, location);
+        context.Set<TaxonGroup>().Add(new TaxonGroup { Id = 1, Name = "Test group" });
+        context.Set<Taxon>().Add(CreateTaxon(1, "Test species", "Testus species"));
+        context.Set<TaxonName>().Add(new TaxonName { Id = 1, ScientificName = "Testus species" });
+        SeedObservations(context,
+            CreateObservation(1, 5000),  // locationId = 5000
+            CreateObservation(2, 5000),  // locationId = 5000
+            CreateObservation(3, 5000)); // locationId = 5000
+
+        await context.SaveChangesAsync();
+
+        var request = new ObservationListInfoRequestDto { Ids = [], Filter = null };
+        var result = (await sut.GetObservationListInfo(request)).ToList();
+
+        result.Should().HaveCount(0);
+    }
+
+    [Fact]
+    private async Task GetObservationListInfo_ReturnsFilteredRegistrations()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        var location = CreateLocation(5000, "Test Locality");
+        SeedLocations(context, location);
+        context.Set<TaxonGroup>().Add(new TaxonGroup { Id = 8, Name = "Fugler" });
+        context.Set<Taxon>().Add(CreateTaxon(1, "Test species", "Testus species", taxonGroupId: 8));
+        context.Set<TaxonName>().Add(new TaxonName { Id = 1, ScientificName = "Testus species" });
+        SeedObservations(context,
+            CreateObservation(1, 5000, 8),  // locationId = 5000
+            CreateObservation(2, 5000, 8),  // locationId = 5000
+            CreateObservation(3, 5000, 2)); // locationId = 5000
+
+        await context.SaveChangesAsync();
+
+        var request = new ObservationListInfoRequestDto { Ids = [5000], Filter = new ObservationSearchFilterDto { TaxonGroupIds = [8]} };
+        var result = (await sut.GetObservationListInfo(request)).ToList();
+        result.Should().HaveCount(2);
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
@@ -591,6 +662,19 @@ public class SearchRepositoryTests
             IsCurrent = true,
             WktPolygon = null,
             Centroid = null
+        };
+    private static Taxon CreateTaxon(int id, string preferredPopularName, string validScientificName, int taxonGroupId = 1, int taxonRankId = 1) =>
+        new()
+        {
+            Id = id,
+            PreferredPopularName = preferredPopularName,
+            ValidScientificName = validScientificName,
+            ValidScientificNameAuthorship = null,
+            TaxonGroupId = taxonGroupId,
+            TaxonRankId = taxonRankId,
+            // satisfy non-nullable model properties
+            ScientificNameIdHiarchy = string.Empty,
+            TaxonIdHiarchy = string.Empty
         };
 
 }

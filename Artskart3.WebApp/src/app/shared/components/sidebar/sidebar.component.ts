@@ -1,4 +1,12 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
+  inject,
+  signal,
+  computed,
+  linkedSignal,
+} from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -12,6 +20,7 @@ import { TaxonGroupService } from '../../services/taxon-group/taxon-group.servic
 import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
+import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
 import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
@@ -19,19 +28,12 @@ import { SpeciesSearchComponent } from '../species-search/species-search.compone
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
 import type { components } from '../../types/api.generated';
 
-const MinProjectNameSearchLength = 2;
-
-interface RegistreringOption {
-  id: number | null;
-  labelKey: string;
-  descriptionKey?: string;
-}
+const MinProjectNameSearchLength = 1;
 
 @Component({
   selector: 'app-sidebar',
   imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })
@@ -54,10 +56,14 @@ export class SidebarComponent {
   private readonly projectSearch$ = new Subject<string>();
   readonly projectSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showProjectSuggestions = signal<boolean>(false);
+  readonly projectSearchTerm = signal('');
+  readonly projectSearchPending = signal<boolean>(false);
 
   private readonly datasetSearch$ = new Subject<string>();
   readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
   readonly showDatasetSuggestions = signal<boolean>(false);
+  readonly datasetSearchTerm = signal('');
+  readonly datasetSearchPending = signal<boolean>(false);
 
   private readonly catalogNumberSearch$ = new Subject<string>();
   readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
@@ -89,7 +95,8 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.projectSuggestions.set(organizations);
-        this.showProjectSuggestions.set(organizations.length > 0);
+        this.projectSearchPending.set(false);
+        this.showProjectSuggestions.set(this.projectSearchTerm().trim().length > 0);
       });
 
     this.datasetSearch$
@@ -109,7 +116,8 @@ export class SidebarComponent {
       )
       .subscribe((organizations) => {
         this.datasetSuggestions.set(organizations);
-        this.showDatasetSuggestions.set(organizations.length > 0);
+        this.datasetSearchPending.set(false);
+        this.showDatasetSuggestions.set(this.datasetSearchTerm().trim().length > 0);
       });
 
     this.catalogNumberSearch$
@@ -132,12 +140,7 @@ export class SidebarComponent {
         this.showCatalogNumberSuggestions.set(matches.length > 0);
       });
   }
-  readonly registreringOptions: RegistreringOption[] = [
-    { id: null, labelKey: 'sidebar.registreringStatus.alle' },
-    { id: 1, labelKey: 'sidebar.registreringStatus.present', descriptionKey: 'sidebar.registreringStatus.presentDescription' },
-    { id: 2, labelKey: 'sidebar.registreringStatus.absent', descriptionKey: 'sidebar.registreringStatus.absentDescription' },
-    { id: 3, labelKey: 'sidebar.registreringStatus.notrefound', descriptionKey: 'sidebar.registreringStatus.notrefoundDescription' },
-  ];
+  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS;
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -194,10 +197,6 @@ export class SidebarComponent {
 
   onClearFilter(): void {
     this.filterState.clearAll();
-    this.coordinatePrecisionFromInput.set('');
-    this.coordinatePrecisionToInput.set('');
-    this.periodFromInput.set('');
-    this.periodToInput.set('');
   }
 
   isMunicipalitySelected(fid: string): boolean {
@@ -308,9 +307,14 @@ export class SidebarComponent {
     this.taxonTreeOpened.set(true);
   }
 
-  // Coordinate precision filter
-  readonly coordinatePrecisionFromInput = signal('');
-  readonly coordinatePrecisionToInput = signal('');
+  readonly coordinatePrecisionFromInput = linkedSignal(() => {
+    const value = this.filterState.coordinatePrecisionFrom();
+    return value == null ? '' : String(value);
+  });
+  readonly coordinatePrecisionToInput = linkedSignal(() => {
+    const value = this.filterState.coordinatePrecisionTo();
+    return value == null ? '' : String(value);
+  });
 
   onCoordinatePrecisionFromChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -346,8 +350,14 @@ export class SidebarComponent {
   }
 
   // Period filter
-  readonly periodFromInput = signal('');
-  readonly periodToInput = signal('');
+  readonly periodFromInput = linkedSignal(() => {
+    const value = this.filterState.periodFrom();
+    return value == null ? '' : String(value);
+  });
+  readonly periodToInput = linkedSignal(() => {
+    const value = this.filterState.periodTo();
+    return value == null ? '' : String(value);
+  });
 
   onPeriodFromChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -395,9 +405,13 @@ export class SidebarComponent {
   // «Fugler», men filteret står fortsatt på forrige valg.
   onProjectNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setProjectName(input.value);
+    const value = input.value;
+    this.projectSearchTerm.set(value);
+    this.filterState.setProjectName(value);
     this.filterState.setProjectOrgId(null);
-    this.projectSearch$.next(input.value);
+    this.showProjectSuggestions.set(value.trim().length > 0);
+    this.projectSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
+    this.projectSearch$.next(value);
   }
 
   onProjectNameFocus(): void {
@@ -416,13 +430,18 @@ export class SidebarComponent {
     this.filterState.setProjectOrgId(organization.id ?? null);
     this.projectSuggestions.set([]);
     this.showProjectSuggestions.set(false);
+    this.projectSearchTerm.set(organization.name ?? '');
   }
 
   onDatasetNameChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.filterState.setDatasetName(input.value);
+    const value = input.value;
+    this.datasetSearchTerm.set(value);
+    this.filterState.setDatasetName(value);
     this.filterState.setDatasetOrgId(null);
-    this.datasetSearch$.next(input.value);
+    this.showDatasetSuggestions.set(value.trim().length > 0);
+    this.datasetSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
+    this.datasetSearch$.next(value);
   }
 
   onDatasetNameFocus(): void {
@@ -440,6 +459,7 @@ export class SidebarComponent {
     this.filterState.setDatasetOrgId(organization.id ?? null);
     this.datasetSuggestions.set([]);
     this.showDatasetSuggestions.set(false);
+    this.datasetSearchTerm.set(organization.name ?? '');
   }
 
   onCatalogNumberChange(event: Event): void {
