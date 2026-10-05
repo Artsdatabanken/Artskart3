@@ -7,13 +7,14 @@ import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 import { apiErrorMessage } from '../../shared/utils/api-error';
+import { SavedFiltersTableComponent } from './saved-filters-table/saved-filters-table.component';
 
 @Component({
   selector: 'app-mitt-artskart',
-  imports: [LocaleDateTimePipe, FormatFileSizePipe, TranslateModule],
+  imports: [LocaleDateTimePipe, FormatFileSizePipe, TranslateModule, SavedFiltersTableComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './mitt-artskart.component.html',
-  styleUrl: './mitt-artskart.component.css',
+  styleUrls: ['./data-table.css', './mitt-artskart.component.css'],
 })
 export class MittArtskartComponent implements OnDestroy {
   private readonly exportService = inject(ExportService);

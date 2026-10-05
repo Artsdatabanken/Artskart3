@@ -26,7 +26,7 @@
     [isDraggable]="true"
     (widthChanged)="onFilterPanelResize($event)"
   >
-    <app-sidebar></app-sidebar>
+    <app-sidebar (saveFilterRequested)="showSaveFilterModal.set(true)"></app-sidebar>
   </app-resizable-panel>
 </aside>
 
@@ -145,6 +145,8 @@
     </div>
   </div>
 </div>
+
+<app-save-filter-dialog [(open)]="showSaveFilterModal" />
 
 <!-- Export name prompt modal -->
 <app-modal

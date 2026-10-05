@@ -169,6 +169,44 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Henter én organisasjon (uansett type) på id. Brukes til å vise navnet på
+    /// datasett og prosjekt når et lagret filter aktiveres.
+    /// </summary>
+    [HttpGet("Organizations/{id:int}")]
+    [Produces("application/json")]
+    public async Task<ActionResult<OrganizationDto>> GetOrganizationById(int id, CancellationToken cancellationToken = default)
+    {
+        var organization = await _lookupService.GetOrganizationByIdAsync(id, cancellationToken);
+        return organization == null ? NotFound() : Ok(organization);
+    }
+
+    /// <summary>
+    /// Finner katalognummeret som et sett ObservationId-er kom fra. Brukes til å
+    /// vise katalognummeret når et lagret filter aktiveres.
+    ///
+    /// POST fordi ett katalognummer kan peke på flere hundre observasjoner.
+    /// </summary>
+    [HttpPost("CatalogNumbers/ByObservationIds")]
+    [Produces("application/json")]
+    public async Task<ActionResult<CatalogNumberMatchDto>> GetCatalogNumberByObservationIds(
+        [FromBody] int[] observationIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (observationIds == null || observationIds.Length == 0)
+        {
+            return BadRequest(new { error = "observationIds er påkrevd." });
+        }
+
+        if (observationIds.Length > SearchConstants.MaxObservationIdFilterSize)
+        {
+            return BadRequest(new { error = $"Maks {SearchConstants.MaxObservationIdFilterSize} observationIds per forespørsel." });
+        }
+
+        var match = await _lookupService.GetCatalogNumberByObservationIdsAsync(observationIds, cancellationToken);
+        return match == null ? NotFound() : Ok(match);
+    }
+
+    /// <summary>
     /// Returns all taxon groups, intended for populating filter dropdowns.
     /// </summary>
     [HttpGet("TaxonGroups")]

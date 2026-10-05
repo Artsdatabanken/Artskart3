@@ -144,7 +144,8 @@
     "cancelExportLink": "Cancel export job",
     "cancelled": "The export was cancelled.",
     "cancelledLabel": "Cancelled",
-    "cancelFailed": "Could not cancel the export. It may already have finished."
+    "cancelFailed": "Could not cancel the export. It may already have finished.",
+    "tabsAriaLabel": "My Artskart tabs"
   },
   "listView": {
     "name": "Species name",
@@ -477,5 +478,40 @@
     "bugReportHeading": "When reporting bugs",
     "bugReportInfo": "Describe what you did, which browser you used and what went wrong.",
     "opensInNewTab": "(opens in a new tab)"
+  },
+  "savedFilters": {
+    "tabLabel": "Saved filters",
+    "saveButton": "Save filter",
+    "modalTitle": "Save filter",
+    "nameLabel": "Filter name",
+    "nameRequired": "(Required)",
+    "setAsDefault": "Set as default filter",
+    "saveConfirm": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "saved": "The filter \"{{name}}\" was saved.",
+    "saveFailed": "Could not save the filter.",
+    "useDefault": "Use default filter",
+    "notFound": "The saved filter could not be found. It may have been deleted.",
+    "activateFailed": "Could not activate the saved filter.",
+    "date": "Date",
+    "name": "Filter name",
+    "link": "Link to filter",
+    "activate": "Activate filter",
+    "activateAriaLabel": "Activate the filter {{name}}",
+    "defaultColumn": "Default filter",
+    "defaultTag": "Default filter",
+    "makeDefault": "Make default",
+    "removeDefault": "Remove as default",
+    "updateFailed": "Could not update the default filter.",
+    "delete": "Delete",
+    "deleteAriaLabel": "Delete the filter {{name}}",
+    "deleteTitle": "Are you sure you want to delete the filter?",
+    "deleteBody": "The filter \"{{name}}\" will be deleted. This cannot be undone.",
+    "deleted": "The filter was deleted.",
+    "deleteFailed": "Could not delete the filter.",
+    "loadError": "Could not load saved filters.",
+    "noFilters": "You have no saved filters.",
+    "loginRequired": "You must be logged in to activate a saved filter."
   }
 }

@@ -561,6 +561,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/CatalogNumbers/ByObservationIds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": number[];
+                    "text/json": number[];
+                    "application/*+json": number[];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogNumberMatchDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/TaxonGroups": {
         parameters: {
             query?: never;
@@ -728,6 +806,41 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TaxonAncestryDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/MapLayer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MapLayerDto"][];
                     };
                 };
             };
@@ -1386,6 +1499,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/User/SavedFilters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["SavedFilterDto"][];
+                        "application/json": components["schemas"]["SavedFilterDto"][];
+                        "text/json": components["schemas"]["SavedFilterDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateSavedFilterRequestDto"];
+                    "text/json": components["schemas"]["CreateSavedFilterRequestDto"];
+                    "application/*+json": components["schemas"]["CreateSavedFilterRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["SavedFilterDto"];
+                        "application/json": components["schemas"]["SavedFilterDto"];
+                        "text/json": components["schemas"]["SavedFilterDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/User/SavedFilters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/User/SavedFilters/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1480,6 +1746,12 @@ export interface components {
             from?: null | number;
             /** Format: int32 */
             to?: null | number;
+        };
+        CreateSavedFilterRequestDto: {
+            name: string;
+            filter: components["schemas"]["ObservationSearchFilterDto"];
+            extent?: components["schemas"]["MapExtentDto"];
+            isDefault?: boolean;
         };
         CsvExportJobDto: {
             /** Format: int32 */
@@ -1585,6 +1857,27 @@ export interface components {
             /** Format: int32 */
             maxResults?: number;
             envelope?: components["schemas"]["EnvelopeDto"];
+        };
+        MapExtentDto: {
+            /** Format: double */
+            minX?: number;
+            /** Format: double */
+            minY?: number;
+            /** Format: double */
+            maxX?: number;
+            /** Format: double */
+            maxY?: number;
+        };
+        MapLayerDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string;
+            type?: string;
+            url?: string;
+            layers?: null | string;
+            format?: null | string;
+            version?: null | string;
+            attribution?: null | string;
         };
         NotificationModel: {
             id?: string;
@@ -1763,6 +2056,16 @@ export interface components {
             instance?: null | string;
         } & {
             [key: string]: unknown;
+        };
+        SavedFilterDto: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            filter?: components["schemas"]["ObservationSearchFilterDto"];
+            extent?: components["schemas"]["MapExtentDto"];
+            isDefault?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
         };
         ScientificNameSynonymDto: {
             name?: string;

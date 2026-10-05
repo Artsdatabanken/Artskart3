@@ -2,12 +2,15 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, takeUntil } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, filter, map, switchMap, takeUntil } from 'rxjs';
 import { ResizablePanelComponent } from '../../shared/components/resizable-panel/resizable-panel.component';
 import { MapComponent } from '../../shared/components/map.component/map.component';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
+import { SaveFilterDialogComponent } from '../../shared/components/save-filter-dialog/save-filter-dialog.component';
+import { SavedFilterService } from '../../shared/services/saved-filter/saved-filter.service';
 import { SearchFilterService } from '../../shared/services/search-filter/search-filter.service';
 import { ExportService } from '../../shared/services/export/export.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
@@ -19,10 +22,25 @@ import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 import { FormsModule } from '@angular/forms';
 
 const SKIP_EXPORT_INFO_KEY = 'artskart.export.skipInfoModal';
+const SAVED_FILTER_LOGIN_ATTEMPTED_KEY = 'artskart.savedFilter.loginAttempted';
+// En omdirigeringsløkke går på sekunder. Etter dette regnes et nytt forsøk som et nytt
+// besøk, så en avbrutt innlogging ikke blokkerer senere lenker i samme fane.
+const SAVED_FILTER_LOGIN_RETRY_MS = 2 * 60 * 1000;
 
 @Component({
   selector: 'app-home',
-  imports: [TranslateModule, ResizablePanelComponent, MapComponent, ListViewComponent, SidebarComponent, ModalComponent, FormsModule, FormatNumberPipe, FormatFileSizePipe],
+  imports: [
+    TranslateModule,
+    ResizablePanelComponent,
+    MapComponent,
+    ListViewComponent,
+    SidebarComponent,
+    ModalComponent,
+    SaveFilterDialogComponent,
+    FormsModule,
+    FormatNumberPipe,
+    FormatFileSizePipe,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: {
     '(window:resize)': 'onWindowResize()',
@@ -37,6 +55,9 @@ export class HomeComponent {
   protected readonly translate = inject(TranslateService);
   readonly alertService = inject(AlertService);
   readonly authService = inject(AuthService);
+  private readonly savedFilterService = inject(SavedFilterService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly minWidth = this.getCSSVar('--panel-min-width', 300);
   readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
@@ -78,9 +99,61 @@ export class HomeComponent {
   summaryLoading = signal(false);
   limitHardLimit = signal(0);
   dontShowAgain = signal(false);
+  showSaveFilterModal = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly cancelSummary$ = new Subject<void>();
+
+  constructor() {
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('filter')),
+        filter((id): id is string => !!id),
+        switchMap((id) => this.authService.getSession().pipe(map((session) => ({ id, session })))),
+        takeUntilDestroyed(),
+      )
+      .subscribe(({ id, session }) => {
+        if (session) {
+          sessionStorage.removeItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY);
+          this.activateSavedFilterFromUrl(id);
+          return;
+        }
+
+        // Innloggingen sender brukeren tilbake til samme URL, så filteret aktiveres etterpå.
+        // Bare ett forsøk: feiler sesjonsoppslaget også etter innlogging, ville vi ellers
+        // sendt brukeren i ring.
+        const attemptedAt = Number(sessionStorage.getItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY));
+        if (attemptedAt && Date.now() - attemptedAt < SAVED_FILTER_LOGIN_RETRY_MS) {
+          sessionStorage.removeItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY);
+          this.alertService.showError(this.translate.instant('savedFilters.loginRequired'));
+          this.clearFilterQueryParam();
+          return;
+        }
+        sessionStorage.setItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY, String(Date.now()));
+        this.authService.login();
+      });
+  }
+
+  private activateSavedFilterFromUrl(id: string): void {
+    this.savedFilterService.findById(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: async (savedFilter) => {
+        if (savedFilter) {
+          await this.savedFilterService.activate(savedFilter);
+        } else {
+          this.alertService.showError(this.translate.instant('savedFilters.notFound'));
+        }
+        this.clearFilterQueryParam();
+      },
+      error: (error: unknown) => {
+        this.alertService.showError(apiErrorMessage(error, this.translate.instant('savedFilters.activateFailed')));
+        this.clearFilterQueryParam();
+      },
+    });
+  }
+
+  private clearFilterQueryParam(): void {
+    this.router.navigate([], { queryParams: { filter: null }, queryParamsHandling: 'merge', replaceUrl: true });
+  }
 
   onTabChange(event: Event) {
     const customEvent = event as CustomEvent<{ index: number }>;
@@ -101,33 +174,31 @@ export class HomeComponent {
 
     const filter = this.buildFilter();
 
-    this.exportService.getSummary(filter, name).pipe(
-      takeUntil(this.cancelSummary$),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe({
-      next: (summary) => {
-        this.summaryLoading.set(false);
-        this.showNameModal.set(false);
+    this.exportService
+      .getSummary(filter, name)
+      .pipe(takeUntil(this.cancelSummary$), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (summary) => {
+          this.summaryLoading.set(false);
+          this.showNameModal.set(false);
 
-        if (summary.exceedsHardLimit) {
-          this.limitTotalRows.set(summary.totalRows ?? 0);
-          this.limitHardLimit.set(summary.hardLimit ?? 0);
-          this.showLimitModal.set(true);
-          return;
-        }
+          if (summary.exceedsHardLimit) {
+            this.limitTotalRows.set(summary.totalRows ?? 0);
+            this.limitHardLimit.set(summary.hardLimit ?? 0);
+            this.showLimitModal.set(true);
+            return;
+          }
 
-        this.estimatedFileSizeBytes.set(summary.estimatedFileSizeBytes ?? 0);
-        this.exporting.set(true);
-        this.startExportWithName(filter, name);
-      },
-      error: (error: unknown) => {
-        this.summaryLoading.set(false);
-        this.showNameModal.set(false);
-        this.alertService.showError(
-          apiErrorMessage(error, this.translate.instant('export.summaryFailed')),
-        );
-      },
-    });
+          this.estimatedFileSizeBytes.set(summary.estimatedFileSizeBytes ?? 0);
+          this.exporting.set(true);
+          this.startExportWithName(filter, name);
+        },
+        error: (error: unknown) => {
+          this.summaryLoading.set(false);
+          this.showNameModal.set(false);
+          this.alertService.showError(apiErrorMessage(error, this.translate.instant('export.summaryFailed')));
+        },
+      });
   }
 
   onNameModalCancel() {
@@ -235,9 +306,7 @@ export class HomeComponent {
         // Serveren har en konkret grunn — for mange samtidige jobber, for mange
         // rader, utløpt sesjon. Den skal vises, ikke erstattes med «prøv igjen
         // senere», som gjorde alle tre umulige å skille fra hverandre.
-        this.alertService.showError(
-          apiErrorMessage(error, this.translate.instant('export.startFailed')),
-        );
+        this.alertService.showError(apiErrorMessage(error, this.translate.instant('export.startFailed')));
       },
     });
   }
@@ -252,9 +321,7 @@ export class HomeComponent {
   }
 
   private getCSSVar(name: string, fallback: number): number {
-    const value = this.document.documentElement
-      ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim()
-      : '';
+    const value = this.document.documentElement ? getComputedStyle(this.document.documentElement).getPropertyValue(name).trim() : '';
 
     const parsedValue = Number.parseFloat(value);
     return Number.isFinite(parsedValue) ? parsedValue : fallback;

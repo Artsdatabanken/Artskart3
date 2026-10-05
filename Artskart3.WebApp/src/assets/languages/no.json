@@ -144,7 +144,8 @@
     "cancelExportLink": "Avbryt eksportjobb",
     "cancelled": "Eksporten ble avbrutt.",
     "cancelledLabel": "Avbrutt",
-    "cancelFailed": "Kunne ikke avbryte eksporten. Den kan allerede være ferdig."
+    "cancelFailed": "Kunne ikke avbryte eksporten. Den kan allerede være ferdig.",
+    "tabsAriaLabel": "Mitt Artskart-faner"
   },
   "listView": {
     "name": "Populærnavn (nb)",
@@ -477,5 +478,40 @@
     "bugReportHeading": "Ved feilrapportering",
     "bugReportInfo": "Beskriv hva du gjorde, hvilken nettleser du brukte og hva som gikk galt.",
     "opensInNewTab": "(åpnes i ny fane)"
+  },
+  "savedFilters": {
+    "tabLabel": "Lagrede filter",
+    "saveButton": "Lagre filter",
+    "modalTitle": "Lagre filter",
+    "nameLabel": "Navn på filter",
+    "nameRequired": "(Må fylles ut)",
+    "setAsDefault": "Sett som standardfilter",
+    "saveConfirm": "Lagre",
+    "saving": "Lagrer...",
+    "cancel": "Avbryt",
+    "saved": "Filteret «{{name}}» er lagret.",
+    "saveFailed": "Kunne ikke lagre filteret.",
+    "useDefault": "Bruk standardfilter",
+    "notFound": "Fant ikke det lagrede filteret. Det kan være slettet.",
+    "activateFailed": "Kunne ikke aktivere det lagrede filteret.",
+    "date": "Dato",
+    "name": "Navn på filter",
+    "link": "Lenke til filter",
+    "activate": "Aktiver filter",
+    "activateAriaLabel": "Aktiver filteret {{name}}",
+    "defaultColumn": "Standardfilter",
+    "defaultTag": "Standard filter",
+    "makeDefault": "Gjør til standard",
+    "removeDefault": "Fjern som standard",
+    "updateFailed": "Kunne ikke oppdatere standardfilteret.",
+    "delete": "Slett",
+    "deleteAriaLabel": "Slett filteret {{name}}",
+    "deleteTitle": "Er du sikker på at du vil slette filteret?",
+    "deleteBody": "Filteret «{{name}}» blir slettet. Slettingen kan ikke angres.",
+    "deleted": "Filteret er slettet.",
+    "deleteFailed": "Kunne ikke slette filteret.",
+    "loadError": "Kunne ikke laste lagrede filter.",
+    "noFilters": "Du har ingen lagrede filter.",
+    "loginRequired": "Du må være logget inn for å aktivere et lagret filter."
   }
 }
