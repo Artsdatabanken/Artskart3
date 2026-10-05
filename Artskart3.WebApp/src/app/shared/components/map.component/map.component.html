@@ -4,8 +4,9 @@
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
   <div #mapEl class="map"></div>
-  @if (showObservationList()) {
-    <app-observation-list [observationList]="observationList()" [clickCoordinates]="clickCoordinates()"/>
+  @if (showObservationList() && observationSelection(); as selection) {
+    <app-observation-list [observationList]="observationList()" [selection]="selection"
+      [requestState]="observationRequestState()" (retry)="retryObservations()"/>
   }
   <app-loading-indicator
     [active]="isLoadingAreaData()"

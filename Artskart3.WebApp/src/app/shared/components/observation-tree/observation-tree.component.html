@@ -1,0 +1,58 @@
+@for (key of [resetKey()]; track key) {
+  <div ngTree #tree="ngTree" class="tree" [attr.aria-label]="'observationList.title' | translate" [wrap]="false">
+    <ng-container *ngTemplateOutlet="branches; context: { nodes: nodes(), parent: tree }" />
+  </div>
+}
+
+<ng-template #branches let-nodes="nodes" let-parent="parent">
+  @for (node of nodes; track node.id) {
+    <!-- ngTreeItem manages roving tabindex. -->
+    <!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
+    <div ngTreeItem #item="ngTreeItem" [parent]="parent" [value]="node.id" [label]="node.label"
+      [selectable]="false" [expanded]="node.kind === 'group'"
+      (expandedChange)="keepHeadingOpen(node, item, $event)"
+      (keydown)="activate($event, node, item)"
+      class="row" [class.group-heading]="node.kind === 'group'"
+      [class.leaf]="node.kind === 'observation'">
+      @if (node.kind === 'status' || node.kind === 'species') {
+        <adb-icon class="expand-icon" [attr.name]="item.expanded() ? 'unfold-less' : 'unfold-more'" size="sm" />
+      }
+      @if (node.kind === 'observation') {
+        <span class="marker" [class.found]="node.status === 'found'" [class.negative]="node.status !== 'found'"
+          [attr.aria-label]="'observationList.' + node.status | translate" role="img">
+          @if (node.status !== 'found') {
+            <adb-icon [attr.name]="node.status === 'notRecovered' ? 'remove' : 'close'" />
+          }
+        </span>
+      }
+      @if (node.kind === 'group' && node.badges.length) {
+        <app-risk-category-badge [code]="node.badges[0].code" aria-hidden="true" />
+      }
+      <span class="label" [class.scientific]="node.scientific">
+        {{ node.label }}@if (node.kind === 'status' || node.kind === 'species') { ({{ node.count }}) }
+      </span>
+      @if (node.kind === 'status' || node.kind === 'species') {
+        <span class="categories">
+          @for (badge of node.badges; track badge.code) {
+            @if (node.kind === 'species') {
+              <app-risk-category-badge [code]="badge.code" [label]="badge.code + ': ' + badge.label" />
+            } @else {
+              <span class="dot" [class]="badge.code" [attr.title]="badge.code + ': ' + badge.label"
+                role="img" [attr.aria-label]="badge.code + ': ' + badge.label"></span>
+            }
+          }
+        </span>
+      }
+      @if (node.kind === 'group') {
+        <span class="group-count">{{ 'observationList.registrations' | translate: { number: node.count } }}</span>
+      }
+    </div>
+    @if (node.children.length) {
+      <div role="group" [class.indented]="node.kind !== 'group'" [hidden]="!item.expanded()">
+        <ng-template ngTreeItemGroup [ownedBy]="item" #group="ngTreeItemGroup">
+          <ng-container *ngTemplateOutlet="branches; context: { nodes: node.children, parent: group }" />
+        </ng-template>
+      </div>
+    }
+  }
+</ng-template>

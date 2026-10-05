@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
+using AreaType = Artskart3.Core.Domain.Enums.AreaType;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -209,13 +210,15 @@ public class SearchRepository : ISearchRepository
         var filter = request.Filter ?? new ObservationSearchFilterDto();
         var query = _context.Set<Observation>().AsNoTracking();
         query = ApplyCommonFilters(query, filter);
-        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value)).Take(SearchConstants.MaxRegistrationsObservationList)
+        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value))
             .OrderByDescending(o => o.DateTimeCollected)
-            .ThenByDescending(o => o.Id);;
+            .ThenByDescending(o => o.Id);
 
-        IEnumerable<ObservationListInfoDto> observationListInfoDtos = await query.Select(o => new ObservationListInfoDto
+        var observationListInfoDtos = await query.Select(o => new ObservationListInfoDto
         {
             Id = o.Id,
+            TaxonId = o.TaxonId,
+            DateTimeCollected = o.DateTimeCollected,
             PreferredPopularName = o.Taxon.PreferredPopularName,
             ScientificName = o.Taxon.ValidScientificName,
             DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName)
@@ -224,11 +227,39 @@ public class SearchRepository : ISearchRepository
             TaxonGroupId = o.TaxonGroupId,
             TaxonGroupName = o.Taxon.TaxonGroup.Name,
             LocationId = o.LocationId,
+            Locality = o.Location != null ? o.Location.Locality : null,
             CategoryId = o.CategoryId,
             CategoryName = o.Category != null ? o.Category.Name : string.Empty,
+            CategoryCode = o.Category != null ? o.Category.Code : null,
+            CategoryTypeId = o.Category != null ? o.Category.CategoryTypeId : null,
             RegistrationType = o.Tags.Select(t => t.Name),
             Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
         }).ToListAsync(cancellationToken);
+
+        if (observationListInfoDtos.Count == 0) return observationListInfoDtos;
+
+        // Resolve area names once per location, not once per observation in an unlimited result.
+        var locationIds = observationListInfoDtos.Select(o => o.LocationId!.Value).Distinct().ToArray();
+        var areas = await _context.Set<Location>().AsNoTracking()
+            .Where(l => locationIds.Contains(l.Id))
+            .SelectMany(l => l.Areas
+                .Where(a => a.IsCurrent &&
+                    (a.AreaTypeId == (int)AreaType.Municipality || a.AreaTypeId == (int)AreaType.County))
+                .Select(a => new { LocationId = l.Id, a.Id, a.Name, a.AreaTypeId }))
+            .ToListAsync(cancellationToken);
+        var namesByLocation = areas.GroupBy(a => a.LocationId).ToDictionary(g => g.Key, g => new
+        {
+            Municipality = g.Where(a => a.AreaTypeId == (int)AreaType.Municipality)
+                .DistinctBy(a => a.Id).ToArray(),
+            County = g.Where(a => a.AreaTypeId == (int)AreaType.County)
+                .DistinctBy(a => a.Id).ToArray()
+        });
+        foreach (var observation in observationListInfoDtos)
+        {
+            if (!namesByLocation.TryGetValue(observation.LocationId!.Value, out var names)) continue;
+            observation.MunicipalityName = names.Municipality.Length == 1 ? names.Municipality[0].Name : null;
+            observation.CountyName = names.County.Length == 1 ? names.County[0].Name : null;
+        }
         return observationListInfoDtos;
     }
 
