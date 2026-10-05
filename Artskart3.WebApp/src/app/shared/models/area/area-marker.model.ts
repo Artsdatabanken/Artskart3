@@ -1,19 +1,3 @@
-export interface AreaMarkerDto {
-  $id?: string;
-  id: number;
-  documentId: string;
-  fid: string;
-  name: string;
-  areaTypeId: number;
-  parentFid: string;
-  syncDateTime: string;
-  observationCount?: number;
-  timeStamp: string;
-  isCurrent: boolean;
-  wktsPolygon?: string;
-  centroid?: { x: number; y: number };
-}
-
 export interface AreaMarkerFeature {
   type: 'Feature';
   id?: number | string;

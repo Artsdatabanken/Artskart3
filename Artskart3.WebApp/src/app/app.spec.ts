@@ -12,7 +12,7 @@ describe('App', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [App],
+      imports: [App],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
         provideHttpClient(),
@@ -22,7 +22,9 @@ describe('App', () => {
           useValue: { logEvent: () => { /* noop stub */ } }
         }
       ]
-    }).compileComponents();
+    })
+      .overrideComponent(App, { set: { template: '' } })
+      .compileComponents();
   });
 
   beforeEach(() => {

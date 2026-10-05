@@ -204,6 +204,33 @@ public class SearchRepository : ISearchRepository
         }).ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var filter = request.Filter ?? new ObservationSearchFilterDto();
+        var query = _context.Set<Observation>().AsNoTracking();
+        query = ApplyCommonFilters(query, filter);
+        query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value)).Take(SearchConstants.MaxRegistrationsObservationList)
+            .OrderByDescending(o => o.DateTimeCollected)
+            .ThenByDescending(o => o.Id);;
+
+        IEnumerable<ObservationListInfoDto> observationListInfoDtos = await query.Select(o => new ObservationListInfoDto
+        {
+            Id = o.Id,
+            PreferredPopularName = o.Taxon.PreferredPopularName,
+            ScientificName = o.Taxon.ValidScientificName,
+            DisplayName = (o.Taxon.PreferredPopularName ?? o.MatchedScientificName.ScientificName)
+                .Replace("<i>", "").Replace("</i>", ""),
+            Author = o.Taxon.ValidScientificNameAuthorship,
+            TaxonGroupId = o.TaxonGroupId,
+            TaxonGroupName = o.Taxon.TaxonGroup.Name,
+            LocationId = o.LocationId,
+            CategoryId = o.CategoryId,
+            CategoryName = o.Category != null ? o.Category.Name : string.Empty,
+            RegistrationType = o.Tags.Select(t => t.Name),
+            Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
+        }).ToListAsync(cancellationToken);
+        return observationListInfoDtos;
+    }
 
 
     /// <summary>
@@ -268,6 +295,41 @@ public class SearchRepository : ISearchRepository
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new ApplicationException("An unexpected error occurred while retrieving locations. Please contact support if the problem persists.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationResults.
+    /// Samme gruppering som GetLocationsAsync, men uten koordinat-join — brukes av
+    /// frontend til å velge mellom områdelag og direkte lokasjonsklustering.
+    /// </summary>
+    public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            var query = _context.Set<Observation>().AsNoTracking();
+            query = ApplyCommonFilters(query, filter);
+            query = ApplyEnvelopeFilter(query, filter.Envelope);
+
+            var locationIds = await query
+                .Where(o => o.LocationId != null)
+                .GroupBy(o => o.LocationId!.Value)
+                .Select(g => g.Key)
+                .Take(SearchConstants.MaxLocationResults + 1)
+                .ToListAsync(cancellationToken);
+
+            var truncated = locationIds.Count > SearchConstants.MaxLocationResults;
+            return new LocationCountDto
+            {
+                Count = truncated ? SearchConstants.MaxLocationResults : locationIds.Count,
+                Truncated = truncated,
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new ApplicationException("An unexpected error occurred while counting locations. Please contact support if the problem persists.", ex);
         }
     }
 

@@ -115,4 +115,21 @@ public class ObservationEndpointTests : IAsyncLifetime
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
+
+    // -----------------------------------------------------------------------
+    // /api/Observation
+    // -----------------------------------------------------------------------
+    [Fact]
+    public async Task GetObservationListInfo_WithValidIds_Returns200WithJsonArray()
+    {
+        var requestDto = new ObservationListInfoRequestDto { Ids = [953202] };
+        var response = await _client.PostAsJsonAsync("/api/Search/ObservationList", requestDto);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        doc.RootElement.GetArrayLength().Should().BeGreaterThan(0);
+    }
 }

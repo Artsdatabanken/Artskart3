@@ -26,6 +26,10 @@ public static class SearchConstants
     // og begrenser størrelsen på SQL IN-klausuler for å hindre misbruk mot dette anonyme endepunktet.
     public const int MaxFilterArraySize = 500;
 
+    // ObservationListInfo search constants
+    public const int MaxLocationIdsObservationList = 500;
+    public const int MaxRegistrationsObservationList = 2500;
+
     // ObservationIds har sin egen, høyere grense. Verdiene kommer fra
     // katalognummer-oppslaget, ikke fra en avkrysningsliste: ett katalognummer kan
     // peke på opptil 675 observasjoner (målt), og maxCount i oppslaget er 50. Med

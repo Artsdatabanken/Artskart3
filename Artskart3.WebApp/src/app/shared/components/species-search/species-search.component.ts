@@ -1,6 +1,5 @@
 import {
   Component,
-  ChangeDetectionStrategy,
   CUSTOM_ELEMENTS_SCHEMA,
   inject,
   signal,
@@ -23,7 +22,6 @@ import { SpeciesDto } from '../../types/api.types';
   selector: 'app-species-search',
   imports: [TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './species-search.component.html',
   styleUrl: './species-search.component.css',
   host: {
