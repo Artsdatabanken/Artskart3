@@ -141,8 +141,8 @@ public class SearchServiceTests
     {
         var markers = new List<AreaMarkerDto>
         {
-            new() { Fid = "03", ObservationCount = 100 },
-            new() { Fid = "11", ObservationCount = 200 },
+            new() { Id = 1, DocumentId = "03", Fid = "03", Name = "Oslo", AreaTypeId = 2, ParentFid = "", ObservationCount = 100, WktsPolygon = null, Centroid = null },
+            new() { Id = 2, DocumentId = "11", Fid = "11", Name = "Vestland", AreaTypeId = 2, ParentFid = "", ObservationCount = 200, WktsPolygon = null, Centroid = null },
         };
         _repositoryMock
             .Setup(r => r.GetAreaMarkersAsync(1, null, It.IsAny<CancellationToken>()))
@@ -161,7 +161,7 @@ public class SearchServiceTests
     {
         var markers = new List<AreaMarkerDto>
         {
-            new() { Fid = "03", ObservationCount = 100 },
+            new() { Id = 1, DocumentId = "03", Fid = "03", Name = "Oslo", AreaTypeId = 2, ParentFid = "", ObservationCount = 100, WktsPolygon = null, Centroid = null },
         };
         _repositoryMock
             .Setup(r => r.GetAreaMarkersAsync(1, null, It.IsAny<CancellationToken>()))
@@ -212,5 +212,81 @@ public class SearchServiceTests
         first.Etag.Should().Be(second.Etag);
         // Repository kalles kun én gang — andre kall er cachet
         _repositoryMock.Verify(r => r.GetAreaCountsAsync(1, It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsListInfo_ForwardsRequestToRepository_ReturnsResults()
+    {
+        // Arrange
+        var request = new ObservationListInfoRequestDto
+        {
+            Ids = new[] { 123, 456 },
+            Filter = new ObservationSearchFilterDto {}
+        };
+
+        var expected = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "A" },
+            new() { Id = 2, DisplayName = "B" }
+        };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _sut.GetObservationListInfo(request);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+        _repositoryMock.Verify(r => r.GetObservationListInfo(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsListInfo_WithActiveFilter_ForwardsRequestToRepository_ReturnsResults()
+    {
+        // Arrange: create a request with an active filter (TaxonGroupIds set)
+        var request = new ObservationListInfoRequestDto
+        {
+            Ids = new[] { 123, 456 },
+            Filter = new ObservationSearchFilterDto
+            {
+                TaxonGroupIds = new[] { 1 }
+            }
+        };
+
+        var expected = new List<ObservationListInfoDto>
+        {
+            new() { Id = 1, DisplayName = "A" },
+            new() { Id = 2, DisplayName = "B" }
+        };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _sut.GetObservationListInfo(request);
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+        _repositoryMock.Verify(r => r.GetObservationListInfo(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetObservationsListInfo_WhenRepositoryThrows_PropagatesException()
+    {
+        // Arrange
+        var request = new ObservationListInfoRequestDto { Ids = new[] { 1 } };
+
+        _repositoryMock
+            .Setup(r => r.GetObservationListInfo(It.IsAny<ObservationListInfoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB fail"));
+
+        // Act
+        var act = () => _sut.GetObservationListInfo(request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB fail");
     }
 }

@@ -1,5 +1,5 @@
 .search-field {
-  padding: var(--adb-spacing-sm) var(--adb-spacing-sm, 12px) 0 var(--adb-spacing-sm, 12px);
+  padding: var(--adb-spacing-sm) var(--adb-spacing-sm) 0 var(--adb-spacing-sm);
 }
 
 /* Autocomplete dropdown */
@@ -10,22 +10,22 @@
   list-style: none;
   width: max-content;
   max-width: min(600px, 90vw);
-  background: var(--adb-surface-primary, #fff);
-  border: 1px solid var(--adb-border-default, #ccc);
-  border-radius: var(--adb-border-radius-md, 8px);
+  background: var(--adb-surface-base-primary);
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-border-radius);
   box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
   max-height: 300px;
   overflow-y: auto;
   z-index: 1000;
-  color: var(--adb-text-accent);
+  color: var(--adb-text-accent-primary);
 }
 
 .autocomplete-item {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: var(--adb-spacing-3xsm, 4px);
-  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-sm, 12px);
+  gap: var(--adb-spacing-3xsm);
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
   cursor: pointer;
 }
 
@@ -35,36 +35,36 @@
 
 .autocomplete-item--active {
   background: var(--adb-background-secondary);
-  outline: 2px solid var(--adb-border-active, var(--adb-text-primary));
+  outline: 2px solid var(--adb-border-base-strong);
   outline-offset: -2px;
 }
 
 .autocomplete-vernacular {
   font-weight: 600;
-  font-size: var(--adb-font-size-sm, 0.875rem);
+  font-size: var(--adb-font-size-4);
 }
 
 .autocomplete-scientific {
   font-style: italic;
-  font-size: var(--adb-font-size-xs, 0.75rem);
-  color: var(--adb-text-secondary);
+  font-size: var(--adb-font-size-2);
+  color: var(--adb-text-base-secondary);
 }
 
 .autocomplete-author {
-  font-size: var(--adb-font-size-xs, 0.75rem);
-  color: var(--adb-text-secondary);
+  font-size: var(--adb-font-size-2);
+  color: var(--adb-text-base-secondary);
 }
 
 .autocomplete-rank {
-  font-size: var(--adb-font-size-xs, 0.75rem);
-  color: var(--adb-text-secondary);
+  font-size: var(--adb-font-size-2);
+  color: var(--adb-text-base-secondary);
   font-weight: 600;
   margin-left: auto;
 }
 
 .autocomplete-no-results {
-  padding: var(--adb-spacing-xsm, 8px) var(--adb-spacing-sm, 12px);
-  font-size: var(--adb-font-size-sm, 0.875rem);
-  color: var(--adb-text-secondary);
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+  font-size: var(--adb-font-size-4);
+  color: var(--adb-text-base-secondary);
   font-style: italic;
 }

@@ -399,7 +399,7 @@ describe('SpeciesSearchComponent', () => {
 
     it('should return empty string when no vernacular names', () => {
       expect(component.getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: [] })).toBe('');
-      expect(component.getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: null })).toBe('');
+      expect(component.getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: undefined })).toBe('');
     });
   });
 

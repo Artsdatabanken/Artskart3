@@ -22,7 +22,7 @@ h2 {
 .status-message {
   padding: var(--adb-spacing-lg);
   text-align: center;
-  color: var(--adb-text-secondary);
+  color: var(--adb-text-base-secondary);
 
   &.error {
     color: var(--adb-text-brand-1);
@@ -39,10 +39,11 @@ h2 {
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--adb-font-size-3);
-  border: 2px solid var(--adb-border-default);
+  border: 2px solid var(--adb-border-base-primary);
   border-top: none;
 
-  th, td {
+  th,
+  td {
     padding: var(--adb-spacing-sm) var(--adb-spacing-md);
     text-align: left;
   }
@@ -51,25 +52,25 @@ h2 {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--adb-surface-secondary);
-    color: var(--adb-text-accent);
-    font-weight: var(--adb-font-weight-regular);
+    background: var(--adb-surface-base-secondary);
+    color: var(--adb-text-accent-primary);
+    font-weight: var(--adb-font-weight-primary);
     font-size: var(--adb-font-size-3);
     white-space: nowrap;
-    border-top: 2px solid var(--adb-border-default);
-    border-bottom: 1px solid var(--adb-border-default);
-    box-shadow: 0 1px 0 0 var(--adb-border-default);
+    border-top: 2px solid var(--adb-border-base-primary);
+    border-bottom: 1px solid var(--adb-border-base-primary);
+    box-shadow: 0 1px 0 0 var(--adb-border-base-primary);
   }
 
   tbody tr {
-    border-bottom: 1px solid var(--adb-border-default);
+    border-bottom: 1px solid var(--adb-border-base-primary);
 
     &:nth-child(odd) td {
-      background: var(--adb-surface-primary);
+      background: var(--adb-surface-base-primary);
     }
 
     &:nth-child(even) td {
-      background: var(--adb-background-default);
+      background: var(--adb-background-primary);
     }
 
     &:hover td {
@@ -78,23 +79,23 @@ h2 {
   }
 
   a {
-    color: var(--adb-text-accent);
+    color: var(--adb-text-accent-primary);
     text-decoration: underline;
   }
 }
 
 .empty-message {
   text-align: center;
-  color: var(--adb-text-secondary);
+  color: var(--adb-text-base-secondary);
   padding: var(--adb-spacing-lg);
 }
 
 .export-row-failed td {
   background-color: var(--adb-alert-danger-surface-subtle) !important;
-  color: var(--adb-alert-danger-text);
+  color: var(--adb-alert-danger-text-primary);
 }
 
 .export-failed-label {
-  font-weight: var(--adb-font-weight-semibold, 600);
-  margin-right: var(--adb-spacing-xs, 4px);
+  font-weight: var(--adb-font-weight-medium);
+  margin-right: var(--adb-spacing-2xsm);
 }

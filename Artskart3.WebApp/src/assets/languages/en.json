@@ -21,7 +21,8 @@
     "switchToLightModeAriaLabel": "Switch to light mode",
     "switchToDarkModeAriaLabel": "Switch to dark mode",
     "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
-    "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head"
+    "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
+    "cookieSettings": "Cookie settings"
   },
   "navigation": {
     "menuItem1": "Menu Item 1",
@@ -185,9 +186,11 @@
     "taxonGroups": "Species Groups",
     "taxonTree": "Taxonomy Tree",
     "species": "Species",
-    "chipCoordinatePrecision": "Coordinate Precision: {{from}} - {{to}} meters",
-    "chipPeriod": "Period: {{from}} - {{to}}",
+    "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
+    "chipPeriod": "Year: {{from}}-{{to}}",
     "noSearchResults": "No results",
+    "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
@@ -228,6 +231,8 @@
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",
+    "layersHeading": "Map layers",
+    "noLayers": "No map layers available",
     "filterAriaLabel": "Settings",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "My location",
@@ -241,8 +246,15 @@
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",
       "nib": "Norway in pictures",
+      "landscape": "Landscape map",
       "svalbard": "Svalbard",
       "janmayen": "Jan Mayen"
+    },
+    "mapLayers": {
+      "admGrenser": "Administrative boundaries",
+      "vern": "Protected areas",
+      "bioseksjoner": "Bioclimatic sections",
+      "biosoner": "Bioclimatic zones"
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
@@ -359,5 +371,22 @@
     "paginationSmall": "Small (sm)",
     "paginationLarge": "Large (lg)",
     "icons": "Icons"
+  },
+  "observationList": {
+    "registrations": "{{number}} registrations",
+    "taxonGroup": "Taxon Groups",
+    "category": "Categories",
+    "location": "Locations"
+  },
+  "feedback": {
+    "tabLabel": "Give feedback",
+    "heading": "Give feedback",
+    "formLink": "Feedback form",
+    "employeesHeading": "For Artsdatabanken employees",
+    "githubLink": "Give feedback via GitHub",
+    "githubInfo": "Requires a GitHub account. If you don't have one, send an email to Kristian.",
+    "bugReportHeading": "When reporting bugs",
+    "bugReportInfo": "Describe what you did, which browser you used and what went wrong.",
+    "opensInNewTab": "(opens in a new tab)"
   }
 }
