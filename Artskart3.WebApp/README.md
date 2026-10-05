@@ -100,6 +100,24 @@ Et eget ikke-klikkbart kartlag (`area-overlay-selected`) viser omrissene av valg
 - Foreldrefylker til valgte kommuner (for kontekst)
 - Valgte kommuner
 
+## Map feature states
+
+`map-feature-styles.ts` owns the interactive marker and location-polygon styles. It resolves the design-system CSS color tokens on the map element at initialization; live theme changes require recreating the map. Missing or invalid tokens are reported through map initialization logging.
+
+| State | Fill | Border | Exterior ring |
+| --- | --- | --- | --- |
+| Default | `--adb-surface-accent-primary` | `--adb-border-base-subtle`, 1.5px | None |
+| Hover | `--adb-surface-accent-hover` | `--adb-border-base-subtle`, 1.5px | `--adb-border-base-strong`, 1px |
+| Selected | `--adb-surface-accent-primary` | `--adb-border-base-subtle`, 1.5px | `--adb-border-brand-4`, 5px |
+
+Marker sizes and count labels are unchanged. Location polygon fills retain 6% opacity. Unlike markers, default and hovered polygons retain their darker 1.5px primary-accent border (`--adb-surface-accent-primary`) for visibility against the basemap; selected polygons use the subtle border shown above. Decorative rings use custom canvas rendering and do not enlarge hit targets. Polygon rings are clipped outside the filled geometry, including holes and multipolygon parts, before the normal border is drawn. Widths are CSS pixels, independent of zoom and device pixel ratio.
+
+Hover follows the topmost interactive feature. A polygon and its marker share hover state; hovering a cluster highlights its member polygons, while hovering one polygon does not highlight unrelated cluster-member polygons. Selected styling takes precedence over hover.
+
+Location selection follows the observation-list context, including loading, empty/error results, and observation details. It survives pan/zoom and source replacement by matching location IDs. A cluster containing any selected location is highlighted, without adding its other members to the list or selecting their polygons. Another location click replaces the selection; blank-map clicks, filter changes, list dismissal, and zoom-only marker clicks clear it.
+
+County/municipality count markers retain zoom-on-click and only have default/hover states. Administrative boundaries and area-filter overlays keep their separate styling. The non-interactive individual-observation detail marker uses the selected appearance but remains independent of location selection.
+
 ## Kjente forbedringspunkter
 
 - **Listevisningen henter data når den ikke er aktiv**: `list-view.component` trigger `api/Search/Observation`-kall ved filterendringer selv når listfanen ikke er synlig. Bør undersøkes for å unngå unødvendige backend-kall.
