@@ -1,0 +1,26 @@
+@if (selection(); as selection) {
+  <app-observation-list
+    [hidden]="rawId() !== null"
+    [attr.inert]="rawId() !== null ? '' : null"
+    [observationList]="observations()"
+    [selection]="selection"
+    [requestState]="requestState()"
+    (retry)="retry.emit()"
+    (observationActivated)="open($event)"
+  />
+}
+@if (rawId() !== null) {
+  <app-observation-details
+    [observationId]="selectedId()"
+    [detail]="detail()"
+    [state]="state()"
+    [position]="position() + 1 || 1"
+    [count]="count()"
+    [navigationError]="navigationError()"
+    [hasList]="selection() !== null"
+    (previous)="move(-1)"
+    (next)="move(1)"
+    (dismiss)="dismiss()"
+    (retry)="retryDetails()"
+  />
+}

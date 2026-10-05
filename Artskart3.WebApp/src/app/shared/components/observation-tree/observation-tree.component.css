@@ -74,7 +74,10 @@
 }
 
 .leaf .label {
-  color: var(--adb-text-base-primary);
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .marker {

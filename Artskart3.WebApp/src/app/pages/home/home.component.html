@@ -138,7 +138,7 @@
     }
 
     <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 0">
-      <app-map></app-map>
+      <app-map (detailsOpened)="activeTab.set(0)"></app-map>
     </div>
     <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 1">
       <app-list-view></app-list-view>

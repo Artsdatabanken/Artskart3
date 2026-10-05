@@ -1,6 +1,9 @@
 import type { components } from './api.generated';
 
 export type ObservationDto = components['schemas']['ObservationDto'];
+export type ObservationDetailDto = components['schemas']['ObservationDetailDto'];
+export type ObservationMediaDto = components['schemas']['ObservationMediaDto'];
+export type ObservationPointDto = components['schemas']['ObservationPointDto'];
 export type PagedObservationResponse = components['schemas']['PagedObservationResponseDto'];
 export type CategoryTypeDto = components['schemas']['CategoryTypeDto'];
 export type CategoryDto = components['schemas']['CategoryDto'];
@@ -51,4 +54,3 @@ export interface TaxonTreeNodeDto {
 /** Foreldrekjeden for et taxon, fra rotnivå til nærmeste forelder. */
 export type TaxonAncestryDto = components['schemas']['TaxonAncestryDto'];
 export type TaxonAncestryLevelDto = components['schemas']['TaxonAncestryLevelDto'];
-
