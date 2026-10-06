@@ -89,7 +89,7 @@
     "close": "Lukk"
   },
   "baseLayout": {
-    "searchPlaceholder": "Søk i Artskart"
+    "searchPlaceholder": "Søk etter art"
   },
   "resizablePanel": {
     "resizeAriaLabel": "Endre størrelse på filter panelet"
@@ -240,6 +240,9 @@
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
     "noSearchResults": "Ingen treff",
+    "noSearchResultsFor": "Ingen treff på “{{searchTerm}}”.",
+    "synonymMatch": "Treff på synonym",
+    "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
     "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
