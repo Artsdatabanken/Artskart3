@@ -44,7 +44,7 @@ export class ObservationDetailsComponent {
   readonly dismiss = output<void>();
   readonly retry = output<void>();
   readonly expanded = signal(false);
-  readonly sectionsOpen = signal<Record<string, boolean>>({ observation: true, place: true, dataset: true });
+  readonly sectionsOpen = signal<Record<string, boolean>>({ observation: true, place: false, dataset: false });
   readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
   private readonly backButton = viewChild.required<ElementRef<HTMLElement>>('backButton');
@@ -73,9 +73,10 @@ export class ObservationDetailsComponent {
   readonly sections = computed(() => {
     const d = this.detail();
     const language = this.language()?.lang ?? this.translate.getCurrentLang();
-    const missing = this.translate.instant('observationDetails.notProvided');
-    const value = (text: unknown) => (text == null || text === '' ? missing : String(text));
-    const row = (label: string, text: unknown) => ({ label, value: value(text) });
+    const row = (label: string, text: unknown, emptyKey = 'notProvided') =>
+      text == null || text === ''
+        ? { label, value: this.translate.instant(`observationDetails.${emptyKey}`), empty: true }
+        : { label, value: String(text), empty: false };
     const quality =
       d?.quality != null && d.quality >= 0 && d.quality <= 3 ? this.translate.instant(`observationDetails.qualities.${d.quality}`) : '';
     const validated = d?.tags?.includes('Validated') ? this.translate.instant('observationDetails.validated') : '';
@@ -91,7 +92,10 @@ export class ObservationDetailsComponent {
           row('collector', d?.collector),
           row('basis', this.lookup('basisOfRecordName', d?.basisOfRecord)),
           row('activity', d?.behaviors?.map((name) => this.lookup('behaviorName', name)).join(', ')),
-          row('quality', [quality, validated, warning].filter(Boolean).join(' · ')),
+          row(
+            'quality',
+            [quality, validated, warning].filter(Boolean).join(' · ') || this.translate.instant('observationDetails.noKnownIssues'),
+          ),
         ],
       },
       {
@@ -108,9 +112,9 @@ export class ObservationDetailsComponent {
       {
         id: 'dataset',
         rows: [
-          row('institution', d?.institution),
-          row('projects', d?.projects?.length ? d.projects.join(', ') : this.translate.instant('observationDetails.noProjects')),
-          row('dataset', d?.dataset),
+          row('institution', d?.institution, 'noInstitution'),
+          row('projects', d?.projects?.join(', '), 'noProjects'),
+          row('dataset', d?.dataset, 'noDataset'),
           row('catalogNumber', d?.catalogNumber),
         ],
       },

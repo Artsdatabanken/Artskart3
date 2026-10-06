@@ -11,13 +11,15 @@ describe('ObservationDetails', () => {
   async function settle(fixture: ComponentFixture<ObservationDetailsComponent>): Promise<void> {
     await fixture.whenStable();
     const host: HTMLElement = fixture.nativeElement;
-    const elements = host.querySelectorAll<DesignSystemElement>('adb-icon-button, adb-accordion-item');
+    const elements = host.querySelectorAll<DesignSystemElement>('adb-icon-button, adb-minimal-button, adb-accordion-item');
     await Promise.all([...elements].map((element) => element.updateComplete));
   }
 
   function headerButtons(fixture: ComponentFixture<ObservationDetailsComponent>): HTMLButtonElement[] {
     const element: HTMLElement = fixture.nativeElement;
-    return [...element.querySelectorAll('.navigation adb-icon-button')].map((host) => host.shadowRoot!.querySelector('button')!);
+    return [...element.querySelectorAll('.navigation adb-icon-button, .navigation adb-minimal-button')].map((host) =>
+      host.shadowRoot!.querySelector('button')!,
+    );
   }
 
   function accordionDetails(fixture: ComponentFixture<ObservationDetailsComponent>): HTMLDetailsElement[] {
@@ -35,13 +37,13 @@ describe('ObservationDetails', () => {
     return fixture;
   }
 
-  it('starts all sections open without inventing validation, coordinates or photos', async () => {
+  it('starts with only the first section open without inventing validation, coordinates or photos', async () => {
     const fixture = await create();
     const element: HTMLElement = fixture.nativeElement;
     expect(element.querySelectorAll('adb-accordion')).toHaveLength(1);
     expect(element.querySelectorAll('[ngAccordionGroup], [ngAccordionTrigger]')).toHaveLength(0);
     expect(accordionDetails(fixture)).toHaveLength(3);
-    expect(accordionDetails(fixture).every((details) => details.open)).toBe(true);
+    expect(accordionDetails(fixture).map((details) => details.open)).toEqual([true, false, false]);
     expect(element.textContent).toContain('observationDetails.noCoordinates');
     expect(element.textContent).not.toContain('observationDetails.validated');
     expect(element.querySelector('app-observation-gallery')).toBeNull();
@@ -51,9 +53,10 @@ describe('ObservationDetails', () => {
     const fixture = await create();
     const component = fixture.componentInstance;
     accordionDetails(fixture)[0].querySelector('summary')!.click();
+    accordionDetails(fixture)[1].querySelector('summary')!.click();
     await vi.waitFor(() => expect(component.sectionsOpen()['observation']).toBe(false));
-    expect(component.sectionsOpen()['place']).toBe(true);
-    expect(component.sectionsOpen()['dataset']).toBe(true);
+    await vi.waitFor(() => expect(component.sectionsOpen()['place']).toBe(true));
+    expect(component.sectionsOpen()['dataset']).toBe(false);
     component.toggleExpanded();
     await settle(fixture);
     expect(fixture.nativeElement.querySelector('dialog').classList.contains('expanded')).toBe(true);
@@ -64,7 +67,7 @@ describe('ObservationDetails', () => {
     fixture.componentRef.setInput('state', 'ready');
     await settle(fixture);
     expect(component.sectionsOpen()['observation']).toBe(false);
-    expect(accordionDetails(fixture).map((details) => details.open)).toEqual([false, true, true]);
+    expect(accordionDetails(fixture).map((details) => details.open)).toEqual([false, true, false]);
     component.toggleExpanded();
     await settle(fixture);
     expect(component.sectionsOpen()['observation']).toBe(false);
@@ -103,12 +106,12 @@ describe('ObservationDetails', () => {
     component.dismiss.subscribe(dismiss);
     const buttons = headerButtons(fixture);
     const element: HTMLElement = fixture.nativeElement;
-    const back = element.querySelector<HTMLElement>('adb-icon-button[aria-label="observationDetails.back"]')!;
-    const expand = element.querySelector<HTMLElement>('adb-icon-button[aria-label="observationDetails.expand"]')!;
+    const back = element.querySelector<HTMLElement>('adb-minimal-button[aria-label="observationDetails.back"]')!;
+    const expand = element.querySelector<HTMLElement>('adb-minimal-button[aria-label="observationDetails.expand"]')!;
     expect(back.hidden).toBe(true);
     expect(expand.hidden).toBe(false);
     expect(element.querySelectorAll('.navigation > button, .pager > button')).toHaveLength(0);
-    for (const host of element.querySelectorAll('adb-icon-button')) {
+    for (const host of element.querySelectorAll('adb-icon-button, adb-minimal-button')) {
       expect(host.getAttribute('aria-label')).toBeTruthy();
       expect(host.querySelector('.visually-hidden')?.textContent).toBe(host.getAttribute('aria-label'));
     }
@@ -146,8 +149,8 @@ describe('ObservationDetails', () => {
     const element: HTMLElement = fixture.nativeElement;
     const dismiss = vi.fn();
     component.dismiss.subscribe(dismiss);
-    const backToList = () => element.querySelector<HTMLElement>('adb-icon-button[aria-label="observationDetails.backToList"]');
-    const close = element.querySelector<HTMLElement>('adb-icon-button[aria-label="common.close"]')!;
+    const backToList = () => element.querySelector<HTMLElement>('adb-minimal-button[aria-label="observationDetails.backToList"]');
+    const close = element.querySelector<HTMLElement>('adb-minimal-button[aria-label="common.close"]')!;
     expect(backToList()).toBeNull();
     expect(close.hidden).toBe(false);
     fixture.componentRef.setInput('hasList', true);
@@ -160,6 +163,19 @@ describe('ObservationDetails', () => {
     await settle(fixture);
     expect(backToList()).toBeNull();
     expect(close.hidden).toBe(false);
+  });
+
+  it('marks missing values as empty with field-specific text and reports no known quality issues', async () => {
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    const value = (label: string) => [...element.querySelectorAll('dt')].find((dt) => dt.textContent === label + ':')!.nextElementSibling!;
+    expect(value('observationDetails.fields.collector').textContent).toBe('observationDetails.notProvided');
+    expect(value('observationDetails.fields.collector').classList).toContain('empty');
+    expect(value('observationDetails.fields.institution').textContent).toBe('observationDetails.noInstitution');
+    expect(value('observationDetails.fields.projects').textContent).toBe('observationDetails.noProjects');
+    expect(value('observationDetails.fields.dataset').textContent).toBe('observationDetails.noDataset');
+    expect(value('observationDetails.fields.quality').textContent).toBe('observationDetails.noKnownIssues');
+    expect(value('observationDetails.fields.quality').classList).not.toContain('empty');
   });
 
   it('never hides a quality warning behind a validated label', async () => {
