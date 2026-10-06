@@ -55,4 +55,28 @@ public interface IAreaHierarchyService
     /// spørre databasen i det hele tatt.
     /// </summary>
     int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds);
+
+    /// <summary>
+    /// De av ID-ene som faktisk finnes som områder av den gitte typen.
+    ///
+    /// HVORFOR DETTE TRENGS
+    /// Fylkes-ID-er slås opp mot BÅDE fylke og Svalbard, fordi et fylkesvalg på
+    /// Svalbard ellers ville falt ut. Men Svalbard har bare seks områder —
+    /// 2101 til 2105 og 2201 — og ingen av dem deler ID med et fylke. For et
+    /// vanlig fylke er Svalbard-grenen altså alltid tom.
+    ///
+    /// Tom er ikke gratis. Grenen gjør predikatet til en ELLER over to
+    /// områdetyper, og da kan ikke
+    /// IX_OEI_AreaListView (EntityTypeId, EntityId, DateTimeCollected DESC)
+    /// lenger levere radene ferdig sortert — optimizeren må slå sammen to
+    /// strømmer, og materialiserer i stedet. Målt på største fylke, 7 976 997
+    /// indeksrader: 2 ms med én gren, 719 ms med to.
+    ///
+    /// VET VI IKKE, BEHOLDER VI ID-EN
+    /// Oppslaget bygger på områdeboksene, som lastes ved oppstart. Før første
+    /// last er det tomt, og da returneres inndata uendret. Å tolke «vet ikke»
+    /// som «finnes ikke» ville gitt et stille tomt svar i stedet for et tregt
+    /// — den feilen er mye verre.
+    /// </summary>
+    int[] FilterToExistingAreas(int[] entityIds, int entityTypeId);
 }

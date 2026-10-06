@@ -988,4 +988,52 @@ END
 ELSE
     RAISERROR('Verifisering OK - alle backfills er komplette.', 0, 1) WITH NOWAIT;
 
+-- ---------------------------------------------------------------------------
+-- INVARIANT: hver kommunerad foelges av fylkesraden for kommunens fylke
+--
+-- Staar BEVISST utenfor @Kontroller. Kontrollene der betyr "rader som gjenstaar
+-- aa behandle", og skriptet kjoeres om igjen til summen er null. Denne kan ikke
+-- naa null ved aa kjoere paa nytt: omraaderadene utledes fra LocationAreas, ikke
+-- fra hierarkiet, saa mangler koblingen til fylket der, blir den ikke til av seg
+-- selv. Lagt i @Kontroller ville den gjort at migrasjonen aldri registreres som
+-- anvendt.
+--
+-- HVORFOR DEN FINNES
+-- AreaCountGeoJoinRules.CanSkipGeoJoin utelater geo-semijoinen naar
+-- utdataomraadene er kommuner i et valgt fylke. Det hviler paa denne
+-- invarianten - ankerraden er en kommunerad, og det er fylkesraden som
+-- tilfredsstiller predikatet. Maalt til 0 brudd over 357 kommuner paa prodlik
+-- base.
+--
+-- Brytes den, blir omraadeantallene paa kartet FOR HOEYE, uten feilmelding.
+-- Stille gale tall er verre enn en stoppet deploy, saa dette er severity 16.
+-- Maa invarianten mykes opp, er tilbakefallet aa returnere alleErValgte alene
+-- i CanSkipGeoJoin - se kommentaren der.
+-- ---------------------------------------------------------------------------
+DECLARE @HierarkiBrudd BIGINT = (
+    SELECT COUNT_BIG(*)
+    FROM dbo.ObservationEntityIndex k
+    JOIN dbo.Area ka
+      ON ka.AreaTypeId = 1
+     AND ka.IsCurrent = 1
+     AND ka.ParentFid IS NOT NULL
+     AND TRY_CAST(REPLACE(ka.Fid, '_', '') AS INT) = k.EntityId
+    JOIN dbo.Observation o ON o.Id = k.ObservationId
+    WHERE k.EntityTypeId = 1
+      AND NOT EXISTS (
+            SELECT 1 FROM dbo.ObservationEntityIndex f
+            WHERE f.ObservationId = k.ObservationId
+              AND f.EntityTypeId = 2
+              AND f.EntityId = TRY_CAST(REPLACE(ka.ParentFid, '_', '') AS INT)));
+
+IF @HierarkiBrudd > 0
+BEGIN
+    SET @Msg = CONCAT('INVARIANT BRUTT: ', FORMAT(@HierarkiBrudd, 'N0'),
+                      ' kommunerader mangler fylkesraden for sitt eget fylke. ',
+                      'Omraadeantallene vil bli for hoeye. Se AreaCountGeoJoinRules.');
+    RAISERROR(@Msg, 16, 1) WITH NOWAIT;
+END
+ELSE
+    RAISERROR('Invariant OK - alle kommunerader har fylkesrad.', 0, 1) WITH NOWAIT;
+
 SELECT Section, LastCompletedId, UpdatedAt FROM dbo.BackfillProgress ORDER BY Section;

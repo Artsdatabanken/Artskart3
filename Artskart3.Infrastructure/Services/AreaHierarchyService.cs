@@ -178,6 +178,19 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
     public int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds)
         => AreaBoundsPruner.Prune(entityIds, envelope.Expand(BoundsMarginMetres), _areaBounds, entityTypeIds);
 
+    /// <inheritdoc />
+    public int[] FilterToExistingAreas(int[] entityIds, int entityTypeId)
+    {
+        if (entityIds.Length == 0) return entityIds;
+
+        // Boksene er ikke lastet ennå. Da vet vi ingenting, og «vet ikke» skal
+        // gi med grenen — ikke uten. Se grensesnittet.
+        var bounds = _areaBounds;
+        if (bounds.Count == 0) return entityIds;
+
+        return entityIds.Where(id => bounds.ContainsKey((entityTypeId, id))).ToArray();
+    }
+
     public string? GetCountyFid(string municipalityFid)
     {
         EnsureInitialized();

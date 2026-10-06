@@ -40,4 +40,11 @@ internal sealed class StubAreaHierarchyService : IAreaHierarchyService
 
     public int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds)
         => AreaBoundsPruner.Prune(entityIds, envelope, Bounds, entityTypeIds);
+
+    /// <summary>
+    /// Samme regel som tjenesten: tom boksoversikt betyr «vet ikke», og da
+    /// beholdes ID-ene. Testene fyller Bounds naar de vil styre utfallet.
+    /// </summary>
+    public int[] FilterToExistingAreas(int[] entityIds, int entityTypeId)
+        => Bounds.Count == 0 ? entityIds : entityIds.Where(id => Bounds.ContainsKey((entityTypeId, id))).ToArray();
 }

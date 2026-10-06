@@ -236,6 +236,25 @@ public class SearchRepository : ISearchRepository
             return await ProjectObservationsAsync(query, cancellationToken);
         }
 
+        // FLERVERDIFILTER PÅ EN SORTERT INDEKS: én gren per verdi.
+        //
+        // Se GetBranchedObservationIdsAsync. Returnerer null når grening ikke
+        // gjelder, og da faller vi gjennom til den vanlige stien under.
+        var grenIds = await GetBranchedObservationIdsAsync(filter, skip, take, cancellationToken);
+        if (grenIds != null)
+        {
+            if (grenIds.Count == 0)
+            {
+                return [];
+            }
+
+            query = query.Where(o => grenIds.Contains(o.Id))
+                         .OrderByDescending(o => o.DateTimeCollected)
+                         .ThenByDescending(o => o.Id);
+
+            return await ProjectObservationsAsync(query, cancellationToken);
+        }
+
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
         query = ApplyCommonFilters(query, filter);
 
@@ -249,6 +268,147 @@ public class SearchRepository : ISearchRepository
         query = query.Take(take);
 
         return await ProjectObservationsAsync(query, cancellationToken);
+    }
+
+    /// <summary>
+    /// Høyeste antall grener. Over dette brukes IN-formen som før.
+    ///
+    /// Grening har kjent kost — én spørring per verdi, målt til 16-19 ms hver,
+    /// uavhengig av om verdien har 1 eller 29 millioner observasjoner. IN-formen
+    /// er et lotteri: 20 ms når settet inneholder en vanlig verdi, 2520 ms når
+    /// alle verdiene er selektive. Taket er der den kjente kosten slutter å være
+    /// åpenbart bedre enn lotteriets dårlige utfall.
+    /// </summary>
+    private const int MaxBranches = 8;
+
+    /// <summary>
+    /// Henter observasjons-IDene i datosortert rekkefølge med én spørring per
+    /// verdi i ett flerverdifilter. Returnerer null når grening ikke gjelder.
+    ///
+    /// HVORFOR
+    /// Både institusjon og taksongruppe har indekser med verdien som første
+    /// nøkkelkolonne. Med én verdi blir det ett sammenhengende intervall, og
+    /// SQL Server kan lese det baklengs for å få DateTimeCollected DESC. Da
+    /// stopper TOP-en på de første radene.
+    ///
+    /// Med IN over to verdier blir det to intervaller, og rekkefølgen kan ikke
+    /// bevares på tvers av dem. Planen må hente alle treffene og sortere før
+    /// TOP-en kan tas. Målt på Observation-listevisningen, side 1:
+    ///
+    ///   Molltax (22 872 obs) alene                      18 ms
+    ///   Veterinærinstituttet (32 obs) alene             18 ms
+    ///   begge sammen                                  2520 ms
+    ///   Hjuldyr (44 519) + Mesozoa (1)                 344 ms
+    ///
+    /// Legges en vanlig verdi til settet, forsvinner problemet: med Birdlife
+    /// Norge (29,2 M) i settet er fem institusjoner 20 ms, fordi optimalisereren
+    /// da forlater indeksen og skanner datoindeksen i stedet — og treffer nok
+    /// rader med en gang. Problemet oppstår altså nøyaktig når ALLE verdiene er
+    /// selektive.
+    ///
+    /// Spørringen er allerede merket med RecompileTag, så dette er ikke dårlige
+    /// estimater: optimalisereren ser de faktiske verdiene og velger likevel
+    /// sorteringsplanen. OPTION (RECOMPILE) kan derfor ikke løse det.
+    ///
+    /// HVORFOR SVARET BLIR DET SAMME
+    /// Det globale topp-K ligger alltid i unionen av gren-vise topp-K: en rad som
+    /// ikke er blant de K nyeste i sin egen gren, kan ikke være blant de K nyeste
+    /// samlet. Derfor henter hver gren skip+take rader. Samme argument som
+    /// <see cref="GetAreaFilteredObservationIdsAsync"/> hviler på.
+    /// </summary>
+    private async Task<List<int>?> GetBranchedObservationIdsAsync(
+        IObservationFilter filter, int skip, int take, CancellationToken cancellationToken)
+    {
+        // Institusjon først: den har det klart verste utslaget. Er begge
+        // dimensjonene flerverdi, blir den andre et restledd inne i hver gren —
+        // grenen seeker fortsatt på ett intervall, så rekkefølgen holder.
+        var organisasjoner = filter.OrganizationIds;
+        var taksongrupper = filter.TaxonGroupIds;
+
+        Func<int, IObservationFilter> lagGrenfilter;
+        int[] verdier;
+
+        if (organisasjoner is { Length: > 1 and <= MaxBranches })
+        {
+            verdier = organisasjoner;
+            lagGrenfilter = verdi => new SingleValueFilter(filter, organizationIds: [verdi]);
+        }
+        else if (taksongrupper is { Length: > 1 and <= MaxBranches })
+        {
+            verdier = taksongrupper;
+            lagGrenfilter = verdi => new SingleValueFilter(filter, taxonGroupIds: [verdi]);
+        }
+        else
+        {
+            return null;
+        }
+
+        var trengs = skip + take;
+        var kandidater = new List<(int ObservationId, DateTime? Dato)>();
+
+        foreach (var verdi in verdier)
+        {
+            var gren = ApplyCommonFilters(
+                    _context.Set<Observation>()
+                        .AsNoTracking()
+                        .TagWith(QueryHintInterceptor.RecompileTag),
+                    lagGrenfilter(verdi))
+                .OrderByDescending(o => o.DateTimeCollected)
+                .ThenByDescending(o => o.Id)
+                .Take(trengs)
+                .Select(o => new { o.Id, o.DateTimeCollected });
+
+            foreach (var rad in await gren.ToListAsync(cancellationToken))
+            {
+                kandidater.Add((rad.Id, rad.DateTimeCollected));
+            }
+        }
+
+        // Grenene er disjunkte på institusjon og taksongruppe — en observasjon
+        // har én av hver — men distinct koster lite og gjør flettingen robust
+        // om en framtidig dimensjon ikke er det.
+        return kandidater
+            .GroupBy(x => x.ObservationId)
+            .Select(g => (ObservationId: g.Key, Dato: g.First().Dato))
+            .OrderByDescending(x => x.Dato.HasValue)
+            .ThenByDescending(x => x.Dato)
+            .ThenByDescending(x => x.ObservationId)
+            .Skip(skip)
+            .Take(take)
+            .Select(x => x.ObservationId)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Filteret uendret, bortsett fra én dimensjon som byttes ut.
+    ///
+    /// Grenene i <see cref="GetBranchedObservationIdsAsync"/> trenger samme filter
+    /// med én verdi i stedet for flere. Null betyr «uendret», ikke «tøm» — ingen
+    /// gren har bruk for å fjerne en dimensjon.
+    /// </summary>
+    private sealed class SingleValueFilter(
+        IObservationFilter inner,
+        int[]? taxonGroupIds = null,
+        int[]? organizationIds = null) : IObservationFilter
+    {
+        public int[]? TaxonGroupIds => taxonGroupIds ?? inner.TaxonGroupIds;
+        public int[]? OrganizationIds => organizationIds ?? inner.OrganizationIds;
+
+        public int[]? TaxonIds => inner.TaxonIds;
+        public int[]? CategoryIds => inner.CategoryIds;
+        public string[]? MunicipalityIds => inner.MunicipalityIds;
+        public string[]? CountyIds => inner.CountyIds;
+        public string[]? RestrictedAreaIds => inner.RestrictedAreaIds;
+        public string[]? OceanAreaIds => inner.OceanAreaIds;
+        public int[]? BehaviorIds => inner.BehaviorIds;
+        public int[]? BasisOfRecordIds => inner.BasisOfRecordIds;
+        public int? RegistrationStatusId => inner.RegistrationStatusId;
+        public CoordinatePrecisionDto? CoordinatePrecision => inner.CoordinatePrecision;
+        public PeriodDto? Period => inner.Period;
+        public int? DatasetOrgId => inner.DatasetOrgId;
+        public int? ProjectOrgId => inner.ProjectOrgId;
+        public int[]? ObservationIds => inner.ObservationIds;
+        public bool? WithImages => inner.WithImages;
     }
 
     /// <summary>
@@ -273,39 +433,96 @@ public class SearchRepository : ISearchRepository
     {
         var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
         var countyIds       = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+        var svalbardIds     = _areaHierarchy.FilterToExistingAreas(
+            countyIds, (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen);
+        countyIds           = _areaHierarchy.FilterToExistingAreas(
+            countyIds, (int)ObservationIndexEntityType.County);
         var restrictedIds   = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
         var oceanIds        = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
 
-        var query = _context.Set<ObservationEntityIndex>()
-            .AsNoTracking()
-            .TagWith(QueryHintInterceptor.RecompileTag)
-            .Where(idx =>
-                (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
-                (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
-                // i løsningen. Uten denne grenen ville et fylkesvalg på Svalbard
-                // gitt treff på kartet og tom liste.
-                (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
-                (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
+        // ÉN GREN PER OMRÅDE, SLÅTT SAMMEN MED UNION ALL
+        //
+        // Det nærliggende er ett predikat med ELLER over alle områdene. Da kan
+        // ikke IX_OEI_AreaListView (EntityTypeId, EntityId, DateTimeCollected
+        // DESC) lenger levere radene ferdig sortert: optimizeren må slå sammen
+        // flere strømmer, og materialiserer i stedet alle treff i områdene før
+        // den sorterer. For største fylke er det 7 976 997 rader.
+        //
+        // Målt, topp 40 datosortert:
+        //   ett fylke                              2 ms
+        //   to fylker med IN                     986 ms
+        //   to fylker som UNION ALL av TOP-er      4 ms
+        //
+        // Med én gren per område blir hver et rent søk som stopper etter sine
+        // egne skip+take rader. Deretter slås maks (antall områder × skip+take)
+        // rader sammen.
+        //
+        // AT DETTE ER KORREKT hviler på at en rad i den globale topp N
+        // nødvendigvis er i sitt eget områdes topp N: alle rader foran den i
+        // samme område er også foran den globalt. Tar vi skip+take fra hvert
+        // område, kan ingen rad som skulle vært med mangle.
+        var omraader = new List<(int Type, int[] Ids)>
+        {
+            ((int)ObservationIndexEntityType.Municipality, municipalityIds),
+            ((int)ObservationIndexEntityType.County, countyIds),
+            // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
+            // i løsningen. Uten denne grenen ville et fylkesvalg på Svalbard
+            // gitt treff på kartet og tom liste. ID-ene er forhåndsfiltrert, så
+            // grenen forsvinner helt for et vanlig fylke.
+            ((int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen, svalbardIds),
+            ((int)ObservationIndexEntityType.RestrictedArea, restrictedIds),
+            ((int)ObservationIndexEntityType.OceanArea, oceanIds),
+        };
 
-        query = ApplyListViewFiltersToEntityIndex(query, filter);
+        // GRENENE KJØRES HVER FOR SEG OG SLÅS SAMMEN I MINNET
+        //
+        // Først forsøkt som ett UNION ALL via Concat, men EF Core klarer ikke
+        // oversette OrderBy+Take inne i en operand til en mengdeoperasjon.
+        // Separate kall er uansett tryggere: hver gren er en spørring
+        // optimizeren ikke kan ta feil av.
+        //
+        // Kostnaden er ett tur-retur per område. Med femten fylker er det
+        // femten kall à 2–4 ms mot ett på 1736 ms.
+        var trengs = skip + take;
+        var kandidater = new List<(int ObservationId, DateTime? Dato)>();
 
-        // DateTimeCollected er med i utvalget fordi DISTINCT og ORDER BY må se de
-        // samme kolonnene. Verdien er denormalisert fra Observation, så den er lik
-        // på alle rader for samme observasjon — DISTINCT slår dem derfor riktig
-        // sammen.
-        var paged = query
-            .Select(idx => new { idx.ObservationId, idx.DateTimeCollected })
-            .Distinct()
-            .OrderByDescending(x => x.DateTimeCollected)
-            .ThenByDescending(x => x.ObservationId);
+        foreach (var (type, ids) in omraader)
+        {
+            foreach (var id in ids)
+            {
+                var gren = ApplyListViewFiltersToEntityIndex(
+                        _context.Set<ObservationEntityIndex>()
+                            .AsNoTracking()
+                            .TagWith(QueryHintInterceptor.RecompileTag)
+                            .Where(idx => idx.EntityTypeId == type && idx.EntityId == id),
+                        filter)
+                    .OrderByDescending(idx => idx.DateTimeCollected)
+                    .ThenByDescending(idx => idx.ObservationId)
+                    .Take(trengs)
+                    .Select(idx => new { idx.ObservationId, idx.DateTimeCollected });
 
-        var result = skip > 0
-            ? paged.Skip(skip).Take(take)
-            : paged.Take(take);
+                foreach (var rad in await gren.ToListAsync(cancellationToken))
+                    kandidater.Add((rad.ObservationId, rad.DateTimeCollected));
+            }
+        }
 
-        return await result.Select(x => x.ObservationId).ToListAsync(cancellationToken);
+        // Deduplisering er nødvendig, ikke defensiv: en observasjon kan ligge i
+        // flere av de valgte områdene — en kommune og fylket over den, eller to
+        // overlappende verneområder — og ville ellers dukket opp flere ganger.
+        //
+        // Sorteringen må være identisk med den databasestien hadde:
+        // DateTimeCollected synkende, deretter ObservationId synkende. NULL-dato
+        // sorterer sist, som i SQL med DESC.
+        return kandidater
+            .GroupBy(x => x.ObservationId)
+            .Select(g => (ObservationId: g.Key, Dato: g.First().Dato))
+            .OrderByDescending(x => x.Dato.HasValue)
+            .ThenByDescending(x => x.Dato)
+            .ThenByDescending(x => x.ObservationId)
+            .Skip(skip)
+            .Take(take)
+            .Select(x => x.ObservationId)
+            .ToList();
     }
 
     /// <summary>
@@ -334,6 +551,7 @@ public class SearchRepository : ISearchRepository
 
         var municipalityIds = ids.Municipality;
         var countyIds = ids.County;
+        var svalbardIds = ids.Svalbard;
         var restrictedIds = ids.Restricted;
         var oceanIds = ids.Ocean;
 
@@ -368,7 +586,7 @@ public class SearchRepository : ISearchRepository
             (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
             // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som ellers
             // i løsningen.
-            (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && svalbardIds.Contains(idx.EntityId)) ||
             (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
             (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
     }
@@ -382,8 +600,23 @@ public class SearchRepository : ISearchRepository
     ///   IsEmptied - brukeren HAR valgt områder, men ingen av dem når utsnittet.
     ///               Svaret er tomt, og spørringen trenger ikke kjøres.
     /// </summary>
+    /// <summary>
+    /// FYLKE OG SVALBARD HOLDES FRA HVERANDRE
+    /// County er fylkes-ID-ene som faktisk finnes som fylker; Svalbard er de
+    /// samme ID-ene filtrert til dem som finnes som Svalbard-områder — nesten
+    /// alltid tom. Fylkesvalg slås opp mot begge typene fordi et valg på
+    /// Svalbard ellers ville falt ut, men Svalbard har bare seks områder
+    /// (2101–2105, 2201) og ingen av dem deler ID med et fylke.
+    ///
+    /// Grunnen til at de er skilt er at en tom gren ikke er gratis: den gjør
+    /// predikatet til en ELLER over to områdetyper, og da kan ikke
+    /// IX_OEI_AreaListView levere radene ferdig datosortert — optimizeren må
+    /// slå sammen to strømmer og materialiserer i stedet. Målt på største
+    /// fylke, 7 976 997 indeksrader: 2 ms med én gren, 719 ms med to.
+    /// </summary>
     private readonly record struct AreaFilterIds(
-        int[] Municipality, int[] County, int[] Restricted, int[] Ocean, bool IsUnset, bool IsEmptied);
+        int[] Municipality, int[] County, int[] Svalbard, int[] Restricted, int[] Ocean,
+        bool IsUnset, bool IsEmptied);
 
     /// <summary>
     /// Slår opp områdefilteret og fjerner områder som ikke kan nå kartutsnittet.
@@ -412,7 +645,7 @@ public class SearchRepository : ISearchRepository
 
         if (!harValg)
         {
-            return new AreaFilterIds([], [], [], [], IsUnset: true, IsEmptied: false);
+            return new AreaFilterIds([], [], [], [], [], IsUnset: true, IsEmptied: false);
         }
 
         var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
@@ -442,10 +675,22 @@ public class SearchRepository : ISearchRepository
                 (int)ObservationIndexEntityType.OceanArea);
         }
 
-        var tomt = municipalityIds.Length == 0 && countyIds.Length == 0
+        // Fylkes-ID-ene deles i de som finnes som fylke og de som finnes som
+        // Svalbard-område. Nesten alltid er den siste tom, og da forsvinner
+        // ELLER-grenen helt — EF utelater en gren med tomt ID-sett.
+        //
+        // Begge filtreres: velger brukeren et Svalbard-område, resolver Fid-en
+        // til en ID som finnes som type 6 men IKKE som fylke, og da er det
+        // fylkesgrenen som er den tomme.
+        var svalbardIds = _areaHierarchy.FilterToExistingAreas(
+            countyIds, (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen);
+        var fylkeIds = _areaHierarchy.FilterToExistingAreas(
+            countyIds, (int)ObservationIndexEntityType.County);
+
+        var tomt = municipalityIds.Length == 0 && fylkeIds.Length == 0 && svalbardIds.Length == 0
                    && restrictedIds.Length == 0 && oceanIds.Length == 0;
 
-        return new AreaFilterIds(municipalityIds, countyIds, restrictedIds, oceanIds,
+        return new AreaFilterIds(municipalityIds, fylkeIds, svalbardIds, restrictedIds, oceanIds,
             IsUnset: false, IsEmptied: tomt);
     }
 
@@ -841,6 +1086,7 @@ public class SearchRepository : ISearchRepository
         {
             var municipalityIds = area.Municipality;
             var countyIds = area.County;
+            var svalbardIds = area.Svalbard;
             var restrictedIds = area.Restricted;
             var oceanIds = area.Ocean;
 
@@ -848,7 +1094,7 @@ public class SearchRepository : ISearchRepository
                 idx.ObservationId == o.Id && (
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+                    (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && svalbardIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
                 )));
@@ -1113,6 +1359,10 @@ public class SearchRepository : ISearchRepository
             if (_areaCountCache is not null)
                 dynamicCounts = await _areaCountCache.TryGetCountsAsync(filter!, areas, areasAreNarrowed, cancellationToken);
 
+            // Er valget finere enn utdatanivået, lønner det seg å ankre på det
+            // fine nivået og rulle opp. Null betyr «ikke denne formen».
+            dynamicCounts ??= await ComputeRolledUpAreaCounts(areas, filter!, cancellationToken);
+
             dynamicCounts ??= await ComputeFilteredAreaCounts(areas, filter!, areasAreNarrowed, cancellationToken);
         }
         else if (hasAreaSelection)
@@ -1322,6 +1572,60 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => entityIds.Contains(idx.EntityId));
         }
 
+        query = ApplyAttributeFiltersToEntityIndex(query, filter);
+
+        // Geografiske filtre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+
+        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
+        {
+            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+            var svalbardIds = _areaHierarchy.FilterToExistingAreas(
+                countyIds, (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen);
+            countyIds = _areaHierarchy.FilterToExistingAreas(
+                countyIds, (int)ObservationIndexEntityType.County);
+            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+            if (!AreaCountGeoJoinRules.CanSkipGeoJoin(
+                    areas, _areaHierarchy.FidToEntityId,
+                    municipalityIds, countyIds, svalbardIds, restrictedIds, oceanIds))
+            {
+                query = query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
+                    geo.ObservationId == idx.ObservationId && (
+                        (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
+                        (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
+                        (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && svalbardIds.Contains(geo.EntityId)) ||
+                        (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
+                        (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId))
+                    )));
+            }
+        }
+
+        var counts = await query
+            .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
+            .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
+    }
+
+    /// <summary>
+    /// Attributtfiltrene på indekstabellen — alt som ikke er geografi.
+    ///
+    /// Trukket ut fordi to stier trenger dem: <c>ComputeFilteredAreaCounts</c>,
+    /// som ankrer på utdatacellen, og <c>ComputeRolledUpAreaCounts</c>, som
+    /// ankrer på kommuneraden og ruller opp. Hadde de hatt hver sin kopi, ville
+    /// et nytt filter lagt til ett sted gitt stille forskjellige tall mellom
+    /// zoomnivåene.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> ApplyAttributeFiltersToEntityIndex(
+        IQueryable<ObservationEntityIndex> query, LocationSearchFilterDto filter)
+    {
         // Denormaliserte filtre — anvendes direkte på indekstabellen
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -1458,35 +1762,78 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => observationIds.Contains(idx.ObservationId));
         }
 
-        // Geografiske filtre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
+        return query;
+    }
 
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
+    /// <summary>
+    /// Teller ved å ankre på det FINE nivået og rulle opp, i stedet for å ankre
+    /// på utdatacellen og filtrere ned til valget.
+    ///
+    /// Returnerer null når formen ikke gjelder — da teller
+    /// <see cref="ComputeFilteredAreaCounts"/> som før.
+    ///
+    /// HVORFOR
+    /// Ved zoomnivå 1 med kommunefilter er utdatacellen fylket, men valget er en
+    /// kommune. Da er geo-semijoinen IKKE overflødig: den fjerner alle
+    /// observasjonene i fylket som ligger utenfor den valgte kommunen, og
+    /// <see cref="AreaCountGeoJoinRules.CanSkipGeoJoin"/> svarer med rette nei.
+    ///
+    /// Snur vi spørringen, forsvinner behovet. Ankrer vi på kommuneraden, er
+    /// kommunen både det vi filtrerer på og det vi teller — og da gjelder
+    /// delmengderegelen, så semijoinen faller bort av seg selv. Fylkestallet
+    /// settes sammen etterpå via <c>Area.ParentFid</c>, samme kilde som
+    /// <see cref="FilterAreasBySelection"/> bruker for å velge cellene.
+    ///
+    /// Målt på suitens tregeste gjenværende tilfelle — kommune Farsund med
+    /// koordpresisjon, periode og regstatus: 1101 ms med fylkesanker og
+    /// semijoin, 297 ms med kommuneanker. Identisk antall, 2 000 239.
+    ///
+    /// DISTINKT TELLING ER IKKE VALGFRITT
+    /// Velges flere kommuner i samme fylke, kan tallene IKKE summeres: 213 302
+    /// observasjoner (0,38 %) har kommunerad i mer enn én kommune, fordi
+    /// lokasjonen ligger på en kommunegrense. En summering ville telt dem to
+    /// ganger i fylkescellen.
+    ///
+    /// Det er også grunnen til at <see cref="AggregateMunicipalityCountsByCounty"/>
+    /// ikke kan gjenbrukes her — den summerer <c>Area.ObservationCount</c> per
+    /// kommune og arver problemet. Bare mønsteret er felles, ikke koden.
+    /// </summary>
+    private async Task<Dictionary<(int entityTypeId, int entityId), int>?> ComputeRolledUpAreaCounts(
+        List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
+    {
+        var plan = AreaCountRollupRules.LagOpprullingsplan(
+            areas,
+            filter.MunicipalityIds,
+            harFylkesvalg: filter.CountyIds?.Length > 0,
+            harHavomraadevalg: filter.OceanAreaIds?.Length > 0,
+            harVerneomraadevalg: filter.RestrictedAreaIds?.Length > 0,
+            _areaHierarchy.FidToEntityId,
+            _areaHierarchy.GetCountyFid);
+
+        if (plan is null) return null;
+
+        var resultat = new Dictionary<(int entityTypeId, int entityId), int>();
+
+        // Én spørring per utdatafylke. I praksis én: velger man kommuner, er de
+        // nesten alltid i samme fylke.
+        foreach (var (fylkeEntityId, kommuneEntityIds) in plan)
         {
-            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
-            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
-            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
-            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+            var query = ApplyAttributeFiltersToEntityIndex(
+                _context.Set<ObservationEntityIndex>()
+                    .Where(idx => idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality
+                                  && kommuneEntityIds.Contains(idx.EntityId)),
+                filter);
 
-            query = query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
-                geo.ObservationId == idx.ObservationId && (
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId))
-                )));
+            var antall = await query
+                .Select(idx => idx.ObservationId)
+                .Distinct()
+                .CountAsync(cancellationToken);
+
+            if (antall > 0)
+                resultat[((int)ObservationIndexEntityType.County, fylkeEntityId)] = antall;
         }
 
-        var counts = await query
-            .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
-            .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
-            .ToListAsync(cancellationToken);
-
-        return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
+        return resultat;
     }
 
     /// <summary>

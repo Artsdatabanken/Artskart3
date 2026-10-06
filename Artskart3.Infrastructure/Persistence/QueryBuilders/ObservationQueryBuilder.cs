@@ -195,6 +195,18 @@ public static class ObservationQueryBuilder
                     // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som i
                     // SearchRepository. Grenen manglet her, så et fylkesvalg på
                     // Svalbard ga treff på kartet og en tom CSV.
+                    //
+                    // MERK EN FORSKJELL FRA SearchRepository: der er ID-ene
+                    // forhåndsfiltrert til dem som faktisk finnes som
+                    // Svalbard-områder, slik at grenen forsvinner helt for et
+                    // vanlig fylke. Det er en ren ytelsesforskjell — målt 2 mot
+                    // 719 ms på største fylke — og RESULTATET er identisk, siden
+                    // en fylkes-ID uansett ikke finnes som Svalbard-område.
+                    //
+                    // Filtreringen krever IAreaHierarchyService, som denne
+                    // byggeren ikke har. Eksport er en bakgrunnsjobb, så den
+                    // kostnaden er tålt framfor å tre tjenesten gjennom to
+                    // ExportService-konstruktører.
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
                     (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
