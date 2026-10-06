@@ -1,0 +1,50 @@
+dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  width: max-content;
+  padding: 1rem;
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: 1rem;
+  background: var(--adb-surface-base-primary);
+  color: var(--adb-text-base-primary);
+}
+
+dialog::backdrop {
+  background: #0009;
+}
+img {
+  display: block;
+  max-width: 100%;
+  max-height: 75dvh;
+  object-fit: contain;
+  margin: 1rem auto;
+}
+p {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.close {
+  display: block;
+  margin-left: auto;
+}
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: var(--adb-text-accent-primary);
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 2rem;
+}
+a {
+  color: var(--adb-text-accent-primary);
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--adb-text-accent-primary);
+  outline-offset: 3px;
+}

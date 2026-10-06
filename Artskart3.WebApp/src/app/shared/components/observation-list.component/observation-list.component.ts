@@ -1,110 +1,81 @@
-import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, input, signal} from '@angular/core';
-import {ObservationListInfoDto} from '@shared/types/api.types';
-import {TranslateModule} from '@ngx-translate/core';
-
-export enum Filters {
-  TaxonGroup = "taxonGroup",
-  Category = "category",
-  Location= "location"
-}
-
-interface TopLevelFilter {
-  groupKeyId: string,
-  registrationTypes: RegistrationTypeGroup[]
-}
-
-interface RegistrationTypeGroup {
-  registrationKeyId: string,
-  species: SpeciesGroup[]
-}
-
-interface SpeciesGroup {
-  speciesKeyId: string,
-  registrations: string[]
-}
+import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, inject, input, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { Menu, MenuItem, MenuTrigger } from '@angular/aria/menu';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LoggingService } from '@shared/logging.service';
+import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
+import { ObservationListInfoDto } from '@shared/types/api.types';
+import { ObservationTreeComponent } from '../observation-tree/observation-tree.component';
+import {
+  buildObservationTree,
+  hasUnknownCategory,
+  observationTreeIds,
+  ObservationGrouping,
+  ObservationRequestState,
+  ObservationSelection,
+} from './observation-list.model';
 
 @Component({
   selector: 'app-observation-list',
-  imports: [TranslateModule],
+  imports: [TranslateModule, ObservationTreeComponent, Menu, MenuItem, MenuTrigger],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './observation-list.component.html',
   styleUrl: './observation-list.component.css',
 })
 export class ObservationListComponent {
-  filters = Object.values(Filters);
-  observationList = input<ObservationListInfoDto[]>([]);
-  currentFilter = signal(Filters.TaxonGroup);
-  topLevelFilter = computed(() => this.getTopLevelGroups(this.observationList()));
-  clickCoordinates = input<number[]>([]);
+  readonly observationList = input<ObservationListInfoDto[]>([]);
+  readonly selection = input.required<ObservationSelection>();
+  readonly requestState = input<ObservationRequestState>('ready');
+  readonly retry = output<void>();
+  readonly observationActivated = output<number>();
+  readonly filters: ObservationGrouping[] = ['taxonGroup', 'location', 'redList', 'alienSpecies'];
+  readonly currentFilter = signal<ObservationGrouping>('taxonGroup');
 
-  setFilter(filter: Filters): void {
-    this.currentFilter.set(filter);
+  private readonly translate = inject(TranslateService);
+  private readonly logger = inject(LoggingService);
+  private readonly languageChange = toSignal(this.translate.onLangChange);
+  private readonly datePipe = new LocaleDatePipe();
+
+  readonly groups = computed(() => {
+    const language = this.languageChange()?.lang ?? this.translate.getCurrentLang();
+    return buildObservationTree(
+      this.observationList(),
+      this.currentFilter(),
+      language,
+      (key) => this.translate.instant(key),
+      (date) => this.datePipe.transform(date, language),
+    );
+  });
+  readonly resetKey = computed(() => `${this.selection().key}/${this.currentFilter()}`);
+  readonly orderedObservationIds = computed(() => observationTreeIds(this.groups()));
+  readonly location = computed(() => {
+    if (this.selection().locationIds.length !== 1) return null;
+    const observations = this.observationList();
+    const unique = (field: 'locality' | 'municipalityName' | 'countyName') => {
+      const names = new Set(observations.map((o) => o[field]?.trim() || null));
+      return names.size === 1 ? [...names][0] : null;
+    };
+    return { name: unique('locality'), areas: [unique('municipalityName'), unique('countyName')].filter(Boolean).join(', ') };
+  });
+
+  constructor() {
+    effect(() => {
+      const unknown = this.observationList().filter(hasUnknownCategory);
+      if (unknown.length)
+        this.logger.warn(
+          'Unknown observation assessment metadata',
+          'ObservationList',
+          unknown.map((o) => o.id),
+        );
+    });
   }
 
-  public getTopLevelGroups(observationList: ObservationListInfoDto[]) {
-    const topLevelMap = new Map<string, Map<string, Map<string, string[]>>>();
-
-    for (const obs of observationList) {
-      const topKey = this.getFilterKey(obs);
-      const regType = this.getRegistrationType(obs);
-      const speciesName = (obs.displayName ?? "Ukjent");
-      const registration = obs.collector ?? '';
-
-      let regTypeMap = topLevelMap.get(topKey);
-      if(!regTypeMap) {
-        regTypeMap = new Map<string, Map<string,string[]>>();
-        topLevelMap.set(topKey, regTypeMap);
-      }
-
-      let speciesMap = regTypeMap.get(regType);
-      if(!speciesMap) {
-        speciesMap = new Map<string, string[]>();
-        regTypeMap.set(regType, speciesMap);
-      }
-
-      const regs = speciesMap.get(speciesName) ?? [];
-      regs.push(registration);
-      speciesMap.set(speciesName, regs);
+  setGrouping(value: unknown): void {
+    const grouping = this.filters.find((filter) => filter === value);
+    if (!grouping) {
+      this.logger.error('Invalid observation grouping', 'ObservationList', value);
+      return;
     }
-
-    const result: TopLevelFilter[] = Array.from(topLevelMap.entries()).sort(([a], [b]) => a.localeCompare(b))
-      .map(([groupKeyId, regTypeMap]) => ({
-        groupKeyId,
-        registrationTypes: Array.from(regTypeMap.entries()).sort(([a], [b]) => a.localeCompare(b))
-        .map(([registrationKeyId, speciesMap]) => ({
-          registrationKeyId,
-          species: Array.from(speciesMap.entries()).sort(([a], [b]) => a.localeCompare(b))
-          .map(([speciesKeyId, registrations]) => ({
-            speciesKeyId,
-            registrations: registrations.map(String).sort((a, b) => a.localeCompare(b))
-          }))
-        }))
-      }));
-    return result;
-  }
-
-  private getRegistrationType(observation: ObservationListInfoDto): string {
-    const types = observation.registrationType ?? [];
-    if(types.includes("Absent")) {
-      return "Ikke funnet";
-    }
-    if(types.includes("NotRecovered")) {
-      return "Ikke gjenfunnet";
-    }
-    return "Funnet";
-  }
-
-  private getFilterKey(observation: ObservationListInfoDto): string {
-    if (!observation) return "-1";
-    switch (this.currentFilter()) {
-      case Filters.TaxonGroup:
-        return observation.taxonGroupName ? observation.taxonGroupName : "Ukjent artsgruppe";
-      case Filters.Category:
-        return observation.categoryName ? observation.categoryName : "Ukjent kategori";
-      case Filters.Location:
-        return observation.locationId ? observation.locationId.toString() : "Ukjent Lokasjon";
-      default:
-        return "-1";
-    }
+    this.currentFilter.set(grouping);
   }
 }

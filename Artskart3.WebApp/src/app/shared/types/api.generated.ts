@@ -775,6 +775,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/observations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ObservationDetailDto"];
+                        "application/json": components["schemas"]["ObservationDetailDto"];
+                        "text/json": components["schemas"]["ObservationDetailDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}/media/{mediaId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    mediaId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}/maps/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    view: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Content */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/SearchTaxons": {
         parameters: {
             query?: never;
@@ -1421,6 +1601,38 @@ export interface components {
             endDisplayDate?: null | string;
             canClose?: boolean;
         };
+        ObservationDetailDto: {
+            /** Format: int32 */
+            id?: number;
+            popularName?: null | string;
+            scientificName?: null | string;
+            /** Format: int32 */
+            externalTaxonId?: number;
+            categoryCode?: null | string;
+            /** Format: int32 */
+            categoryTypeId?: null | number;
+            assessmentUrl?: null | string;
+            /** Format: date-time */
+            collected?: null | string;
+            collector?: null | string;
+            basisOfRecord?: null | string;
+            behaviors?: string[];
+            /** Format: int32 */
+            quality?: null | number;
+            tags?: string[];
+            hasErrors?: boolean;
+            locality?: null | string;
+            counties?: string[];
+            municipalities?: string[];
+            point?: components["schemas"]["ObservationPointDto"];
+            /** Format: int32 */
+            coordinatePrecision?: null | number;
+            institution?: null | string;
+            dataset?: null | string;
+            projects?: string[];
+            catalogNumber?: null | string;
+            images?: components["schemas"]["ObservationMediaDto"][];
+        };
         ObservationDto: {
             /** Format: int32 */
             id?: number;
@@ -1442,6 +1654,10 @@ export interface components {
         ObservationListInfoDto: {
             /** Format: int32 */
             id?: number;
+            /** Format: int32 */
+            taxonId?: number;
+            /** Format: date-time */
+            dateTimeCollected?: null | string;
             preferredPopularName?: null | string;
             scientificName?: null | string;
             displayName?: string;
@@ -1452,16 +1668,42 @@ export interface components {
             /** Format: int32 */
             categoryId?: null | number;
             categoryName?: null | string;
+            categoryCode?: null | string;
+            /** Format: int32 */
+            categoryTypeId?: null | number;
             institutionId?: null | string;
             institutionName?: null | string;
             /** Format: int32 */
             locationId?: null | number;
+            locality?: null | string;
+            municipalityName?: null | string;
+            countyName?: null | string;
             registrationType?: null | string[];
             collector?: null | string;
         };
         ObservationListInfoRequestDto: {
             ids?: number[];
             filter?: components["schemas"]["ObservationSearchFilterDto"];
+        };
+        ObservationMediaDto: {
+            /** Format: int32 */
+            id?: number;
+            origin?: null | string;
+            mimeType?: string;
+            hasStoredImage?: boolean;
+            description?: null | string;
+            rightsHolder?: null | string;
+            license?: null | string;
+        };
+        ObservationPointDto: {
+            /** Format: double */
+            latitude?: number;
+            /** Format: double */
+            longitude?: number;
+            /** Format: int32 */
+            east?: number;
+            /** Format: int32 */
+            north?: number;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */

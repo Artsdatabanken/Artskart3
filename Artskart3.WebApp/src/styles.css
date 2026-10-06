@@ -3,7 +3,6 @@
 @import '@artsdatabanken/tokens';
 @import '@artsdatabanken/tokens/link';
 @import './styles/risk-category.css';
-@import './styles/risk-category-badge.css';
 
 /* ============================================================================
    APP-SPECIFIC VARIABLES (no design-system equivalent)
