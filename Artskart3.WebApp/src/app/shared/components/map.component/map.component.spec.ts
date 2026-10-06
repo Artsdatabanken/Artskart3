@@ -13,6 +13,7 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
 import type { LocationCountResult } from '@shared/types/api.types';
 import { FilterStateService } from '@shared/services/filter-state/filter-state.service';
+import { MapViewService } from '@shared/services/map-view/map-view.service';
 import type { Signal } from '@angular/core';
 import { Feature } from 'ol';
 import Point from 'ol/geom/Point';
@@ -1268,6 +1269,60 @@ describe('MapComponent', () => {
 
       expect(fitSpy).not.toHaveBeenCalled();
       expect(clickedIds.length).toBe(1);
+    });
+  });
+
+  describe('requested extent (saved filters)', () => {
+    let fitExtentSpy: ReturnType<typeof vi.fn>;
+    let mapView: MapViewService;
+    let rect = { width: 0, height: 0 };
+
+    const priv = (c: MapComponent) =>
+      c as unknown as {
+        mapReady: boolean;
+        mapEl: { nativeElement: { getBoundingClientRect: () => { width: number; height: number } } };
+        tryApplyRequestedExtent: () => void;
+      };
+
+    beforeEach(() => {
+      mapView = TestBed.inject(MapViewService);
+      fitExtentSpy = vi.fn();
+      component.map = { fitExtent: fitExtentSpy } as unknown as NbicMapComponent;
+      priv(component).mapReady = true;
+      priv(component).mapEl = { nativeElement: { getBoundingClientRect: () => rect } };
+    });
+
+    it('should fit to a requested extent when the map is visible', () => {
+      rect = { width: 800, height: 600 };
+      mapView.requestFit([1, 2, 3, 4]);
+      TestBed.tick();
+
+      expect(fitExtentSpy).toHaveBeenCalledWith([1, 2, 3, 4], 0);
+      expect(mapView.requestedExtent()).toBeNull();
+    });
+
+    it('should wait while the map is hidden and fit once it becomes visible', () => {
+      rect = { width: 0, height: 0 };
+      mapView.requestFit([1, 2, 3, 4]);
+      TestBed.tick();
+
+      expect(fitExtentSpy).not.toHaveBeenCalled();
+      expect(mapView.requestedExtent()).toEqual([1, 2, 3, 4]);
+
+      rect = { width: 800, height: 600 };
+      priv(component).tryApplyRequestedExtent();
+
+      expect(fitExtentSpy).toHaveBeenCalledWith([1, 2, 3, 4], 0);
+    });
+
+    it('should not fit before the map is ready', () => {
+      rect = { width: 800, height: 600 };
+      priv(component).mapReady = false;
+      mapView.requestFit([1, 2, 3, 4]);
+      TestBed.tick();
+
+      expect(fitExtentSpy).not.toHaveBeenCalled();
+      expect(mapView.requestedExtent()).toEqual([1, 2, 3, 4]);
     });
   });
 });

@@ -134,4 +134,56 @@ describe('AreaService', () => {
     expect(service.municipalities()).toEqual([]);
     expect(service.resolvedAreaFilter()).toEqual({ countyIds: [], municipalityIds: [] });
   });
+
+  describe('toSelection', () => {
+    it('gjør et fastlandsfylke om til alle kommunene i det', () => {
+      flushAreas();
+
+      expect(service.toSelection(['11'], [])).toEqual({ countyIds: [], municipalityIds: ['1101', '1103'] });
+    });
+
+    it('beholder fylker uten kommuner, som Svalbard og utgåtte fylker, som fylker', () => {
+      flushAreas();
+
+      expect(service.toSelection(['21', '99'], ['0301'])).toEqual({ countyIds: ['21', '99'], municipalityIds: ['0301'] });
+    });
+
+    it('gir ikke dobbelt opp med kommuner', () => {
+      flushAreas();
+
+      expect(service.toSelection(['11'], ['1101']).municipalityIds).toEqual(['1101', '1103']);
+    });
+  });
+
+  describe('områder som ikke finnes i dagens inndeling', () => {
+    it('sender ukjente kommuner videre i stedet for å droppe dem', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['1101', '9999']);
+
+      expect(service.resolvedAreaFilter()).toEqual({ countyIds: [], municipalityIds: ['1101', '9999'] });
+    });
+
+    it('sender også kommuner som finnes, men ikke hører til et gjeldende fylke', () => {
+      httpTesting.expectOne('/api/Lookup/Areas').flush({
+        ...mockAreaResponse,
+        municipalities: {
+          ...mockAreaResponse.municipalities,
+          areas: [...mockAreaResponse.municipalities!.areas!, { id: 13, fid: '5001', name: 'Trondheim', isCurrent: true }],
+        },
+      });
+      TestBed.flushEffects();
+      filterState.selectedMunicipalityIds.set(['5001']);
+
+      expect(service.resolvedAreaFilter().municipalityIds).toEqual(['5001']);
+      expect(service.mainlandSelectionCount()).toBe(1);
+    });
+
+    it('teller ukjente kommuner og fylker med, så filterbrikken vises', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['9999']);
+      filterState.selectedCountyIds.set(['99']);
+
+      expect(service.mainlandSelectionCount()).toBe(2);
+    });
+  });
 });

@@ -1,3 +1,8 @@
+.sidebar-actions {
+  display: flex;
+  padding: var(--adb-spacing-sm) var(--adb-spacing-sm) 0;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;

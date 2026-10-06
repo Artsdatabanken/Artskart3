@@ -137,6 +137,63 @@ public class LookupRepositoryTests
         result.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_UsesCatalogNumberWhenPresent()
+    {
+        var context = CreateContext();
+        context.Observations.AddRange(
+            new Observation { Id = 1, CatalogNumber = "O-123", ProxyId = "urn:catalog:o:l:O-123" },
+            new Observation { Id = 2, CatalogNumber = "O-123" });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([1, 2]);
+
+        result!.CatalogNumber.Should().Be("O-123");
+        result.ObservationIds.Should().BeEquivalentTo([1, 2]);
+    }
+
+    /// <summary>
+    /// Et filter laget fra en innlimt URN peker på observasjoner som ikke
+    /// nødvendigvis har katalognummer.
+    /// </summary>
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_WithoutCatalogNumber_FallsBackToProxyId()
+    {
+        var context = CreateContext();
+        context.Observations.Add(new Observation { Id = 1, ProxyId = "urn:catalog:o:l:37", OccurrenceId = "urn:catalog:O:L:37" });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([1]);
+
+        result!.CatalogNumber.Should().Be("urn:catalog:o:l:37");
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_WithUnknownIds_ReturnsNull()
+    {
+        var sut = CreateRepository();
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([999]);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetOrganizationByIdAsync_ReturnsNameAndSkipsDeleted()
+    {
+        var context = CreateContext();
+        context.Organizations.AddRange(
+            new Organization { Id = 1, Name = "Prosjekt A", OrganizationTypeId = 3 },
+            new Organization { Id = 2, Name = "Slettet", OrganizationTypeId = 2, IsDeleted = true });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        (await sut.GetOrganizationByIdAsync(1))!.Name.Should().Be("Prosjekt A");
+        (await sut.GetOrganizationByIdAsync(2)).Should().BeNull();
+    }
+
     private static Taxon CreateTaxon(int id, TaxonGroup group) => new()
     {
         Id = id,

@@ -13,6 +13,8 @@ import { ModalComponent } from './modal.component';
       [confirmLabel]="confirmLabel()"
       [cancelLabel]="cancelLabel()"
       [confirmDisabled]="confirmDisabled()"
+      [confirmColor]="confirmColor()"
+      [cancelVariant]="cancelVariant()"
       (modalConfirm)="onConfirm()"
       (modalCancel)="onCancel()"
     >
@@ -27,6 +29,8 @@ class TestHostComponent {
   confirmLabel = signal('OK');
   cancelLabel = signal('Cancel');
   confirmDisabled = signal(false);
+  confirmColor = signal<'accent' | 'danger'>('accent');
+  cancelVariant = signal<'tertiary' | 'secondary'>('tertiary');
   confirmed = false;
   cancelled = false;
 
@@ -166,5 +170,23 @@ describe('ModalComponent', () => {
     );
     expect(buttonsText).toContain('Submit');
     expect(buttonsText).toContain('Abort');
+  });
+
+  it('should use accent confirm and tertiary cancel by default', async () => {
+    await setup('prompt', true);
+    const [cancel, confirm] = Array.from(el().querySelectorAll('.modal-footer adb-button'));
+    expect(cancel.getAttribute('variant')).toBe('tertiary');
+    expect(confirm.getAttribute('color')).toBe('accent');
+  });
+
+  it('should pass confirmColor and cancelVariant to the buttons', async () => {
+    await setup('prompt', true);
+    host.confirmColor.set('danger');
+    host.cancelVariant.set('secondary');
+    fixture.detectChanges();
+
+    const [cancel, confirm] = Array.from(el().querySelectorAll('.modal-footer adb-button'));
+    expect(cancel.getAttribute('variant')).toBe('secondary');
+    expect(confirm.getAttribute('color')).toBe('danger');
   });
 });

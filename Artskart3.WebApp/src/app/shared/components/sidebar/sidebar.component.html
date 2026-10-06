@@ -1,9 +1,18 @@
 <div class="sidebar-content">
+  @if (authService.isAuthenticated()) {
+    <div class="sidebar-actions">
+      <adb-button variant="secondary" size="sm" (click)="saveFilterRequested.emit()">{{ 'savedFilters.saveButton' | translate }}</adb-button>
+    </div>
+  }
   <app-species-search />
   <app-filter-chips />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
-    <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+    @if (showUseDefaultFilter()) {
+      <adb-button variant="tertiary" (click)="onUseDefaultFilter()" size="sm">{{ 'savedFilters.useDefault' | translate }}</adb-button>
+    } @else {
+      <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+    }
   </div>
 
   <adb-accordion>

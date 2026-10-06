@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TranslateModule } from '@ngx-translate/core';
@@ -7,6 +7,9 @@ import { SidebarComponent } from './sidebar.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { By } from '@angular/platform-browser';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { AuthService } from '../../services/auth/auth.service';
+import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
+import { SavedFilterDto } from '../../types/api.types';
 
 describe('SidebarComponent', () => {
   let component: SidebarComponent;
@@ -413,5 +416,84 @@ describe('SidebarComponent', () => {
       expect(filterState.datasetName()).toBe('Aqua Kompetanse AS');
       expect(filterState.datasetOrgId()).toBe(26435);
     });
+  });
+});
+
+describe('SidebarComponent – lagrede filtre', () => {
+  let fixture: ComponentFixture<SidebarComponent>;
+  let filterState: FilterStateService;
+  const isAuthenticated = signal(false);
+  const defaultFilter = signal<SavedFilterDto | null>(null);
+  const savedFilterService = { defaultFilter, activate: vi.fn() };
+
+  beforeEach(async () => {
+    isAuthenticated.set(false);
+    defaultFilter.set(null);
+    savedFilterService.activate.mockClear();
+
+    await TestBed.configureTestingModule({
+      imports: [SidebarComponent, TranslateModule.forRoot()],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: { isAuthenticated } },
+        { provide: SavedFilterService, useValue: savedFilterService },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(SidebarComponent);
+    filterState = TestBed.inject(FilterStateService);
+    fixture.detectChanges();
+  });
+
+  const buttonTexts = (): string[] =>
+    Array.from(fixture.nativeElement.querySelectorAll('adb-button') as NodeListOf<HTMLElement>).map((b) => b.textContent!.trim());
+
+  it('viser ikke «Lagre filter» for anonyme brukere', () => {
+    expect(buttonTexts()).not.toContain('savedFilters.saveButton');
+  });
+
+  it('viser «Lagre filter» for innloggede brukere og sier fra når den trykkes', () => {
+    isAuthenticated.set(true);
+    fixture.detectChanges();
+    const emitted = vi.fn();
+    fixture.componentInstance.saveFilterRequested.subscribe(emitted);
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('adb-button') as NodeListOf<HTMLElement>).find(
+      (b) => b.textContent!.trim() === 'savedFilters.saveButton',
+    )!;
+    button.click();
+
+    expect(emitted).toHaveBeenCalled();
+  });
+
+  it('viser «Bruk standardfilter» i stedet for «Tøm filter» når ingen filtre er satt', () => {
+    isAuthenticated.set(true);
+    defaultFilter.set({ id: 'a', name: 'Standard', filter: {}, isDefault: true });
+    fixture.detectChanges();
+
+    expect(buttonTexts()).toContain('savedFilters.useDefault');
+    expect(buttonTexts()).not.toContain('sidebar.clearFilter');
+  });
+
+  it('viser «Tøm filter» når et filter er satt, selv med standardfilter', () => {
+    isAuthenticated.set(true);
+    defaultFilter.set({ id: 'a', name: 'Standard', filter: {}, isDefault: true });
+    filterState.setImageFilter('withImage');
+    fixture.detectChanges();
+
+    expect(buttonTexts()).toContain('sidebar.clearFilter');
+    expect(buttonTexts()).not.toContain('savedFilters.useDefault');
+  });
+
+  it('aktiverer standardfilteret', () => {
+    isAuthenticated.set(true);
+    const standard = { id: 'a', name: 'Standard', filter: { taxonIds: [1] }, isDefault: true };
+    defaultFilter.set(standard);
+
+    fixture.componentInstance.onUseDefaultFilter();
+
+    expect(savedFilterService.activate).toHaveBeenCalledWith(standard);
   });
 });

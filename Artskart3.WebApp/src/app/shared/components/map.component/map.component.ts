@@ -56,6 +56,7 @@ import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicato
 import { ObservationListInfoDto, ObservationPointDto } from '@shared/types/api.types';
 import { SearchFilterService } from '@shared/services/search-filter/search-filter.service';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
+import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
@@ -135,6 +136,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly languageService = inject(LanguageService);
   private readonly searchFilterService = inject(SearchFilterService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly mapView = inject(MapViewService);
 
   /**
    * Observasjonsattributtfiltre som påvirker antall per område.
@@ -193,6 +195,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private hasActiveAttributeFilters(): boolean {
     return Object.values(this.attributeFilter()).some((v) => v != null && (!Array.isArray(v) || v.length > 0));
   }
+
+  private readonly _onRequestedExtent = effect(() => {
+    if (this.mapView.requestedExtent()) {
+      untracked(() => this.tryApplyRequestedExtent());
+    }
+  });
 
   /**
    * Eneste effekt som reagerer på filterendringer.
@@ -445,7 +453,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupVisibilityObserver();
     this.prefetchAreaGeometries();
     this.locationCountFetch$.next(this.locationFilter());
+    this.tryApplyRequestedExtent();
     this.rebuildAllLayers();
+  }
+
+  /**
+   * Zoomer til et forespurt utsnitt (f.eks. fra et lagret filter). Venter hvis
+   * kartet ikke er klart eller er skjult (0×0) — da ville OpenLayers regnet ut
+   * zoomen mot en falsk viewport-størrelse.
+   */
+  private tryApplyRequestedExtent(): void {
+    if (!this.mapReady || !this.map) return;
+    const rect = this.mapEl?.nativeElement.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+
+    const extent = this.mapView.consumeRequestedExtent();
+    if (extent) this.map.fitExtent(extent, 0);
   }
 
   private readonly CLICK_ANIMATION_DURATION_MS = 300;
@@ -823,6 +846,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const extent = this.readValidExtent();
     if (!extent) return;
     this.lastValidExtent = extent;
+    this.mapView.currentExtent.set(extent);
     this.rebuildWithExtent(filter, extent);
   }
 
@@ -863,6 +887,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         requestAnimationFrame(() => {
           if (this.destroyRef.destroyed) return;
           this.highlightObservation(this.activeObservationPoint);
+          this.tryApplyRequestedExtent();
           this.cameraChanged$.next();
         });
       }

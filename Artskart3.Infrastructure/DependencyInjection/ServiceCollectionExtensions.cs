@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILookupService, LookupService>();
         services.AddScoped<IMapLayerService, MapLayerService>();
         services.AddScoped<IExportService, ExportService>();
+        services.AddScoped<ISavedFilterService, SavedFilterService>();
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         // Add other application services here
