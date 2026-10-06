@@ -144,18 +144,13 @@ describe('ObservationList', () => {
     expect(fixture.nativeElement.querySelector('[role="tree"]')).toBe(root);
   });
 
-  it('selects grouping through the accessible menu and closes it', async () => {
-    const trigger: HTMLButtonElement = fixture.nativeElement.querySelector('.grouping-trigger');
-    trigger.click();
-    await fixture.whenStable();
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    const options: HTMLButtonElement[] = [...fixture.nativeElement.querySelectorAll('[role="menuitemradio"]')];
-    options[2].click();
+  it('selects grouping through the dropdown', async () => {
+    const dropdown: HTMLElement = fixture.nativeElement.querySelector('adb-dropdown');
+    dropdown.dispatchEvent(new CustomEvent('adb-dropdown-select', { detail: { value: 'redList' } }));
     await fixture.whenStable();
     expect(component.currentFilter()).toBe('redList');
-    expect(options[2].getAttribute('aria-checked')).toBe('true');
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(trigger);
+    const selected = [...fixture.nativeElement.querySelectorAll('adb-dropdown-item[selected]')];
+    expect(selected.map((item) => item.getAttribute('value'))).toEqual(['redList']);
   });
 
   it('only exposes unambiguous header metadata', () => {

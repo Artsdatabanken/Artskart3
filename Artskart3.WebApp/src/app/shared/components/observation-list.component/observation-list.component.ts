@@ -1,6 +1,5 @@
 import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, inject, input, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Menu, MenuItem, MenuTrigger } from '@angular/aria/menu';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { LoggingService } from '@shared/logging.service';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
@@ -17,7 +16,7 @@ import {
 
 @Component({
   selector: 'app-observation-list',
-  imports: [TranslateModule, ObservationTreeComponent, Menu, MenuItem, MenuTrigger],
+  imports: [TranslateModule, ObservationTreeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './observation-list.component.html',
   styleUrl: './observation-list.component.css',
@@ -70,7 +69,8 @@ export class ObservationListComponent {
     });
   }
 
-  setGrouping(value: unknown): void {
+  setGrouping(event: Event): void {
+    const value = (event as CustomEvent<{ value: string }>).detail.value;
     const grouping = this.filters.find((filter) => filter === value);
     if (!grouping) {
       this.logger.error('Invalid observation grouping', 'ObservationList', value);

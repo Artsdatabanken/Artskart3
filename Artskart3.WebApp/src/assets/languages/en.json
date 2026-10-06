@@ -430,7 +430,6 @@
   "observationList": {
     "registrations": "{{number}} registrations",
     "title": "Observations",
-    "grouping": "Grouping",
     "taxonGroup": "Group by taxon group",
     "location": "Group by locality",
     "redList": "Group by red-list category",
