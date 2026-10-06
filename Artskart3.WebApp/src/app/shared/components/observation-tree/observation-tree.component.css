@@ -22,16 +22,21 @@
 }
 
 .group-heading {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
+  margin-top: 1rem;
+  margin-bottom: 0;
   flex-wrap: wrap;
+  row-gap: 0;
   font-weight: 700;
   color: var(--adb-text-base-primary);
   cursor: default;
 }
 
+.group-heading .label {
+  font-size: var(--adb-font-size-4);
+}
 .group-count {
   flex-basis: 100%;
+  font-size: var(--adb-font-size-3);
   font-weight: 400;
 }
 
@@ -59,14 +64,20 @@
 }
 
 .dot {
+  box-sizing: border-box;
   width: 0.4rem;
   height: 0.4rem;
-  border: 1px solid;
   border-radius: 50%;
+}
+.dot:is(.NE, .NA, .NR) {
+  border-width: 1px;
+  border-style: solid;
 }
 
 .expand-icon {
   flex-shrink: 0;
+  /* The tree finds the clicked row from the event target, which can't be resolved inside the icon's shadow DOM. */
+  pointer-events: none;
 }
 
 .leaf {
@@ -81,8 +92,10 @@
 }
 
 .marker {
-  width: 1.75rem;
-  height: 1.75rem;
+  box-sizing: border-box;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: var(--adb-spacing-2xsm);
   flex-shrink: 0;
   border-radius: 50%;
   border: 2px solid var(--adb-color-neutrals-ocean-10);
@@ -101,6 +114,3 @@
   color: var(--adb-color-special-110);
 }
 
-.dot:is(.LC, .NT, .VU, .EN, .LO, .NK) {
-  border-color: #000;
-}
