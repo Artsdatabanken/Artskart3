@@ -167,7 +167,7 @@ export class MapFeatureStyles {
 
   private ring(state: MapFeatureState): { color: Color; width: number } | null {
     if (state === 'selected') return { color: this.palette.selectedRing, width: 5 };
-    if (state === 'hover') return { color: this.palette.hoverRing, width: 1 };
+    if (state === 'hover') return { color: this.palette.hoverRing, width: 4 };
     return null;
   }
 }
