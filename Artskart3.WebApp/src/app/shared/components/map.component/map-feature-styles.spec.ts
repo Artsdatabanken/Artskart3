@@ -80,7 +80,7 @@ describe('MapFeatureStyles', () => {
   it.each([1, 2])('draws exterior marker rings at pixel ratio %s without enlarging hit targets', (pixelRatio) => {
     for (const kind of ['location', 'cluster', 'area', 'observation'] satisfies MapMarkerKind[]) {
       for (const [state, width, color] of [
-        ['hover', 1, 'rgba(118,128,131,1)'],
+        ['hover', 4, 'rgba(118,128,131,1)'],
         ['selected', 5, 'rgba(248,174,0,1)'],
       ] as const) {
         const [ring, base] = styles.marker(kind, state);
@@ -137,7 +137,7 @@ describe('MapFeatureStyles', () => {
     ];
     for (const geometry of [new Polygon([outer, hole]), new MultiPolygon([[outer, hole], [other]])]) {
       for (const [state, width] of [
-        ['hover', 1],
+        ['hover', 4],
         ['selected', 5],
       ] as const) {
         const [ring, base] = styles.polygon(state);

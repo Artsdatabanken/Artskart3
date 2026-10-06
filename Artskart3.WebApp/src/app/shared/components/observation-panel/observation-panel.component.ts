@@ -39,6 +39,7 @@ export class ObservationPanelComponent {
   private readonly contextKey = computed(() => (this.selection() ? `${this.contextSeed}/${this.selection()!.key}` : null));
   private readonly activeContext = signal<string | null>(null);
   readonly rawId = signal<string | null>(null);
+  readonly detailsOpen = computed(() => this.rawId() !== null);
   readonly selectedId = computed(() => {
     const value = this.rawId();
     return value && /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647 ? Number(value) : null;

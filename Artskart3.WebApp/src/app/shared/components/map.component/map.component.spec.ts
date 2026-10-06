@@ -247,15 +247,19 @@ describe('MapComponent', () => {
       expect(layers.get('area-markers-locations')?.cluster?.keepSingleAsCluster).toBe(true);
     });
 
-    it('retains selection through request states and detail navigation, then clears it on dismissal', async () => {
+    it('retains selection through request states, suspends it while details are open, then clears it on dismissal', async () => {
       select([1]);
       for (const state of ['loading', 'ready', 'error'] as const) {
         component.observationRequestState.set(state);
         expect(component['locationFeatureState'](location(1))).toBe('selected');
       }
       await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
-      expect(component['locationFeatureState'](polygon(1))).toBe('selected');
+      expect(component['locationFeatureState'](location(1))).toBe('default');
+      expect(component['locationFeatureState'](polygon(1))).toBe('default');
+      await TestBed.inject(Router).navigate([], { queryParams: { observationId: 43 } });
+      expect(component['locationFeatureState'](polygon(1))).toBe('default');
       await TestBed.inject(Router).navigate([], { queryParams: {} });
+      expect(component['locationFeatureState'](location(1))).toBe('selected');
       expect(component['locationFeatureState'](polygon(1))).toBe('selected');
       component.closeObservationList();
       expect(component['locationFeatureState'](location(1))).toBe('default');

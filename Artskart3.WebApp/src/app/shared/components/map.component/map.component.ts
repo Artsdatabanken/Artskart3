@@ -215,7 +215,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly observationSelection = signal<ObservationSelection | null>(null);
   readonly observationRequestState = signal<ObservationRequestState>('ready');
   private readonly selectedLocationIds = computed(
-    () => new Set(this.showObservationList() ? (this.observationSelection()?.locationIds ?? []) : []),
+    () =>
+      new Set(
+        this.showObservationList() && !this.observationPanel()?.detailsOpen() ? (this.observationSelection()?.locationIds ?? []) : [],
+      ),
   );
   private readonly _redrawSelection = effect(() => {
     this.selectedLocationIds();
