@@ -13,7 +13,8 @@ export type SupportedLanguage = 'en' | 'no';
 export class LanguageService {
   private readonly STORAGE_KEY = 'artskart_language';
   private readonly DEFAULT_LANGUAGE: SupportedLanguage = 'no';
-  private readonly SUPPORTED_LANGUAGES: SupportedLanguage[] = ['en', 'no'];
+  // Add 'en' to re-enable English and the language switcher
+  private readonly SUPPORTED_LANGUAGES: SupportedLanguage[] = ['no'];
 
   private currentLanguage$ = new BehaviorSubject<SupportedLanguage>(this.DEFAULT_LANGUAGE);
 
@@ -22,8 +23,8 @@ export class LanguageService {
   private readonly logger: LoggingService = inject(LoggingService);
 
   constructor() {
-    this.translate.setDefaultLang('no');
-    this.translate.addLangs(['en', 'no']);
+    this.translate.setDefaultLang(this.DEFAULT_LANGUAGE);
+    this.translate.addLangs(this.SUPPORTED_LANGUAGES);
   }
 
   initialize(): Observable<unknown> {
