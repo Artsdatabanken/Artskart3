@@ -6,6 +6,7 @@
     [selection]="selection"
     [requestState]="requestState()"
     (retry)="retry.emit()"
+    (dismiss)="closeList()"
     (observationActivated)="open($event)"
   />
 }
