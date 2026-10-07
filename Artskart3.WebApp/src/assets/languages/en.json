@@ -493,7 +493,7 @@
     "cancel": "Cancel",
     "saved": "The filter \"{{name}}\" was saved.",
     "saveFailed": "Could not save the filter.",
-    "useDefault": "Use default filter",
+    "useDefault": "Activate default filter",
     "notFound": "The saved filter could not be found. It may have been deleted.",
     "activateFailed": "Could not activate the saved filter.",
     "date": "Date",

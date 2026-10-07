@@ -468,7 +468,7 @@ describe('SidebarComponent – lagrede filtre', () => {
     expect(emitted).toHaveBeenCalled();
   });
 
-  it('viser «Bruk standardfilter» i stedet for «Tøm filter» når ingen filtre er satt', () => {
+  it('viser «Aktiver standardfilter» i stedet for «Tøm filter» når ingen filtre er satt', () => {
     isAuthenticated.set(true);
     defaultFilter.set({ id: 'a', name: 'Standard', filter: {}, isDefault: true });
     fixture.detectChanges();
