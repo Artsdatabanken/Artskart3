@@ -110,7 +110,7 @@ a {
   text-decoration: none;
 }
 
-a:hover {
+a:not(.adb-link):hover {
   color: var(--adb-text-accent-hover);
   text-decoration: underline;
 }

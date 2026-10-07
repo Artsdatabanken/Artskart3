@@ -8,33 +8,31 @@
   [attr.aria-label]="'observationDetails.title' | translate"
 >
   <header class="navigation">
-    <adb-icon-button
+    <adb-minimal-button
       #backButton
       [hidden]="!expanded()"
-      variant="tertiary"
-      size="md"
+      size="sm"
       (click)="toggleExpanded()"
       [attr.aria-label]="'observationDetails.back' | translate"
     >
       <adb-icon name="arrow-back" aria-hidden="true" />
       <span class="visually-hidden">{{ 'observationDetails.back' | translate }}</span>
-    </adb-icon-button>
+    </adb-minimal-button>
     @if (hasList() && !expanded()) {
-      <adb-icon-button
+      <adb-minimal-button
         class="back-to-list"
-        variant="tertiary"
-        size="md"
+        size="sm"
         (click)="dismiss.emit()"
         [attr.aria-label]="'observationDetails.backToList' | translate"
       >
         <adb-icon name="arrow-back" aria-hidden="true" />
         <span class="visually-hidden">{{ 'observationDetails.backToList' | translate }}</span>
-      </adb-icon-button>
+      </adb-minimal-button>
     }
     <div class="pager">
       <adb-icon-button
-        variant="secondary"
-        size="md"
+        variant="tertiary"
+        size="sm"
         (click)="previous.emit()"
         [disabled]="count() < 2"
         [attr.aria-label]="'observationDetails.previous' | translate"
@@ -44,8 +42,8 @@
       </adb-icon-button>
       <span role="status" aria-live="polite">{{ 'observationDetails.counter' | translate: { current: position(), total: count() } }}</span>
       <adb-icon-button
-        variant="secondary"
-        size="md"
+        variant="tertiary"
+        size="sm"
         (click)="next.emit()"
         [disabled]="count() < 2"
         [attr.aria-label]="'observationDetails.next' | translate"
@@ -55,27 +53,25 @@
       </adb-icon-button>
     </div>
     <div class="header-actions">
-      <adb-icon-button
+      <adb-minimal-button
         #expandButton
         [hidden]="expanded()"
-        variant="tertiary"
-        size="md"
+        size="sm"
         (click)="toggleExpanded()"
         [attr.aria-label]="'observationDetails.expand' | translate"
       >
         <adb-icon name="open-in-full" aria-hidden="true" />
         <span class="visually-hidden">{{ 'observationDetails.expand' | translate }}</span>
-      </adb-icon-button>
-      <adb-icon-button
+      </adb-minimal-button>
+      <adb-minimal-button
         [hidden]="hasList() && !expanded()"
-        variant="tertiary"
-        size="md"
+        size="sm"
         (click)="dismiss.emit()"
         [attr.aria-label]="'common.close' | translate"
       >
         <adb-icon name="close" aria-hidden="true" />
         <span class="visually-hidden">{{ 'common.close' | translate }}</span>
-      </adb-icon-button>
+      </adb-minimal-button>
     </div>
   </header>
   <div #body class="body" [attr.aria-busy]="state() === 'loading'">
@@ -106,9 +102,15 @@
                 }
                 @if (detail.externalTaxonId && detail.externalTaxonId > 0) {
                   <p>
-                    <a [href]="'https://artsdatabanken.no/taxon/' + detail.externalTaxonId" target="_blank" rel="noopener noreferrer"
-                      >{{ 'observationDetails.speciesLink' | translate }} <adb-icon name="open-in-new" size="sm"
-                    /></a>
+                    <a
+                      class="adb-link adb-link--external"
+                      [href]="'https://artsdatabanken.no/taxon/' + detail.externalTaxonId"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {{ 'observationDetails.speciesLink' | translate }}
+                      <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                    </a>
                   </p>
                 }
                 @if (detail.categoryCode) {
@@ -120,13 +122,13 @@
                 }
                 @if (detail.assessmentUrl) {
                   <p>
-                    <a [href]="detail.assessmentUrl" target="_blank" rel="noopener noreferrer"
-                      >{{
+                    <a class="adb-link adb-link--external" [href]="detail.assessmentUrl" target="_blank" rel="noopener noreferrer">
+                      {{
                         (detail.categoryTypeId === 2 ? 'observationDetails.alienAssessment' : 'observationDetails.redAssessment')
                           | translate
                       }}
-                      <adb-icon name="open-in-new" size="sm"
-                    /></a>
+                      <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                    </a>
                   </p>
                 }
               </div>
@@ -141,7 +143,7 @@
                       @for (row of section.rows; track row.label) {
                         <div>
                           <dt>{{ 'observationDetails.fields.' + row.label | translate }}:</dt>
-                          <dd>{{ row.value }}</dd>
+                          <dd [class.empty]="row.empty">{{ row.value }}</dd>
                         </div>
                       }
                     </dl>
@@ -177,11 +179,6 @@
                     </div>
                   }
                 </div>
-                <p class="attribution">
-                  <a href="https://www.kartverket.no/" target="_blank" rel="noopener noreferrer">Kartverket</a> ·
-                  <a href="https://www.gebco.net/" target="_blank" rel="noopener noreferrer">GEBCO</a> ·
-                  <a href="https://www.npolar.no/" target="_blank" rel="noopener noreferrer">Norsk Polarinstitutt</a>
-                </p>
               } @else {
                 <p>{{ 'observationDetails.noCoordinates' | translate }}</p>
               }
@@ -195,7 +192,5 @@
       }
     }
   </div>
-  <app-image-viewer [image]="viewer()" (closed)="viewer.set(null)" (failed)="viewerFailed()">
-    <p class="attribution">Kartverket · GEBCO · Norsk Polarinstitutt</p>
-  </app-image-viewer>
+  <app-image-viewer [image]="viewer()" (closed)="viewer.set(null)" (failed)="viewerFailed()" />
 </dialog>

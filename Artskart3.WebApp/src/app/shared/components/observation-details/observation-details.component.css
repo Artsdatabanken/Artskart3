@@ -3,13 +3,6 @@
   min-width: 0;
   display: flex;
   container-type: inline-size;
-  /* These fixed pale category colors need dark small text to meet WCAG AA. */
-  --text-redlist-lc: #000;
-  --text-redlist-nt: #000;
-  --text-redlist-vu: #000;
-  --text-redlist-en: #000;
-  --text-alien-list-nk: #000;
-  --text-alien-list-lo: #000;
 }
 dialog {
   position: relative;
@@ -46,7 +39,8 @@ dialog::backdrop {
   gap: 0.25rem;
   padding: 0.5rem;
 }
-.navigation adb-icon-button {
+.navigation adb-icon-button,
+.navigation adb-minimal-button {
   flex-shrink: 0;
 }
 .header-actions {
@@ -116,7 +110,7 @@ dialog:not(.expanded) .header-actions {
   min-width: 0;
 }
 h2 {
-  font-size: 1.25rem;
+  font-size: var(--adb-font-size-7);
   margin: 0;
 }
 h3 {
@@ -130,20 +124,16 @@ h3 {
   margin: 0.5rem 0;
 }
 .scientific {
-  font-size: 1.2rem;
+  font-size: var(--adb-font-size-7);
   font-style: italic;
+}
+.species h2 + .scientific {
+  margin-top: 0;
 }
 .category {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-a {
-  color: var(--adb-text-accent-primary);
-  text-underline-offset: 0.2em;
-}
-a adb-icon {
-  vertical-align: middle;
 }
 adb-accordion {
   background: var(--adb-surface-base-primary);
@@ -167,11 +157,16 @@ dt {
 dd {
   margin: 0;
 }
+dd.empty {
+  font-style: italic;
+  color: var(--adb-text-base-secondary);
+}
 .maps {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: start;
   gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 .map-image {
   display: block;
@@ -184,10 +179,6 @@ dd {
   height: auto;
   display: block;
 }
-.attribution {
-  font-size: 0.75rem;
-  margin: 0.5rem 0 1rem;
-}
 button {
   font: inherit;
   cursor: pointer;
@@ -197,8 +188,7 @@ button {
   padding: 0.5rem;
   border-radius: 0.5rem;
 }
-button:focus-visible,
-a:focus-visible {
+button:focus-visible {
   outline: 3px solid var(--adb-text-accent-primary);
   outline-offset: 2px;
 }
