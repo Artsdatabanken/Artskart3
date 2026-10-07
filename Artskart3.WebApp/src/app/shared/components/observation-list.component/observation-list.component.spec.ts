@@ -173,6 +173,13 @@ describe('ObservationList', () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
+  it('emits dismiss from the close button', () => {
+    const dismiss = vi.fn();
+    component.dismiss.subscribe(dismiss);
+    fixture.nativeElement.querySelector('.title-row adb-minimal-button').click();
+    expect(dismiss).toHaveBeenCalledOnce();
+  });
+
   it('updates dates when language changes', async () => {
     const translate = TestBed.inject(TranslateService);
     translate.use('en');
