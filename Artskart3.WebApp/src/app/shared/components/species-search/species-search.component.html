@@ -20,8 +20,8 @@
   }
 </div>
 <!-- One line on purpose: whitespace between segments would add spaces inside words. -->
-<ng-template #highlighted let-text
-  >@for (segment of highlightMatch(text); track $index) {@if (segment.isMatch) {<mark>{{ segment.text }}</mark>} @else {<ng-container>{{ segment.text }}</ng-container>}}</ng-template
+<ng-template #highlighted let-text let-isMarkup="isMarkup"
+  >@for (segment of highlightMatch(text, isMarkup); track $index) {@if (segment.italic && segment.isMatch) {<i><mark>{{ segment.text }}</mark></i>} @else if (segment.italic) {<i>{{ segment.text }}</i>} @else if (segment.isMatch) {<mark>{{ segment.text }}</mark>} @else {<ng-container>{{ segment.text }}</ng-container>}}</ng-template
 >
 @if (showAutocomplete()) {
   <ul
@@ -52,7 +52,7 @@
               >{{ ' ' }}
             }
             <span class="autocomplete-scientific"
-              ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.species.scientificName }"
+              ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.scientificNameMarkup, isMarkup: true }"
             /></span>
           </span>
           @if (row.matchLine; as matchLine) {
@@ -62,9 +62,9 @@
               } @else if (matchLine.kind === 'synonym') {
                 {{ 'sidebar.synonymMatch' | translate }}{{ ' ' }}
               }
-              <span [class.autocomplete-match-scientific]="matchLine.italic"
-                ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: matchLine.text }"
-              /></span>
+              <ng-container
+                *ngTemplateOutlet="highlighted; context: { $implicit: matchLine.text, isMarkup: matchLine.isMarkup }"
+              />
             </span>
           }
           @if (row.species.taxonGroupName) {

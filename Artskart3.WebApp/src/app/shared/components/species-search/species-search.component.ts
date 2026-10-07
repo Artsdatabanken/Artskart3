@@ -22,17 +22,19 @@ import { SpeciesDto } from '../../types/api.types';
 export interface HighlightSegment {
   text: string;
   isMatch: boolean;
+  italic: boolean;
 }
 
 export interface SpeciesMatchLine {
   kind: 'id' | 'author' | 'synonym';
   text: string;
-  italic: boolean;
+  isMarkup: boolean;
 }
 
 export interface SpeciesResultRow {
   species: SpeciesDto;
   vernacularName: string;
+  scientificNameMarkup: string;
   matchLine: SpeciesMatchLine | null;
 }
 
@@ -69,7 +71,12 @@ export class SpeciesSearchComponent implements OnInit {
   readonly resultRows = computed<SpeciesResultRow[]>(() =>
     this.speciesResults().map((species) => {
       const vernacularName = this.getVernacularName(species);
-      return { species, vernacularName, matchLine: this.getMatchLine(species, vernacularName) };
+      return {
+        species,
+        vernacularName,
+        scientificNameMarkup: species.scientificNameFormatted || species.scientificName || '',
+        matchLine: this.getMatchLine(species, vernacularName),
+      };
     }),
   );
   private readonly dismissed = signal(false);
@@ -77,10 +84,11 @@ export class SpeciesSearchComponent implements OnInit {
     this.showAutocomplete();
     const el = this.searchField()?.nativeElement;
     if (!el) return { top: 0, left: 0, width: 0 };
-    // Align with the text input only, not the submit button next to it.
-    const inputBox = el.querySelector('adb-search')?.shadowRoot?.querySelector('.input-wrapper') ?? el;
-    const rect = inputBox.getBoundingClientRect();
-    return { top: rect.bottom, left: rect.left, width: rect.width };
+    // Span the text input and the submit button, not adb-search's padded host.
+    const searchShadow = el.querySelector('adb-search')?.shadowRoot;
+    const inputRect = (searchShadow?.querySelector('.input-wrapper') ?? el).getBoundingClientRect();
+    const buttonRect = searchShadow?.querySelector('.submit-button')?.getBoundingClientRect() ?? inputRect;
+    return { top: inputRect.bottom, left: inputRect.left, width: buttonRect.right - inputRect.left };
   });
 
   ngOnInit(): void {
@@ -250,30 +258,62 @@ export class SpeciesSearchComponent implements OnInit {
     return (nbName ?? names[0])?.name ?? '';
   }
 
-  highlightMatch(text: string | null | undefined): HighlightSegment[] {
+  /** With isMarkup, text is NorTaxa's formatted name, where `<i>` marks the italic parts. */
+  highlightMatch(text: string | null | undefined, isMarkup = false): HighlightSegment[] {
     if (!text) return [];
+    const runs = isMarkup ? this.parseItalicRuns(text) : [{ text, italic: false }];
+    // Match against the joined text so a match can cross a tag boundary, as in `×<i>multinervis</i>`.
+    const plainText = runs.map((run) => run.text).join('');
+    const isMatch = new Array<boolean>(plainText.length).fill(false);
     const words = this.searchWords();
-    if (words.length === 0) return [{ text, isMatch: false }];
-    const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    // With a capturing group, split() puts the matches at odd indices.
-    return text
-      .split(new RegExp(`(${escaped.join('|')})`, 'gi'))
-      .map((part, i) => ({ text: part, isMatch: i % 2 === 1 }))
-      .filter((segment) => segment.text.length > 0);
+    if (words.length > 0) {
+      const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      for (const match of plainText.matchAll(new RegExp(escaped.join('|'), 'gi'))) {
+        isMatch.fill(true, match.index, match.index + match[0].length);
+      }
+    }
+    const segments: HighlightSegment[] = [];
+    let offset = 0;
+    for (const run of runs) {
+      for (let i = 0; i < run.text.length; i++, offset++) {
+        const last = segments.at(-1);
+        if (i > 0 && last?.isMatch === isMatch[offset]) {
+          last.text += run.text[i];
+        } else {
+          segments.push({ text: run.text[i], isMatch: isMatch[offset], italic: run.italic });
+        }
+      }
+    }
+    return segments;
+  }
+
+  private parseItalicRuns(markup: string): { text: string; italic: boolean }[] {
+    // Template content is inert: nothing in it runs or loads, and it is only read as text.
+    const doc = this.hostEl.nativeElement.ownerDocument;
+    const template = doc.createElement('template');
+    template.innerHTML = markup;
+    const walker = doc.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+    const runs: { text: string; italic: boolean }[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      runs.push({ text: node.textContent ?? '', italic: node.parentElement?.closest('i') != null });
+    }
+    return runs;
   }
 
   private getMatchLine(species: SpeciesDto, vernacularName: string): SpeciesMatchLine | null {
     if (/^\d+$/.test(this.searchTerm())) {
-      return species.taxonId == null ? null : { kind: 'id', text: String(species.taxonId), italic: false };
+      return species.taxonId == null ? null : { kind: 'id', text: String(species.taxonId), isMarkup: false };
     }
     if (!this.matchesSearch(vernacularName) && !this.matchesSearch(species.scientificName)) {
       const scientificSynonym = species.scientificNameSynonyms?.find((s) => this.matchesSearch(s.name));
-      if (scientificSynonym?.name) return { kind: 'synonym', text: scientificSynonym.name, italic: true };
+      if (scientificSynonym?.name) {
+        return { kind: 'synonym', text: scientificSynonym.nameFormatted || scientificSynonym.name, isMarkup: true };
+      }
       const vernacularSynonym = species.vernacularNameSynonyms?.find((s) => this.matchesSearch(s.name));
-      if (vernacularSynonym?.name) return { kind: 'synonym', text: vernacularSynonym.name, italic: false };
+      if (vernacularSynonym?.name) return { kind: 'synonym', text: vernacularSynonym.name, isMarkup: false };
     }
     if (species.author && this.matchesSearch(species.author)) {
-      return { kind: 'author', text: species.author, italic: false };
+      return { kind: 'author', text: species.author, isMarkup: false };
     }
     return null;
   }
