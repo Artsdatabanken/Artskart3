@@ -34,6 +34,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<CsvExportJob> CsvExportJobs { get; set; }
 
+    public virtual DbSet<SavedFilter> SavedFilters { get; set; }
+
     public virtual DbSet<Fab4exclude> Fab4excludes { get; set; }
 
     public virtual DbSet<Filter> Filters { get; set; }
@@ -264,6 +266,21 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.ExcelBlobPath).HasMaxLength(500);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
             entity.Property(e => e.Attempts).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<SavedFilter>(entity =>
+        {
+            entity.ToTable("SavedFilter");
+
+            // Myk sletting: filteret her gjør at ingen spørring (heller ikke varslingsjobben) kan glemme det.
+            entity.HasQueryFilter(e => !e.IsDeleted);
+
+            entity.HasIndex(e => e.UserId, "IX_SavedFilter_UserId");
+            entity.HasIndex(e => e.PublicId, "IX_SavedFilter_PublicId").IsUnique();
+
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.FilterJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsDefault).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<Fab4exclude>(entity =>

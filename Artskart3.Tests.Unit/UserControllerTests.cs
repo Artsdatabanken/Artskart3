@@ -11,6 +11,9 @@ namespace Artskart3.Tests.Unit;
 
 public class UserControllerTests
 {
+    private static readonly Guid UserId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static readonly Guid FilterId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+
     [Fact]
     public async Task GetCurrentUser_WhenSubClaimExists_ReturnsCurrentUser()
     {
@@ -29,7 +32,7 @@ public class UserControllerTests
             .Setup(service => service.GetCurrentUser(userId))
             .ReturnsAsync(expectedUser);
 
-        var controller = new UserController(userServiceMock.Object)
+        var controller = new UserController(userServiceMock.Object, Mock.Of<ISavedFilterService>())
         {
             ControllerContext = new ControllerContext
             {
@@ -58,7 +61,7 @@ public class UserControllerTests
         // Arrange
         var userServiceMock = new Mock<IUserService>();
 
-        var controller = new UserController(userServiceMock.Object)
+        var controller = new UserController(userServiceMock.Object, Mock.Of<ISavedFilterService>())
         {
             ControllerContext = new ControllerContext
             {
@@ -80,6 +83,91 @@ public class UserControllerTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task GetSavedFilters_WithValidSubClaim_UsesSubAsUserId()
+    {
+        var service = new Mock<ISavedFilterService>();
+        service.Setup(s => s.GetUserFiltersAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        var controller = CreateController(service, new Claim("sub", UserId.ToString()));
+
+        var result = await controller.GetSavedFilters(CancellationToken.None);
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        service.Verify(s => s.GetUserFiltersAsync(UserId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSavedFilters_WithoutSubClaim_ReturnsUnauthorized()
+    {
+        var service = new Mock<ISavedFilterService>(MockBehavior.Strict);
+        var controller = CreateController(service, new Claim("name", "Kari Nordmann"));
+
+        var result = await controller.GetSavedFilters(CancellationToken.None);
+
+        result.Result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task CreateSavedFilter_WithInvalidSubClaim_ReturnsUnauthorizedAndWritesNothing()
+    {
+        var service = new Mock<ISavedFilterService>(MockBehavior.Strict);
+        var controller = CreateController(service, new Claim("sub", "ikke-en-guid"));
+
+        var result = await controller.CreateSavedFilter(ValidRequest(), CancellationToken.None);
+
+        result.Result.Should().BeOfType<UnauthorizedObjectResult>();
+        service.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task DeleteSavedFilter_WhenNotFound_ReturnsNotFound()
+    {
+        var service = new Mock<ISavedFilterService>();
+        service.Setup(s => s.DeleteAsync(FilterId, UserId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var controller = CreateController(service, new Claim("sub", UserId.ToString()));
+
+        var result = await controller.DeleteSavedFilter(FilterId, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task DeleteSavedFilter_WhenDeleted_ReturnsNoContent()
+    {
+        var service = new Mock<ISavedFilterService>();
+        service.Setup(s => s.DeleteAsync(FilterId, UserId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var controller = CreateController(service, new Claim("sub", UserId.ToString()));
+
+        var result = await controller.DeleteSavedFilter(FilterId, CancellationToken.None);
+
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task SetDefaultSavedFilter_PassesTrueToService()
+    {
+        var service = new Mock<ISavedFilterService>();
+        service.Setup(s => s.SetDefaultAsync(FilterId, UserId, true, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var controller = CreateController(service, new Claim("sub", UserId.ToString()));
+
+        var result = await controller.SetDefaultSavedFilter(FilterId, CancellationToken.None);
+
+        result.Should().BeOfType<NoContentResult>();
+        service.Verify(s => s.SetDefaultAsync(FilterId, UserId, true, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ClearDefaultSavedFilter_WhenNotFound_ReturnsNotFound()
+    {
+        var service = new Mock<ISavedFilterService>();
+        service.Setup(s => s.SetDefaultAsync(FilterId, UserId, false, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var controller = CreateController(service, new Claim("sub", UserId.ToString()));
+
+        var result = await controller.ClearDefaultSavedFilter(FilterId, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
     private static ClaimsPrincipal CreateClaimsPrincipal(Guid userId)
     {
         var claims = new[]
@@ -91,4 +179,22 @@ public class UserControllerTests
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
     }
+
+    private static CreateSavedFilterRequestDto ValidRequest() => new()
+    {
+        Name = "Pattedyr i Trøndelag",
+        Filter = new ObservationSearchFilterDto { TaxonGroupIds = [1] },
+    };
+
+    private static UserController CreateController(Mock<ISavedFilterService> service, params Claim[] claims) =>
+        new(Mock.Of<IUserService>(), service.Object)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+                }
+            }
+        };
 }

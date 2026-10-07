@@ -3,8 +3,10 @@ using System.Text.Json;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.ExternalModels;
 using Artskart3.Core.Application.Services.Implementations;
+using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace Artskart3.Tests.Unit;
 
@@ -13,10 +15,14 @@ public class SpeciesServiceTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly IOptions<NorTaxaOptions> DefaultOptions = Options.Create(new NorTaxaOptions());
 
-    private static SpeciesService CreateSut(HttpMessageHandler handler)
+    private static SpeciesService CreateSut(HttpMessageHandler handler, Dictionary<int, string>? taxonGroupNames = null)
     {
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://nortaxa.test/") };
-        return new SpeciesService(client, DefaultOptions);
+        var lookupRepository = new Mock<ILookupRepository>();
+        lookupRepository
+            .Setup(r => r.GetTaxonGroupNamesByTaxonIdsAsync(It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(taxonGroupNames ?? []);
+        return new SpeciesService(client, DefaultOptions, lookupRepository.Object);
     }
 
     // -----------------------------------------------------------------------
@@ -310,6 +316,43 @@ public class SpeciesServiceTests
         var act = () => sut.SearchSpeciesAsync("elvemusling");
 
         await act.Should().ThrowAsync<TaskCanceledException>();
+    }
+
+    // -----------------------------------------------------------------------
+    // Artsgruppe
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task SearchSpeciesAsync_WithStringInput_SetsTaxonGroupNameFromLookup()
+    {
+        var searchResults = new List<NorTaxaSearchResult>
+        {
+            new() { TaxonId = 79773, AcceptedScientificName = new NorTaxaAcceptedScientificName { Name = "Margaritifera margaritifera" } },
+            new() { TaxonId = 12345, AcceptedScientificName = new NorTaxaAcceptedScientificName { Name = "Ukjent ukjent" } }
+        };
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, JsonSerializer.Serialize(searchResults, JsonOptions));
+        var sut = CreateSut(handler, new Dictionary<int, string> { [79773] = "Bløtdyr" });
+
+        var result = await sut.SearchSpeciesAsync("margaritifera");
+
+        result[0].TaxonGroupName.Should().Be("Bløtdyr");
+        result[1].TaxonGroupName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SearchSpeciesAsync_WithIntegerInput_SetsTaxonGroupNameFromLookup()
+    {
+        var byIdResult = new NorTaxaByTaxonIdResult
+        {
+            TaxonId = 42911,
+            ScientificNames = [new NorTaxaScientificName { TaxonomicStatus = "Accepted", ScientificNamePresentation = "Myoxocephalus scorpius" }]
+        };
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, JsonSerializer.Serialize(byIdResult, JsonOptions));
+        var sut = CreateSut(handler, new Dictionary<int, string> { [42911] = "Fisker" });
+
+        var result = await sut.SearchSpeciesAsync("42911");
+
+        result.Should().ContainSingle().Which.TaxonGroupName.Should().Be("Fisker");
     }
 
     // -----------------------------------------------------------------------

@@ -1,0 +1,80 @@
+@let resource = savedFilterService.filtersResource;
+
+@if (resource.isLoading() && !resource.hasValue()) {
+  <p class="status-message">{{ 'common.loading' | translate }}</p>
+}
+
+@if (resource.error() && !resource.hasValue()) {
+  <p class="status-message error">{{ 'savedFilters.loadError' | translate }}</p>
+}
+
+@if (resource.hasValue()) {
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{{ 'savedFilters.date' | translate }}</th>
+        <th>{{ 'savedFilters.name' | translate }}</th>
+        <th>{{ 'savedFilters.link' | translate }}</th>
+        <th>{{ 'savedFilters.defaultColumn' | translate }}</th>
+        <th class="delete-column">{{ 'savedFilters.delete' | translate }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (savedFilter of resource.value(); track savedFilter.id) {
+        <tr>
+          <td class="date-cell">{{ savedFilter.createdAt | localeDateTime: translate.currentLang }}</td>
+          <td>
+            {{ savedFilter.name }}
+            @if (savedFilter.isDefault) {
+              <span class="default-tag">{{ 'savedFilters.defaultTag' | translate }}</span>
+            }
+          </td>
+          <td>
+            <a
+              routerLink="/"
+              [queryParams]="{ filter: savedFilter.id }"
+              [attr.aria-label]="'savedFilters.activateAriaLabel' | translate: { name: savedFilter.name }"
+            >{{ 'savedFilters.activate' | translate }}</a>
+          </td>
+          <td>
+            <button type="button" class="link-button" [disabled]="updatingId() !== null" (click)="onToggleDefault(savedFilter)">
+              {{ (savedFilter.isDefault ? 'savedFilters.removeDefault' : 'savedFilters.makeDefault') | translate }}
+            </button>
+          </td>
+          <td class="delete-column">
+            <adb-icon-button
+              variant="secondary"
+              color="danger"
+              size="sm"
+              [attr.aria-label]="'savedFilters.deleteAriaLabel' | translate: { name: savedFilter.name }"
+              (click)="filterToDelete.set(savedFilter)"
+            >
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
+              </svg>
+            </adb-icon-button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5" class="empty-message">{{ 'savedFilters.noFilters' | translate }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<app-modal
+  [open]="filterToDelete() !== null"
+  [title]="'savedFilters.deleteTitle' | translate"
+  variant="prompt"
+  confirmColor="danger"
+  cancelVariant="secondary"
+  [confirmLabel]="'savedFilters.delete' | translate"
+  [cancelLabel]="'savedFilters.cancel' | translate"
+  [loading]="deleting()"
+  (modalConfirm)="onConfirmDelete()"
+  (modalCancel)="closeDeleteModal()"
+>
+  <p class="delete-message">{{ 'savedFilters.deleteBody' | translate: { name: filterToDelete()?.name } }}</p>
+</app-modal>

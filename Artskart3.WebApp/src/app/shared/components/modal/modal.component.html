@@ -34,12 +34,13 @@
 
     <div class="modal-footer">
       @if (variant() === 'prompt') {
-      <adb-button variant="tertiary" size="md" (click)="emitCancel()">
+      <adb-button [attr.variant]="cancelVariant()" size="md" (click)="emitCancel()">
         {{ cancelLabel() }}
       </adb-button>
       }
       <adb-button
         variant="primary"
+        [attr.color]="confirmColor()"
         size="md"
         [attr.disabled]="confirmDisabled() || loading() ? '' : null"
         (click)="emitConfirm()"

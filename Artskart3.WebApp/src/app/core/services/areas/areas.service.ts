@@ -21,18 +21,6 @@ import { ValidationService } from '../validation.service';
 import { ApiMessages } from '@core/constants/api-messages';
 import { LanguageService } from '@shared/services/languages/language.service';
 
-/**
- * NBIC styling configuration for location markers (solid circle)
- */
-const NBIC_LOCATION_STYLE = {
-  'nbic:style': {
-    pointRadius: 8,
-    fillColor: '#005A71',
-    strokeColor: '#D2DDE0',
-    strokeWidth: 2,
-  },
-};
-
 interface ParsedGeometry {
   type: 'Polygon' | 'MultiPolygon';
   coordinates: number[][][] | number[][][][];
@@ -361,7 +349,7 @@ export class AreasService {
 
   /**
    * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
-   * med per-feature `nbic:style` for direkte bruk med `updateGeoJSONLayer`.
+   * for `updateGeoJSONLayer`. Interaktive markører styles av kartlaget.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
    */
@@ -413,11 +401,6 @@ export class AreasService {
         observationCount: count,
         observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
         isPolygon: true,
-        'nbic:style': {
-          fillColor: 'rgba(0, 90, 113, 0.06)',
-          strokeColor: '#005A71',
-          strokeWidth: 1.5,
-        },
       },
     };
   }
@@ -537,7 +520,6 @@ export class AreasService {
           observationCount: count,
           observationCountDisplay: count ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
           isPolygon: false,
-          ...NBIC_LOCATION_STYLE,
         },
       });
     }
@@ -604,17 +586,7 @@ export class AreasService {
           observationCount: count,
           fid: area.fid,
           centroid: { x: areaCentroid[0], y: areaCentroid[1] },
-          'nbic:style': {
-            pointRadius: 20,
-            fillColor: '#005A71',
-            strokeColor: '#D2DDE0',
-            strokeWidth: 1.5,
-            text: {
-              label: formattedCount,
-              font: 'bold 10px Arial',
-              fillColor: '#FFFFFF',
-            },
-          },
+          observationCountDisplay: formattedCount,
         },
       });
     }

@@ -1,20 +1,21 @@
 <div class="mitt-artskart">
   <h1>{{ 'mittArtskart.title' | translate }}</h1>
 
-  <section>
-    <h2>{{ 'mittArtskart.exportJobs' | translate }}</h2>
+  <adb-tabs [attr.aria-label]="'mittArtskart.tabsAriaLabel' | translate">
+    <adb-tab slot="tab">{{ 'mittArtskart.exportJobs' | translate }}</adb-tab>
+    <adb-tab slot="tab">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
 
-    @if (historyResource.isLoading() && !historyResource.hasValue()) {
-      <p class="status-message">{{ 'common.loading' | translate }}</p>
-    }
+    <adb-tab-panel>
+      @if (historyResource.isLoading() && !historyResource.hasValue()) {
+        <p class="status-message">{{ 'common.loading' | translate }}</p>
+      }
 
-    @if (historyResource.error() && !historyResource.hasValue()) {
-      <p class="status-message error">{{ 'mittArtskart.loadError' | translate }}</p>
-    }
+      @if (historyResource.error() && !historyResource.hasValue()) {
+        <p class="status-message error">{{ 'mittArtskart.loadError' | translate }}</p>
+      }
 
-    @if (historyResource.hasValue()) {
-      <div class="table-container">
-        <table class="export-table">
+      @if (historyResource.hasValue()) {
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ 'mittArtskart.date' | translate }}</th>
@@ -67,7 +68,11 @@
             }
           </tbody>
         </table>
-      </div>
-    }
-  </section>
+      }
+    </adb-tab-panel>
+
+    <adb-tab-panel>
+      <app-saved-filters-table />
+    </adb-tab-panel>
+  </adb-tabs>
 </div>

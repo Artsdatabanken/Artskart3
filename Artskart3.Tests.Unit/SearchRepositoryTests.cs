@@ -524,6 +524,65 @@ public class SearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetObservationListInfo_ReturnsAllMatchesAndStoredMetadata()
+    {
+        await using var context = CreateInMemoryContext();
+        var location = CreateLocation(5000, "Test Locality");
+        location.Areas.Add(CreateArea(1, "Municipality", 1, null));
+        location.Areas.Add(CreateArea(2, "County", 2, null));
+        var historicalArea = CreateArea(3, "Old municipality", 1, null);
+        historicalArea.IsCurrent = false;
+        location.Areas.Add(historicalArea);
+        SeedLocations(context, location);
+        context.Set<TaxonGroup>().Add(new TaxonGroup { Id = 1, Name = "Test group" });
+        context.Set<Taxon>().Add(CreateTaxon(1, "Test species", "Testus species"));
+        context.Set<TaxonName>().Add(new TaxonName { Id = 1, ScientificName = "Testus species" });
+        context.Set<Category>().Add(new Category { Id = 1, Code = "NE", Name = "Ikke vurdert", CategoryTypeId = 1 });
+        var collected = new DateTime(2024, 10, 5);
+        var observations = Enumerable.Range(1, 2501).Select(id =>
+        {
+            var observation = CreateObservation(id, 5000);
+            observation.DateTimeCollected = collected;
+            return observation;
+        }).ToArray();
+        observations[0].ObservationDetail = new ObservationDetail { Id = 1, Collector = "Collector", AssociatedReferences = "" };
+        SeedObservations(context, observations);
+        await context.SaveChangesAsync();
+
+        var result = (await CreateRepository(context).GetObservationListInfo(new() { Ids = [5000] })).ToList();
+
+        result.Should().HaveCount(2501);
+        result.Select(o => o.Id).Should().Equal(Enumerable.Range(1, 2501).Reverse());
+        result.Should().OnlyContain(o => o.TaxonId == 1 && o.DateTimeCollected == collected &&
+            o.Locality == "Test Locality" && o.MunicipalityName == "Municipality" && o.CountyName == "County" &&
+            o.CategoryCode == "NE" && o.CategoryTypeId == 1);
+        result.Last().Collector.Should().Be("Collector");
+    }
+
+    [Fact]
+    public async Task GetObservationListInfo_DoesNotChooseAnAmbiguousMunicipality()
+    {
+        await using var context = CreateInMemoryContext();
+        var location = CreateLocation(5000, "Boundary");
+        location.Areas.Add(CreateArea(1, "First", 1, null));
+        location.Areas.Add(CreateArea(2, "Second", 1, null));
+        SeedLocations(context, location);
+        context.Set<TaxonGroup>().Add(new TaxonGroup { Id = 1, Name = "Test group" });
+        context.Set<Taxon>().Add(CreateTaxon(1, "Test species", "Testus species"));
+        context.Set<TaxonName>().Add(new TaxonName { Id = 1, ScientificName = "Testus species" });
+        context.Set<Category>().Add(new Category { Id = 3, Code = "NR", Name = "Ikke risikovurdert", CategoryTypeId = 2 });
+        SeedObservations(context, CreateObservation(1, 5000, categoryId: 3), CreateObservation(2, 5000, categoryId: null));
+        await context.SaveChangesAsync();
+
+        var result = (await CreateRepository(context).GetObservationListInfo(new() { Ids = [5000, 5000] })).ToList();
+
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(o => o.MunicipalityName == null && o.CountyName == null);
+        result.Single(o => o.Id == 1).CategoryCode.Should().Be("NR");
+        result.Single(o => o.Id == 2).CategoryCode.Should().BeNull();
+    }
+
+    [Fact]
     private async Task GetObservationListInfo_ReturnsEmptyRequestIds()
     {
         await using var context = CreateInMemoryContext();

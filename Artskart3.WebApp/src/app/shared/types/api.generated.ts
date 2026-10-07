@@ -561,6 +561,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/CatalogNumbers/ByObservationIds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": number[];
+                    "text/json": number[];
+                    "application/*+json": number[];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogNumberMatchDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/TaxonGroups": {
         parameters: {
             query?: never;
@@ -740,6 +818,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/MapLayer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MapLayerDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Notifications": {
         parameters: {
             query?: never;
@@ -764,6 +877,186 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["NotificationModel"][];
                     };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ObservationDetailDto"];
+                        "application/json": components["schemas"]["ObservationDetailDto"];
+                        "text/json": components["schemas"]["ObservationDetailDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}/media/{mediaId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    mediaId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}/maps/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    view: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Content */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -1206,6 +1499,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/User/SavedFilters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["SavedFilterDto"][];
+                        "application/json": components["schemas"]["SavedFilterDto"][];
+                        "text/json": components["schemas"]["SavedFilterDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateSavedFilterRequestDto"];
+                    "text/json": components["schemas"]["CreateSavedFilterRequestDto"];
+                    "application/*+json": components["schemas"]["CreateSavedFilterRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["SavedFilterDto"];
+                        "application/json": components["schemas"]["SavedFilterDto"];
+                        "text/json": components["schemas"]["SavedFilterDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/User/SavedFilters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/User/SavedFilters/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1300,6 +1746,12 @@ export interface components {
             from?: null | number;
             /** Format: int32 */
             to?: null | number;
+        };
+        CreateSavedFilterRequestDto: {
+            name: string;
+            filter: components["schemas"]["ObservationSearchFilterDto"];
+            extent?: components["schemas"]["MapExtentDto"];
+            isDefault?: boolean;
         };
         CsvExportJobDto: {
             /** Format: int32 */
@@ -1406,6 +1858,27 @@ export interface components {
             maxResults?: number;
             envelope?: components["schemas"]["EnvelopeDto"];
         };
+        MapExtentDto: {
+            /** Format: double */
+            minX?: number;
+            /** Format: double */
+            minY?: number;
+            /** Format: double */
+            maxX?: number;
+            /** Format: double */
+            maxY?: number;
+        };
+        MapLayerDto: {
+            /** Format: int32 */
+            id?: number;
+            name?: string;
+            type?: string;
+            url?: string;
+            layers?: null | string;
+            format?: null | string;
+            version?: null | string;
+            attribution?: null | string;
+        };
         NotificationModel: {
             id?: string;
             type?: components["schemas"]["AlertType"];
@@ -1420,6 +1893,38 @@ export interface components {
             /** Format: date */
             endDisplayDate?: null | string;
             canClose?: boolean;
+        };
+        ObservationDetailDto: {
+            /** Format: int32 */
+            id?: number;
+            popularName?: null | string;
+            scientificName?: null | string;
+            /** Format: int32 */
+            externalTaxonId?: number;
+            categoryCode?: null | string;
+            /** Format: int32 */
+            categoryTypeId?: null | number;
+            assessmentUrl?: null | string;
+            /** Format: date-time */
+            collected?: null | string;
+            collector?: null | string;
+            basisOfRecord?: null | string;
+            behaviors?: string[];
+            /** Format: int32 */
+            quality?: null | number;
+            tags?: string[];
+            hasErrors?: boolean;
+            locality?: null | string;
+            counties?: string[];
+            municipalities?: string[];
+            point?: components["schemas"]["ObservationPointDto"];
+            /** Format: int32 */
+            coordinatePrecision?: null | number;
+            institution?: null | string;
+            dataset?: null | string;
+            projects?: string[];
+            catalogNumber?: null | string;
+            images?: components["schemas"]["ObservationMediaDto"][];
         };
         ObservationDto: {
             /** Format: int32 */
@@ -1442,6 +1947,10 @@ export interface components {
         ObservationListInfoDto: {
             /** Format: int32 */
             id?: number;
+            /** Format: int32 */
+            taxonId?: number;
+            /** Format: date-time */
+            dateTimeCollected?: null | string;
             preferredPopularName?: null | string;
             scientificName?: null | string;
             displayName?: string;
@@ -1452,16 +1961,42 @@ export interface components {
             /** Format: int32 */
             categoryId?: null | number;
             categoryName?: null | string;
+            categoryCode?: null | string;
+            /** Format: int32 */
+            categoryTypeId?: null | number;
             institutionId?: null | string;
             institutionName?: null | string;
             /** Format: int32 */
             locationId?: null | number;
+            locality?: null | string;
+            municipalityName?: null | string;
+            countyName?: null | string;
             registrationType?: null | string[];
             collector?: null | string;
         };
         ObservationListInfoRequestDto: {
             ids?: number[];
             filter?: components["schemas"]["ObservationSearchFilterDto"];
+        };
+        ObservationMediaDto: {
+            /** Format: int32 */
+            id?: number;
+            origin?: null | string;
+            mimeType?: string;
+            hasStoredImage?: boolean;
+            description?: null | string;
+            rightsHolder?: null | string;
+            license?: null | string;
+        };
+        ObservationPointDto: {
+            /** Format: double */
+            latitude?: number;
+            /** Format: double */
+            longitude?: number;
+            /** Format: int32 */
+            east?: number;
+            /** Format: int32 */
+            north?: number;
         };
         ObservationSearchFilterDto: {
             /** Format: int32 */
@@ -1522,6 +2057,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        SavedFilterDto: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            filter?: components["schemas"]["ObservationSearchFilterDto"];
+            extent?: components["schemas"]["MapExtentDto"];
+            isDefault?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         ScientificNameSynonymDto: {
             name?: string;
             nameFormatted?: string;
@@ -1535,6 +2080,7 @@ export interface components {
             scientificNameFormatted?: string;
             author?: string;
             rank?: string;
+            taxonGroupName?: null | string;
             preferredVernacularNames?: components["schemas"]["VernacularNameDto"][];
             vernacularNameSynonyms?: components["schemas"]["VernacularNameDto"][];
             scientificNameSynonyms?: components["schemas"]["ScientificNameSynonymDto"][];

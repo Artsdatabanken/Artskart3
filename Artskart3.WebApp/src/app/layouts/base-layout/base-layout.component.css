@@ -13,10 +13,13 @@
 }
 
 .layout-container {
+  position: relative;
   display: flex;
   flex: 1;
-  overflow: hidden;
+  /* clip (not hidden) so focus can't scroll the off-screen feedback panel into view */
+  overflow: clip;
   width: 100%;
+  min-height: 0;
   background: var(--adb-background-primary);
 }
 

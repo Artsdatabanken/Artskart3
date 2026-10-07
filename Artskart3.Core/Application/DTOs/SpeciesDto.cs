@@ -7,6 +7,7 @@ public class SpeciesDto
     public string ScientificNameFormatted { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;
     public string Rank { get; set; } = string.Empty;
+    public string? TaxonGroupName { get; set; }
     public List<VernacularNameDto> PreferredVernacularNames { get; set; } = [];
     public List<VernacularNameDto> VernacularNameSynonyms { get; set; } = [];
     public List<ScientificNameSynonymDto> ScientificNameSynonyms { get; set; } = [];

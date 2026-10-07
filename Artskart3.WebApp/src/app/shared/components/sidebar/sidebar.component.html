@@ -1,9 +1,18 @@
 <div class="sidebar-content">
+  @if (authService.isAuthenticated()) {
+    <div class="sidebar-actions">
+      <adb-button variant="secondary" size="sm" (click)="saveFilterRequested.emit()">{{ 'savedFilters.saveButton' | translate }}</adb-button>
+    </div>
+  }
   <app-species-search />
   <app-filter-chips />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
-    <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+    @if (showUseDefaultFilter()) {
+      <adb-button variant="tertiary" (click)="onUseDefaultFilter()" size="sm">{{ 'savedFilters.useDefault' | translate }}</adb-button>
+    } @else {
+      <adb-button variant="tertiary" (click)="onClearFilter()" size="sm">{{ 'sidebar.clearFilter' | translate }}</adb-button>
+    }
   </div>
 
   <adb-accordion>
@@ -45,9 +54,7 @@
               @if (category.id !== undefined) {
                 <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                   <span class="category-content">
-                    <span class="risk-category-circle-small" [class]="category.code">
-                      <span class="risk-category-tag-label-small">{{ category.code }}</span>
-                    </span>
+                    <app-risk-category-badge [code]="category.code" />
                     <span>{{ category.name }}</span>
                   </span>
                   @if (category.observationCount !== null && category.observationCount !== undefined) {
@@ -300,20 +307,18 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
       <div class="other-properties-filter">
-        <label class="other-properties-label">
+        <div class="other-properties-label">
           {{ 'sidebar.project' | translate }}
           <div class="search-input-wrapper">
-            <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-            <input
-              type="text"
-              class="other-properties-input"
-              autocomplete="off"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded="{{ showProjectSuggestions() }}"
-              aria-controls="dataset-suggestions"
+            <adb-search
+              class="other-properties-search"
+              variant="standalone"
+              size="sm"
+              [attr.label]="'sidebar.project' | translate"
+              [attr.placeholder]="'sidebar.project' | translate"
               [value]="projectName()"
-              (input)="onProjectNameChange($event)"
+              (adb-input)="onProjectNameChange($any($event).detail.value)"
+              (adb-clear)="onProjectNameChange('')"
               (focus)="onProjectNameFocus()"
               (blur)="onProjectNameBlur()"
             />
@@ -330,29 +335,27 @@
                 </ul>
               } @else if (!projectSearchPending() && projectSearchTerm().trim().length > 0) {
                 <div class="project-name-empty project-name-suggestions" role="status">
-                  <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
+                  <adb-icon name="info" size="md"></adb-icon>
                   <span>{{ 'sidebar.noSearchResultsProject' | translate: { searchTerm: projectSearchTerm().trim() } }}</span>
                 </div>
               }
             }
           </div>
-        </label>
+        </div>
 
         <div class="other-properties-row">
-          <label class="other-properties-label">
+          <div class="other-properties-label">
             {{ 'sidebar.dataset' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                autocomplete="off"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded="{{ showDatasetSuggestions() }}"
-                aria-controls="collection-suggestions"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
+                [attr.label]="'sidebar.dataset' | translate"
+                [attr.placeholder]="'sidebar.dataset' | translate"
                 [value]="datasetName()"
-                (input)="onDatasetNameChange($event)"
+                (adb-input)="onDatasetNameChange($any($event).detail.value)"
+                (adb-clear)="onDatasetNameChange('')"
                 (focus)="onDatasetNameFocus()"
                 (blur)="onDatasetNameBlur()"
               />
@@ -369,27 +372,25 @@
                   </ul>
                 } @else if (!datasetSearchPending() && datasetSearchTerm().trim().length > 0) {
                   <div class="dataset-name-empty project-name-suggestions" role="status">
-                    <adb-icon class="empty-search-icon" name="info" size="sm"></adb-icon>
+                    <adb-icon name="info" size="md"></adb-icon>
                     <span>{{ 'sidebar.noSearchResultsDataset' | translate: { searchTerm: datasetSearchTerm().trim() } }}</span>
                   </div>
                 }
               }
             </div>
-          </label>
-          <label class="other-properties-label">
+          </div>
+          <div class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
             <div class="search-input-wrapper">
-              <adb-icon class="search-input-icon" name="search" size="sm"></adb-icon>
-              <input
-                type="text"
-                class="other-properties-input"
-                autocomplete="off"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded="{{ showCatalogNumberSuggestions() }}"
-                aria-controls="catalog-number-suggestions"
+              <adb-search
+                class="other-properties-search"
+                variant="standalone"
+                size="sm"
+                [attr.label]="'sidebar.catalogNumber' | translate"
+                [attr.placeholder]="'sidebar.catalogNumber' | translate"
                 [value]="catalogNumber()"
-                (input)="onCatalogNumberChange($event)"
+                (adb-input)="onCatalogNumberChange($any($event).detail.value)"
+                (adb-clear)="onCatalogNumberChange('')"
                 (focus)="onCatalogNumberFocus()"
                 (blur)="onCatalogNumberBlur()"
               />
@@ -408,7 +409,7 @@
                 </ul>
               }
             </div>
-          </label>
+          </div>
         </div>
 
         <div class="other-properties-image-filter">

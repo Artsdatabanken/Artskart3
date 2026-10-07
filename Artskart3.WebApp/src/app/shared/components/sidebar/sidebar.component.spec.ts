@@ -1,10 +1,15 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { SidebarComponent } from './sidebar.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { By } from '@angular/platform-browser';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { AuthService } from '../../services/auth/auth.service';
+import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
+import { SavedFilterDto } from '../../types/api.types';
 
 describe('SidebarComponent', () => {
   let component: SidebarComponent;
@@ -81,6 +86,12 @@ describe('SidebarComponent', () => {
     await flushAll();
     const accordion = fixture.nativeElement.querySelector('adb-accordion');
     expect(accordion).toBeTruthy();
+  });
+
+  it('renders red-list and alien-species categories with the shared badge', async () => {
+    await flushAll();
+    const badges = fixture.debugElement.queryAll(By.directive(RiskCategoryBadgeComponent));
+    expect(badges.map((badge) => badge.injector.get(RiskCategoryBadgeComponent).code())).toEqual(['CR', 'SE']);
   });
 
   it('should set accordion heading from translation key', async () => {
@@ -339,15 +350,9 @@ describe('SidebarComponent', () => {
   // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
   // teksten og filteret på hver sin ting.
   describe('typeahead - endring nullstiller valgt id', () => {
-    function typeInto(handler: (e: Event) => void, value: string): void {
-      const input = document.createElement('input');
-      input.value = value;
-      handler.call(component, { target: input } as unknown as Event);
-    }
-
     it('should clear projectOrgId when the text is edited', () => {
       filterState.setProjectOrgId(14842);
-      typeInto(component.onProjectNameChange, 'Kart');
+      component.onProjectNameChange('Kart');
 
       expect(filterState.projectName()).toBe('Kart');
       expect(filterState.projectOrgId()).toBeNull();
@@ -355,10 +360,44 @@ describe('SidebarComponent', () => {
 
     it('should clear datasetOrgId when the text is edited', () => {
       filterState.setDatasetOrgId(26435);
-      typeInto(component.onDatasetNameChange, 'Aqu');
+      component.onDatasetNameChange('Aqu');
 
       expect(filterState.datasetName()).toBe('Aqu');
       expect(filterState.datasetOrgId()).toBeNull();
+    });
+
+    it('should clear project filters when adb-search emits adb-clear', () => {
+      filterState.setProjectName('Kartlegging');
+      filterState.setProjectOrgId(14842);
+
+      const searchElements = fixture.nativeElement.querySelectorAll('adb-search');
+      const projectSearch = searchElements[1] as HTMLElement;
+      projectSearch.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.projectName()).toBe('');
+      expect(filterState.projectOrgId()).toBeNull();
+    });
+
+    it('should clear dataset filters when adb-search emits adb-clear', () => {
+      filterState.setDatasetName('Aqua Kompetanse AS');
+      filterState.setDatasetOrgId(26435);
+
+      const datasetSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[1] as HTMLElement;
+      datasetSearch?.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.datasetName()).toBe('');
+      expect(filterState.datasetOrgId()).toBeNull();
+    });
+
+    it('should clear catalog filters when adb-search emits adb-clear', () => {
+      filterState.setCatalogNumber('NHM-123');
+      filterState.setCatalogObservationIds([101, 102]);
+
+      const catalogSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[2] as HTMLElement;
+      catalogSearch?.dispatchEvent(new CustomEvent('adb-clear'));
+
+      expect(filterState.catalogNumber()).toBe('');
+      expect(filterState.catalogObservationIds()).toEqual([]);
     });
   });
 
@@ -377,5 +416,84 @@ describe('SidebarComponent', () => {
       expect(filterState.datasetName()).toBe('Aqua Kompetanse AS');
       expect(filterState.datasetOrgId()).toBe(26435);
     });
+  });
+});
+
+describe('SidebarComponent – lagrede filtre', () => {
+  let fixture: ComponentFixture<SidebarComponent>;
+  let filterState: FilterStateService;
+  const isAuthenticated = signal(false);
+  const defaultFilter = signal<SavedFilterDto | null>(null);
+  const savedFilterService = { defaultFilter, activate: vi.fn() };
+
+  beforeEach(async () => {
+    isAuthenticated.set(false);
+    defaultFilter.set(null);
+    savedFilterService.activate.mockClear();
+
+    await TestBed.configureTestingModule({
+      imports: [SidebarComponent, TranslateModule.forRoot()],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: { isAuthenticated } },
+        { provide: SavedFilterService, useValue: savedFilterService },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(SidebarComponent);
+    filterState = TestBed.inject(FilterStateService);
+    fixture.detectChanges();
+  });
+
+  const buttonTexts = (): string[] =>
+    Array.from(fixture.nativeElement.querySelectorAll('adb-button') as NodeListOf<HTMLElement>).map((b) => b.textContent!.trim());
+
+  it('viser ikke «Lagre filter» for anonyme brukere', () => {
+    expect(buttonTexts()).not.toContain('savedFilters.saveButton');
+  });
+
+  it('viser «Lagre filter» for innloggede brukere og sier fra når den trykkes', () => {
+    isAuthenticated.set(true);
+    fixture.detectChanges();
+    const emitted = vi.fn();
+    fixture.componentInstance.saveFilterRequested.subscribe(emitted);
+
+    const button = Array.from(fixture.nativeElement.querySelectorAll('adb-button') as NodeListOf<HTMLElement>).find(
+      (b) => b.textContent!.trim() === 'savedFilters.saveButton',
+    )!;
+    button.click();
+
+    expect(emitted).toHaveBeenCalled();
+  });
+
+  it('viser «Bruk standardfilter» i stedet for «Tøm filter» når ingen filtre er satt', () => {
+    isAuthenticated.set(true);
+    defaultFilter.set({ id: 'a', name: 'Standard', filter: {}, isDefault: true });
+    fixture.detectChanges();
+
+    expect(buttonTexts()).toContain('savedFilters.useDefault');
+    expect(buttonTexts()).not.toContain('sidebar.clearFilter');
+  });
+
+  it('viser «Tøm filter» når et filter er satt, selv med standardfilter', () => {
+    isAuthenticated.set(true);
+    defaultFilter.set({ id: 'a', name: 'Standard', filter: {}, isDefault: true });
+    filterState.setImageFilter('withImage');
+    fixture.detectChanges();
+
+    expect(buttonTexts()).toContain('sidebar.clearFilter');
+    expect(buttonTexts()).not.toContain('savedFilters.useDefault');
+  });
+
+  it('aktiverer standardfilteret', () => {
+    isAuthenticated.set(true);
+    const standard = { id: 'a', name: 'Standard', filter: { taxonIds: [1] }, isDefault: true };
+    defaultFilter.set(standard);
+
+    fixture.componentInstance.onUseDefaultFilter();
+
+    expect(savedFilterService.activate).toHaveBeenCalledWith(standard);
   });
 });
