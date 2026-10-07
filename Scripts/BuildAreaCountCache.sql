@@ -1,9 +1,16 @@
 /*
     Bygger områdebufferen (AreaCountCacheLevel1 / -Level2 / -BucketMember / -State).
 
-    MIDLERTIDIG. Dette er en manuell erstatning for byggejobben i fase 3, laget for å
-    kunne måle effekten før jobben finnes. Den har ikke blue/green, ikke resumering og
-    ikke verifisering — den tømmer og bygger på nytt. Ikke kjør den mot produksjon.
+    KJØRES AV MIGRASJONEN BuildCountCaches, og kan kjøres manuelt med samme virkning.
+
+    Den tømmer og bygger på nytt: ingen blue/green, ingen resumering, ingen
+    verifisering. Det er forsvarlig for et FØRSTEGANGSBYGG, der det ikke finnes en
+    buffer å miste — Status settes til «Building» før tømmingen, så et avbrudd
+    etterlater en ikke-klar buffer og oppslaget aggregerer som før.
+
+    Det er IKKE forsvarlig som gjenoppbygging under trafikk: bufferen er borte i
+    minuttene bygget tar, og alle kall faller tilbake til aggregering. Den jobben
+    hører til importen, og den trenger blue/green.
 
     BØTTEDEFINISJONENE MÅ STEMME MED AreaCountCacheDimensions.
     Dimensjons-id-ene, NULL-bøtta og pargruppe-rekkefølgen er duplisert her. Endres
@@ -22,6 +29,15 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+
+-- Temptabellene ryddes først.
+--
+-- Migrasjonen BuildCountCaches kjører dette skriptet og BuildLocationCountCache.sql
+-- på SAMME tilkobling, og en #temp-tabell lever til sesjonen lukkes — ikke til
+-- batchen slutter. De to skriptene deler sju navn, så uten denne ryddingen feiler
+-- det andre på «There is already an object named '#dim'». Gjelder også manuell
+-- kjøring: to kjøringer i samme SSMS-fane traff samme feil.
+DROP TABLE IF EXISTS #dim, #par, #vern, #vernsig, #vernbucket, #proj, #projsig, #projbucket;
 
 DECLARE @BuildLevel1 BIT = 1;
 DECLARE @BuildLevel2 BIT = 1;

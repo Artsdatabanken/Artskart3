@@ -272,6 +272,14 @@ foreach ($ep in @($eps | Where-Object { $_.Extra.envelope })) {
 }
 Assert-Perf 'Ingen utsnitt over zoom 11-taket' ($forStore.Count -eq 0) ($forStore -join ', ')
 
+# LocationCount skal IKKE ha utsnitt. Frontend kaller det uten envelope, saa en
+# envelope her ville gjort maalingen til en kallform som ikke finnes i produksjon
+# - og den ville dessuten vaert langt billigere enn den ekte landsdekkende
+# spoerringen, slik at endepunktet saa raskere ut enn det er.
+$medUtsnitt = @($eps | Where-Object { $_.Endpoint -eq 'LocationCount' -and $_.Extra.envelope } |
+                ForEach-Object Variant)
+Assert-Perf 'LocationCount kjoerer uten utsnitt' ($medUtsnitt.Count -eq 0) ($medUtsnitt -join ', ')
+
 # LocationPolygons skal kjoere paa noeyaktig samme utsnitt som Locations. Ellers
 # kan ikke en regresjon plasseres: ligger den i lokasjonssoeket eller i
 # polygonhentingen?

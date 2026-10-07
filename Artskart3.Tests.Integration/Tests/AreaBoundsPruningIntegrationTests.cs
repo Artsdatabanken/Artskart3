@@ -180,6 +180,48 @@ public class AreaBoundsPruningIntegrationTests : IAsyncLifetime
         medLuking.Should().NotContain(m => m.Id == _farsundLokasjon.Id);
     }
 
+    /// <summary>
+    /// Antallet lukes som lokasjonene. GetLocationCountAsync hopper over spørringen
+    /// når ingen av de valgte områdene kan nå utsnittet, og 0 må da være samme svar
+    /// som en ekte spørring ville gitt.
+    /// </summary>
+    [Fact]
+    public async Task Antall_utenfor_utsnittet_gir_samme_svar_som_uten_luking()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            MunicipalityIds = [FarsundFid],
+            Envelope = OsloUtsnitt,
+        };
+
+        var medLuking = await MedBokser().GetLocationCountAsync(filter);
+        var utenLuking = await UtenBokser().GetLocationCountAsync(filter);
+
+        utenLuking.Count.Should().Be(0, "Farsund har ingen lokasjon i Oslo-utsnittet");
+        medLuking.Count.Should().Be(utenLuking.Count);
+        medLuking.Truncated.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Antallet skal stemme med lokasjonssøket, lokasjon for lokasjon i tall.
+    ///
+    /// De to svarene brukes sammen: frontend spør om antallet for å avgjøre om
+    /// kartet skal klustre lokasjoner direkte, og henter deretter lokasjonene.
+    /// Teller de to fra ulike kilder, kan kartet velge modus på et tall
+    /// lokasjonssøket ikke kan innfri.
+    /// </summary>
+    [Fact]
+    public async Task Antall_stemmer_med_lokasjonssoeket()
+    {
+        var filter = new LocationSearchFilterDto { Envelope = OsloUtsnitt };
+
+        var lokasjoner = await MedBokser().GetLocationsAsync(filter);
+        var antall = await MedBokser().GetLocationCountAsync(filter);
+
+        antall.Count.Should().Be(lokasjoner.Count);
+        antall.Truncated.Should().BeFalse();
+    }
+
     // -----------------------------------------------------------------------
 
     private SearchRepository MedBokser()

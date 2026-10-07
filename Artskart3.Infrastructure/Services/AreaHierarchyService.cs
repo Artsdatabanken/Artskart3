@@ -1,7 +1,6 @@
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -151,7 +150,7 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
     {
         var rows = await context.Set<ObservationEntityIndex>()
             .AsNoTracking()
-            .Where(i => i.EntityTypeId != (int)ObservationIndexEntityType.Institution && i.LocationId != null)
+            .Where(i => i.LocationId != null)
             .Join(context.Set<Location>(),
                 i => i.LocationId, l => l.Id,
                 (i, l) => new { i.EntityTypeId, i.EntityId, l.East, l.North })

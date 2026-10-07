@@ -43,7 +43,6 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
     private const int Fylke = (int)ObservationIndexEntityType.County;
     private const int Havomraade = (int)ObservationIndexEntityType.OceanArea;
     private const int Verneomraade = (int)ObservationIndexEntityType.RestrictedArea;
-    private const int Institusjon = (int)ObservationIndexEntityType.Institution;
 
     // Egen id-rekkevidde, klar av 97xxxx, 98[1234]xxx.
     private const int KommuneA = 985010;
@@ -198,17 +197,20 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Institusjonsradene (type 101) er ikke områder, og tellestien utelater dem.
-    /// Fordi begge stier teller DISTINKTE observasjoner, viser feilen seg bare
-    /// når en observasjon har institusjonsrad OG ingen områderad: den skal ikke
-    /// telle med i det hele tatt.
+    /// En observasjon uten områderad teller ikke med — verken i bufferen eller i
+    /// tellingen.
     ///
-    /// L3 har to observasjoner — nummer 6 med kommunerad og nummer 7 med bare
-    /// institusjonsrad. Riktig svar er 1. En buffer som ikke filtrerte på type
-    /// 101 ville svart 2.
+    /// Dette er ikke et kunstig tilfelle. Mot prodlik database har 211 lokasjoner
+    /// med 722 048 observasjoner ingen rad i LocationAreas i det hele tatt: de
+    /// ligger på lat/lon 0,0 fordi de aldri ble georeferert. Indeksen bygges på
+    /// områdetilknytning, så de får ingen indeksrad, og kartet kan ikke tegne dem.
+    ///
+    /// L3 har to observasjoner — nummer 6 med kommunerad og nummer 7 uten noen
+    /// indeksrad. Riktig svar er 1. Begge stier teller DISTINKTE observasjoner, så
+    /// en feil her ville bare vist seg for nettopp en observasjon uten områderad.
     /// </summary>
     [Fact]
-    public async Task Observasjon_med_bare_institusjonsrad_teller_ikke_med()
+    public async Task Observasjon_uten_omraaderad_teller_ikke_med()
     {
         await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
 
@@ -217,7 +219,7 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         var medBuffer = await WithCache().GetLocationsAsync(new LocationSearchFilterDto());
 
         medBuffer.Single(x => x.Id == _l3.Id).ObservationCount.Should().Be(1,
-            "observasjon 7 har bare en institusjonsrad, og den er ikke et omraade");
+            "observasjon 7 har ingen omraaderad og kan ikke plasseres paa kartet");
     }
 
     /// <summary>
@@ -586,7 +588,7 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
     /// </summary>
     private Task<List<ObservationEntityIndex>> KilderaderAsync() =>
         _context.Set<ObservationEntityIndex>().AsNoTracking()
-            .Where(idx => idx.EntityTypeId != Institusjon && idx.LocationId != null)
+            .Where(idx => idx.LocationId != null)
             .ToListAsync();
 
     private async Task<Dictionary<int, (int East, int North)>> KoordinaterAsync() =>
@@ -646,9 +648,9 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         // kartutsnittet skal ha noe å utelate.
         Rad(obs[6], Kommune, KommuneB, TaksongruppeA, KategoriA);
 
-        // Observasjon 7 har BARE en institusjonsrad. Den er ikke et område, og
-        // begge stier skal se bort fra den.
-        Rad(obs[7], Institusjon, 985500, TaksongruppeA, KategoriA);
+        // Observasjon 7 får BEVISST ingen indeksrad. Den ligger på L3 som nummer
+        // 6, men uten områdetilknytning — slik de 211 ugeorefererte lokasjonene i
+        // prodlik database. Begge stier skal se bort fra den.
 
         await _context.SaveChangesAsync();
     }

@@ -324,6 +324,22 @@ function New-PerfEndpointMatrix {
         finnes varme kjoeringer, saa BAADE ColdMs og WarmMs blir det kalde tallet -
         og Compare.ps1, som sammenligner paa WarmMs, trenger ingen endring.
 
+        LOCATIONCOUNT KJOERER UTEN KARTUTSNITT
+        Endepunktet avgjoer om kartet skal klustre lokasjoner direkte i stedet for
+        aa vise omraadelag, og frontend kaller det paa HVERT filterbytte (debounced
+        200 ms i setupLocationCountPipeline).
+
+        Det sender ingen envelope. buildFilterBody legger bare paa envelope naar
+        den faar et extent, og getLocationCount kaller den uten - i motsetning til
+        Locations, som alltid kalles per kartutsnitt. Spoerringen er altsaa en
+        GROUP BY LocationId over hele landet, ikke over et utsnitt. Derfor staar
+        den her blant de utsnittsloese endepunktene og ikke i lokasjonsloekken
+        under; legger vi paa en envelope, maaler vi en kallform som ikke finnes.
+
+        Ingen Runs-overstyring: SearchService bufrer ikke dette endepunktet slik
+        den bufrer AreaCounts, saa kjoering 2 maaler databasen paa nytt og baade
+        kald og varm tid er ekte.
+
         LOKASJONSUTSNITTENE ER IKKE LIKEVERDIGE
         16 utsnitt x 2 endepunkter x 777 case ville gitt 24 864 maalinger - mer enn
         fire ganger hele dagens kjoering, for to endepunkter. Utsnittene har derfor
@@ -364,6 +380,10 @@ function New-PerfEndpointMatrix {
     # Kartmarkoerene paa laveste zoom - faerrest celler, mest aggregering per celle.
     $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z1'; Path = '/api/Search/AreaMarkers?zoomLevel=1'; Extra = @{}; CaseKeys = @('ingen-filter') })
     $m.Add(@{ Endpoint = 'AreaCounts';  Variant = 'z1'; Path = '/api/Search/AreaCounts?zoomLevel=1';  Extra = @{}; Runs = 1 })
+
+    # Lokasjonsantallet. Styrer valget mellom omraadelag og direkte klustering, og
+    # kalles paa hvert filterbytte. Ingen envelope - se LOCATIONCOUNT over.
+    $m.Add(@{ Endpoint = 'LocationCount'; Variant = 'norge'; Path = '/api/Search/LocationCount'; Extra = @{} })
 
     if ($Level -ne 'Quick') {
         $m.Add(@{ Endpoint = 'Observation'; Variant = 'side50'

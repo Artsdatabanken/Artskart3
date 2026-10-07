@@ -44,7 +44,11 @@ SELECT EntityTypeId,
        COUNT_BIG(*) AS Rader
 INTO #IndexAreas
 FROM dbo.ObservationEntityIndex
-WHERE EntityTypeId <> 101          -- institusjonsrader er ikke områder
+WHERE EntityTypeId <> 101   -- SKAL STÅ: dette skriptet sammenligner indeksens
+                            -- entitetsnøkler mot Area, og en organisasjonsrad
+                            -- ville blitt rapportert som et foreldreløst område.
+                            -- Dette er skriptets tema, ikke en vaktpost — de
+                            -- defensive 101-predikatene i lesestien er fjernet.
 GROUP BY EntityTypeId, EntityId;
 
 CREATE UNIQUE CLUSTERED INDEX PK_IndexAreas ON #IndexAreas (EntityTypeId, EntityId);

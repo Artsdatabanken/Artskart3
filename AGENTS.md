@@ -13,7 +13,7 @@ Local setup, secrets and database: see README.md.
 ## Verify before calling a task done
 
 - Backend: `dotnet build Artskart3.slnx` (warnings are errors), `dotnet test Artskart3.Tests.Unit`
-- Integration tests need Docker running (Testcontainers). If Docker isn't available, say so. Don't edit or skip tests to get around it.
+- Integration tests need a container engine running (Testcontainers). Docker or Podman both work. Podman can report its machine as running while its Docker-API forwarding is down, which looks identical to no engine at all — probe the `docker_engine` named pipe by connecting to it (Test-Path and connection list both lie), and restart the machine if it is down. See Artskart3.Tests.Integration/README.md. If no engine is available, say so. Don't edit or skip tests to get around it.
 - Frontend (in Artskart3.WebApp): `npm run lint`, `npm run test -- --watch=false`, `npm run build`
 
 ## Rules

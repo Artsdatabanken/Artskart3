@@ -1,20 +1,20 @@
 namespace Artskart3.Core.Domain.Enums;
 
 /// <summary>
-/// Entitetstyper brukt i ObservationEntityIndex.
-/// 1-99: Områdetyper (speiler AreaType-enumen direkte).
-/// 100+: Organisasjonstyper (100 + OrganizationType-verdi).
-/// Denne separasjonen gjør at nye områdetyper og organisasjonstyper kan legges til uten kollisjonsrisiko.
+/// Entitetstypene i ObservationEntityIndex. Speiler AreaType.
 /// </summary>
 public enum ObservationIndexEntityType
 {
-    // Områdetyper (speiler AreaType-enumen)
     Municipality = 1,
     County = 2,
     RestrictedArea = 3,
     OceanArea = 4,
-    SvalbardBjørnøyaAndJanMayen = 6,
 
-    // Organisasjonstyper (100 + OrganizationType-verdi)
-    Institution = 101
+    /// <summary>
+    /// Ingen kode bruker verdien, men radene finnes — 3 644 617 av dem. Typen har
+    /// ingen filterdimensjon, så de kan ikke velges, bare telles med.
+    /// </summary>
+    NorwaysMarineAreas = 5,
+
+    SvalbardBjørnøyaAndJanMayen = 6,
 }

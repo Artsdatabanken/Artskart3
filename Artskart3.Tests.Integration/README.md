@@ -4,7 +4,7 @@ xUnit-baserte integrasjonstester for API-laget og repository-laget. Testene veri
 
 Integrasjonstestene er delt i to kategorier:
 
-| Kategori | Factory | Trenger Docker? | Eksempel |
+| Kategori | Factory | Trenger containermotor? | Eksempel |
 |---|---|---|---|
 | Databaseavhengige | `CustomWebApplicationFactory` + `DatabaseFixture` | **Ja** | `SearchEndpointTests` |
 | Filbaserte / ingen DB | `NotificationsWebApplicationFactory` | **Nei** | `NotificationsEndpointTests` |
@@ -17,7 +17,7 @@ Dersom en kontroller-handling ikke bruker databasen, bruk `NotificationsWebAppli
 
 | Krav | Gjelder | Detaljer |
 |---|---|---|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Databaseavhengige tester | Testcontainers bruker Docker til å starte en SQL Server-container automatisk. |
+| Containermotor — [Docker Desktop](https://www.docker.com/products/docker-desktop/) eller [Podman](https://podman.io/) | Databaseavhengige tester | Testcontainers starter en SQL Server-container automatisk. Podman fungerer like godt, se under. |
 | .NET 10 SDK | Alle tester | Samme versjon som resten av løsningen. |
 
 ### Starte Docker Desktop (kun nødvendig for databaseavhengige tester)
@@ -26,11 +26,54 @@ Dersom en kontroller-handling ikke bruker databasen, bruk `NotificationsWebAppli
 2. Vent til ikonet i systemstatusfeltet viser at Docker kjører (grønt ikon / «Docker Desktop is running»)
 3. Kjør deretter testene som normalt — Testcontainers håndterer resten automatisk
 
-> **Feilmelding uten Docker:**
+### Podman
+
+Testcontainers trenger ikke Docker spesifikt, bare et Docker-kompatibelt API. Podman
+videresender et slikt API, og gjør det på Dockers standardadresse — så `DOCKER_HOST`
+skal IKKE settes:
+
+```powershell
+podman machine start
+```
+
+Utskriften er det som betyr noe:
+
+```
+API forwarding listening on: npipe:////./pipe/docker_engine
+
+Docker API clients default to this address. You do not need to set DOCKER_HOST.
+```
+
+Står den linjen der, kjører testene som normalt.
+
+> **EN KJØRENDE MASKIN ER IKKE NOK — VIDERESENDINGEN MÅ OGSÅ VÆRE OPPE**
+> `podman machine list` kan vise «Currently running» samtidig som API-videresendingen
+> er nede. Da finnes ingen `docker_engine`-pipe, og Testcontainers ser nøyaktig det
+> samme som om ingen containermotor var installert — samme feilmelding, ingen antydning
+> om at Podman faktisk kjører. Dette har kostet en feilsøkingsrunde før.
+>
+> Sjekk videresendingen, ikke maskinen. Det må gjøres ved å KOBLE TIL pipen — både
+> `Test-Path '\\.\pipe\docker_engine'` og `Get-ChildItem '\\.\pipe\'` svarer «finnes
+> ikke» for en pipe som fungerer, og `podman system connection list` viser de samme
+> `ssh://`-URI-ene uansett om videresendingen er oppe:
+>
+> ```powershell
+> $p = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'docker_engine', 'InOut')
+> try { $p.Connect(2000); 'Videresending OK'; $p.Dispose() } catch { 'Ingen videresending' }
+> ```
+>
+> Får du «Ingen videresending», er `podman machine stop` etterfulgt av
+> `podman machine start` nok — videresenderen settes opp ved oppstart. Har du ingen
+> containere i gang, koster det ingenting.
+
+> **Feilmelding uten containermotor:**
 > ```
 > System.ArgumentException : Docker is either not running or misconfigured.
 > ```
-> Denne feilen betyr at Docker Desktop ikke kjører. Kun tester som bruker `CustomWebApplicationFactory` er berørt. Enhetstester (`Artskart3.Tests.Unit`) og filbaserte integrasjonstester (`NotificationsEndpointTests`) kan kjøres uten Docker.
+> Meldingen nevner Docker uansett motor, og skiller ikke mellom «ikke installert» og
+> «installert, men videresendingen er nede» — se boksen over. Kun tester som bruker
+> `CustomWebApplicationFactory` er berørt. Enhetstester (`Artskart3.Tests.Unit`) og
+> filbaserte integrasjonstester (`NotificationsEndpointTests`) kan kjøres uten.
 
 ---
 
@@ -40,7 +83,7 @@ Integrasjonstestene bruker to nøkkelkomponenter:
 
 ### Testcontainers
 
-[Testcontainers](https://dotnet.testcontainers.org/) starter en ekte **SQL Server 2022**-container i Docker for hver testkjøring. Containeren:
+[Testcontainers](https://dotnet.testcontainers.org/) starter en ekte **SQL Server 2022**-container i containermotoren for hver testkjøring. Containeren:
 - Startes automatisk når testsamlingen initialiseres (`DatabaseFixture.InitializeAsync`)
 - Får EF Core-skjemaet opprettet via `EnsureCreatedAsync`
 - Lastes med testdata fra `SeedData/seed_data.sql` hvis filen finnes

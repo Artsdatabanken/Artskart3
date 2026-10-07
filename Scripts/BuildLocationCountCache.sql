@@ -1,9 +1,14 @@
 /*
     Bygger lokasjonsbufferen (LocationCountCacheLevel1 / -State).
 
-    MIDLERTIDIG. Dette er en manuell erstatning for byggejobben, laget for å kunne
-    måle effekten før jobben finnes. Den har ikke blue/green, ikke resumering og ikke
-    verifisering — den tømmer og bygger på nytt. Ikke kjør den mot produksjon.
+    KJØRES AV MIGRASJONEN BuildCountCaches, etter områdebufferen. Kan kjøres manuelt
+    med samme virkning.
+
+    Den tømmer og bygger på nytt: ingen blue/green, ingen resumering, ingen
+    verifisering. Forsvarlig for et FØRSTEGANGSBYGG — Status settes til «Building»
+    før tømmingen, så et avbrudd etterlater en ikke-klar buffer og oppslaget
+    aggregerer som før. Ikke forsvarlig som gjenoppbygging under trafikk; den jobben
+    hører til importen og trenger blue/green.
 
     BØTTEDEFINISJONENE MÅ STEMME MED AreaCountCacheDimensions.
     Uttrykkene under er de samme som i BuildAreaCountCache.sql, og skal være det:
@@ -33,6 +38,11 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+
+-- Temptabellene ryddes først — samme grunn som i BuildAreaCountCache.sql: begge
+-- skriptene kjøres på samme tilkobling av migrasjonen BuildCountCaches, og
+-- #temp-tabeller lever ut sesjonen, ikke batchen.
+DROP TABLE IF EXISTS #dim, #vern, #vernsig, #vernbucket, #proj, #projsig, #projbucket;
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
@@ -177,14 +187,12 @@ RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 -- Bygget
 --
 -- KILDEN MÅ VÆRE DEN SAMME SOM TELLINGEN BRUKER
--- Predikatet «EntityTypeId <> 101 AND LocationId IS NOT NULL» er kopiert fra
--- GetLocationsAsync og skal bli stående der det er. Bufferen skal gi NØYAKTIG de
+-- Predikatet «LocationId IS NOT NULL» er kopiert fra GetLocationsAsync og skal
+-- bli stående der det er. Bufferen skal gi NØYAKTIG de
 -- samme tallene som tellingen, ikke bedre tall: teller vi fra Observation i stedet,
 -- kommer de 722 048 observasjonene som mangler indeksrader plutselig med, og de to
 -- stiene svarer ulikt avhengig av om bufferen er bygget. Skulle det hullet tettes en
 -- dag, endres begge samtidig.
---
--- 101 er institusjonsrader, ikke områder.
 -- ---------------------------------------------------------------------------
 DECLARE @Id TINYINT, @Navn VARCHAR(40), @Uttrykk NVARCHAR(200), @Sql NVARCHAR(MAX), @Join NVARCHAR(400);
 
@@ -202,7 +210,7 @@ SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North
 FROM (
     SELECT DISTINCT i.ObservationId, i.LocationId, ' + @Uttrykk + N' AS Bucket
     FROM dbo.ObservationEntityIndex i' + @Join + N'
-    WHERE i.EntityTypeId <> 101 AND i.LocationId IS NOT NULL
+    WHERE i.LocationId IS NOT NULL
 ) q
 JOIN dbo.Location l ON l.Id = q.LocationId
 WHERE q.Bucket <> -2147483648

@@ -27,7 +27,7 @@ PRINT '=== 1. Globale invarianter for dimensjon 0 (ufiltrert) ===';
 SELECT
     (SELECT COUNT_BIG(*) FROM dbo.LocationCountCacheLevel1 WHERE DimensionId = 0) AS BufferLokasjoner,
     (SELECT COUNT_BIG(DISTINCT LocationId) FROM dbo.ObservationEntityIndex
-     WHERE EntityTypeId <> 101 AND LocationId IS NOT NULL)                        AS TeltLokasjoner;
+     WHERE LocationId IS NOT NULL)                        AS TeltLokasjoner;
 
 -- Summen av antallene skal vaere antall distinkte observasjoner med lokasjon.
 -- Er den hoeyere, teller bufferen indeksrader i stedet for observasjoner - den
@@ -35,7 +35,7 @@ SELECT
 SELECT
     (SELECT SUM(CAST(ObservationCount AS BIGINT)) FROM dbo.LocationCountCacheLevel1 WHERE DimensionId = 0) AS BufferSum,
     (SELECT COUNT_BIG(DISTINCT ObservationId) FROM dbo.ObservationEntityIndex
-     WHERE EntityTypeId <> 101 AND LocationId IS NOT NULL)                                                 AS TeltSum;
+     WHERE LocationId IS NOT NULL)                                                 AS TeltSum;
 
 PRINT '';
 PRINT '=== 2. Full sammenligning i Oslo-utsnittet ===';
@@ -45,7 +45,7 @@ WITH telt AS (
     SELECT i.LocationId, COUNT(DISTINCT i.ObservationId) AS Antall
     FROM dbo.ObservationEntityIndex i
     JOIN dbo.Location l ON l.Id = i.LocationId
-    WHERE i.EntityTypeId <> 101 AND i.LocationId IS NOT NULL
+    WHERE i.LocationId IS NOT NULL
       AND l.East BETWEEN @MinX AND @MaxX AND l.North BETWEEN @MinY AND @MaxY
     GROUP BY i.LocationId
 ),
@@ -65,7 +65,7 @@ SELECT 'Ufiltrert' AS Tilfelle,
 -- av en hardkodet id som kan endre seg.
 DECLARE @TaxonGroupId INT = (
     SELECT TOP 1 TaxonGroupId FROM dbo.ObservationEntityIndex
-    WHERE EntityTypeId <> 101 AND LocationId IS NOT NULL
+    WHERE LocationId IS NOT NULL
     GROUP BY TaxonGroupId ORDER BY COUNT_BIG(*) DESC);
 
 DECLARE @TaxonGroupDim TINYINT = 7;
@@ -74,7 +74,7 @@ WITH telt AS (
     SELECT i.LocationId, COUNT(DISTINCT i.ObservationId) AS Antall
     FROM dbo.ObservationEntityIndex i
     JOIN dbo.Location l ON l.Id = i.LocationId
-    WHERE i.EntityTypeId <> 101 AND i.LocationId IS NOT NULL
+    WHERE i.LocationId IS NOT NULL
       AND i.TaxonGroupId = @TaxonGroupId
       AND l.East BETWEEN @MinX AND @MaxX AND l.North BETWEEN @MinY AND @MaxY
     GROUP BY i.LocationId
@@ -94,7 +94,7 @@ SELECT 'Taksongruppe' AS Tilfelle, @TaxonGroupId AS Verdi,
 -- Den stoerste kategorien.
 DECLARE @CategoryId INT = (
     SELECT TOP 1 CategoryId FROM dbo.ObservationEntityIndex
-    WHERE EntityTypeId <> 101 AND LocationId IS NOT NULL AND CategoryId IS NOT NULL
+    WHERE LocationId IS NOT NULL AND CategoryId IS NOT NULL
     GROUP BY CategoryId ORDER BY COUNT_BIG(*) DESC);
 
 DECLARE @CategoryDim TINYINT = 5;
@@ -103,7 +103,7 @@ WITH telt AS (
     SELECT i.LocationId, COUNT(DISTINCT i.ObservationId) AS Antall
     FROM dbo.ObservationEntityIndex i
     JOIN dbo.Location l ON l.Id = i.LocationId
-    WHERE i.EntityTypeId <> 101 AND i.LocationId IS NOT NULL
+    WHERE i.LocationId IS NOT NULL
       AND i.CategoryId = @CategoryId
       AND l.East BETWEEN @MinX AND @MaxX AND l.North BETWEEN @MinY AND @MaxY
     GROUP BY i.LocationId
@@ -138,7 +138,7 @@ telt AS (
     SELECT i.LocationId, COUNT(DISTINCT i.ObservationId) AS Antall
     FROM dbo.ObservationEntityIndex i
     JOIN dbo.Location l ON l.Id = i.LocationId
-    WHERE i.EntityTypeId <> 101 AND i.LocationId IS NOT NULL
+    WHERE i.LocationId IS NOT NULL
       AND l.East BETWEEN @MinX AND @MaxX AND l.North BETWEEN @MinY AND @MaxY
       AND EXISTS (SELECT 1 FROM dbo.ObservationEntityIndex k
                   WHERE k.ObservationId = i.ObservationId

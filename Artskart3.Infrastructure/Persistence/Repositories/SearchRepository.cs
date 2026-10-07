@@ -696,39 +696,16 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Begrenser observasjoner til et kartutsnitt ved å la Location drive spørringen.
-    ///
-    /// Skrevet som <c>o.Location.East >= minX</c> blir utsnittet et etterfilter på en
-    /// join fra Observation. Da må hele Observation-tabellen skannes uansett hvor lite
-    /// utsnittet er — målt til ~3 s både for 122x61 km og for 4x2 km, altså flat kostnad
-    /// uten sammenheng med utsnittets størrelse.
-    ///
-    /// Ved å hente LocationId-ene først treffer vi IX_EastNorth på Location (et lite
-    /// sett), og slår deretter opp observasjonene via IX_Observation_LocationId.
-    /// </summary>
-    private IQueryable<Observation> ApplyEnvelopeFilter(IQueryable<Observation> query, EnvelopeDto? envelope)
-    {
-        if (envelope == null) return query;
-
-        var minX = (int)envelope.MinX;
-        var maxX = (int)envelope.MaxX;
-        var minY = (int)envelope.MinY;
-        var maxY = (int)envelope.MaxY;
-
-        var locationIds = _context.Set<Location>()
-            .Where(l => l.East >= minX && l.East <= maxX &&
-                        l.North >= minY && l.North <= maxY)
-            .Select(l => l.Id);
-
-        return query.Where(o => o.LocationId != null && locationIds.Contains(o.LocationId.Value));
-    }
-
-    /// <summary>
     /// Kartutsnittet mot indekstabellen.
     ///
-    /// Samme form som ApplyEnvelopeFilter: LocationId hentes fra Location, som har
-    /// IX_EastNorth. Forskjellen er at predikatet nå treffer den denormaliserte
-    /// LocationId-kolonnen og ikke krever en join tilbake til Observation.
+    /// LocationId-ene hentes fra Location først, som har IX_EastNorth over et lite
+    /// sett, og predikatet treffer deretter den denormaliserte LocationId-kolonnen
+    /// uten join tilbake til Observation.
+    ///
+    /// Skrevet motsatt vei — utsnittet som etterfilter på en join fra Observation —
+    /// må hele tabellen skannes uansett hvor lite utsnittet er: målt til ~3 s både
+    /// for 122x61 km og for 4x2 km, altså flat kostnad uten sammenheng med
+    /// utsnittets størrelse.
     /// </summary>
     private IQueryable<ObservationEntityIndex> ApplyEnvelopeFilterToEntityIndex(
         IQueryable<ObservationEntityIndex> query, EnvelopeDto? envelope)
@@ -1061,12 +1038,9 @@ public class SearchRepository : ISearchRepository
             // men er FEIL: 4 374 852 observasjoner har lokalitet uten
             // kommunerad — de ligger i havet, på Svalbard eller utenfor
             // kommunegrensene — og ville falt stille ut.
-            //
-            // EntityTypeId 101 er institusjonsrader, ikke områder.
             var indexQuery = _context.Set<ObservationEntityIndex>()
                 .AsNoTracking()
-                .Where(idx => idx.EntityTypeId != (int)ObservationIndexEntityType.Institution
-                              && idx.LocationId != null);
+                .Where(idx => idx.LocationId != null);
 
             indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter);
             indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, areaIds);
@@ -1123,8 +1097,7 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationResults.
-    /// Samme gruppering som GetLocationsAsync, men uten koordinat-join — brukes av
-    /// frontend til å velge mellom områdelag og direkte lokasjonsklustering.
+    /// Brukes av frontend til å velge mellom områdelag og direkte lokasjonsklustering.
     /// </summary>
     public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
@@ -1132,21 +1105,82 @@ public class SearchRepository : ISearchRepository
         {
             filter ??= new LocationSearchFilterDto();
 
-            var query = _context.Set<Observation>().AsNoTracking();
-            query = ApplyCommonFilters(query, filter);
-            query = ApplyEnvelopeFilter(query, filter.Envelope);
+            // Samme luking som GetLocationsAsync: når ingen av de valgte områdene
+            // kan nå kartutsnittet, er svaret tomt og databasen slipper å bli spurt.
+            var areaIds = ResolveAreaFilterIds(filter, filter.Envelope);
+            if (areaIds.IsEmptied)
+            {
+                _logger.LogDebug(
+                    "Ingen av de valgte områdene overlapper kartutsnittet. Returnerer 0 uten å spørre databasen.");
+                return new LocationCountDto { Count = 0, Truncated = false };
+            }
 
-            var locationIds = await query
-                .Where(o => o.LocationId != null)
-                .GroupBy(o => o.LocationId!.Value)
+            // SAMME KILDE SOM GetLocationsAsync
+            //
+            // Telles fra indekstabellen, ikke fra Observation. To grunner:
+            //
+            // 1. Tallet skal stemme med det kartet faktisk tegner.
+            //    Observation.LocationId er et ekte supersett: målt mot
+            //    Artskart3IndexProdLikeTestMigrations har Observation 5 090 922
+            //    distinkte lokasjoner mot indeksens 5 090 711. De 211 lokasjonene
+            //    som skiller — 722 048 observasjoner — har ingen områderad, og
+            //    GetLocationsAsync returnerer dem derfor aldri. Avviket er ikke
+            //    teoretisk: regstatus=2 gir 5 925 lokasjoner telt fra Observation
+            //    mot 5 923 fra indeksen. Telt fra Observation kunne endepunktet si
+            //    «under taket» for lokasjoner kartet ikke får se.
+            //
+            // 2. Selektive filtre blir dramatisk raskere. Målt, ufiltrert og med
+            //    fire filtre (elapsed / CPU):
+            //
+            //      filter              Observation        indekstabellen
+            //      ingen filter          46 /   31 ms      75 / 109 ms
+            //      regstatus=1 (bredt)   73 /  203 ms      73 / 142 ms
+            //      taksongruppe=19       39 /   47 ms      42 /  31 ms
+            //      regstatus=3          979 / 3 498 ms     21 /  31 ms
+            //      regstatus=2        1 738 / 7 451 ms     48 /  79 ms
+            //
+            //    Skillet er om taket nås. Gjør det det, stopper begge stier tidlig
+            //    og Observation er marginalt raskest — IX_LocationId er sortert på
+            //    LocationId, så TOP kan strømme ut grupper og gi seg. Men da er
+            //    Truncated svaret, og det eksakte tallet kastes uansett.
+            //
+            //    Under taket finnes ingen tidlig exit: hele det filtrerte settet må
+            //    aggregeres, og da er columnstore i batch mode 36-47x raskere.
+            //    Det er nettopp DER svaret betyr noe — frontend klustrer direkte
+            //    først når antallet er lavt (DIRECT_CLUSTER_MAX_LOCATIONS).
+            //
+            // Her trengs verken COUNT(DISTINCT ObservationId) per lokasjon eller
+            // sortering, bare lokasjonens identitet. Flere indeksrader per
+            // observasjon er dermed uproblematisk: GROUP BY kollapser dem. Det er
+            // nettopp dedupliseringen som gjør tellingen dyr i GetLocationsAsync,
+            // og den slipper vi her.
+            var indexQuery = _context.Set<ObservationEntityIndex>()
+                .AsNoTracking()
+                .Where(idx => idx.LocationId != null);
+
+            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter);
+            indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, areaIds);
+            indexQuery = ApplyEnvelopeFilterToEntityIndex(indexQuery, filter.Envelope);
+
+            // TELLES I DATABASEN, IKKE OVER LEDNINGEN
+            //
+            // Take + CountAsync blir SELECT COUNT(*) FROM (SELECT TOP (n) ...).
+            // Den forrige formen hentet opptil 100 001 ID-er ut av SQL Server bare
+            // for å måle lengden på listen.
+            //
+            // Taket er MaxLocationResults + 1 fordi én over grensen er nok til å
+            // vite at den er passert. Over taket er Truncated svaret, og det
+            // eksakte tallet uinteressant.
+            var antall = await indexQuery
+                .GroupBy(idx => idx.LocationId!.Value)
                 .Select(g => g.Key)
                 .Take(SearchConstants.MaxLocationResults + 1)
-                .ToListAsync(cancellationToken);
+                .CountAsync(cancellationToken);
 
-            var truncated = locationIds.Count > SearchConstants.MaxLocationResults;
+            var truncated = antall > SearchConstants.MaxLocationResults;
             return new LocationCountDto
             {
-                Count = truncated ? SearchConstants.MaxLocationResults : locationIds.Count,
+                Count = truncated ? SearchConstants.MaxLocationResults : antall,
                 Truncated = truncated,
             };
         }

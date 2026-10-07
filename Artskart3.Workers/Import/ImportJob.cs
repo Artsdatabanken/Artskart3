@@ -20,6 +20,28 @@ namespace Artskart3.Workers.Import;
 /// MERK: ObservationTaxonHierarchy har i dag ingen oppdateringssti — den populeres
 /// kun én gang i migrasjon 20260702113806. Den må også vedlikeholdes herfra,
 /// ellers blir taksonfiltrering stående på et frosset øyeblikksbilde.
+///
+/// TELLEBUFFERNE MÅ UGYLDIGGJØRES FØR FØRSTE RAD SKRIVES, IKKE BARE BYGGES ETTERPÅ
+/// Område- og lokasjonsbufferen er førstegangsbygget av migrasjonen BuildCountCaches.
+/// Herfra er det importen som eier dem, og rekkefølgen er det som avgjør om de er
+/// trege eller FEIL:
+///
+///   1. Sett Status bort fra 'Ready' i AreaCountCacheState og LocationCountCacheState
+///   2. Importer
+///   3. Bygg bufferne på nytt (se Scripts/BuildAreaCountCache.sql, deretter
+///      BuildLocationCountCache.sql — rekkefølgen er et krav)
+///
+/// Uten steg 1 svarer bufferne fra gamle tall i hele import- og byggevinduet.
+/// IsReadyAsync sjekker bare Status og SchemaVersion — ikke BuiltAt eller SourceRows
+/// — så en buffer som er eldre enn dataene blir trodd. Og kontrakten er at bufferen
+/// skal gi NØYAKTIG det tellingen gir (se ILocationCountCacheService): avviker den,
+/// er den feil, og feilen vises som gale tall på kartet uten en eneste feilmelding.
+///
+/// En ikke-klar buffer er derimot ufarlig: oppslaget faller tilbake til aggregering
+/// og svarer riktig, bare tregere.
+///
+/// Skal bufferne bygges uten nedetid, trengs blue/green — byggeskriptene tømmer og
+/// bygger på nytt, så bufferen er borte i minuttene det tar.
 /// </summary>
 public class ImportJob
 {

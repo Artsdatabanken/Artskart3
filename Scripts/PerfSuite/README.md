@@ -72,13 +72,22 @@ skal dokumenteres eller en baselinje settes.
 
 | `-Level` | Innhold | Målinger | Tid |
 |---|---|---|---|
-| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 266 | **~3 min** |
-| `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 475 | **~27 min** |
-| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 6 758 | **~2,6 t** |
+| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 218 | **~3 min** |
+| `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 520 | **~27 min** |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 6 877 | **~2,6 t** |
 
 Tidene er målt, ikke gjettet: 330 ekte kall mot
 `Artskart3IndexProdLikeTestMigrations`, med egne prøver for hver av de tunge
 endepunktvariantene. De vil variere med maskin og datamengde.
+
+Måletallene i tabellen er hentet fra `Test-Matrix.ps1`, som regner ut matrisen
+uten å kjøre noe — kjør den etter endringer i endepunktmatrisen, så tabellen
+ikke drifter fra koden igjen.
+
+Tidene er derimot IKKE målt på nytt etter at `LocationCount` ble lagt til, og
+dekker ikke det endepunktet. Det er landsdekkende (ingen envelope) og tyngst
+nettopp ufiltrert, så alle tre nivåene tar lengre tid enn tabellen sier til noen
+har målt om.
 
 Er du usikker på hvor lang tid det tar hos deg, start med
 `-Level Full -TimeBudgetMinutes 30`. Suiten stopper pent når budsjettet er brukt
@@ -111,11 +120,16 @@ fortsatt er brukbar:
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` side 1 og side 50,
-`AreaCounts` z1/z2, `Locations` og `LocationPolygons` med 16 kartutsnitt).
+`AreaCounts` z1/z2, `LocationCount`, og `Locations` og `LocationPolygons` med 16
+kartutsnitt).
 Et endepunkt kan snevre inn hvilke case det gjelder for, med `Layers` eller
 `CaseKeys` — se `Test-PerfEndpointRunsCase`. `AreaMarkers` bruker det til å kjøre
 bare for referansen uten filter; lokasjonsutsnittene til å slippe å gjenta hele
 filtermatrisen 16 ganger.
+
+`LocationCount` kjøres uten kartutsnitt, i motsetning til `Locations`. Det er
+ikke en forglemmelse: frontend kaller endepunktet uten envelope, så spørringen er
+en `GROUP BY LocationId` over hele landet. `Test-Matrix.ps1` håndhever det.
 
 Lagene deler seg også etter hvilken kodesti de treffer. Målt på `Full`:
 

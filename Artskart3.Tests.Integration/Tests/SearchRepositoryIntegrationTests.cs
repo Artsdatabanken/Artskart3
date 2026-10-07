@@ -200,6 +200,49 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Select(location => location.Id).Should().ContainInOrder(_locationOne.Id, _locationTwo.Id);
     }
 
+    /// <summary>
+    /// Antallet teller fra samme kilde som lokasjonssøket, så de to må gi samme tall
+    /// for samme filter. Går denne i stå, har de to kodestiene glidd fra hverandre.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetLocationCountAsync_StemmerMedGetLocationsAsync(bool filtrert)
+    {
+        var filter = filtrert
+            ? new LocationSearchFilterDto { TaxonGroupIds = new[] { TestObservationTaxonGroupOneId } }
+            : new LocationSearchFilterDto
+            {
+                TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
+            };
+
+        var lokasjoner = await _repository.GetLocationsAsync(filter);
+        var antall = await _repository.GetLocationCountAsync(filter);
+
+        antall.Count.Should().Be(lokasjoner.Count);
+        antall.Truncated.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// MaxResults gjelder lokasjonssøket, ikke antallet. Antallet har sitt eget tak
+    /// (MaxLocationResults) og skal fortsette å telle alle treff selv om kalleren
+    /// ber om få lokasjoner.
+    /// </summary>
+    [Fact]
+    public async Task GetLocationCountAsync_IgnorererMaxResults()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
+            MaxResults = 2
+        };
+
+        var antall = await _repository.GetLocationCountAsync(filter);
+
+        antall.Count.Should().Be(3);
+        antall.Truncated.Should().BeFalse();
+    }
+
     [Fact]
     public async Task GetTaxonsAsync_ExactMatch_ReturnsTaxon()
     {
