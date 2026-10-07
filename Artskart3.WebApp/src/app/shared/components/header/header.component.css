@@ -74,6 +74,33 @@
   margin: 0 var(--adb-spacing-sm);
 }
 
+.environment-badge {
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-1-5sm);
+  border-radius: var(--adb-radius-md);
+  color: var(--adb-color-neutrals-ocean-90);
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-4);
+  font-weight: var(--adb-font-weight-heavy);
+  line-height: 1;
+  white-space: nowrap;
+
+  &[data-environment='beta'] {
+    background-color: var(--adb-surface-brand-2b);
+  }
+
+  &[data-environment='test'] {
+    background-color: var(--adb-surface-brand-1a);
+  }
+
+  &[data-environment='staging'] {
+    background-color: var(--adb-surface-brand-4b);
+  }
+
+  &[data-environment='local'] {
+    background-color: var(--adb-surface-brand-5c);
+  }
+}
+
 .nav-menu {
   display: flex;
   gap: var(--adb-spacing-xl);

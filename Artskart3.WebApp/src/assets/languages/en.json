@@ -76,7 +76,13 @@
     "switchToDarkModeAriaLabel": "Switch to dark mode",
     "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
     "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
-    "cookieSettings": "Cookie settings"
+    "cookieSettings": "Cookie settings",
+    "environment": {
+      "beta": "Beta",
+      "test": "Test",
+      "staging": "Staging",
+      "local": "Local"
+    }
   },
   "navigation": {
     "menuItem1": "Menu Item 1",

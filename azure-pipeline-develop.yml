@@ -33,7 +33,7 @@ steps:
 
 - script: |
     cd Artskart3.WebApp
-    npm run build -- --configuration production
+    npm run build -- --configuration production,test
   displayName: "Build Angular app"
 
 - script: |
