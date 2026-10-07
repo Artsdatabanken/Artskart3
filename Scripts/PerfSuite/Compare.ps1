@@ -25,6 +25,9 @@ param(
     [string] $Baseline,
     [string] $Current,
 
+    # Hvor results/ ligger. Tom = utledes, se Get-PerfDataDir.
+    [string] $DataDir,
+
     # Begge terskler maa passeres foer noe rapporteres som regresjon.
     [int]    $MinPercent = 25,
     [int]    $MinMs      = 200
@@ -34,7 +37,7 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PerfLib.psm1') -Force
 
-$resultsDir = Join-Path $PSScriptRoot 'results'
+$resultsDir = Join-Path (Get-PerfDataDir -Override $DataDir) 'results'
 
 if (-not $Baseline -or -not $Current) {
     $filer = @(Get-ChildItem $resultsDir -Filter '*.csv' -ErrorAction SilentlyContinue |

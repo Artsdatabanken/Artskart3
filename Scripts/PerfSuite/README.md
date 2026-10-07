@@ -38,8 +38,43 @@ To ting:
 | `PerfLib.psm1` | Delt bibliotek: API-kall, måling, sammenligning, analyse. |
 | `Fixtures.ps1` | Oppdagelse og lagring av testdata. |
 | `Cases.ps1` | Genererer testmatrisen. |
-| `fixtures.json` | Frosne testdata. Generert, ikke i git. |
-| `results/*.csv` | Måleresultater. Generert, ikke i git. |
+
+Generert data ligger **utenfor arbeidstreet**, i `PerfTestResults/` ved siden av
+sjekkutene:
+
+| Fil | Rolle |
+|---|---|
+| `PerfTestResults/fixtures.json` | Frosne testdata. Ankeret for all sammenligning. |
+| `PerfTestResults/results/*.csv` | Måleresultater, én fil per kjøring. |
+
+## Hvorfor måledata ligger utenfor repoet
+
+Lagt under `Scripts/PerfSuite/` får hvert arbeidstre sitt eget sett, og to ting
+går i stykker:
+
+- **Historikken splittes.** `Compare.ps1` tar uten argumenter de to nyeste filene
+  i `results/`, og ser da bare det treet man står i.
+- **Testdataene slutter å være frosne** — og det er den alvorlige. Et nytt
+  arbeidstre uten `fixtures.json` oppdager testdata på nytt mot dagens data.
+  Case-nøkkelen er den samme, men filteret bak den er et annet, og
+  sammenligningen måler noe annet enn den tror. Det skjedde 07.10.2026:
+  `fylke:mange` gikk fra sju til åtte fylker uten at noe varslet.
+
+Mappen utledes slik, i rekkefølge:
+
+1. `-DataDir <sti>` på `Run.ps1` / `Compare.ps1`
+2. `$env:ARTSKART3_PERF_DATA`
+3. Utledet fra git: `git rev-parse --git-common-dir` peker på **hovedsjekkutens**
+   `.git` fra ethvert arbeidstre, så søsken-mappen `PerfTestResults` blir den
+   samme uansett hvilket tre man står i — uten hardkodet sti.
+
+### Kjøringer må merkes med database
+
+`Run.ps1 -Target <databasenavn>` skrives til CSV-en sammen med `BaseUrl`. Suiten
+snakker bare med API-et og kan ikke vite hvilken database som ligger bak, så den
+må fortelles. Når resultatene fra alle arbeidstrer havner i samme mappe, er det
+dette som hindrer at en kjøring mot én database stille sammenlignes med en mot en
+annen. Standardverdien er `Artskart3IndexProdLikeTestMigrations`.
 
 ## Kom i gang
 
@@ -54,11 +89,11 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 # Se hva matrisen dekker uten å måle noe
 ./Scripts/PerfSuite/Run.ps1 -ListOnly
 
-# Første ekte kjøring. Bygger fixtures.json underveis.
+# Første ekte kjøring. Bygger PerfTestResults/fixtures.json underveis.
 ./Scripts/PerfSuite/Run.ps1 -Level Standard
 
 # Senere: sammenlign mot forrige
-./Scripts/PerfSuite/Run.ps1 -Level Standard -Compare Scripts/PerfSuite/results/<forrige>.csv
+./Scripts/PerfSuite/Run.ps1 -Level Standard -Compare <PerfTestResults>/results/<forrige>.csv
 
 # Eller sammenlign to eksisterende filer uten å kjøre noe
 ./Scripts/PerfSuite/Compare.ps1
@@ -72,22 +107,29 @@ skal dokumenteres eller en baselinje settes.
 
 | `-Level` | Innhold | Målinger | Tid |
 |---|---|---|---|
-| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 218 | **~3 min** |
-| `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 520 | **~27 min** |
-| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 6 877 | **~2,6 t** |
+| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 359 | **1 min** |
+| `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 802 | **5 min** |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 7 535 | **21 min** |
 
-Tidene er målt, ikke gjettet: 330 ekte kall mot
-`Artskart3IndexProdLikeTestMigrations`, med egne prøver for hver av de tunge
-endepunktvariantene. De vil variere med maskin og datamengde.
+Alle tre er målt 07.10.2026 mot `Artskart3IndexProdLikeTestMigrations`, med begge
+tellebufferne bygget og `LocationCount` i matrisen. `Full` brukte 13 516 kall, og
+140 av 7 535 målinger lå over ett sekund.
 
-Måletallene i tabellen er hentet fra `Test-Matrix.ps1`, som regner ut matrisen
-uten å kjøre noe — kjør den etter endringer i endepunktmatrisen, så tabellen
-ikke drifter fra koden igjen.
+Tidligere utgaver av denne tabellen anslo `Full` til ~2,6 timer. Avviket er ikke
+forklart her: mellom de to kjøringene kom denormaliserte filterkolonner, LocationId
+på indekstabellen, begge bufferne og den indeksbaserte lokasjonsstien — å tilskrive
+forbedringen én av dem ville vært gjetning. Tallene over er målt, årsaken er ikke.
 
-Tidene er derimot IKKE målt på nytt etter at `LocationCount` ble lagt til, og
-dekker ikke det endepunktet. Det er landsdekkende (ingen envelope) og tyngst
-nettopp ufiltrert, så alle tre nivåene tar lengre tid enn tabellen sier til noen
-har målt om.
+### Måletallene avhenger av fixtures.json — ikke bruk Test-Matrix-tallene her
+
+`Test-Matrix.ps1` bygger matrisen med SYNTETISKE fixtures og rapporterer færre
+målinger enn en ekte kjøring. For Quick: 218 mot 359 ekte. Forskjellen er
+nivåene — ekte fixtures ga 92 nivåer over 17 dimensjoner, de syntetiske gir
+færre, og hvert nivå er et case.
+
+Tabellen over skal derfor fylles fra en EKTE kjøring («N maalinger skrevet til
+...»), ikke fra `Test-Matrix.ps1`. Den er til for å verifisere at matrisen henger
+sammen, ikke for å forutsi størrelsen.
 
 Er du usikker på hvor lang tid det tar hos deg, start med
 `-Level Full -TimeBudgetMinutes 30`. Suiten stopper pent når budsjettet er brukt
@@ -297,6 +339,32 @@ Forbehold:
 - Den sier hvilken indeks, ikke hvorfor. Til planen trengs Query Store.
 - Databasen må være den samme API-et peker på — ellers måles en annen instans
   enn den som svarer.
+
+## Støygulvet: les aggregatet, ikke case-lista
+
+`Compare.ps1` lister case for case over terskelen (>25 % **og** >200 ms). Den
+lista er **ikke** til å stole på for en enkelt kjøring. Målt 07.10.2026 ved å
+sammenligne to `Full`-kjøringer av **samme commit**, to timer fra hverandre:
+
+| Sammenligning | Regresjoner | Forbedringer | Sum varm tid |
+|---|---|---|---|
+| `a9ffb60` → `a9ffb60` (**identisk kode**) | 31 | 51 | −1,2 % |
+| `cf4a48b` → `a9ffb60` (ekte endring) | 30 | 47 | **−8,4 %** |
+
+Den ekte endringen flagget altså FÆRRE case enn en commit sammenlignet med seg
+selv. Terskelen ligger under suitens egen varians: hver case måles to ganger —
+én kald, én varm — uten gjentakelse, så enkeltmålinger svinger langt mer enn
+200 ms.
+
+**Aggregatet skiller derimot fint.** −8,4 % mot et støygulv på −1,2 % er rundt
+sju ganger støyen, over 6 758 case. Medianen flyttet seg 19 → 17 ms.
+
+Så:
+
+- **Bruk** sum og median per endepunkt for å avgjøre om noe ble bedre eller verre.
+- **Bruk** case-lista som en vaktliste — noe å se etter igjen, ikke en konklusjon.
+- Vil du ha utsagn per case, må `-Runs` opp. Det er en parameter, ikke en
+  kodeendring, og det koster kjøretid tilsvarende.
 
 ## Å lese rapporten
 

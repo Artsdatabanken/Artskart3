@@ -12,6 +12,63 @@
 #>
 
 # ---------------------------------------------------------------------------
+# Lagringssted for maaledata
+# ---------------------------------------------------------------------------
+
+function Get-PerfDataDir {
+    <#
+        Hvor fixtures.json og results/ ligger. UTENFOR arbeidstreet, med vilje.
+
+        HVORFOR IKKE I REPOET
+        Lagt under Scripts/PerfSuite/ faar hvert arbeidstre sitt eget sett. To ting
+        gaar da i stykker:
+
+          results/   historikken splittes, og Compare.ps1 — som uten argumenter tar
+                     de to nyeste filene i results/ — ser bare det treet man staar i.
+          fixtures   verre: et nytt tre uten fixtures.json oppdager testdata paa nytt
+                     mot dagens data. Case-noekkelen er den samme, men filteret bak
+                     den er et annet, og sammenligningen maaler noe annet enn den
+                     tror. Det skjedde 07.10.2026: fylke:mange gikk fra sju til
+                     aatte fylker uten at noe varslet.
+
+        REKKEFOELGEN
+          1. -DataDir               eksplisitt, vinner alltid
+          2. $env:ARTSKART3_PERF_DATA   per maskin, uten aa endre kode
+          3. utledet fra git        standarden
+
+        Punkt 3 bruker at «git rev-parse --git-common-dir» peker paa HOVEDsjekkutens
+        .git fra ethvert arbeidstre. Foreldremappen er hovedsjekkutens rot, og
+        soesken-mappen PerfTestResults blir dermed den samme uansett hvilket tre man
+        staar i — uten hardkodet brukernavn eller sti.
+
+        --path-format=absolute er noedvendig: uten den returnerer git «.git» relativt
+        til arbeidskatalogen naar man staar i hovedsjekkuten, og stien ville blitt
+        tolket mot et vilkaarlig arbeidsdirektoriv.
+    #>
+    param([string] $Override)
+
+    if ($Override) {
+        return (New-Item -ItemType Directory -Path $Override -Force).FullName
+    }
+
+    if ($env:ARTSKART3_PERF_DATA) {
+        return (New-Item -ItemType Directory -Path $env:ARTSKART3_PERF_DATA -Force).FullName
+    }
+
+    $commonDir = git rev-parse --path-format=absolute --git-common-dir 2>$null
+
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commonDir)) {
+        throw ('Fant ikke git-katalogen, og kan derfor ikke utlede hvor maaledata skal ligge. ' +
+               'Kjoer fra et git-arbeidstre, eller sett $env:ARTSKART3_PERF_DATA / -DataDir.')
+    }
+
+    $hovedRot = Split-Path -Parent $commonDir.Trim()
+    $dir      = Join-Path (Split-Path -Parent $hovedRot) 'PerfTestResults'
+
+    return (New-Item -ItemType Directory -Path $dir -Force).FullName
+}
+
+# ---------------------------------------------------------------------------
 # API-tilgang
 # ---------------------------------------------------------------------------
 
@@ -775,6 +832,7 @@ function Compare-PerfIndexUsage {
 }
 
 Export-ModuleMember -Function `
+    Get-PerfDataDir, `
     Get-PerfRankNames, Get-PerfRankOrder, `
     Initialize-PerfApi, Invoke-PerfApi, Test-PerfApi, Remove-PerfMarkup, `
     Get-PerfShuffledSample, Get-PerfSelectivitySpread, Get-PerfTaxonSamples, `

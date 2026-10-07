@@ -66,6 +66,17 @@
 param(
     [string] $BaseUrl = 'https://localhost:5088',
 
+    # Hvor fixtures.json og results/ ligger. Tom = utledes, se Get-PerfDataDir.
+    # Ligger UTENFOR arbeidstreet slik at historikken og de frosne testdataene er
+    # felles for alle arbeidstrer.
+    [string] $DataDir,
+
+    # Hvilken database maalingen gjelder. Suiten snakker bare med API-et og kan
+    # ikke vite det selv, saa den maa fortelles — og det er noedvendig naar
+    # resultatene fra flere arbeidstrer havner i samme mappe: uten dette kan en
+    # kjoering mot én database stille sammenlignes med en mot en annen.
+    [string] $Target = 'Artskart3IndexProdLikeTestMigrations',
+
     [ValidateSet('Quick', 'Standard', 'Full')]
     [string] $Level = 'Standard',
 
@@ -114,12 +125,17 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$suiteDir   = $PSScriptRoot
-$resultsDir = Join-Path $suiteDir 'results'
+$suiteDir = $PSScriptRoot
 
 Import-Module (Join-Path $suiteDir 'PerfLib.psm1') -Force
 . (Join-Path $suiteDir 'Fixtures.ps1')
 . (Join-Path $suiteDir 'Cases.ps1')
+
+# Maaledata ligger utenfor arbeidstreet, felles for alle trer. Modulen maa
+# importeres foerst, saa dette kan ikke staa hos de andre stioppslagene over.
+$dataDir     = Get-PerfDataDir -Override $DataDir
+$resultsDir  = Join-Path $dataDir 'results'
+$fixturePath = Join-Path $dataDir 'fixtures.json'
 
 Initialize-PerfApi -BaseUrl $BaseUrl -TimeoutSec $CaseTimeoutSec
 
@@ -132,7 +148,6 @@ Write-Host ('=' * 78)
 # Testdata og matrise
 # ---------------------------------------------------------------------------
 
-$fixturePath = Join-Path $suiteDir 'fixtures.json'
 
 if ($ListOnly -and -not (Test-Path $fixturePath)) {
     Write-Host 'Ingen fixtures.json finnes enna. Foerste kjoering maa hente testdata fra API-et,' -ForegroundColor Yellow
@@ -299,6 +314,11 @@ foreach ($case in $cases) {
             RunId      = $runId
             Timestamp  = $timestamp
             GitSha     = $gitSha
+            # Hvor maalingen ble gjort. Noedvendig fordi results/ er felles for alle
+            # arbeidstrer: to kjoeringer med samme case-noekkel kan ellers vaere mot
+            # ulike databaser uten at noe skiller dem.
+            Target     = $Target
+            BaseUrl    = $BaseUrl
             Level      = $Level
             Layer      = $case.Layer
             CaseKey    = $case.CaseKey
