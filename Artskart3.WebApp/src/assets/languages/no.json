@@ -493,7 +493,7 @@
     "cancel": "Avbryt",
     "saved": "Filteret «{{name}}» er lagret.",
     "saveFailed": "Kunne ikke lagre filteret.",
-    "useDefault": "Bruk standardfilter",
+    "useDefault": "Aktiver standardfilter",
     "notFound": "Fant ikke det lagrede filteret. Det kan være slettet.",
     "activateFailed": "Kunne ikke aktivere det lagrede filteret.",
     "date": "Dato",
