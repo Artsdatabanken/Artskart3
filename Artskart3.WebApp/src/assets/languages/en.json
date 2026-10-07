@@ -312,7 +312,8 @@
       "admGrenser": "Administrative boundaries",
       "vern": "Protected areas",
       "bioseksjoner": "Bioclimatic sections",
-      "biosoner": "Bioclimatic zones"
+      "biosoner": "Bioclimatic zones",
+      "eiendomskart": "Property"
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },

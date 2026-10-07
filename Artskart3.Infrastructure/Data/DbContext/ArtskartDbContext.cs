@@ -305,6 +305,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Format).HasMaxLength(100);
             entity.Property(e => e.Version).HasMaxLength(20);
             entity.Property(e => e.Attribution).HasMaxLength(1000);
+            entity.Property(e => e.SortOrder).HasDefaultValue(100);
         });
 
         modelBuilder.Entity<Filter>(entity =>

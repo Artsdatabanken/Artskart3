@@ -312,7 +312,8 @@
       "admGrenser": "Administrative grenser",
       "vern": "Verneområder",
       "bioseksjoner": "Bioklimatiske seksjoner",
-      "biosoner": "Bioklimatiske soner"
+      "biosoner": "Bioklimatiske soner",
+      "eiendomskart": "Eiendom"
     },
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },

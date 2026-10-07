@@ -24,7 +24,8 @@ public class MapLayerRepository : IMapLayerRepository
         {
             return await _context.Set<MapLayer>()
                 .Where(l => !l.IsDeleted)
-                .OrderBy(l => l.Name)
+                .OrderBy(layer => layer.SortOrder)
+                .ThenBy(layer => layer.Name)
                 .Select(l => new MapLayerDto
                 {
                     Id = l.Id,
