@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <PackageReference Include="Duende.BFF" />
     <PackageReference Include="Duende.BFF.EntityFramework" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
@@ -33,6 +35,12 @@
          samme SQL som den man kjører manuelt i SSMS. Kopieres den inn i migrasjonen
          i stedet, driver de to fra hverandre ved første rettelse. -->
     <EmbeddedResource Include="..\Scripts\BackfillAll.sql" Link="Scripts\BackfillAll.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Data\JsonDb\notifications.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

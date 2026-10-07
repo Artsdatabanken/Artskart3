@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   CUSTOM_ELEMENTS_SCHEMA,
   ElementRef,
@@ -11,12 +10,13 @@ import {
 import { TranslateModule } from '@ngx-translate/core';
 
 export type ModalVariant = 'prompt' | 'info';
+export type ModalConfirmColor = 'accent' | 'danger';
+export type ModalCancelVariant = 'tertiary' | 'secondary';
 
 @Component({
   selector: 'app-modal',
   imports: [TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './modal.component.html',
   styleUrl: './modal.component.css',
   host: {
@@ -34,6 +34,8 @@ export class ModalComponent {
   readonly cancelLabel = input<string>('Avbryt');
   readonly confirmDisabled = input(false);
   readonly loading = input(false);
+  readonly confirmColor = input<ModalConfirmColor>('accent');
+  readonly cancelVariant = input<ModalCancelVariant>('tertiary');
 
   readonly modalConfirm = output<void>();
   readonly modalCancel = output<void>();

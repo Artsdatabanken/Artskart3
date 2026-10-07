@@ -53,6 +53,16 @@ public class LookupService : ILookupService
         return _lookupRepository.SearchCatalogNumbersAsync(search, maxCount, cancellationToken);
     }
 
+    public Task<OrganizationDto?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return _lookupRepository.GetOrganizationByIdAsync(id, cancellationToken);
+    }
+
+    public Task<CatalogNumberMatchDto?> GetCatalogNumberByObservationIdsAsync(int[] observationIds, CancellationToken cancellationToken = default)
+    {
+        return _lookupRepository.GetCatalogNumberByObservationIdsAsync(observationIds, cancellationToken);
+    }
+
     public Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default)
     {
         return _lookupRepository.GetTaxonGroupsAsync(cancellationToken);

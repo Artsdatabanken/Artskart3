@@ -1,9 +1,10 @@
 import { Component, signal, OnInit, inject } from '@angular/core';
 import { LoggingService } from './shared/logging.service';
+import { BaseLayoutComponent } from './layouts/base-layout/base-layout.component';
 
 @Component({
   selector: 'app-root',
-  standalone: false,
+  imports: [BaseLayoutComponent],
   templateUrl: './app.html',
 })
 export class App implements OnInit {

@@ -1,56 +1,15 @@
 <div class="map-toolbar-container" role="toolbar">
   <!-- Top Controls -->
   <div class="map-toolbar-top">
-    <app-map-type-selector (mapTypeSelected)="onMapTypeSelected($event)"></app-map-type-selector>
-    <adb-icon-button
-      role="button"
-      class="hidden-not-implemented"
-      variant="secondary"
-      disabled
-      [attr.data-action]="toolbarActions.LAYERS"
-      (click)="onButtonClick(toolbarActions.LAYERS)"
-      [attr.aria-label]="'mapToolbar.layersAriaLabel' | translate"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M12 21.05L3 14.05L4.65 12.8L12 18.5L19.35 12.8L21 14.05L12 21.05ZM12 16L3 9L12 2L21 9L12 16ZM12 13.45L17.75 9L12 4.55L6.25 9L12 13.45Z"
-          fill="currentColor"
-        />
-      </svg>
-    </adb-icon-button>
-    <adb-icon-button
-      aria-role="button"
-      class="hidden-not-implemented"
-      variant="secondary"
-      disabled
-      [attr.data-action]="toolbarActions.FILTER"
-      (click)="onButtonClick(toolbarActions.FILTER)"
-      [attr.aria-label]="'mapToolbar.filterAriaLabel' | translate"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M11 21V15H13V17H21V19H13V21H11ZM3 19V17H9V19H3ZM7 15V13H3V11H7V9H9V15H7ZM11 13V11H21V13H11ZM15 9V3H17V5H21V7H17V9H15ZM3 7V5H13V7H3Z"
-          fill="currentColor"
-        />
-      </svg>
-    </adb-icon-button>
-    <adb-icon-button
-      role="button"
-      class="hidden-not-implemented"
-      variant="secondary"
-      disabled
-      [attr.data-action]="toolbarActions.POLYGON"
-      (click)="onButtonClick(toolbarActions.POLYGON)"
-      [attr.aria-label]="'mapToolbar.polygonAriaLabel' | translate"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          clip-rule="evenodd"
-          d="M15 19.5V22H21V16H18.7208L16 7.83772V2H10V6.9L7.3 10H3V16H8L15 19.5ZM13.9459 8H11.7L9 11.1V14.25L15 17.25V16H16.6126L13.9459 8ZM14 6H12V4H14V6ZM7 14H5V12H7V14ZM19 20H17V18H19V20Z"
-          fill="currentColor"
-        />
-      </svg>
-    </adb-icon-button>
+    <app-map-type-selector
+      [isOpen]="openMenu() === 'mapTypes'"
+      (mapTypeSelected)="onMapTypeSelected($event)"
+      (mapTypesOpenChange)="onMapTypesOpenChange($event)"
+    ></app-map-type-selector>
+<!--    <app-map-layers-->
+<!--      [isOpen]="openMenu() === 'mapLayers'"-->
+<!--      (mapLayersOpenChange)="onMapLayersOpenChange($event)"-->
+<!--      (mapLayerVisibilityChange)="onMapToolbarMenuItemChange($event)"-->
+<!--    ></app-map-layers>-->
   </div>
 </div>

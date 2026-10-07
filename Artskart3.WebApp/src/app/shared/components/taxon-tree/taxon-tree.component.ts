@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, inject, input, signal, OnInit } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, input, signal, OnInit } from '@angular/core';
 import { TaxonTreeService } from '../../services/taxon-tree/taxon-tree.service';
 import { TaxonSelectionService, TaxonCheckboxState } from '../../services/taxon-selection/taxon-selection.service';
 import { TaxonTreeNodeDto } from '../../types/api.types';
@@ -9,7 +9,6 @@ import { LoggingService } from '../../logging.service';
   selector: 'app-taxon-tree',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [FormatNumberPipe],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './taxon-tree.component.html',
   styleUrl: './taxon-tree.component.css',
 })

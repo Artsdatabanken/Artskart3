@@ -29,9 +29,21 @@ public class SearchService : ISearchService
         return await _searchRepository.GetLocationsAsync(filter, cancellationToken);
     }
 
+    public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        filter ??= new LocationSearchFilterDto();
+        return await _searchRepository.GetLocationCountAsync(filter, cancellationToken);
+    }
+
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
         return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
+    }
+
+    public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
+    {
+        IEnumerable<ObservationListInfoDto> observations = await _searchRepository.GetObservationListInfo(request, cancellationToken);
+        return observations;
     }
 
     public async Task<IEnumerable<TaxonDto>> GetTaxonsAsync(string name, int maxCount = 20, CancellationToken cancellationToken = default)
@@ -121,7 +133,7 @@ public class SearchService : ISearchService
             countsArray = markers.Select(m => new AreaCountDto
             {
                 Fid = m.Fid,
-                ObservationCount = m.ObservationCount ?? 0
+                ObservationCount = m.ObservationCount
             }).ToArray();
         }
         else

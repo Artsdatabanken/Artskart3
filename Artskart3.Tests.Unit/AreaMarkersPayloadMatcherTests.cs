@@ -26,8 +26,8 @@ public class AreaMarkersPayloadMatcherTests
 
     private static readonly AreaMarkerDto[] Markers =
     [
-        new() { Id = 1, Fid = "0301", Name = "Oslo", AreaTypeId = 1, ObservationCount = 42, ParentFid = "03" },
-        new() { Id = 2, Fid = "4601", Name = "Bergen", AreaTypeId = 1, ObservationCount = 7, ParentFid = "46" },
+        new() { Id = 1, DocumentId = "area/0301", Fid = "0301", Name = "Oslo", AreaTypeId = 1, ObservationCount = 42, ParentFid = "03", WktsPolygon = null },
+        new() { Id = 2, DocumentId = "area/4601", Fid = "4601", Name = "Bergen", AreaTypeId = 1, ObservationCount = 7, ParentFid = "46", WktsPolygon = null },
     ];
 
     public AreaMarkersPayloadMatcherTests()

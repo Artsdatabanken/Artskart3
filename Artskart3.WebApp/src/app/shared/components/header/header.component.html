@@ -31,11 +31,11 @@
           </svg>
         </div>
         <a routerLink="/">
-          <h1 class="service-name">{{ projectName }}</h1>
+          <h1 class="service-name">{{ projectName() }}</h1>
         </a>
       </div>
       <nav class="nav-menu" [class.open]="isMenuOpen" [attr.aria-label]="'header.mainNavigationAriaLabel' | translate">
-        @for (item of menuItems; track item.label) {
+        @for (item of menuItems(); track item.label) {
           <a [href]="item.href" class="nav-item" [attr.aria-label]="item.ariaLabel || item.label" (click)="onMenuItemClick()">
             {{ item.label }}
           </a>
@@ -314,16 +314,17 @@
             }
           </div>
         </div>
-        @for (item of menuItems; track item; let last = $last) {
+        @for (item of menuItems(); track item) {
           <ng-container>
             <a [href]="item.href" class="mobile-menu-item" [attr.aria-label]="item.ariaLabel || item.label" (click)="onMenuItemClick()">{{
               item.label
             }}</a>
-            @if (!last) {
-              <div class="mobile-menu-divider" role="separator"></div>
-            }
+            <div class="mobile-menu-divider" role="separator"></div>
           </ng-container>
         }
+        <button type="button" class="mobile-menu-item mobile-menu-item-button" (click)="openCookieSettings()">
+          {{ 'header.cookieSettings' | translate }}
+        </button>
       </div>
     </div>
   }

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
@@ -16,7 +16,6 @@ import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
   selector: 'app-list-view',
   imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './list-view.component.html',
   styleUrl: './list-view.component.css',
 })

@@ -2,6 +2,7 @@ using Artskart3.Api.Filters;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Converters;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -91,6 +92,35 @@ public class SearchController : ControllerBase
     }
 
     /// <summary>
+    /// Returns the number of distinct locations matching the filter, capped at
+    /// <see cref="SearchConstants.MaxLocationResults"/>. Used by the map to choose between
+    /// pre-aggregated area layers and direct location clustering.
+    /// </summary>
+    [HttpPost("LocationCount")]
+    [Produces("application/json")]
+    public async Task<ActionResult<LocationCountDto>> GetLocationCount([FromBody] LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            filter ??= new LocationSearchFilterDto();
+
+            if (!ValidateLocationSearchFilter(filter, out var validationError))
+            {
+                // validationError skal aldri være null når en validering feiler
+                return validationError!;
+            }
+
+            var result = await _searchService.GetLocationCountAsync(filter, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av lokasjonsantall");
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
     /// Searches for observations using optional filters.
     /// When PageNumber and ResultsPerPage are provided, returns a paginated response with metadata.
     /// When pagination parameters are omitted, returns a flat list capped at <see cref="SearchConstants.DefaultMaxObservations"/> (20) results.
@@ -140,6 +170,36 @@ public class SearchController : ControllerBase
         }
     }
 
+    [HttpPost("ObservationList")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<ObservationListInfoDto>))]
+    public async Task<ActionResult<IEnumerable<ObservationListInfoDto>>> GetObservationListInfo([FromBody] ObservationListInfoRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var filter = request.Filter ?? new ObservationSearchFilterDto();
+        if (!ValidateObservationSearchFilter(filter, out var validationError))
+        {
+            // validationError skal aldri være null når en validering feiler
+            return validationError!;
+        }
+
+        var maxIds = SearchConstants.MaxLocationIdsObservationList;
+        if (request.Ids.Skip(maxIds).Any())
+        {
+            return BadRequest(new { error = $"{nameof(request.Ids)} can contain at most {maxIds} items" });
+        }
+        try
+        {
+            IEnumerable<ObservationListInfoDto> observations =
+                await _searchService.GetObservationListInfo(request, cancellationToken);
+            return Ok(observations);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av observasjoner på lokasjon(er): {Ids} med filter: {Filter}", request.Ids, filter);
+            throw;
+        }
+    }
 
     /// <summary>
     /// Retrieves all area markers (counties and municipalities) with aggregated observation counts and WKT polygons.
@@ -326,13 +386,7 @@ public class SearchController : ControllerBase
             return false;
         }
 
-        if (filter.CoordinatePrecision?.From != null && filter.CoordinatePrecision?.To != null && !IsValidCoordinatePrecisionRange(filter.CoordinatePrecision.From.Value, filter.CoordinatePrecision.To.Value))
-        {
-            validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
-            return false;
-        }
-
-        if (!ValidateFilterArraySizes(filter, out validationError))
+        if (!ValidateCommonFilter(filter, out validationError))
         {
             return false;
         }
@@ -340,47 +394,11 @@ public class SearchController : ControllerBase
         return true;
     }
 
-    /// <summary>
-    /// Validerer at ingen filter-arrayer overskrider maksimal størrelse.
-    /// </summary>
-    private bool ValidateFilterArraySizes(ObservationSearchFilterDto filter, out BadRequestObjectResult? validationError)
+    private bool ValidateCommonFilter(IObservationFilter filter, out BadRequestObjectResult? validationError)
     {
-        validationError = null;
-        var max = SearchConstants.MaxFilterArraySize;
-
-        ReadOnlySpan<(string name, int? length)> arrays =
-        [
-            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
-            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
-            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
-            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
-            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
-            (nameof(filter.CountyIds), filter.CountyIds?.Length),
-            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
-            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
-            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
-            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
-        ];
-
-        foreach (var (name, length) in arrays)
-        {
-            if (length > max)
-            {
-                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
-                return false;
-            }
-        }
-
-        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
-        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
-        // Contains mot 192M rader paa et anonymt endepunkt.
-        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
-        {
-            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
-            return false;
-        }
-
-        return true;
+        var error = ObservationFilterValidator.GetError(filter);
+        validationError = error == null ? null : BadRequest(new { error });
+        return error == null;
     }
 
     /// <summary>
@@ -396,63 +414,14 @@ public class SearchController : ControllerBase
             return false;
         }
 
-        if (filter.CoordinatePrecision?.From != null && filter.CoordinatePrecision?.To != null && !IsValidCoordinatePrecisionRange(filter.CoordinatePrecision.From.Value, filter.CoordinatePrecision.To.Value))
-        {
-            validationError = BadRequest(new { error = SearchConstants.CoordinatePrecisionInvalidMessage });
-            return false;
-        }
-
         if (filter.Envelope != null && !filter.Envelope.IsValid)
         {
             validationError = BadRequest(new { error = "Envelope bounds are invalid: MinX must be less than MaxX and MinY must be less than MaxY." });
             return false;
         }
 
-        if (!ValidateLocationFilterArraySizes(filter, out validationError))
+        if (!ValidateCommonFilter(filter, out validationError))
         {
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Validerer at ingen filter-arrayer i lokasjonsfilter overskrider maksimal størrelse.
-    /// </summary>
-    private bool ValidateLocationFilterArraySizes(LocationSearchFilterDto filter, out BadRequestObjectResult? validationError)
-    {
-        validationError = null;
-        var max = SearchConstants.MaxFilterArraySize;
-
-        ReadOnlySpan<(string name, int? length)> arrays =
-        [
-            (nameof(filter.TaxonGroupIds), filter.TaxonGroupIds?.Length),
-            (nameof(filter.TaxonIds), filter.TaxonIds?.Length),
-            (nameof(filter.CategoryIds), filter.CategoryIds?.Length),
-            (nameof(filter.OrganizationIds), filter.OrganizationIds?.Length),
-            (nameof(filter.MunicipalityIds), filter.MunicipalityIds?.Length),
-            (nameof(filter.CountyIds), filter.CountyIds?.Length),
-            (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
-            (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
-            (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
-            (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
-        ];
-
-        foreach (var (name, length) in arrays)
-        {
-            if (length > max)
-            {
-                validationError = BadRequest(new { error = $"{name} can contain at most {max} items." });
-                return false;
-            }
-        }
-
-        // ObservationIds har egen grense — se SearchConstants.MaxObservationIdFilterSize.
-        // Uten denne var det den eneste ubegrensede int-arrayen som naadde en
-        // Contains mot 192M rader paa et anonymt endepunkt.
-        if (filter.ObservationIds?.Length > SearchConstants.MaxObservationIdFilterSize)
-        {
-            validationError = BadRequest(new { error = $"{nameof(filter.ObservationIds)} can contain at most {SearchConstants.MaxObservationIdFilterSize} items." });
             return false;
         }
 
@@ -464,12 +433,6 @@ public class SearchController : ControllerBase
     /// </summary>
     private bool IsValidMaxResultCount(int maxCount, int minValue, int maxValue)
         => maxCount >= minValue && maxCount <= maxValue;
-
-    /// <summary>
-    /// Checks if coordinate precision range is valid (From ≤ To).
-    /// </summary>
-    private bool IsValidCoordinatePrecisionRange(int from, int to)
-        => !(from > 0 && to > 0 && from > to);
 
     /// <summary>
     /// Creates a standardized range validation error message.

@@ -1,56 +1,43 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, output, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
-import { ToolbarAction } from './map-toolbar.constants';
+import { MapToolbarMenu, MapToolbarMenuItemChange } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
-import { LoggingService } from '@shared/logging.service';
-
-type ActionHandler = () => void;
+import { MapLayersComponent } from './map-layers/map-layers.component';
 
 @Component({
   selector: 'app-map-toolbar',
-  imports: [CommonModule, TranslateModule, MapTypeSelectorComponent],
+  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
 })
 export class MapToolbarComponent {
   readonly iconClick = output<string>();
+  readonly mapToolbarMenuItemChange = output<MapToolbarMenuItemChange>();
 
-  private readonly logger = inject(LoggingService);
-  protected readonly toolbarActions = ToolbarAction;
-
-  private readonly actionHandlers: Record<ToolbarAction, ActionHandler> = {
-    [ToolbarAction.MAP]: () => this.emitAction(ToolbarAction.MAP),
-    [ToolbarAction.LAYERS]: () => this.emitAction(ToolbarAction.LAYERS),
-    [ToolbarAction.FILTER]: () => this.emitAction(ToolbarAction.FILTER),
-    [ToolbarAction.POLYGON]: () => this.emitAction(ToolbarAction.POLYGON),
-  };
+  protected readonly openMenu = signal<MapToolbarMenu | null>(null);
 
   onButtonClick(iconName: string): void {
-    this.handleIconClick(iconName);
+    this.iconClick.emit(iconName);
   }
 
   onMapTypeSelected(layerId: string): void {
     this.iconClick.emit(`map-type:${layerId}`);
   }
 
-  private handleIconClick(actionName: string): void {
-    const action = actionName as ToolbarAction;
-    const handler = this.actionHandlers[action];
-
-    if (handler) {
-      try {
-        handler();
-      } catch (error: unknown) {
-        this.logger.error(`Error executing action '${actionName}':`, 'MapToolbar', error);
-      }
-    } else {
-      this.iconClick.emit(actionName);
-    }
+  onMapTypesOpenChange(isOpen: boolean): void {
+    this.setMenuState('mapTypes', isOpen);
   }
 
-  private emitAction(action: ToolbarAction): void {
-    this.iconClick.emit(action);
+  onMapLayersOpenChange(isOpen: boolean): void {
+    this.setMenuState('mapLayers', isOpen);
+  }
+
+  onMapToolbarMenuItemChange(event: MapToolbarMenuItemChange): void {
+    this.mapToolbarMenuItemChange.emit(event);
+  }
+
+  private setMenuState(menu: MapToolbarMenu, isOpen: boolean): void {
+    this.openMenu.set(isOpen ? menu : null);
   }
 }

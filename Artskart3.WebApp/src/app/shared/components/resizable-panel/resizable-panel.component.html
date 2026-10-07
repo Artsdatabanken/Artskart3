@@ -2,13 +2,13 @@
   class="resizable-panel"
   [style.width.px]="currentWidth()"
   [class.resizing]="isResizing()"
-  [class.draggable]="isDraggable"
+  [class.draggable]="isDraggable()"
 >
   <div class="panel-content">
     <ng-content></ng-content>
   </div>
 
-  @if (isDraggable) {
+  @if (isDraggable()) {
     <div
       class="resize-handle"
       (mousedown)="onResizeStart($event)"

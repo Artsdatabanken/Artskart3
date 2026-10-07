@@ -2,8 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -114,5 +117,33 @@ public class ObservationEndpointTests : IAsyncLifetime
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    // -----------------------------------------------------------------------
+    // /api/Observation
+    // -----------------------------------------------------------------------
+    [Fact]
+    public async Task GetObservationListInfo_WithValidIds_Returns200WithJsonArray()
+    {
+        var requestDto = new ObservationListInfoRequestDto { Ids = [953202] };
+        var response = await _client.PostAsJsonAsync("/api/Search/ObservationList", requestDto);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
+        doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
+        doc.RootElement.GetArrayLength().Should().BeGreaterThan(0);
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var expected = await context.Observations.Where(o => o.LocationId == 953202)
+            .OrderByDescending(o => o.DateTimeCollected).ThenByDescending(o => o.Id)
+            .Select(o => new { o.Id, o.TaxonId, o.DateTimeCollected, Code = o.Category != null ? o.Category.Code : null })
+            .ToListAsync();
+        var observations = JsonSerializer.Deserialize<List<ObservationListInfoDto>>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        observations.Select(o => o.Id).Should().Equal(expected.Select(o => o.Id));
+        observations.Select(o => o.CategoryCode).Should().Equal(expected.Select(o => o.Code));
+        observations.Select(o => o.TaxonId).Should().Equal(expected.Select(o => o.TaxonId));
+        observations.Select(o => o.DateTimeCollected).Should().Equal(expected.Select(o => o.DateTimeCollected));
     }
 }

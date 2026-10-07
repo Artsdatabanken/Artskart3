@@ -1,0 +1,116 @@
+.tree {
+  color: var(--adb-text-accent-primary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.2rem 0;
+  cursor: pointer;
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--adb-text-accent-primary);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.row:not(.group-heading):not(.leaf):hover .label {
+  text-decoration: underline;
+}
+
+.group-heading {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  row-gap: 0;
+  font-weight: 700;
+  color: var(--adb-text-base-primary);
+  cursor: default;
+}
+
+.group-heading .label {
+  font-size: var(--adb-font-size-4);
+}
+.group-count {
+  flex-basis: 100%;
+  font-size: var(--adb-font-size-3);
+  font-weight: 400;
+}
+
+.label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scientific {
+  font-style: italic;
+}
+
+.indented {
+  margin-left: 1rem;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.dot {
+  box-sizing: border-box;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+}
+.dot:is(.NE, .NA, .NR) {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.expand-icon {
+  flex-shrink: 0;
+  /* The tree finds the clicked row from the event target, which can't be resolved inside the icon's shadow DOM. */
+  pointer-events: none;
+}
+
+.leaf {
+  cursor: default;
+}
+
+.leaf .label {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.marker {
+  box-sizing: border-box;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: var(--adb-spacing-2xsm);
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--adb-color-neutrals-ocean-10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.found {
+  background: var(--adb-text-accent-primary);
+}
+
+.negative {
+  background: var(--adb-color-neutrals-ocean-10);
+  border-color: var(--adb-color-special-100);
+  color: var(--adb-color-special-110);
+}
+

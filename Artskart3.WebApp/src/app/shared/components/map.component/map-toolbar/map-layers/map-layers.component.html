@@ -1,0 +1,30 @@
+<div class="map-toolbar-menu-container">
+  <adb-icon-button
+    variant="secondary"
+    (click)="toggleMapLayers()"
+    [attr.aria-label]="'mapToolbar.layersAriaLabel' | translate"
+    [attr.aria-expanded]="isOpen"
+    aria-haspopup="true"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 21.05L3 14.05L4.65 12.8L12 18.5L19.35 12.8L21 14.05L12 21.05ZM12 16L3 9L12 2L21 9L12 16ZM12 13.45L17.75 9L12 4.55L6.25 9L12 13.45Z"
+        fill="currentColor"
+      />
+    </svg>
+  </adb-icon-button>
+  @if (isOpen) {
+    <div class="map-toolbar-menu-dropdown" aria-labelledby="map-layers-heading">
+      <div id="map-layers-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">
+        {{ 'mapToolbar.layersHeading' | translate }}
+      </div>
+      @for (layer of mapLayers(); track layer.id) {
+        <adb-checkbox [checked]="isLayerEnabled(layer.id)" (change)="onLayerChange(layer, $event)">
+          {{ (mapLayerLabels[layer.name] ?? layer.name) | translate }}
+        </adb-checkbox>
+      } @empty {
+        <span class="map-layers-empty">{{ 'mapToolbar.noLayers' | translate }}</span>
+      }
+    </div>
+  }
+</div>

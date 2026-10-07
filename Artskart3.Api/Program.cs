@@ -11,6 +11,7 @@ using Azure.Identity;
 using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using RobotsTxt;
@@ -97,6 +98,22 @@ try
     });
 
     builder.Services.AddMemoryCache();
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = async (context, cancellationToken) =>
+        {
+            logger.LogWarning("Observation map request queue is full");
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { error = "Too many map requests. Please retry." }, cancellationToken);
+        };
+        options.AddConcurrencyLimiter("observation-maps", limiter =>
+        {
+            limiter.PermitLimit = 4;
+            limiter.QueueLimit = 16;
+            limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        });
+    });
     builder.Services.AddControllers(options =>
     {
         options.Filters.Add<GlobalExceptionFilter>();
@@ -106,6 +123,7 @@ try
     });
     builder.Services.AddSwaggerGen(c =>
     {
+        c.SupportNonNullableReferenceTypes();
         c.OperationFilter<Artskart3.Api.Filters.ExportRequestExampleFilter>();
     });
 
@@ -296,6 +314,7 @@ try
     app.UseAuthentication();
 
     app.UseRouting();
+    app.UseRateLimiter();
 
     app.UseDefaultFiles();
     app.MapStaticAssets();
@@ -303,7 +322,10 @@ try
     if (app.Environment.IsDevelopment())
     {
         logger.LogInformation("Development environment detected - enabling Swagger UI");
-        app.UseSwagger();
+        app.UseSwagger(c =>
+        {
+            c.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1;
+        });
         app.UseSwaggerUI(c =>
         {
             c.SwaggerEndpoint("/swagger/v1/swagger.json", "ArtsKart3 API v1");

@@ -1,10 +1,9 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, signal } from '@angular/core';
 
 @Component({
   selector: 'app-loading-indicator',
   templateUrl: './loading-indicator.component.html',
   styleUrl: './loading-indicator.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoadingIndicatorComponent {
   readonly active = input(false);

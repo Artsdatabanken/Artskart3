@@ -1,0 +1,66 @@
+<div class="feedback-slider">
+  <button
+    #tabButton
+    type="button"
+    class="feedback-tab"
+    [attr.aria-expanded]="isOpen()"
+    [attr.aria-controls]="panelId"
+    (click)="toggle()"
+  >
+    <span class="feedback-tab-label">{{ 'feedback.tabLabel' | translate }}</span>
+  </button>
+
+  <aside
+    class="feedback-panel"
+    [id]="panelId"
+    [attr.aria-labelledby]="headingId"
+    [inert]="!isOpen()"
+  >
+    <div class="feedback-header">
+      <h2 #heading class="feedback-title" tabindex="-1" [id]="headingId">
+        {{ 'feedback.heading' | translate }}
+      </h2>
+      <button
+        type="button"
+        class="feedback-close-btn"
+        [attr.aria-label]="'common.close' | translate"
+        (click)="close()"
+      >
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M5.33334 15.8334L4.16667 14.6667L8.83334 10L4.16667 5.33337L5.33334 4.16671L10 8.83337L14.6667 4.16671L15.8333 5.33337L11.1667 10L15.8333 14.6667L14.6667 15.8334L10 11.1667L5.33334 15.8334Z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+
+    <section class="feedback-section">
+      <a
+        class="adb-link adb-link--external"
+        [href]="feedbackFormUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {{ 'feedback.formLink' | translate }}
+        <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+      </a>
+    </section>
+
+    <section class="feedback-section">
+      <h3 class="feedback-subheading">{{ 'feedback.employeesHeading' | translate }}</h3>
+      <a
+        class="adb-link adb-link--external"
+        [href]="githubUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {{ 'feedback.githubLink' | translate }}
+        <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+      </a>
+      <p class="feedback-text">{{ 'feedback.githubInfo' | translate }}</p>
+    </section>
+
+    <section class="feedback-section">
+      <h3 class="feedback-subheading">{{ 'feedback.bugReportHeading' | translate }}</h3>
+      <p class="feedback-text">{{ 'feedback.bugReportInfo' | translate }}</p>
+    </section>
+  </aside>
+</div>

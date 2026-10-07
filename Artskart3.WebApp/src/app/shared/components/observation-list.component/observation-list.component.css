@@ -1,0 +1,57 @@
+:host {
+  width: 100%;
+  min-height: min(24rem, 100%);
+  max-height: 100%;
+  display: flex;
+}
+
+:host([hidden]) {
+  display: none;
+}
+
+.observation-list {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1rem;
+  overflow: auto;
+  border: 2px solid var(--adb-border-base-primary);
+  border-radius: 1rem;
+  background: var(--adb-surface-base-primary);
+  color: var(--adb-text-base-primary);
+  box-shadow: 0 4px 12px #00000014;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--adb-border-base-subtle);
+}
+
+.geometry {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adb-text-base-secondary);
+  font-size: 0.875rem;
+}
+
+.filter {
+  margin: 1rem 0 0 auto;
+}
+
+.retry {
+  border: 1px solid currentColor;
+  border-radius: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--adb-surface-base-primary);
+  color: var(--adb-text-accent-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.retry:focus-visible {
+  outline: 2px solid var(--adb-text-accent-primary);
+  outline-offset: 2px;
+}

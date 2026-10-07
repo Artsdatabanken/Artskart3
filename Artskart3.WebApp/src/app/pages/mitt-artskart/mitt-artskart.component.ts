@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, CUSTOM_ELEMENTS_SCHEMA, effect, untracked, OnDestroy } from '@angular/core';
+import { Component, inject, CUSTOM_ELEMENTS_SCHEMA, effect, untracked, OnDestroy } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ExportService } from '../../shared/services/export/export.service';
@@ -7,14 +7,14 @@ import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 import { apiErrorMessage } from '../../shared/utils/api-error';
+import { SavedFiltersTableComponent } from './saved-filters-table/saved-filters-table.component';
 
 @Component({
   selector: 'app-mitt-artskart',
-  imports: [LocaleDateTimePipe, FormatFileSizePipe, TranslateModule],
+  imports: [LocaleDateTimePipe, FormatFileSizePipe, TranslateModule, SavedFiltersTableComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mitt-artskart.component.html',
-  styleUrl: './mitt-artskart.component.css',
+  styleUrls: ['./data-table.css', './mitt-artskart.component.css'],
 })
 export class MittArtskartComponent implements OnDestroy {
   private readonly exportService = inject(ExportService);

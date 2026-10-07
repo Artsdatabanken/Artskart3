@@ -1,0 +1,14 @@
+:host {
+  position: absolute;
+  inset: 1rem auto auto 1rem;
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  display: flex;
+  z-index: 101;
+}
+
+@media (max-width: 768px) {
+  :host {
+    max-height: calc(100% - var(--home-handle-height, 56px) - 2rem);
+  }
+}

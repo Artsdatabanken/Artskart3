@@ -1,5 +1,5 @@
-import { Component, Input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
@@ -13,17 +13,22 @@ export interface MenuItem {
   ariaLabel?: string;
 }
 
+interface CookieInformationWindow {
+  CookieInformation?: {
+    renew(): void;
+  };
+}
+
 @Component({
   selector: 'app-header',
-  standalone: true,
   imports: [CommonModule, RouterModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
 })
 export class HeaderComponent implements OnInit, OnDestroy {
-  @Input() projectName = 'Artskart';
-  @Input() menuItems: MenuItem[] = [];
+  readonly projectName = input('Artskart');
+  readonly menuItems = input<MenuItem[]>([]);
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
@@ -39,6 +44,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   private readonly languageService = inject(LanguageService);
+  private readonly cookieWindow = inject(DOCUMENT).defaultView as (Window & CookieInformationWindow) | null;
   readonly authService = inject(AuthService);
 
   ngOnInit(): void {
@@ -73,6 +79,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (this.isMenuOpen) {
       this.closeBurgerMenu();
     }
+  }
+
+  openCookieSettings(): void {
+    this.cookieWindow?.CookieInformation?.renew();
+    this.onMenuItemClick();
   }
 
   toggleLanguageMenu(): void {

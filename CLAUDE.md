@@ -1,4 +1,4 @@
-# Instruksjoner for AI-agenter i Artskart3
+@AGENTS.md
 
 ## Kommentarer
 

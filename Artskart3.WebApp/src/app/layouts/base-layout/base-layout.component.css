@@ -1,3 +1,4 @@
+
 .layout-wrapper {
   display: flex;
   width: 100%;
@@ -5,25 +6,28 @@
   justify-content: flex-start;
   align-items: stretch;
   height: 100vh;
-  background: var(--adb-background-default);
+  background: var(--adb-background-primary);
   overflow: clip;
   position: fixed;
   inset: 0;
 }
 
 .layout-container {
+  position: relative;
   display: flex;
   flex: 1;
-  overflow: hidden;
+  /* clip (not hidden) so focus can't scroll the off-screen feedback panel into view */
+  overflow: clip;
   width: 100%;
-  background: var(--adb-background-default);
+  min-height: 0;
+  background: var(--adb-background-primary);
 }
 
 .sidebar {
   flex-shrink: 0;
-  background-color: var(--adb-background-default);
+  background-color: var(--adb-background-primary);
   overflow: hidden;
-  border-right: 1px solid var(--adb-border-default);
+  border-right: 1px solid var(--adb-border-base-primary);
   height: 100%;
   z-index: 100;
 }
@@ -40,13 +44,13 @@
   padding: var(--adb-spacing-xsm) var(--adb-spacing-md);
   font-size: 0.95rem;
   box-sizing: border-box;
-  border: 1px solid var(--adb-border-subtle);
+  border: 1px solid var(--adb-border-base-subtle);
   border-radius: var(--adb-border-radius);
 }
 
 .filter-input:focus {
   outline: none;
-  border-color: var(--adb-border-accent);
+  border-color: var(--adb-border-accent-primary);
 }
 
 .filter-input:disabled {
@@ -55,7 +59,7 @@
 }
 
 .main-content {
-  background: var(--adb-background-default);
+  background: var(--adb-background-primary);
   flex: 1;
   height: 100%;
   overflow: auto;
