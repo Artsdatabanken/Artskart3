@@ -48,10 +48,6 @@
 }
 
 @media (max-width: 768px) {
-  .tabs {
-    display: none;
-  }
-
   .sidebar {
     display: flex;
     flex-direction: column;
