@@ -76,7 +76,13 @@
     "switchToDarkModeAriaLabel": "Bytt til mørkt tema",
     "artsdatabankenLinkAriaLabel": "Lenke til Artsdatabanken hjemmeside",
     "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
-    "cookieSettings": "Informasjonskapsler"
+    "cookieSettings": "Informasjonskapsler",
+    "environment": {
+      "beta": "Beta",
+      "test": "Test",
+      "staging": "Staging",
+      "local": "Lokal"
+    }
   },
   "navigation": {
     "menuItem1": "Menypunkt 1",

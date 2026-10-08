@@ -37,8 +37,11 @@ export class LoggingService {
         this.window = inject(DOCUMENT).defaultView;
 
         if (!environment.production) {
-            this.initAppInsights();
             return;
+        }
+
+        if (this.hasStatisticsConsent()) {
+            this.initAppInsights();
         }
 
         this.window?.addEventListener('CookieInformationConsentGiven', () => {

@@ -33,6 +33,9 @@
         <a routerLink="/">
           <h1 class="service-name">{{ projectName() }}</h1>
         </a>
+        <span class="environment-badge" [attr.data-environment]="environmentName">
+          {{ 'header.environment.' + environmentName | translate }}
+        </span>
       </div>
       <nav class="nav-menu" [class.open]="isMenuOpen" [attr.aria-label]="'header.mainNavigationAriaLabel' | translate">
         @for (item of menuItems(); track item.label) {
