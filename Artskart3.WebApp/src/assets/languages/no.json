@@ -257,7 +257,8 @@
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
-    "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "Ingen treff i datasett på \"{{searchTerm}}\"",
+    "noSearchResultsCatalogNumber": "Ingen treff i id-er eller katalognumre på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
     "rank": {
       "Kingdom": "Rike",

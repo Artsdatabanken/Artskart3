@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  afterRenderEffect,
   computed,
   contentChild,
   inject,
@@ -16,10 +17,13 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
-import { Subject, catchError, debounce, distinctUntilChanged, of, switchMap, timer } from 'rxjs';
+import { Subject, catchError, debounce, distinctUntilChanged, map, of, switchMap, timer } from 'rxjs';
 import { AutocompleteOptionDirective, AutocompleteSearch } from './autocomplete-option.directive';
 
 let nextInstanceId = 0;
+
+// Below this, a top-layer popup opens above the field if there is more room there.
+const MinSpaceBelow = 200;
 
 @Component({
   selector: 'app-autocomplete',
@@ -48,9 +52,15 @@ export class AutocompleteComponent<T> {
   /** Translation key for the no-results message. Gets the term as `searchTerm`. */
   readonly noResultsKey = input('autocomplete.noResultsFor');
   readonly trackBy = input<(item: T) => unknown>((item) => item);
+  /**
+   * Lets the popup grow to fit its options, at least as wide as the field. It is shown
+   * in the top layer so a narrow, scrolling parent such as the sidebar can't clip it.
+   */
+  readonly fitContent = input(false);
   readonly selected = output<T>();
 
   protected readonly optionTemplate = contentChild.required<AutocompleteOptionDirective<T>>(AutocompleteOptionDirective);
+  private readonly popup = viewChild<ElementRef<HTMLElement>>('popup');
   readonly optionIdPrefix = `autocomplete-${nextInstanceId++}-option-`;
 
   private readonly searchInput$ = new Subject<string>();
@@ -60,21 +70,68 @@ export class AutocompleteComponent<T> {
   readonly searchTerm = signal('');
   readonly highlightedIndex = signal(-1);
   private readonly dismissed = signal(false);
+  // The term the current results were fetched for. While a newer search is loading, it differs from searchTerm.
+  private resultsTerm = '';
   private readonly layoutChanged = signal(0);
-  readonly popupPosition = computed(() => {
+  private readonly fieldGeometry = computed(() => {
     this.showAutocomplete();
     this.showNoResults();
     this.layoutChanged();
     const host = this.hostEl.nativeElement;
     // Span the text input and the submit button, not adb-search's padded host.
     const searchShadow = this.searchElement().nativeElement.shadowRoot;
-    const inputRect = (searchShadow?.querySelector('.input-wrapper') ?? host).getBoundingClientRect();
-    const buttonRect = searchShadow?.querySelector('.submit-button')?.getBoundingClientRect() ?? inputRect;
-    const hostRect = host.getBoundingClientRect();
-    return { top: inputRect.bottom - hostRect.top, left: inputRect.left - hostRect.left, width: buttonRect.right - inputRect.left };
+    const input = (searchShadow?.querySelector('.input-wrapper') ?? host).getBoundingClientRect();
+    const button = searchShadow?.querySelector('.submit-button')?.getBoundingClientRect() ?? input;
+    return { input, width: button.right - input.left, viewportHeight: host.ownerDocument.documentElement.clientHeight };
+  });
+  /** The top-layer popup opens above the field when there is too little room below it. */
+  readonly opensAbove = computed(() => {
+    if (!this.fitContent()) return false;
+    const { input, viewportHeight } = this.fieldGeometry();
+    const spaceBelow = viewportHeight - input.bottom;
+    return spaceBelow < MinSpaceBelow && input.top > spaceBelow;
+  });
+  readonly popupStyle = computed((): Record<string, string> => {
+    const { input, width, viewportHeight } = this.fieldGeometry();
+    if (!this.fitContent()) {
+      const hostRect = this.hostEl.nativeElement.getBoundingClientRect();
+      return { top: `${input.bottom - hostRect.top}px`, left: `${input.left - hostRect.left}px`, width: `${width}px` };
+    }
+    const above = this.opensAbove();
+    const space = above ? input.top : viewportHeight - input.bottom;
+    return {
+      ...(above ? { bottom: `${viewportHeight - input.top}px` } : { top: `${input.bottom}px` }),
+      left: `${input.left}px`,
+      'min-width': `${width}px`,
+      'max-width': `calc(100vw - ${input.left}px - var(--adb-spacing-sm))`,
+      'max-height': `min(400px, calc(${space}px - var(--adb-spacing-sm)))`,
+      visibility: this.isInView(input) ? 'visible' : 'hidden',
+    };
   });
 
   constructor() {
+    // The top-layer popup is positioned against the viewport, so it has to follow the field.
+    const doc = this.hostEl.nativeElement.ownerDocument;
+    const relayout = () => {
+      if (this.fitContent() && (this.showAutocomplete() || this.showNoResults())) this.layoutChanged.update((n) => n + 1);
+    };
+    // Scrolling the popup's own list doesn't move the field.
+    const relayoutOnScroll = (event: Event) => {
+      if (!this.popup()?.nativeElement.contains(event.target as Node)) relayout();
+    };
+    doc.addEventListener('scroll', relayoutOnScroll, { capture: true, passive: true });
+    doc.defaultView?.addEventListener('resize', relayout, { passive: true });
+    inject(DestroyRef).onDestroy(() => {
+      doc.removeEventListener('scroll', relayoutOnScroll, { capture: true });
+      doc.defaultView?.removeEventListener('resize', relayout);
+    });
+
+    // Runs once per popup element: @if creates a new one each time the popup opens.
+    afterRenderEffect(() => {
+      const popup = this.popup()?.nativeElement;
+      if (popup?.popover) popup.showPopover();
+    });
+
     this.searchInput$
       .pipe(
         // distinctUntilChanged must precede debounceTime so the '' pushed by
@@ -90,15 +147,24 @@ export class AutocompleteComponent<T> {
         // resurrect a cleared popup. null marks "cleared", distinct from a
         // completed search that happened to return zero results. A failed request
         // also clears, so it isn't reported as "no results".
-        switchMap((term) => (this.isSearchable(term) ? this.search()(term).pipe(catchError(() => of(null))) : of(null))),
+        switchMap((term) =>
+          this.isSearchable(term)
+            ? this.search()(term).pipe(
+                map((results) => ({ term, results })),
+                catchError(() => of(null)),
+              )
+            : of(null),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe((results) => {
+      .subscribe((response) => {
         // Also while dismissed: results for an older term must not come back on reopen.
-        if (results === null) {
+        if (response === null) {
           this.clearResults();
           return;
         }
+        const { term, results } = response;
+        this.resultsTerm = term;
         // Focus sitting on an option is destroyed when @for replaces the list.
         const hadOptionFocus = this.hostEl.nativeElement.ownerDocument.activeElement?.id.startsWith(this.optionIdPrefix) ?? false;
         if (this.dismissed()) {
@@ -130,6 +196,18 @@ export class AutocompleteComponent<T> {
 
   private isSearchable(term: string): boolean {
     return term.length >= this.minLength();
+  }
+
+  // Nothing clips the top-layer popup, so it is hidden once the field is scrolled fully out of view.
+  private isInView(inputRect: DOMRect): boolean {
+    const view = this.hostEl.nativeElement.ownerDocument.defaultView;
+    for (let el = this.hostEl.nativeElement.parentElement; el; el = el.parentElement) {
+      if (view?.getComputedStyle(el).overflowY !== 'visible') {
+        const clip = el.getBoundingClientRect();
+        return inputRect.bottom > clip.top && inputRect.top < clip.bottom;
+      }
+    }
+    return true;
   }
 
   onSearchInput(event: Event): void {
@@ -251,6 +329,8 @@ export class AutocompleteComponent<T> {
   onSearchSubmit(): void {
     // A popup dismissed with Escape must not resurrect its stale results on Enter.
     if (!this.showAutocomplete()) return;
+    // Nor may Enter pick from results for an earlier term while the new search is loading.
+    if (this.resultsTerm !== this.searchTerm()) return;
     const results = this.results();
     if (results.length === 0) return;
     const index = this.highlightedIndex();

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Observable, Subject, of, throwError } from 'rxjs';
@@ -15,17 +15,20 @@ interface Item {
   imports: [AutocompleteComponent, AutocompleteOptionDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
-    <app-autocomplete [search]="search" label="Søk" [trackBy]="trackById" (selected)="selected.push($event)">
-      <ng-template [appAutocompleteOption]="search" let-item let-term="term"
-        ><span class="item-name">{{ item.name }}</span
-        ><span class="item-term">{{ term }}</span></ng-template
-      >
-    </app-autocomplete>
+    <div class="scroller" style="overflow-y: auto">
+      <app-autocomplete [search]="search" label="Søk" [trackBy]="trackById" [fitContent]="fitContent()" (selected)="selected.push($event)">
+        <ng-template [appAutocompleteOption]="search" let-item let-term="term"
+          ><span class="item-name">{{ item.name }}</span
+          ><span class="item-term">{{ term }}</span></ng-template
+        >
+      </app-autocomplete>
+    </div>
     <button type="button" class="outside">Outside</button>
   `,
 })
 class TestHostComponent {
   readonly search = vi.fn<(term: string) => Observable<Item[]>>(() => of([]));
+  readonly fitContent = signal(false);
   readonly trackById = (item: Item) => item.id;
   readonly selected: Item[] = [];
 }
@@ -94,6 +97,28 @@ describe('AutocompleteComponent', () => {
     component.showAutocomplete.set(true);
     component.onSearchSubmit();
     expect(host.selected).toEqual([items[0]]);
+  });
+
+  it('should not pick from results for an earlier term while the new search is loading', () => {
+    vi.useFakeTimers();
+    try {
+      const pending = new Subject<Item[]>();
+      host.search.mockReturnValueOnce(of(items)).mockReturnValueOnce(pending.asObservable());
+      input('kj');
+      vi.advanceTimersByTime(300);
+      expect(component.showAutocomplete()).toBe(true);
+
+      input('kjø');
+      component.onSearchSubmit();
+      expect(host.selected).toEqual([]);
+
+      vi.advanceTimersByTime(300);
+      pending.next([items[1]]);
+      component.onSearchSubmit();
+      expect(host.selected).toEqual([items[1]]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('should do nothing on submit when there are no results', () => {
@@ -557,6 +582,136 @@ describe('AutocompleteComponent', () => {
     } finally {
       view.ResizeObserver = original;
     }
+  });
+
+  describe('popup width', () => {
+    const popup = () => element.querySelector<HTMLElement>('.autocomplete-list')!;
+    const rect = (top: number, bottom: number, left = 20, width = 200) =>
+      ({ top, bottom, left, right: left + width, width, height: bottom - top, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+
+    beforeEach(() => component.results.set(items));
+
+    it('should keep the popup inside the field and exactly as wide as it by default', () => {
+      component.showAutocomplete.set(true);
+      fixture.detectChanges();
+
+      expect(popup().getAttribute('popover')).toBeNull();
+      expect(popup().style.width).not.toBe('');
+      expect(popup().style.minWidth).toBe('');
+    });
+
+    describe('with fitContent', () => {
+      const showPopover = vi.fn();
+
+      beforeEach(() => {
+        // jsdom has no Popover API.
+        Object.defineProperty(HTMLElement.prototype, 'popover', {
+          configurable: true,
+          get(this: HTMLElement) {
+            return this.getAttribute('popover');
+          },
+        });
+        HTMLElement.prototype.showPopover = showPopover;
+        showPopover.mockClear();
+        // jsdom has no layout, so the viewport is 0 px tall unless given a height.
+        vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+        host.fitContent.set(true);
+      });
+
+      afterEach(() => {
+        Reflect.deleteProperty(HTMLElement.prototype, 'popover');
+        Reflect.deleteProperty(HTMLElement.prototype, 'showPopover');
+      });
+
+      it('should show the popup in the top layer, at least as wide as the field', () => {
+        vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(100, 140));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        expect(popup().getAttribute('popover')).toBe('manual');
+        expect(showPopover).toHaveBeenCalledTimes(1);
+        expect(popup().style.top).toBe('140px');
+        expect(popup().style.left).toBe('20px');
+        expect(popup().style.minWidth).toBe('200px');
+        expect(popup().style.width).toBe('');
+      });
+
+      it('should follow the field when a parent scrolls', () => {
+        const fieldRect = vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(100, 140));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        fieldRect.mockReturnValue(rect(60, 100));
+        fixture.nativeElement.querySelector('.scroller').dispatchEvent(new Event('scroll'));
+        fixture.detectChanges();
+
+        expect(popup().style.top).toBe('100px');
+      });
+
+      it('should hide the popup while the field is scrolled out of view', () => {
+        vi.spyOn(fixture.nativeElement.querySelector('.scroller'), 'getBoundingClientRect').mockReturnValue(rect(0, 500));
+        const fieldRect = vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(100, 140));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+        expect(popup().style.visibility).toBe('visible');
+
+        fieldRect.mockReturnValue(rect(-60, -20));
+        fixture.nativeElement.querySelector('.scroller').dispatchEvent(new Event('scroll'));
+        fixture.detectChanges();
+
+        expect(popup().style.visibility).toBe('hidden');
+      });
+
+      it('should stay visible while part of the field is still in view', () => {
+        vi.spyOn(fixture.nativeElement.querySelector('.scroller'), 'getBoundingClientRect').mockReturnValue(rect(0, 500));
+        vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(470, 500.4));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        expect(popup().style.visibility).toBe('visible');
+      });
+
+      it('should use the top layer for the no-results message too', () => {
+        component.showNoResults.set(true);
+        fixture.detectChanges();
+
+        expect(element.querySelector('.autocomplete-no-results')?.getAttribute('popover')).toBe('manual');
+        expect(showPopover).toHaveBeenCalledTimes(1);
+      });
+
+      it('should keep the popup within the space below the field', () => {
+        vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(300, 340));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        expect(popup().classList).not.toContain('autocomplete-list--above');
+        expect(popup().style.top).toBe('340px');
+        expect(popup().style.maxHeight).toBe('min(400px, calc(460px - var(--adb-spacing-sm)))');
+      });
+
+      it('should open above the field when there is too little room below it', () => {
+        vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(700, 740));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        expect(popup().classList).toContain('autocomplete-list--above');
+        expect(popup().style.top).toBe('');
+        expect(popup().style.bottom).toBe('100px');
+        expect(popup().style.maxHeight).toBe('min(400px, calc(700px - var(--adb-spacing-sm)))');
+      });
+
+      it('should not reposition when only the list itself scrolls', () => {
+        const fieldRect = vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(100, 140));
+        component.showAutocomplete.set(true);
+        fixture.detectChanges();
+
+        fieldRect.mockClear();
+        popup().dispatchEvent(new Event('scroll'));
+        fixture.detectChanges();
+
+        expect(fieldRect).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('no results', () => {
