@@ -1,0 +1,61 @@
+<adb-search
+  #search
+  size="sm"
+  [attr.variant]="variant()"
+  button-variant="filled"
+  [attr.placeholder]="placeholder() ?? label()"
+  [attr.label]="label()"
+  (adb-input)="onSearchInput($event)"
+  (adb-search)="onSearchSubmit()"
+  (adb-clear)="onSearchClear()"
+></adb-search>
+<!-- Live region must exist in the DOM before results arrive — a region injected
+     already populated is never announced by screen readers. -->
+<div class="sr-only" role="status" aria-atomic="true">
+  @if (showAutocomplete()) {
+    {{ 'autocomplete.resultCount' | translate: { count: results().length } }}
+  } @else if (showNoResults()) {
+    {{ 'autocomplete.noResults' | translate }}
+  }
+</div>
+<!-- mousedown is cancelled so a click on the popup keeps focus in the field
+     instead of closing the popup through focusout before the click lands. -->
+@if (showAutocomplete()) {
+  <ul
+    class="autocomplete-list"
+    role="listbox"
+    [attr.aria-label]="listLabel() ?? label()"
+    [style.top.px]="popupPosition().top"
+    [style.left.px]="popupPosition().left"
+    [style.width.px]="popupPosition().width"
+    (mousedown)="$event.preventDefault()"
+  >
+    @for (item of results(); track trackBy()(item) ?? $index) {
+      <li
+        class="autocomplete-item"
+        [class.autocomplete-item--active]="highlightedIndex() === $index"
+        [id]="optionIdPrefix + $index"
+        role="option"
+        [attr.aria-selected]="highlightedIndex() === $index"
+        [attr.tabindex]="highlightedIndex() === $index ? 0 : -1"
+        (click)="select(item)"
+        (keydown.enter)="select(item)"
+        (keydown.space)="select(item); $event.preventDefault()"
+      >
+        <ng-container *ngTemplateOutlet="optionTemplate().template; context: { $implicit: item, term: searchTerm() }" />
+      </li>
+    }
+  </ul>
+}
+@if (showNoResults()) {
+  <div
+    class="autocomplete-list autocomplete-no-results"
+    [style.top.px]="popupPosition().top"
+    [style.left.px]="popupPosition().left"
+    [style.width.px]="popupPosition().width"
+    (mousedown)="$event.preventDefault()"
+  >
+    <adb-icon name="info" size="md"></adb-icon>
+    <span>{{ noResultsKey() | translate: { searchTerm: searchTerm() } }}</span>
+  </div>
+}

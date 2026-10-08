@@ -1,11 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { of, Subject } from 'rxjs';
-import { SpeciesSearchComponent } from './species-search.component';
-import { SpeciesSearchService } from '../../services/species-search/species-search.service';
+import { TranslateModule } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
+import { SpeciesResultRow, SpeciesSearchComponent, getMatchLine, getVernacularName, toResultRow } from './species-search.component';
+import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SpeciesDto } from '../../types/api.types';
 
@@ -15,7 +16,7 @@ describe('SpeciesSearchComponent', () => {
   let filterState: FilterStateService;
   let httpTesting: HttpTestingController;
 
-  const mockSpecies = [
+  const mockSpecies: SpeciesDto[] = [
     {
       taxonId: 1234,
       scientificName: 'Parus major',
@@ -51,341 +52,60 @@ describe('SpeciesSearchComponent', () => {
     httpTesting.verify();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+  function showRows(term: string, species: SpeciesDto[]): HTMLElement {
+    const autocomplete: AutocompleteComponent<SpeciesResultRow> = fixture.debugElement.query(
+      By.directive(AutocompleteComponent),
+    ).componentInstance;
+    autocomplete.searchTerm.set(term);
+    autocomplete.results.set(species.map(toResultRow));
+    autocomplete.showAutocomplete.set(true);
+    fixture.detectChanges();
+    return fixture.nativeElement;
+  }
 
-  it('should hide autocomplete when input is less than 2 characters', () => {
-    component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'k' } }) as unknown as Event);
-    expect(component.showAutocomplete()).toBe(false);
-    expect(component.speciesResults().length).toBe(0);
-  });
-
-  it('should hide autocomplete and clear results on clear', () => {
-    component.speciesResults.set(mockSpecies);
-    component.showAutocomplete.set(true);
-    component.searchTerm.set('kj');
-
-    component.onSearchClear();
-
-    expect(component.showAutocomplete()).toBe(false);
-    expect(component.speciesResults().length).toBe(0);
-    expect(component.searchTerm()).toBe('');
-  });
-
-  it('should add taxonId to FilterStateService on species select', () => {
-    component.onSpeciesSelect(mockSpecies[0]);
+  it('should add taxonId to FilterStateService on select', () => {
+    component.onSelected(toResultRow(mockSpecies[0]));
     expect(filterState.selectedTaxonIds()).toContain(1234);
-  });
-
-  it('should clear search state after selecting a species', () => {
-    component.speciesResults.set(mockSpecies);
-    component.showAutocomplete.set(true);
-    component.searchTerm.set('kj');
-
-    component.onSpeciesSelect(mockSpecies[0]);
-
-    expect(component.showAutocomplete()).toBe(false);
-    expect(component.speciesResults().length).toBe(0);
-    expect(component.searchTerm()).toBe('');
   });
 
   it('should not add to filter if taxonId is null', () => {
-    component.onSpeciesSelect({ taxonId: undefined, scientificName: 'Test' });
+    component.onSelected(toResultRow({ taxonId: undefined, scientificName: 'Test' }));
     expect(filterState.selectedTaxonIds().length).toBe(0);
   });
 
-  it('should select first result on search submit', () => {
-    component.speciesResults.set(mockSpecies);
-    component.showAutocomplete.set(true);
-    component.onSearchSubmit();
-    expect(filterState.selectedTaxonIds()).toContain(1234);
+  it('should search species and map the response to rows for the term', async () => {
+    const rows = firstValueFrom(component.search('kjøtt'));
+    httpTesting.expectOne((req) => req.url === '/api/Search/Species' && req.params.get('search') === 'kjøtt').flush(mockSpecies);
+    expect((await rows).map((row) => row.vernacularName)).toEqual(['Kjøttmeis', 'Blåmeis']);
   });
 
-  it('should do nothing on submit when no results', () => {
-    component.speciesResults.set([]);
-    component.onSearchSubmit();
-    expect(filterState.selectedTaxonIds().length).toBe(0);
+  it('should add the taxon when an option is clicked', () => {
+    const element = showRows('meis', mockSpecies);
+    element.querySelectorAll<HTMLElement>('.autocomplete-item')[1].click();
+    expect(filterState.selectedTaxonIds()).toEqual([5678]);
   });
 
-  it('should fire a new request when retyping the same term after a selection', () => {
-    vi.useFakeTimers();
-    try {
-      const service = TestBed.inject(SpeciesSearchService);
-      const searchSpy = vi.spyOn(service, 'searchSpecies').mockReturnValue(of(mockSpecies));
-      const input = (value: string) =>
-        component.onSearchInput(new CustomEvent('adb-input', { detail: { value } }) as unknown as Event);
-
-      input('kj');
-      vi.advanceTimersByTime(300);
-      expect(searchSpy).toHaveBeenCalledTimes(1);
-
-      component.onSpeciesSelect(mockSpecies[0]);
-      input('kj');
-      vi.advanceTimersByTime(300);
-      expect(searchSpy).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
+  it('should render matches in the vernacular name as mark elements', () => {
+    const vernacular = showRows('kjøtt', [mockSpecies[0]]).querySelector('.autocomplete-vernacular');
+    expect(vernacular?.querySelector('mark')?.textContent).toBe('Kjøtt');
+    expect(vernacular?.textContent).toBe('Kjøttmeis');
   });
 
-  it('should not reopen the popup when an in-flight response lands after Escape', () => {
-    vi.useFakeTimers();
-    try {
-      const service = TestBed.inject(SpeciesSearchService);
-      const pending = new Subject<SpeciesDto[]>();
-      vi.spyOn(service, 'searchSpecies').mockReturnValue(pending.asObservable());
-      component.speciesResults.set(mockSpecies);
-      component.showAutocomplete.set(true);
-
-      component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'kjø' } }) as unknown as Event);
-      vi.advanceTimersByTime(300);
-      component.onKeydown(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
-      expect(component.showAutocomplete()).toBe(false);
-
-      pending.next(mockSpecies);
-      expect(component.showAutocomplete()).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('should cancel an in-flight request and stay closed when cleared', () => {
-    vi.useFakeTimers();
-    try {
-      const service = TestBed.inject(SpeciesSearchService);
-      const pending = new Subject<SpeciesDto[]>();
-      vi.spyOn(service, 'searchSpecies').mockReturnValue(pending.asObservable());
-
-      component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'kjø' } }) as unknown as Event);
-      vi.advanceTimersByTime(300);
-      component.onSearchClear();
-      vi.advanceTimersByTime(0); // only the 0 ms path can have fired
-      expect(pending.observed).toBe(false); // inner subscription torn down
-      pending.next(mockSpecies); // late response is a no-op
-      expect(component.showAutocomplete()).toBe(false);
-      expect(component.speciesResults().length).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('should keep dismissed results fresh for an ArrowDown reopen', () => {
-    vi.useFakeTimers();
-    try {
-      const service = TestBed.inject(SpeciesSearchService);
-      const pending = new Subject<SpeciesDto[]>();
-      vi.spyOn(service, 'searchSpecies').mockReturnValue(pending.asObservable());
-
-      component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'kjø' } }) as unknown as Event);
-      vi.advanceTimersByTime(300);
-      component.speciesResults.set(mockSpecies);
-      component.showAutocomplete.set(true);
-      component.onKeydown(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
-
-      const fresh = [{ ...mockSpecies[0], taxonId: 9999 }];
-      pending.next(fresh);
-      expect(component.showAutocomplete()).toBe(false);
-      expect(component.speciesResults()[0].taxonId).toBe(9999);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('should restore focus to the first option when a response replaces the list', () => {
-    vi.useFakeTimers();
-    try {
-      const service = TestBed.inject(SpeciesSearchService);
-      const first = new Subject<SpeciesDto[]>();
-      const second = new Subject<SpeciesDto[]>();
-      const searchSpy = vi.spyOn(service, 'searchSpecies');
-      searchSpy.mockReturnValueOnce(first.asObservable()).mockReturnValueOnce(second.asObservable());
-      const input = (value: string) =>
-        component.onSearchInput(new CustomEvent('adb-input', { detail: { value } }) as unknown as Event);
-
-      input('kj');
-      vi.advanceTimersByTime(300);
-      first.next(mockSpecies);
-      fixture.detectChanges();
-      fixture.nativeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true }));
-      fixture.detectChanges();
-      expect(fixture.nativeElement.ownerDocument.activeElement?.id).toBe('species-option-0');
-
-      input('kjø');
-      vi.advanceTimersByTime(300);
-      second.next([{ ...mockSpecies[1], taxonId: 9999 }]);
-      fixture.detectChanges();
-
-      expect(component.highlightedIndex()).toBe(0);
-      expect(fixture.nativeElement.ownerDocument.activeElement?.id).toBe('species-option-0');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  describe('keyboard navigation', () => {
-    // Dispatch real bubbling events so the host: { '(keydown)': ... } binding is
-    // actually exercised — calling onKeydown() directly would pass even if the
-    // binding were deleted.
-    const keydown = (key: string, target?: HTMLElement) => {
-      const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true });
-      (target ?? fixture.nativeElement).dispatchEvent(event);
-      return event;
-    };
-
-    beforeEach(() => {
-      component.speciesResults.set(mockSpecies);
-      component.showAutocomplete.set(true);
-    });
-
-    it('should handle arrow keys bubbling up from a focused option', () => {
-      fixture.detectChanges();
-      component.highlightedIndex.set(0);
-      const option = fixture.nativeElement.querySelector('#species-option-0') as HTMLElement;
-      keydown('ArrowDown', option);
-      expect(component.highlightedIndex()).toBe(1);
-    });
-
-    it('should move highlight down on ArrowDown', () => {
-      keydown('ArrowDown');
-      expect(component.highlightedIndex()).toBe(0);
-      keydown('ArrowDown');
-      expect(component.highlightedIndex()).toBe(1);
-    });
-
-    it('should wrap to first item when pressing ArrowDown on the last item', () => {
-      keydown('ArrowDown');
-      keydown('ArrowDown');
-      keydown('ArrowDown');
-      expect(component.highlightedIndex()).toBe(0);
-    });
-
-    it('should wrap to last item when pressing ArrowUp with nothing highlighted', () => {
-      keydown('ArrowUp');
-      expect(component.highlightedIndex()).toBe(1);
-    });
-
-    it('should prevent default on arrow keys', () => {
-      expect(keydown('ArrowDown').defaultPrevented).toBe(true);
-      expect(keydown('ArrowUp').defaultPrevented).toBe(true);
-    });
-
-    it('should ignore arrow keys when there are no results', () => {
-      component.showAutocomplete.set(false);
-      component.speciesResults.set([]);
-      const event = keydown('ArrowDown');
-      expect(component.highlightedIndex()).toBe(-1);
-      expect(component.showAutocomplete()).toBe(false);
-      expect(event.defaultPrevented).toBe(false);
-    });
-
-    it('should select the highlighted item on submit', () => {
-      keydown('ArrowDown');
-      keydown('ArrowDown');
-      component.onSearchSubmit();
-      expect(filterState.selectedTaxonIds()).toContain(5678);
-    });
-
-    it('should fall back to the first result on submit when nothing is highlighted', () => {
-      component.onSearchSubmit();
-      expect(filterState.selectedTaxonIds()).toContain(1234);
-    });
-
-    it('should close the dropdown and reset the highlight on Escape', () => {
-      keydown('ArrowDown');
-      component.onSearchClear();
-      component.speciesResults.set(mockSpecies);
-      component.showAutocomplete.set(true);
-      keydown('ArrowDown');
-      const event = keydown('Escape');
-      expect(event.defaultPrevented).toBe(true);
-      expect(component.showAutocomplete()).toBe(false);
-      expect(component.highlightedIndex()).toBe(-1);
-    });
-
-    it('should not select anything on submit after Escape dismissed the popup', () => {
-      keydown('Escape');
-      component.onSearchSubmit();
-      expect(filterState.selectedTaxonIds().length).toBe(0);
-    });
-
-    it('should reopen the popup on ArrowDown after Escape dismissed it', () => {
-      fixture.detectChanges();
-      keydown('Escape');
-      fixture.detectChanges();
-      // The list must really be gone from the DOM — focus must survive that.
-      expect(fixture.nativeElement.querySelector('.autocomplete-list')).toBeNull();
-      keydown('ArrowDown');
-      expect(component.showAutocomplete()).toBe(true);
-      expect(component.highlightedIndex()).toBe(0);
-      fixture.detectChanges();
-      expect(fixture.nativeElement.ownerDocument.activeElement?.id).toBe('species-option-0');
-    });
-
-    it('should keep the live region in the DOM even when the popup is closed', () => {
-      component.showAutocomplete.set(false);
-      component.showNoResults.set(false);
-      fixture.detectChanges();
-      expect(fixture.nativeElement.querySelector('[role="status"]')).toBeTruthy();
-    });
-
-    it('should announce the result count in the live region when open', () => {
-      fixture.detectChanges();
-      const liveRegion = fixture.nativeElement.querySelector('[role="status"]');
-      expect(liveRegion).toBeTruthy();
-      expect(liveRegion.textContent.trim().length).toBeGreaterThan(0);
-    });
-
-    it('should reset the highlight on new input', () => {
-      keydown('ArrowDown');
-      component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'kjø' } }) as unknown as Event);
-      expect(component.highlightedIndex()).toBe(-1);
-    });
-
-    it('should reset the highlight after selecting a species', () => {
-      keydown('ArrowDown');
-      component.onSpeciesSelect(mockSpecies[0]);
-      expect(component.highlightedIndex()).toBe(-1);
-    });
-
-    it('should rove tabindex so only the highlighted option is tabbable', () => {
-      fixture.detectChanges();
-      keydown('ArrowDown');
-      fixture.detectChanges();
-      const options = fixture.nativeElement.querySelectorAll('.autocomplete-item');
-      expect(options[0].getAttribute('tabindex')).toBe('0');
-      expect(options[1].getAttribute('tabindex')).toBe('-1');
-    });
-
-    it('should move DOM focus to the highlighted option', () => {
-      fixture.detectChanges();
-      keydown('ArrowDown');
-      fixture.detectChanges();
-      expect(fixture.nativeElement.ownerDocument.activeElement?.id).toBe('species-option-0');
-    });
-
-    it('should select the species on Enter keydown on an option', () => {
-      fixture.detectChanges();
-      const option = fixture.nativeElement.querySelector('#species-option-1');
-      option.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      fixture.detectChanges();
-      expect(filterState.selectedTaxonIds()).toContain(5678);
-    });
-
-    it('should select the species on Space keydown on an option', () => {
-      fixture.detectChanges();
-      const option = fixture.nativeElement.querySelector('#species-option-1');
-      const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
-      option.dispatchEvent(event);
-      fixture.detectChanges();
-      expect(filterState.selectedTaxonIds()).toContain(5678);
-      expect(event.defaultPrevented).toBe(true);
-    });
+  it('should render the formatted scientific name with italics and marks', () => {
+    const scientific = showRows('pubescens', [
+      {
+        taxonId: 1,
+        scientificName: 'Betula pubescens subsp. pubescens',
+        scientificNameFormatted: '<i>Betula pubescens </i>subsp.<i> pubescens</i>',
+      },
+    ]).querySelector('.autocomplete-scientific');
+    expect(scientific?.textContent).toBe('Betula pubescens subsp. pubescens');
+    expect(scientific?.querySelectorAll('i mark').length).toBe(2);
   });
 
   describe('getVernacularName', () => {
     it('should return nb language name when available', () => {
-      expect(component.getVernacularName(mockSpecies[0])).toBe('Kjøttmeis');
+      expect(getVernacularName(mockSpecies[0])).toBe('Kjøttmeis');
     });
 
     it('should return first name when nb is not available', () => {
@@ -394,122 +114,16 @@ describe('SpeciesSearchComponent', () => {
         scientificName: 'Test',
         preferredVernacularNames: [{ name: 'English Name', language: 'en' }],
       };
-      expect(component.getVernacularName(species)).toBe('English Name');
+      expect(getVernacularName(species)).toBe('English Name');
     });
 
     it('should return empty string when no vernacular names', () => {
-      expect(component.getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: [] })).toBe('');
-      expect(component.getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: undefined })).toBe('');
+      expect(getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: [] })).toBe('');
+      expect(getVernacularName({ taxonId: 1, scientificName: 'Test', preferredVernacularNames: undefined })).toBe('');
     });
   });
 
-  describe('highlightMatch', () => {
-    const marked = (text: string, italic = false) => ({ text, isMatch: true, italic });
-    const plain = (text: string, italic = false) => ({ text, isMatch: false, italic });
-
-    it('should mark the matching substring', () => {
-      component.searchTerm.set('kjøtt');
-      expect(component.highlightMatch('Kjøttmeis')).toEqual([marked('Kjøtt'), plain('meis')]);
-    });
-
-    it('should mark a match inside a word', () => {
-      component.searchTerm.set('ulke');
-      expect(component.highlightMatch('Sargassoulke')).toEqual([plain('Sargasso'), marked('ulke')]);
-    });
-
-    it('should highlight multiple words independently', () => {
-      component.searchTerm.set('kj m');
-      expect(component.highlightMatch('Kjøttmeis')).toEqual([marked('Kj'), plain('øtt'), marked('m'), plain('eis')]);
-    });
-
-    it('should return the whole text unmarked when no search term', () => {
-      component.searchTerm.set('');
-      expect(component.highlightMatch('Kjøttmeis')).toEqual([plain('Kjøttmeis')]);
-    });
-
-    it('should return no segments for null/undefined input', () => {
-      component.searchTerm.set('test');
-      expect(component.highlightMatch(null)).toEqual([]);
-      expect(component.highlightMatch(undefined)).toEqual([]);
-    });
-
-    it('should escape regex special characters in search term', () => {
-      component.searchTerm.set('test(1)');
-      expect(component.highlightMatch('this is test(1) here')).toEqual([
-        plain('this is '),
-        marked('test(1)'),
-        plain(' here'),
-      ]);
-    });
-
-    it('should keep the italic parts of a formatted name', () => {
-      component.searchTerm.set('pub sub');
-      expect(component.highlightMatch('<i>Betula pubescens </i>subsp.<i> pubescens</i>', true)).toEqual([
-        plain('Betula ', true),
-        marked('pub', true),
-        plain('escens ', true),
-        marked('sub'),
-        plain('sp.'),
-        plain(' ', true),
-        marked('pub', true),
-        plain('escens', true),
-      ]);
-    });
-
-    it('should highlight a match that crosses a tag boundary', () => {
-      component.searchTerm.set('×multi');
-      expect(component.highlightMatch('<i>Salix </i>×<i>multinervis</i>', true)).toEqual([
-        plain('Salix ', true),
-        marked('×'),
-        marked('multi', true),
-        plain('nervis', true),
-      ]);
-    });
-
-    it('should render only the text of tags other than i', () => {
-      component.searchTerm.set('');
-      expect(component.highlightMatch('<img src="x"><b>Parus</b> <i>major</i>', true)).toEqual([
-        plain('Parus'),
-        plain(' '),
-        plain('major', true),
-      ]);
-    });
-
-    it('should render matches as mark elements', () => {
-      component.searchTerm.set('kjøtt');
-      component.speciesResults.set([mockSpecies[0]]);
-      component.showAutocomplete.set(true);
-      fixture.detectChanges();
-      const vernacular = fixture.nativeElement.querySelector('.autocomplete-vernacular');
-      expect(vernacular.querySelector('mark').textContent).toBe('Kjøtt');
-      expect(vernacular.textContent).toBe('Kjøttmeis');
-    });
-
-    it('should render the formatted scientific name with italics and marks', () => {
-      component.searchTerm.set('pubescens');
-      component.speciesResults.set([
-        {
-          taxonId: 1,
-          scientificName: 'Betula pubescens subsp. pubescens',
-          scientificNameFormatted: '<i>Betula pubescens </i>subsp.<i> pubescens</i>',
-        },
-      ]);
-      component.showAutocomplete.set(true);
-      fixture.detectChanges();
-      const scientific = fixture.nativeElement.querySelector('.autocomplete-scientific');
-      expect(scientific.textContent).toBe('Betula pubescens subsp. pubescens');
-      expect([...scientific.querySelectorAll('i')].map((i) => i.textContent)).toEqual([
-        'Betula ',
-        'pubescens',
-        ' ',
-        ' ',
-        'pubescens',
-      ]);
-      expect(scientific.querySelectorAll('i mark').length).toBe(2);
-    });
-  });
-
-  describe('resultRows', () => {
+  describe('result rows', () => {
     const coryphellaSynonym: SpeciesDto = {
       taxonId: 100,
       scientificName: 'Fjordia chriskaugei',
@@ -521,19 +135,15 @@ describe('SpeciesSearchComponent', () => {
       scientificNameSynonyms: [{ name: 'Coryphella chriskaugei', nameFormatted: '<i>Coryphella chriskaugei</i>' }],
     };
 
-    function rowFor(term: string, species: SpeciesDto = coryphellaSynonym) {
-      component.searchTerm.set(term);
-      component.speciesResults.set([species]);
-      return component.resultRows()[0];
-    }
+    const matchLineFor = (term: string, species: SpeciesDto = coryphellaSynonym) => getMatchLine(toResultRow(species), term);
 
     it('should show no match line when the name itself matches', () => {
-      expect(rowFor('fjordia chris').matchLine).toBeNull();
-      expect(rowFor('flanell').matchLine).toBeNull();
+      expect(matchLineFor('fjordia chris')).toBeNull();
+      expect(matchLineFor('flanell')).toBeNull();
     });
 
     it('should show the formatted scientific synonym when only it matches', () => {
-      expect(rowFor('coryphella chris').matchLine).toEqual({
+      expect(matchLineFor('coryphella chris')).toEqual({
         kind: 'synonym',
         text: '<i>Coryphella chriskaugei</i>',
         isMarkup: true,
@@ -542,47 +152,45 @@ describe('SpeciesSearchComponent', () => {
 
     it('should fall back to the plain scientific synonym when it has no formatted name', () => {
       const species = { ...coryphellaSynonym, scientificNameSynonyms: [{ name: 'Coryphella chriskaugei' }] };
-      expect(rowFor('coryphella chris', species).matchLine?.text).toBe('Coryphella chriskaugei');
+      expect(matchLineFor('coryphella chris', species)?.text).toBe('Coryphella chriskaugei');
     });
 
     it('should show a vernacular synonym when only it matches', () => {
-      expect(rowFor('lodden').matchLine).toEqual({ kind: 'synonym', text: 'Lodden flanellsnegl', isMarkup: false });
+      expect(matchLineFor('lodden')).toEqual({ kind: 'synonym', text: 'Lodden flanellsnegl', isMarkup: false });
     });
 
     it('should show the author when it matches', () => {
-      expect(rowFor('padula').matchLine).toEqual({ kind: 'author', text: 'Padula, 2014', isMarkup: false });
+      expect(matchLineFor('padula')).toEqual({ kind: 'author', text: 'Padula, 2014', isMarkup: false });
     });
 
     it('should show the taxon id for a numeric search', () => {
-      expect(rowFor('100').matchLine).toEqual({ kind: 'id', text: '100', isMarkup: false });
+      expect(matchLineFor('100')).toEqual({ kind: 'id', text: '100', isMarkup: false });
     });
 
     it('should fall back to the plain scientific name when it has no formatted name', () => {
-      expect(rowFor('flanell').scientificNameMarkup).toBe('Fjordia chriskaugei');
-      expect(
-        rowFor('flanell', { ...coryphellaSynonym, scientificNameFormatted: '<i>Fjordia chriskaugei</i>' })
-          .scientificNameMarkup,
-      ).toBe('<i>Fjordia chriskaugei</i>');
+      expect(toResultRow(coryphellaSynonym).scientificNameMarkup).toBe('Fjordia chriskaugei');
+      expect(toResultRow({ ...coryphellaSynonym, scientificNameFormatted: '<i>Fjordia chriskaugei</i>' }).scientificNameMarkup).toBe(
+        '<i>Fjordia chriskaugei</i>',
+      );
     });
 
     it('should expose the vernacular name and taxon group', () => {
-      const row = rowFor('flanell');
+      const row = toResultRow(coryphellaSynonym);
       expect(row.vernacularName).toBe('Flanellsnegl');
       expect(row.species.taxonGroupName).toBe('Bløtdyr');
     });
-  });
 
-  describe('no results', () => {
-    it('should show the search term in the message', () => {
-      const translate = TestBed.inject(TranslateService);
-      translate.setTranslation('no', { sidebar: { noSearchResultsFor: 'Ingen treff på “{{searchTerm}}”.' } });
-      translate.use('no');
-      component.searchTerm.set('Coryfella');
-      component.showNoResults.set(true);
+    it('should update the match line as the term changes, like the highlighting', () => {
+      const element = showRows('coryphella', [coryphellaSynonym]);
+      expect(element.querySelector('.autocomplete-match')?.textContent).toContain('Coryphella chriskaugei');
+
+      const autocomplete: AutocompleteComponent<SpeciesResultRow> = fixture.debugElement.query(
+        By.directive(AutocompleteComponent),
+      ).componentInstance;
+      autocomplete.searchTerm.set('flanell');
       fixture.detectChanges();
-      const message = fixture.nativeElement.querySelector('.autocomplete-no-results');
-      expect(message.textContent).toContain('Ingen treff på “Coryfella”.');
-      expect(message.querySelector('adb-icon[name="info"]')).toBeTruthy();
+
+      expect(element.querySelector('.autocomplete-match')).toBeNull();
     });
   });
 });
