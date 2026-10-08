@@ -167,7 +167,7 @@
     "precision": "Presisjon",
     "taxonGroup": "Artsgruppe",
     "riskCategory": "Risikokategori",
-    "noResults": "Ingen observasjoner funnet"
+    "noResults": "Valgt filter har ingen registreringer"
   },
   "sidebar": {
     "categories": "Rødliste- og fremmedartskategorier",
