@@ -88,6 +88,13 @@ describe('ObservationPanel', () => {
     expect(panel.rawId()).toBeNull();
   });
 
+  it('forwards closing the list', () => {
+    const listClosed = vi.fn();
+    panel.listClosed.subscribe(listClosed);
+    panel.list()!.dismiss.emit();
+    expect(listClosed).toHaveBeenCalledOnce();
+  });
+
   it('preserves the list, follows tree order, wraps, and records browser history', async () => {
     const list = panel.list()!;
     list.currentFilter.set('location');

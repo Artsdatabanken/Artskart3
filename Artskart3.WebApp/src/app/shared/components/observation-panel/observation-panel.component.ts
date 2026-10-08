@@ -24,6 +24,7 @@ export class ObservationPanelComponent {
   readonly retry = output<void>();
   readonly activePoint = output<ObservationPointDto | null>();
   readonly detailsOpened = output<void>();
+  readonly listClosed = output<void>();
   readonly list = viewChild(ObservationListComponent);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly router = inject(Router);
@@ -129,6 +130,11 @@ export class ObservationPanelComponent {
     if (this.rawId() !== null) this.navigate(null, true, null);
   }
 
+  closeList(): void {
+    this.listClosed.emit();
+    this.restoreFocus(null);
+  }
+
   retryDetails(): void {
     this.retryDetail.next();
   }
@@ -154,8 +160,7 @@ export class ObservationPanelComponent {
     this.state.set('error');
   }
 
-  private restoreFocus(): void {
-    const target = this.returnFocus;
+  private restoreFocus(target = this.returnFocus): void {
     afterNextRender(
       () => {
         if (target?.isConnected) target.focus({ preventScroll: true });
