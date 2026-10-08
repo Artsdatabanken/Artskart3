@@ -382,6 +382,97 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
     };
 
+    /// <summary>
+    /// Øvre periodegrense er eksklusiv, som i søkestiene (se PeriodBounds).
+    ///
+    /// Formen var <c>&lt;= 31.12 23:59:59</c>, og DateTimeCollected er datetime2(7):
+    /// en observasjon klokka 23:59:59,5 nyttårsaften falt utenfor et filter som
+    /// eksplisitt inkluderte året. Den var altså med i listen og på kartet, men
+    /// borte fra CSV-en for samme filter.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithPeriodTo_IncluderSisteBroekdelAvAaret()
+    {
+        using var context = CreateInMemoryContext();
+
+        var sisteOejeblikk = CreateObservation(1);
+        sisteOejeblikk.DateTimeCollected = new DateTime(2024, 12, 31, 23, 59, 59).AddTicks(5_000_000);
+
+        var nesteAar = CreateObservation(2);
+        nesteAar.DateTimeCollected = new DateTime(2025, 1, 1);
+
+        SeedObservations(context, sisteOejeblikk, nesteAar);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { To = 2024 }
+        });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Månedsfilteret leser MonthCollected, ikke DATEPART på datoen — samme kolonne
+    /// og samme form som listevisningen, slik at CSV-en inneholder de radene listen
+    /// viste.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithMonths_LeserMonthCollected()
+    {
+        using var context = CreateInMemoryContext();
+
+        // MonthCollected settes eksplisitt: i databasen er den beregnet av
+        // DateTimeCollected, men in-memory-provideren regner ikke ut beregnede
+        // kolonner. Det er predikatet som testes her, ikke kolonneuttrykket.
+        var mai = CreateObservation(1);
+        mai.DateTimeCollected = new DateTime(2024, 5, 17);
+        mai.MonthCollected = 5;
+
+        var desember = CreateObservation(2);
+        desember.DateTimeCollected = new DateTime(2024, 12, 24);
+        desember.MonthCollected = 12;
+
+        var utenMaaned = CreateObservation(3);
+        utenMaaned.DateTimeCollected = null;
+        utenMaaned.MonthCollected = null;
+
+        SeedObservations(context, mai, desember, utenMaaned);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { Months = [5] }
+        });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Bare ugyldige måneder gir tomt, aldri ufiltrert — samme tomlisteguard som
+    /// listevisningen. Validatoren avviser slike filtre, men et lagret filter kan
+    /// være laget før den ble streng.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithBareUgyldigeMaaneder_ReturnererTomt()
+    {
+        using var context = CreateInMemoryContext();
+
+        var mai = CreateObservation(1);
+        mai.DateTimeCollected = new DateTime(2024, 5, 17);
+        mai.MonthCollected = 5;
+
+        SeedObservations(context, mai);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { Months = [0, 13] }
+        });
+
+        result.Should().BeEmpty();
+    }
+
     private static List<Observation> Apply(
         ArtskartDbContext context,
         ObservationSearchFilterDto filter,

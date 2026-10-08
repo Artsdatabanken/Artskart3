@@ -50,6 +50,12 @@ public class AreaCountCacheService : IAreaCountCacheService
     /// <summary>Én dimensjon med bøttene ferdig oppløst til id-er eller et intervall.</summary>
     private sealed record ResolvedDimension(byte DimensionId, int[]? Buckets, BucketRange? Range);
 
+    /// <summary>
+    /// Tilstanden bufferen ble lest under. Sammenlignes etter lesingen, se
+    /// <see cref="BekreftTilstandAsync"/>.
+    /// </summary>
+    private sealed record CacheTilstand(string Status, int SchemaVersion, long? SourceRows, DateTime? BuiltAt);
+
     /// <inheritdoc />
     public async Task<Dictionary<(int EntityTypeId, int EntityId), int>?> TryGetCountsAsync(
         LocationSearchFilterDto filter,
@@ -93,7 +99,8 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (active.Count == 2 && !_options.EnableLevel2)
             return null;
 
-        if (!await IsReadyAsync(cancellationToken))
+        var tilstand = await KlarTilstandAsync(cancellationToken);
+        if (tilstand is null)
             return null;
 
         // Samme cellefilter som ComputeFilteredAreaCounts bruker, med samme forbehold:
@@ -133,8 +140,11 @@ public class AreaCountCacheService : IAreaCountCacheService
             // Tom bøtteliste er noe annet: filteret treffer ingen bøtte, altså ingen
             // observasjoner. Tomt resultat, aldri ufiltrert — samme utfall som
             // spørringen ville gitt, og uten en spørring som garantert gir null rader.
+            //
+            // Bekreftes likevel: oppslaget over leste medlemstabellen, og en halvveis
+            // tømt medlemstabell kan gi «ingen bøtte» for et filter som har treff.
             if (one.Buckets is { Length: 0 })
-                return [];
+                return await BekreftTilstandAsync(tilstand, cancellationToken) ? [] : null;
 
             resolved.Add(one);
         }
@@ -142,10 +152,52 @@ public class AreaCountCacheService : IAreaCountCacheService
         // Dimensjonene kommer i id-rekkefølge fordi AreaCountCacheDimensions.All er
         // deklarert slik. Pargruppe-id-en sorterer også, så BucketA hører alltid til
         // den laveste id-en.
-        return resolved.Count == 1
+        var resultat = resolved.Count == 1
             ? await LookupLevel1Async(resolved[0], entityTypeIds, entityIds, cancellationToken)
             : await LookupLevel2Async(resolved[0], resolved[1], entityTypeIds, entityIds, cancellationToken);
+
+        return await BekreftTilstandAsync(tilstand, cancellationToken) ? resultat : null;
     }
+
+    /// <summary>
+    /// Bekrefter at bufferen ikke ble bygget om mens den ble lest.
+    ///
+    /// Ferskhetssjekken skjer før lesingen, og mellom de to er det ingenting som
+    /// holder bufferen i ro. Byggeskriptene tømmer tabellene, så et oppslag midt i
+    /// en gjenoppbygging leser en halvveis tom buffer: resultatet blir for lave tall
+    /// eller en tom ordbok, og kalleren filtrerer bort hver celle med
+    /// ObservationCount = 0. Utfallet er et BLANKT kart med HTTP 200 — ingen
+    /// feilmelding, ingen logglinje, og ikke tilbakefallet til telling som
+    /// BuildAreaCountCache.sql lover.
+    ///
+    /// HVORFOR DET ER NOK Å LESE TILSTANDSRADEN PÅ NYTT
+    /// Begge byggeskriptene setter Status til «Building» FØR de tømmer noe — det er
+    /// dokumentert i dem som grunnen til rekkefølgen. En gjenoppbygging kan derfor
+    /// ikke røre dataene uten å ha endret denne raden først. Fullføres hele
+    /// byggingen mellom de to lesingene, er Status «Ready» igjen, men BuiltAt og
+    /// SourceRows er nye.
+    ///
+    /// Forkastes svaret, teller kalleren som før: tregere, aldri galt.
+    /// </summary>
+    private async Task<bool> BekreftTilstandAsync(CacheTilstand lest, CancellationToken cancellationToken)
+    {
+        var naa = await LesTilstandAsync(cancellationToken);
+
+        if (naa == lest)
+            return true;
+
+        _logger.LogWarning(
+            "Områdebufferen ble endret mens den ble lest (fra {Lest} til {Naa}). Svaret forkastes, og kallet teller i stedet.",
+            lest, naa);
+        return false;
+    }
+
+    private async Task<CacheTilstand?> LesTilstandAsync(CancellationToken cancellationToken) =>
+        await _context.Set<AreaCountCacheState>()
+            .AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new CacheTilstand(s.Status, s.SchemaVersion, s.SourceRows, s.BuiltAt))
+            .FirstOrDefaultAsync(cancellationToken);
 
     /// <summary>
     /// Bufferen brukes bare når den er ferdig bygget, bygget med samme
@@ -159,25 +211,28 @@ public class AreaCountCacheService : IAreaCountCacheService
     /// en import, en sletting, en backfill. Den fanger IKKE en endring som bytter
     /// verdier uten å endre antallet. Den er et sikkerhetsnett under importen, ikke
     /// en erstatning for at importen ugyldiggjør bufferen selv (se ImportJob).
+    ///
+    /// Returnerer tilstanden den sa ja til, ikke bare ja: den må bekreftes etter at
+    /// radene er lest. Se <see cref="BekreftTilstandAsync"/>.
     /// </summary>
-    private async Task<bool> IsReadyAsync(CancellationToken cancellationToken)
+    private async Task<CacheTilstand?> KlarTilstandAsync(CancellationToken cancellationToken)
     {
-        var state = await _context.Set<AreaCountCacheState>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
+        var state = await LesTilstandAsync(cancellationToken);
 
         if (state is null || state.Status != "Ready")
-            return false;
+            return null;
 
         if (state.SchemaVersion != AreaCountCacheDimensions.SchemaVersion)
         {
             _logger.LogWarning(
                 "Områdebufferen er bygget med skjemaversjon {Built}, koden forventer {Expected}. Bufferen ignoreres til den er bygget på nytt.",
                 state.SchemaVersion, AreaCountCacheDimensions.SchemaVersion);
-            return false;
+            return null;
         }
 
-        return await KildenErUendretAsync(state.SourceRows, "Områdebufferen", cancellationToken);
+        return await KildenErUendretAsync(state.SourceRows, "Områdebufferen", cancellationToken)
+            ? state
+            : null;
     }
 
     /// <summary>

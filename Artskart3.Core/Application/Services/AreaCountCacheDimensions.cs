@@ -56,8 +56,14 @@ public sealed record CacheDimensionContext(
 /// <param name="Name">Navn for logging og feilsøking.</param>
 /// <param name="Kind">Styrer hvordan <paramref name="Select"/>-resultatet tolkes.</param>
 /// <param name="SqlExpression">
-/// Uttrykket byggejobben grupperer på. Står her og ikke i jobben slik at dimensjonen
-/// beskrives ett sted; en dimensjon lagt til i lista er dermed automatisk med i bygget.
+/// Uttrykket byggejobben grupperer på, dokumentert her slik at dimensjonen beskrives
+/// ett sted.
+///
+/// MERK: en dimensjon lagt til i denne lista er IKKE automatisk med i bygget. Verdien
+/// her leses ikke av noe — byggeskriptene har sin egen #dim-liste, og begge to må
+/// endres i takt. Blir de ikke det, forskyves pargruppe-id-ene, og bufferen svarer
+/// riktige tall for feil par. Det er derfor CountCacheScriptSchemaVersionTests
+/// sammenligner listene, og hvorfor det ikke er nok å oppdatere @SchemaVersion.
 /// </param>
 /// <param name="Select">Leser dimensjonen ut av filteret.</param>
 public sealed record CacheDimension(

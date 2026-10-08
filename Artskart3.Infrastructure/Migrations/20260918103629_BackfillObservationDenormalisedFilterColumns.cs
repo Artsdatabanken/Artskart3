@@ -33,7 +33,8 @@ namespace Artskart3.Infrastructure.Migrations;
 ///
 /// MERK: vannmerket registrerer at ID-området er behandlet, ikke at dataene er
 /// riktige. Verifiseringen nederst er det som avgjør — og den leser mot kildene,
-/// ikke mot vannmerkene.
+/// ikke mot vannmerkene. Slår den til, nullstilles vannmerkene før feilen heves,
+/// slik at en ny kjøring gjør arbeidet om igjen i stedet for å hoppe over det.
 ///
 /// suppressTransaction: stegene tar minutter til sammen. I én transaksjon ville
 /// en timeout rullet tilbake alt, og migrasjonen aldri konvergert.
@@ -208,8 +209,23 @@ RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 
 IF @Avvik > 0
 BEGIN
+    -- Vannmerkene nullstilles FOER feilen heves, ellers kan migrasjonen ikke
+    -- konvergere. Stegene er gatet paa at vannmerket er 0, og alle tre er satt
+    -- naar verifiseringen kjoerer: en ny kjoering ville hoppet over alt arbeidet,
+    -- verifisert paa nytt og feilet likt. Siden feilen hindrer at migrasjonen
+    -- registreres i __EFMigrationsHistory, ville ingen senere migrasjon kommet
+    -- til foer noen redigerte dbo.BackfillProgress for haand.
+    --
+    -- Er aarsaken forbigaaende - en samtidig skriving mot kildetabellene - retter
+    -- en ny kjoering det av seg selv. Er den varig, feiler den som foer, men uten
+    -- at noen maa inn i databasen for aa komme videre.
+    DELETE FROM dbo.BackfillProgress
+    WHERE Section IN ('G1_ObservationRegistrationStatus',
+                      'G2_ObservationHasMediaFiles',
+                      'G3_ObservationBehavior');
+
     SET @Msg = CONCAT('UFULLSTENDIG: ', FORMAT(@Avvik, 'N0'),
-                      ' rader avviker fra kilden. Nullstill G1-G3 i dbo.BackfillProgress og kjoer paa nytt.');
+                      ' rader avviker fra kilden. Vannmerkene G1-G3 er nullstilt - kjoer paa nytt.');
     RAISERROR(@Msg, 16, 1) WITH NOWAIT;
 END
 ELSE

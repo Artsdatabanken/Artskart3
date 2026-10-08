@@ -10,7 +10,7 @@ kjøre når som helst; alt som skriver skal avklares først, og mot hvilken inst
 |---|---|---|---|
 | `BackfillAll.sql` | Autoritativ datafylling av `ObservationEntityIndex` og de denormaliserte filterkolonnene | **Ja** | Kjøres av migrasjon — ikke for hånd |
 | `BuildAreaCountCache.sql` | Bygger områdebufferen (`AreaCountCacheLevel1/2`) | **Ja** | Etter endring i dimensjonsregisteret, eller når bufferen er stale |
-| `BuildLocationCountCache.sql` | Bygger lokasjonsbufferen (`LocationCountCacheLevel1`) | **Ja** | Samme som over. ~6 min over 134 mill. kilderader |
+| `BuildLocationCountCache.sql` | Bygger lokasjonsbufferen (`LocationCountCacheLevel1`) | **Ja** | Samme som over, men **alltid etter** `BuildAreaCountCache.sql` — den låner bøttene derfra og nekter å bygge på foreldede. ~6 min over 134 mill. kilderader |
 | `BackfillOceanAndSvalbardAreas.sql` | Målrettet reparasjon av indeksen for områdetype 4 og 6 | **Ja** | Engangsverktøy — se *Reparasjon* under |
 | `RebuildLocationAreasForAreaTypes.sql` | Regner `LocationAreas` på nytt ved romlig snitt | **Ja** | Engangsverktøy — se *Reparasjon* under |
 | `VerifyLocationCountCache.sql` | Avstemmer lokasjonsbufferen mot tellingen, lokasjon for lokasjon | Nei | Etter hver bygging av bufferen |

@@ -784,4 +784,34 @@ public class SearchRepositoryTests
             TaxonIdHiarchy = string.Empty
         };
 
+    /// <summary>
+    /// Valget mellom grenformen og ELLER-formen. Grenformen henter TOP(skip + take)
+    /// PER gren og fletter i minnet, så det er produktet som må begrenses — ikke
+    /// grenantallet alene, som er det eneste taket som fantes.
+    /// </summary>
+    [Theory]
+    // Normale brukerreiser: side 1 med 10 per side gir take 40 med lookahead.
+    [InlineData(1, 40, false)]
+    [InlineData(64, 40, false)]
+    // Grenantallet alene over taket.
+    [InlineData(65, 1, true)]
+    [InlineData(1500, 1, true)]
+    // Lovlig grenantall, men dypt offset: 64 x (100 000 + 40 000) = 8,96 mill. rader.
+    [InlineData(64, 140_000, true)]
+    // Få grener, men dypt nok offset til å sprenge budsjettet alene.
+    [InlineData(4, 140_000, true)]
+    // Nøyaktig på budsjettet er innenfor; én rad over er utenfor.
+    [InlineData(50, 10_000, false)]
+    [InlineData(50, 10_001, true)]
+    public void BrukEllerFormen_BegrenserBaadeGrenerOgProdukt(int grener, int trengs, bool forventet) =>
+        SearchRepository.BrukEllerFormen(grener, trengs).Should().Be(forventet);
+
+    /// <summary>
+    /// Produktet må regnes i long. I int-aritmetikk ville 3 x 1 000 000 000 rent
+    /// over til et negativt tall, sammenligningen blitt falsk, og den dyreste
+    /// forespørselen av alle sluppet gjennom til grenformen.
+    /// </summary>
+    [Fact]
+    public void BrukEllerFormen_RennerIkkeOverVedStoreVerdier() =>
+        SearchRepository.BrukEllerFormen(3, 1_000_000_000).Should().BeTrue();
 }

@@ -45,13 +45,18 @@ public partial class AddLocationGeometryTypeId : Migration
     /// migrasjonene på denne grenen.
     ///
     /// En PERSISTERT beregnet kolonne skriver om HVER rad i Location: 5,1 millioner
-    /// rader, og den etterlot tabellen 95,4 % fragmentert (se
+    /// rader, og det etterlater tabellen 95,4 % fragmentert (målt, se
     /// DatabaseMaintenanceJob). Ligger arbeidet i migrasjonstransaksjonen, holdes
     /// tabellen under en skjemalås hele veien, og en timeout ruller tilbake både
     /// omskrivingen OG indeksen — altså alt, etter å ha betalt for alt.
     ///
-    /// Delt i to setninger med egne vakter i stedet: feiler indeksen, står kolonnen
+    /// Delt i tre setninger med egne vakter i stedet: feiler indeksen, står kolonnen
     /// igjen, og en ny kjøring hopper over den og tar bare indeksen.
+    ///
+    /// Tredje setning rydder fragmenteringen omskrivingen lager. Den er ubetinget og
+    /// har ingen vakt — en REBUILD som ikke trengs koster tid, ikke riktighet — og
+    /// den står sist fordi den skal rydde etter alt det andre. Dataene er korrekte
+    /// uten den; det er lagringen som er oppblåst, og den blir ikke bedre av seg selv.
     ///
     /// Uttrykket er duplisert fra ArtskartDbContext.LocationGeometryTypeSql med
     /// vilje — en migrasjon skal beskrive skjemaet slik det var da den ble skrevet,
@@ -87,12 +92,50 @@ public partial class AddLocationGeometryTypeId : Migration
                 ON dbo.Location (GeometryTypeId, East, North);
             END
 
-            -- MERK: omskrivingen over etterlater Location kraftig fragmentert - 95,4 %
-            -- maalt. En ALTER INDEX ALL ON dbo.Location REBUILD WITH (MAXDOP = 4) boer
-            -- kjoeres etter denne migrasjonen. Den staar IKKE her: den tar minutter,
-            -- og en betinget sjekk paa fragmenteringsgraden ville krevd
-            -- VIEW DATABASE STATE, altsaa gjort migrasjonen avhengig av en rettighet
-            -- den ellers ikke trenger. Se DatabaseMaintenanceJob.
+            """, suppressTransaction: true);
+
+        // --- Rydd opp etter omskrivingen -------------------------------------
+        //
+        // Den persisterte kolonnen over skriver om hver av de 5,1 millioner radene,
+        // radene vokser, sidene splittes - og tabellen staar igjen 95,4 % fragmentert
+        // (maalt, se DatabaseMaintenanceJob). Dataene er riktige; det er LAGRINGEN som
+        // er oppblaast, og SQL Server betaler i sider. Til sammenligning gikk
+        // PK_dbo.Observation fra 99,2 % og 16,0 GB til 0 % og 8,0 GB av en REBUILD:
+        // halvparten var luft som likevel ble lest fra disk.
+        //
+        // DETTE RYDDES IKKE AV SEG SELV. SQL Server har ingen bakgrunnsjobb som
+        // defragmenterer; en tabell som er 95,4 % fragmentert blir det til noen
+        // kjoerer REBUILD. Kommentaren her pekte tidligere paa DatabaseMaintenanceJob,
+        // men den er ikke implementert - og ikke registrert noe sted - saa i praksis
+        // ville ingenting kjoert den. Da hoerer den her, i migrasjonen som laget
+        // rotet: 538 -> 504 s paa Standard-nivaaet i ytelsessuiten, og en
+        // Locations-"regresjon" paa 23 % som viste seg aa vaere fragmentering og ikke
+        // kode, er prisen for aa utsette den.
+        //
+        // UBETINGET, UTEN FRAGMENTERINGSSJEKK. En betinget sjekk ville krevd
+        // sys.dm_db_index_physical_stats og dermed VIEW DATABASE STATE - en rettighet
+        // migrasjonen ellers ikke trenger, og som en least-privilege-paalogging ikke
+        // har. En REBUILD som ikke trengs koster tid, ikke riktighet, og paa en fersk
+        // database er den momentan fordi det ikke finnes sider aa flytte.
+        //
+        // SIST I Up(): en nyopprettet indeks er tett i utgangspunktet, saa
+        // IX_Location_GeometryTypeEastNorth over trenger ingen rebuild - det er
+        // klyngeindeksen og de oevrige som skal ryddes, og de skal ryddes etter at
+        // alt annet har skrevet.
+        //
+        // MAXDOP = 4 som anbefalt i DatabaseMaintenanceJob: rask nok, uten aa legge
+        // beslag paa hele maskinen midt i en deploy. Tabellen er laast mens det staar
+        // paa - REBUILD er offline utenfor Enterprise - men migrasjonen holder
+        // allerede skjemalaas paa Location i omskrivingen over, saa vinduet finnes
+        // uansett.
+        //
+        // Kjoerer IKKE der migrasjonen alt er anvendt. Artskart3IndexProdLikeTestMigrations
+        // ble ryddet manuelt 29.09.2026, og er maalt til 0 % paa samtlige indekser paa
+        // Location, saa det er ingen luke der.
+        migrationBuilder.Sql("""
+            RAISERROR('Bygger indeksene paa dbo.Location paa nytt etter omskrivingen...', 0, 1) WITH NOWAIT;
+
+            ALTER INDEX ALL ON dbo.Location REBUILD WITH (MAXDOP = 4);
             """, suppressTransaction: true);
     }
 

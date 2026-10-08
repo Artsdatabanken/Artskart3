@@ -32,10 +32,25 @@ namespace Artskart3.Workers.Import;
 ///      BuildLocationCountCache.sql — rekkefølgen er et krav)
 ///
 /// Uten steg 1 svarer bufferne fra gamle tall i hele import- og byggevinduet.
-/// IsReadyAsync sjekker bare Status og SchemaVersion — ikke BuiltAt eller SourceRows
-/// — så en buffer som er eldre enn dataene blir trodd. Og kontrakten er at bufferen
-/// skal gi NØYAKTIG det tellingen gir (se ILocationCountCacheService): avviker den,
-/// er den feil, og feilen vises som gale tall på kartet uten en eneste feilmelding.
+/// Kontrakten er at bufferen skal gi NØYAKTIG det tellingen gir (se
+/// ILocationCountCacheService): avviker den, er den feil, og feilen vises som gale
+/// tall på kartet uten en eneste feilmelding.
+///
+/// OG NEI, SourceRows-VAKTEN ERSTATTER IKKE STEG 1
+/// Oppslaget sammenligner SourceRows med radantallet i ObservationEntityIndex og
+/// nekter å bruke en buffer der de spriker (se AreaCountCacheService.IsReadyAsync).
+/// Den fanger en import som ENDRER RADANTALLET, og gjør da bufferen inert —
+/// tregere, aldri galt. Den fanger ikke:
+///
+///   - en UPDATE som bare bytter verdier: RegistrationStatusId, HasMediaFiles,
+///     MonthCollected, CoordinatePrecisionInMeters, DatasetOrgId — nøyaktig de
+///     denormaliserte kolonnene importen vedlikeholder
+///   - en sletting og innsetting som går opp i null
+///   - en koordinatretting: LocationCountCacheLevel1 nøkles på East/North fra
+///     Location, så innholdet endres uten at en indeksrad kommer eller går
+///
+/// Vakten er altså et sikkerhetsnett for det ene tilfellet, ikke en erstatning for
+/// rekkefølgen over. Steg 1 står.
 ///
 /// En ikke-klar buffer er derimot ufarlig: oppslaget faller tilbake til aggregering
 /// og svarer riktig, bare tregere.

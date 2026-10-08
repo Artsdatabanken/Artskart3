@@ -81,6 +81,12 @@ param(
     [string] $Level = 'Standard',
 
     # Antall kjoeringer per maaling. Foerste holdes utenfor medianen (kald tid).
+    #
+    # Minst én. -Runs 0 ga tidligere en full rapport uten at et enkelt kall var
+    # sendt: loekka kjoerte aldri, Status sto paa 'OK', og timeout-taket ble skrevet
+    # som maaletid. Taket paa 100 er der for aa fange en skrivefeil, ikke fordi 100
+    # kjoeringer er fornuftig.
+    [ValidateRange(1, 100)]
     [int]    $Runs = 2,
 
     [int]    $ResultsPerPage = 10,
@@ -385,7 +391,7 @@ $ok | Group-Object Endpoint, Variant | ForEach-Object {
         Endepunkt = $_.Name
         Case      = $_.Count
         SnittMs   = [int](($_.Group | Measure-Object WarmMs -Average).Average)
-        MedianMs  = (@($_.Group | Sort-Object WarmMs))[[int]($_.Count / 2)].WarmMs
+        MedianMs  = Get-PerfMedian -Verdier @($_.Group | ForEach-Object { [int]$_.WarmMs })
         MaksMs    = ($_.Group | Measure-Object WarmMs -Maximum).Maximum
     }
 } | Sort-Object SnittMs -Descending | Format-Table -AutoSize

@@ -471,6 +471,77 @@ Assert-Perf 'Ignorerer smaa utslag' ($linjer -notmatch [regex]::Escape('a+b')) '
 Remove-Item $tmpB, $tmpC -Force -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------------------
+# Median
+#
+# [int](3/2) er 2 i PowerShell, ikke 1. Den gamle formen pekte derfor paa
+# MAKSIMUM av tre maalinger, og -Runs 4 ga systematisk hoeyere varmtid enn
+# -Runs 2 - en regresjon over hele linja som bare var maalemetoden.
+# ---------------------------------------------------------------------------
+
+Write-Host "`nMedian:" -ForegroundColor Cyan
+
+Assert-Perf 'Ett tall'            ((Get-PerfMedian -Verdier @(42)) -eq 42) 'feil verdi'
+Assert-Perf 'Tre tall gir midten' ((Get-PerfMedian -Verdier @(100, 500, 110)) -eq 110) 'tok ikke midten'
+Assert-Perf 'Tre tall er ikke maks' ((Get-PerfMedian -Verdier @(100, 500, 110)) -ne 500) 'tok maksimum'
+Assert-Perf 'To tall gir snittet' ((Get-PerfMedian -Verdier @(100, 200)) -eq 150) 'tok ikke snittet'
+Assert-Perf 'Fire tall'           ((Get-PerfMedian -Verdier @(10, 20, 30, 40)) -eq 25) 'feil verdi'
+Assert-Perf 'Usortert input'      ((Get-PerfMedian -Verdier @(40, 10, 30, 20)) -eq 25) 'sorterte ikke'
+Assert-Perf 'Tom gir null'        ($null -eq (Get-PerfMedian -Verdier @())) 'returnerte en verdi'
+
+# Hele poenget: flere kjoeringer skal ikke flytte tallet systematisk oppover.
+$median2 = Get-PerfMedian -Verdier @(100, 104)
+$median4 = Get-PerfMedian -Verdier @(100, 104, 102, 103)
+Assert-Perf 'Stabil naar Runs oekes' ([Math]::Abs($median4 - $median2) -le 2) "2 gav $median2, 4 gav $median4"
+
+# ---------------------------------------------------------------------------
+# Valg av filpar til sammenligning
+# ---------------------------------------------------------------------------
+
+Write-Host "`nFilvalg:" -ForegroundColor Cyan
+
+$parDir = Join-Path ([System.IO.Path]::GetTempPath()) 'perf-test-par'
+New-Item -ItemType Directory -Path $parDir -Force | Out-Null
+
+# Tre filer med kjente, stigende tidsstempler.
+$stier = @('gammel.csv', 'midt.csv', 'ny.csv') | ForEach-Object {
+    $sti = Join-Path $parDir $_
+    'x' | Set-Content -Path $sti
+    $sti
+}
+(Get-Item $stier[0]).LastWriteTime = [datetime]'2026-01-01'
+(Get-Item $stier[1]).LastWriteTime = [datetime]'2026-02-01'
+(Get-Item $stier[2]).LastWriteTime = [datetime]'2026-03-01'
+
+$parFiler = @(Get-ChildItem $parDir -Filter '*.csv')
+
+$auto = Select-PerfRunPair -Filer $parFiler
+Assert-Perf 'Uten argumenter' (
+    (Split-Path -Leaf $auto.Current) -eq 'ny.csv' -and
+    (Split-Path -Leaf $auto.Baseline) -eq 'midt.csv') 'valgte feil par'
+
+# Den gamle formen valgte nyeste som naa OGSAA her, saa filen ble sammenlignet
+# med seg selv - groent, og ingenting som avslørte det.
+$medBaseline = Select-PerfRunPair -Baseline $stier[2] -Filer $parFiler
+Assert-Perf 'Baseline oppgitt' (
+    -not $medBaseline.Feil -and
+    (Split-Path -Leaf $medBaseline.Current) -eq 'midt.csv') 'sammenlignet med seg selv'
+
+# Og her valgte den en baseline som var NYERE enn naa-filen, slik at hver
+# forbedring ble rapportert som en regresjon.
+$medCurrent = Select-PerfRunPair -Current $stier[1] -Filer $parFiler
+Assert-Perf 'Naa oppgitt' (
+    -not $medCurrent.Feil -and
+    (Split-Path -Leaf $medCurrent.Baseline) -eq 'gammel.csv') 'valgte en nyere baseline'
+
+$eldst = Select-PerfRunPair -Current $stier[0] -Filer $parFiler
+Assert-Perf 'Ingen eldre finnes' ($null -ne $eldst.Feil) 'skulle feilet'
+
+$sammeFil = Select-PerfRunPair -Baseline $stier[1] -Current $stier[1] -Filer $parFiler
+Assert-Perf 'Samme fil begge veier' ($null -ne $sammeFil.Feil) 'skulle feilet'
+
+Remove-Item $parDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# ---------------------------------------------------------------------------
 
 Write-Host ''
 if ($feilTotalt -eq 0) {

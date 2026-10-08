@@ -367,6 +367,98 @@ function Get-PerfTaxonSamples {
 # Maaling
 # ---------------------------------------------------------------------------
 
+function Get-PerfMedian {
+    <#
+        Medianen av en tallrekke. ETT sted, fordi den ble regnet to steder og begge
+        gjorde det feil paa samme maate:
+
+            $sorted[[int]($sorted.Count / 2)]
+
+        [int] i PowerShell runder BANKERS, ikke nedover: [int](3/2) er 2, ikke 1.
+        Med tre maalinger pekte det paa indeks 2 av 3 - altsaa MAKSIMUM, ikke median.
+        Resultatet var at -Runs 4, som README-en anbefaler for sikrere tall, ga
+        systematisk HOEYERE varmtid enn -Runs 2, og en sammenligning mellom de to
+        viste en regresjon over hele linja som ikke fantes.
+
+        Floor paa partall-indeksen og snittet av de to midterste ved jevnt antall.
+        Da er tallet stabilt naar antallet kjoeringer oekes, som er hele poenget med
+        aa oeke det.
+    #>
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [int[]] $Verdier)
+
+    if ($Verdier.Count -eq 0) { return $null }
+
+    $sortert = @($Verdier | Sort-Object)
+    $midt    = [int][Math]::Floor($sortert.Count / 2)
+
+    if ($sortert.Count % 2 -eq 1) { return $sortert[$midt] }
+
+    return [int][Math]::Round(($sortert[$midt - 1] + $sortert[$midt]) / 2)
+}
+
+function Select-PerfRunPair {
+    <#
+        Velger baseline og naa-fil naar brukeren ikke har oppgitt begge.
+
+        Den gamle formen var "nyeste = naa, nest nyeste = baseline", uavhengig av hva
+        brukeren allerede hadde oppgitt. To feil fulgte av det:
+
+          -Baseline <nyeste>   nyeste ble ogsaa valgt som naa, saa filen ble
+                               sammenlignet med SEG SELV: "Ingen regresjoner", groent,
+                               og ingenting i utskriften som avsloerte det
+          -Current <gammel>    baseline ble nyeste av alle, altsaa NYERE enn naa-filen,
+                               og hver ekte forbedring ble rapportert som regresjon
+
+        Her utelukkes filen brukeren alt har navngitt, og en auto-valgt baseline maa
+        vaere ELDRE enn naa-filen. Finnes ingen slik, er det en feil og ikke en
+        sammenligning.
+
+        Returnerer et objekt med Baseline, Current og Feil. Feil satt betyr at
+        kalleren skal avbryte.
+    #>
+    param(
+        [string] $Baseline,
+        [string] $Current,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $Filer
+    )
+
+    $sortert = @($Filer | Sort-Object LastWriteTime -Descending)
+
+    $navngitt = { param($sti) if ($sti) { (Resolve-Path -LiteralPath $sti).Path } else { $null } }
+
+    $baselineSti = & $navngitt $Baseline
+    $currentSti  = & $navngitt $Current
+
+    if (-not $currentSti) {
+        $kandidat = $sortert | Where-Object { $_.FullName -ne $baselineSti } | Select-Object -First 1
+        if (-not $kandidat) {
+            return [PSCustomObject]@{ Baseline = $null; Current = $null
+                Feil = 'Fant ingen resultatfil aa bruke som naa-fil.' }
+        }
+        $currentSti = $kandidat.FullName
+    }
+
+    if (-not $baselineSti) {
+        $naa = $sortert | Where-Object { $_.FullName -eq $currentSti } | Select-Object -First 1
+        $kandidat = $sortert |
+            Where-Object { $_.FullName -ne $currentSti -and (-not $naa -or $_.LastWriteTime -lt $naa.LastWriteTime) } |
+            Select-Object -First 1
+
+        if (-not $kandidat) {
+            return [PSCustomObject]@{ Baseline = $null; Current = $null
+                Feil = 'Fant ingen resultatfil som er eldre enn naa-filen.' }
+        }
+        $baselineSti = $kandidat.FullName
+    }
+
+    if ($baselineSti -eq $currentSti) {
+        return [PSCustomObject]@{ Baseline = $null; Current = $null
+            Feil = 'Baseline og naa-fil er samme fil. Da sammenlignes den med seg selv.' }
+    }
+
+    return [PSCustomObject]@{ Baseline = $baselineSti; Current = $currentSti; Feil = $null }
+}
+
 function Measure-PerfRequest {
     <#
         Kjoerer ett kall $Runs ganger og returnerer kald tid, varm median og radtall.
@@ -380,6 +472,10 @@ function Measure-PerfRequest {
         [Parameter(Mandatory)] [string] $Path,
         [string]   $Method = 'POST',
         [object]   $Body,
+        # Minst én kjoering. Uten denne grensen gir -Runs 0 en loekke som ikke
+        # kjoerer, Status staar paa 'OK', og taket skrives som maaletid: en komplett
+        # rapport der hver rad leser "OK, 60000 ms" uten at ett kall er sendt.
+        [ValidateRange(1, 100)]
         [int]      $Runs = 2,
         [int]      $TimeoutSec = 60
     )
@@ -392,12 +488,7 @@ function Measure-PerfRequest {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $response = Invoke-PerfApi -Path $Path -Method $Method -Body $Body -TimeoutSec $TimeoutSec
-
-            # Responsformene varierer mellom endepunktene, saa radtellingen er tilnaermet.
-            $rows = if ($null -eq $response)     { 0 }
-                    elseif ($response.locations) { @($response.locations).Count }
-                    elseif ($response.items)     { @($response.items).Count }
-                    else                         { @($response).Count }
+            $sw.Stop()
         }
         catch {
             $sw.Stop()
@@ -410,18 +501,29 @@ function Measure-PerfRequest {
                       }
             break
         }
-        $sw.Stop()
+
         $times.Add([int]$sw.Elapsed.TotalMilliseconds)
+
+        # Radtellingen er diagnostikk, ikke maaling, og den gaar gjennom hele
+        # svarobjektet. Den laa foer $sw.Stop() og ble dermed belastet hver case.
+        # Responsformene varierer mellom endepunktene, saa tallet er tilnaermet.
+        $rows = if ($null -eq $response)     { 0 }
+                elseif ($response.locations) { @($response.locations).Count }
+                elseif ($response.items)     { @($response.items).Count }
+                else                         { @($response).Count }
     }
 
     # Ved timeout finnes ingen maaling. Vi setter taket som tid slik at casen
     # sorterer oeverst i rapporten, men Status skiller den fra en ekte maaling.
     $cold = if ($times.Count -gt 0) { $times[0] } else { $TimeoutSec * 1000 }
-    $warm = @($times | Select-Object -Skip 1)
-    $median = if ($warm.Count -gt 0) {
-                  $sorted = @($warm | Sort-Object)
-                  $sorted[[int]($sorted.Count / 2)]
-              } else { $cold }
+
+    # Ingen maaling OG ingen feil skal ikke kunne se ut som et resultat. Med
+    # ValidateRange over er dette uopnaaelig, og det er nettopp derfor det staar
+    # her: grensen kan fjernes av noen som ikke leser kommentaren.
+    if ($times.Count -eq 0 -and $status -eq 'OK') { $status = 'INGEN MAALING' }
+
+    $warm   = @($times | Select-Object -Skip 1)
+    $median = if ($warm.Count -gt 0) { Get-PerfMedian -Verdier $warm } else { $cold }
 
     return [PSCustomObject]@{
         ColdMs = $cold
@@ -836,6 +938,7 @@ Export-ModuleMember -Function `
     Get-PerfRankNames, Get-PerfRankOrder, `
     Initialize-PerfApi, Invoke-PerfApi, Test-PerfApi, Remove-PerfMarkup, `
     Get-PerfShuffledSample, Get-PerfSelectivitySpread, Get-PerfTaxonSamples, `
+    Get-PerfMedian, Select-PerfRunPair, `
     Measure-PerfRequest, Compare-PerfRuns, Get-PerfDimensionCost, `
     Initialize-PerfSql, Close-PerfSql, Get-PerfIndexSnapshot, `
     Get-PerfIndexDelta, Compare-PerfIndexUsage

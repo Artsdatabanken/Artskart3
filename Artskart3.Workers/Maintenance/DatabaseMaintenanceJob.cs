@@ -10,8 +10,50 @@ namespace Artskart3.Workers.Maintenance;
 /// - Vedlikeholdsoppgaver: Datarydding og andre planlagte vedlikeholdsjobber
 /// - Columnstore-vedlikehold: REORGANIZE av IX_OEI_Columnstore etter ImportJob
 /// - Klyngeindeksene: REBUILD når fragmenteringen passerer ~30 %
+/// - Tellebufferne: bygg dem på nytt når oppslaget avviser dem (se nedenfor)
 ///
 /// TODO: Implementeres i neste fase.
+///
+/// TELLEBUFFERNE MÅ BYGGES PÅ NYTT HERFRA — DE GJØR DET IKKE SELV
+/// En buffer oppslaget avviser er ufarlig men permanent: hvert kall faller tilbake
+/// til aggregering, svarer riktig, og er tregt helt til noen kjører
+/// Scripts/BuildAreaCountCache.sql og deretter BuildLocationCountCache.sql for
+/// hånd — rundt 16 minutter på prodlik datamengde. Ingenting rydder opp av seg
+/// selv: BuildCountCaches er en migrasjon, og en anvendt migrasjon kjøres aldri
+/// igjen.
+///
+/// To ting utløser en avvisning, og begge er normale hendelser:
+///
+///   SchemaVersion   dimensjonsregisteret er endret, så bøtte- og pargruppe-id-ene
+///                   i bufferen betyr ikke lenger det koden tror
+///   SourceRows      radantallet i ObservationEntityIndex har flyttet seg siden
+///                   bufferen ble bygget — altså en import eller et manuelt skript
+///
+/// Jobben bør oppdage begge (tilstandsraden mot AreaCountCacheDimensions.SchemaVersion
+/// og mot CountCacheSourceRows.Sql) og bygge på nytt. Da blir utfallet «tregt i
+/// ~16 minutter», ikke «tregt til noen oppdager det».
+///
+/// TRE KRAV, OG DET FØRSTE AVGJØR OM DETTE ER MULIG I DET HELE TATT
+///
+///   1. RETTIGHETER. Skriptene TRUNCATE-r og kjører UPDATE STATISTICS, altså ALTER
+///      på tabellene. Resten av løsningen er bygget for en least-privilege-pålogging
+///      — CountCacheSourceRows velger sys.partitions nettopp fordi db_datareader
+///      ikke har VIEW DATABASE STATE. Denne jobben trenger derfor en egen,
+///      hevet tilkobling. Er den ikke på plass, feiler jobben på første kjøring i
+///      hvert deployede miljø.
+///   2. ÉN KJØRER. Skriptene tømmer og bygger; to samtidige kjøringer tømmer for
+///      hverandre. Jobben må holde en lås (sp_getapplock eller tilsvarende).
+///   3. IKKE PÅ LESESTIEN. Dette hører i en bakgrunnsjobb, ikke i
+///      AreaCountCacheService: 32 samtidige søk ville startet 32 gjenoppbygginger,
+///      og 16 minutter får ikke plass i en forespørsel.
+///
+/// MERK at en gjenoppbygging ikke er gratis mens den går: bufferen er borte OG
+/// bygget konkurrerer om samme IO som spørringene. Skal det skje under trafikk,
+/// trengs blue/green — se kommentaren i BuildAreaCountCache.sql.
+///
+/// Inntil jobben finnes: legges en dimensjon til, feiler
+/// CountCacheScriptSchemaVersionTests, og den som gjør det vet da at bufferne må
+/// bygges manuelt etter deploy.
 ///
 /// Columnstore-vedlikehold (kjøres etter ImportJob, ikke før):
 ///
@@ -57,9 +99,15 @@ namespace Artskart3.Workers.Maintenance;
 /// gjør. En persistert beregnet kolonne er verst: den skriver om hver eneste
 /// rad. AddLocationGeometryTypeId etterlot Location 95,4 % fragmentert.
 ///
-/// Derfor bør en REBUILD høre til etter hver backfill-migrasjon, ikke bare i
-/// den daglige jobben. Og siden ImportJob kommer til å skrive daglig, bør
-/// fragmenteringen overvåkes:
+/// Derfor hører en REBUILD til etter hver backfill-migrasjon, ikke bare i den
+/// daglige jobben — og AddLocationGeometryTypeId gjør nå nettopp det selv, som
+/// siste setning i Up(). Den ENGANGS-fragmenteringen en migrasjon lager er
+/// migrasjonens eget ansvar: den vet når den har skrevet om en tabell, og en
+/// kommentar som peker hit ville pekt på en jobb som ikke finnes.
+///
+/// Det som gjenstår for denne jobben er den LØPENDE fragmenteringen. Når ImportJob
+/// skriver daglig, bygger den seg opp igjen uten at noen migrasjon kjører, og da
+/// må den overvåkes:
 ///
 ///     SELECT OBJECT_NAME(s.object_id), i.name,
 ///            s.avg_fragmentation_in_percent, s.page_count

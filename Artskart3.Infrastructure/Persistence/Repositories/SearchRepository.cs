@@ -295,6 +295,45 @@ public class SearchRepository : ISearchRepository
     private const int MaxAreaBranches = 64;
 
     /// <summary>
+    /// Høyeste antall kandidatrader grenformen får holde i minnet samtidig.
+    ///
+    /// Grenformen henter TOP(skip + take) per gren og fletter i minnet, så
+    /// minnebruken er grener × (skip + take) — ikke (skip + take). Antall grener
+    /// har sitt tak i <see cref="MaxAreaBranches"/> og offsettet sitt i
+    /// <see cref="SearchConstants.MaxObservationSkip"/>, men PRODUKTET hadde ingen:
+    /// 64 grener à 100 000 + 40 000 er 8,96 millioner rader, rundt 215 MB i
+    /// listen før flettingen, fra ett anonymt kall — og 32 slike samtidig er
+    /// tillatt av rate limiteren.
+    ///
+    /// Over budsjettet brukes ELLER-formen. Den er tregere per spørring, men
+    /// sorterer og paginerer i databasen og holder ingenting i minnet. Normale
+    /// brukerreiser ligger langt under: side 1 med 10 per side er 40 rader per
+    /// gren, altså 2 560 for 64 grener. Det er de dype offsetene som faller over,
+    /// og dit kommer frontend aldri — lookahead-pagineringen ber om noen sider om
+    /// gangen, ikke side 11 à 10 000.
+    ///
+    /// 500 000 rader er rundt 8 MB kandidater. Settes det høyere, er det
+    /// minnebruk per samtidig forespørsel som øker, ikke responstid som synker.
+    /// </summary>
+    private const int MaxBranchCandidates = 500_000;
+
+    /// <summary>
+    /// Skal ELLER-formen brukes i stedet for grenformen?
+    ///
+    /// Offentlig og statisk fordi den er verdt å teste for seg, som
+    /// <see cref="QueryHintInterceptor.Rewrite"/>: regelen er to tak og ett produkt,
+    /// og det var nettopp det manglende produktet som gjorde at 64 lovlige grener
+    /// kunne dra 8,96 millioner rader inn i minnet. En stille bom her koster mer enn
+    /// et litt bredere API.
+    ///
+    /// <paramref name="trengs"/> er <c>skip + take</c> — antall rader HVER gren
+    /// henter. Produktet regnes i long: grener × trengs går forbi int.MaxValue lenge
+    /// før noen av takene hver for seg ser urimelige ut.
+    /// </summary>
+    public static bool BrukEllerFormen(int grener, int trengs) =>
+        grener > MaxAreaBranches || (long)grener * trengs > MaxBranchCandidates;
+
+    /// <summary>
     /// Henter observasjons-IDene i datosortert rekkefølge med én spørring per
     /// verdi i ett flerverdifilter. Returnerer null når grening ikke gjelder.
     ///
@@ -518,12 +557,16 @@ public class SearchRepository : ISearchRepository
         // Over taket brukes ELLER-formen i stedet: tregere per spørring, men én
         // spørring, og sortering og paginering blir igjen på databasen. Taket er satt
         // romslig nok til at ingen reell brukerreise treffer det.
+        // To tak, ikke ett: antall grener, OG hvor mange rader de til sammen drar inn
+        // i minnet. Hver gren henter TOP(skip + take), så et dypt offset gjør en
+        // lovlig grenmengde til hundrevis av megabyte. Se MaxBranchCandidates.
         var grener = omraader.Sum(o => o.Ids.Length);
-        if (grener > MaxAreaBranches)
+
+        if (BrukEllerFormen(grener, skip + take))
         {
             _logger.LogInformation(
-                "Områdefilteret ga {Grener} grener, over taket på {Tak}. Bruker ELLER-formen.",
-                grener, MaxAreaBranches);
+                "Områdefilteret ga {Grener} grener og {Kandidater} kandidatrader (tak {GrenTak} / {KandidatTak}). Bruker ELLER-formen.",
+                grener, (long)grener * (skip + take), MaxAreaBranches, MaxBranchCandidates);
 
             var orIds = new AreaFilterIds(
                 municipalityIds, countyIds, svalbardIds, restrictedIds, oceanIds,
@@ -1454,9 +1497,12 @@ public class SearchRepository : ISearchRepository
             // DATEPART paa DateTimeCollected kunne ikke bruke den.
             //
             // Distinct som i de to andre filterstiene. Validatoren begrenser lista
-            // til tolv, saa det er ikke lenger et volumsporsmaal — men de tre stiene
-            // skal gi samme spoerring for samme filter, og det er denne eksporten
-            // bruker.
+            // til tolv, saa det er ikke lenger et volumsporsmaal — men stiene skal gi
+            // samme spoerring for samme filter.
+            //
+            // Eksporten gaar IKKE gjennom denne: den bygger sitt eget filter i
+            // ObservationQueryBuilder.ApplyRangeFilters. Den leser naa samme kolonne
+            // med samme form, og endres denne grenen, maa den endres ogsaa.
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
                 .Distinct()

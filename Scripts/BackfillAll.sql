@@ -995,8 +995,17 @@ ELSE
 -- aa behandle", og skriptet kjoeres om igjen til summen er null. Denne kan ikke
 -- naa null ved aa kjoere paa nytt: omraaderadene utledes fra LocationAreas, ikke
 -- fra hierarkiet, saa mangler koblingen til fylket der, blir den ikke til av seg
--- selv. Lagt i @Kontroller ville den gjort at migrasjonen aldri registreres som
--- anvendt.
+-- selv.
+--
+-- DERFOR ER DEN EN ADVARSEL, IKKE EN FEIL. Ville den stoppet skriptet, kunne
+-- ingen ny kjoering rydde opp: migrasjonen blir ikke registrert i
+-- __EFMigrationsHistory naar skriptet feiler, saa en ny deploy kjoerer
+-- BackfillAll om igjen, feiler likt, og INGEN senere migrasjon kommer til -
+-- BuildCountCaches inkludert. En fersk database med en manglende
+-- fylkeskobling i LocationAreas ville dermed ikke kunne migreres i det hele
+-- tatt, og reparasjonsskriptene som finnes for nettopp det
+-- (BackfillOceanAndSvalbardAreas.sql, RebuildLocationAreasForAreaTypes.sql)
+-- ville ikke hjelpe, for de retter LocationAreas - ikke dette skriptet.
 --
 -- HVORFOR DEN FINNES
 -- AreaCountGeoJoinRules.CanSkipGeoJoin utelater geo-semijoinen naar
@@ -1006,7 +1015,12 @@ ELSE
 -- base.
 --
 -- Brytes den, blir omraadeantallene paa kartet FOR HOEYE, uten feilmelding.
--- Stille gale tall er verre enn en stoppet deploy, saa dette er severity 16.
+-- Stille gale tall skal ikke staa uoppdaget, men den harde stoppen hoerer til i
+-- Scripts/CheckAreaHierarchyInvariant.sql: den er samme kontroll som eget,
+-- re-kjoerbart skript, og den kan stoppe en deploy uten aa laase
+-- migrasjonsrekka. Kjoer DEN fra pipelinen og etter hvert skript som skriver
+-- til ObservationEntityIndex.
+--
 -- Maa invarianten mykes opp, er tilbakefallet aa returnere alleErValgte alene
 -- i CanSkipGeoJoin - se kommentaren der.
 --
@@ -1034,10 +1048,13 @@ DECLARE @HierarkiBrudd BIGINT = (
 
 IF @HierarkiBrudd > 0
 BEGIN
-    SET @Msg = CONCAT('INVARIANT BRUTT: ', FORMAT(@HierarkiBrudd, 'N0'),
+    SET @Msg = CONCAT('ADVARSEL - INVARIANT BRUTT: ', FORMAT(@HierarkiBrudd, 'N0'),
                       ' kommunerader mangler fylkesraden for sitt eget fylke. ',
-                      'Omraadeantallene vil bli for hoeye. Se AreaCountGeoJoinRules.');
-    RAISERROR(@Msg, 16, 1) WITH NOWAIT;
+                      'Omraadeantallene vil bli for hoeye. Se AreaCountGeoJoinRules. ',
+                      'Backfillen er IKKE stoppet - reparer LocationAreas (se ',
+                      'RebuildLocationAreasForAreaTypes.sql) og verifiser med ',
+                      'CheckAreaHierarchyInvariant.sql foer bufferne bygges.');
+    RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 END
 ELSE
     RAISERROR('Invariant OK - alle kommunerader har fylkesrad.', 0, 1) WITH NOWAIT;

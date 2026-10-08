@@ -72,6 +72,49 @@ public class HealthCheckExtensionsTests
         options.Value.Registrations.Should().NotContain(r => r.Name == "Key Vault");
     }
 
+    /// <summary>
+    /// Columnstore-sjekken henger på samme tilkoblingsstreng som databasesjekken.
+    /// Uten den er et manglende IX_OEI_Columnstore bare én logglinje ved oppstart.
+    /// </summary>
+    [Fact]
+    public void AddCustomHealthChecks_WithDbConnectionString_RegistersColumnstoreHealthCheck()
+    {
+        var services = new ServiceCollection().AddLogging();
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+
+        services.AddCustomHealthChecks(config, CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().ContainSingle(r => r.Name == "Columnstore");
+    }
+
+    [Fact]
+    public void AddCustomHealthChecks_WithoutDbConnectionString_DoesNotRegisterColumnstoreHealthCheck()
+    {
+        var services = new ServiceCollection().AddLogging();
+
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().NotContain(r => r.Name == "Columnstore");
+    }
+
+    [Fact]
+    public void AddCustomHealthChecks_ColumnstoreCheck_HasExpectedTags()
+    {
+        var services = new ServiceCollection().AddLogging();
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+
+        services.AddCustomHealthChecks(config, CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        var sjekk = options.Value.Registrations.Single(r => r.Name == "Columnstore");
+        sjekk.Tags.Should().Contain("dependencies").And.Contain("database").And.Contain("performance");
+    }
+
     [Fact]
     public void AddCustomHealthChecks_DatabaseCheck_HasExpectedTags()
     {

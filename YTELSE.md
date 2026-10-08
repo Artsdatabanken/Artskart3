@@ -12,8 +12,9 @@ virker.
 ## Hvordan måle
 
 `Scripts/PerfSuite/Run.ps1` er fasiten. **Ikke start den uten at noen har bedt
-om det** — se `CLAUDE.md`. Nivåene er Quick (minutter), Standard (titalls
-minutter) og Full (rundt 20 minutter veggklokke).
+om det** — se `CLAUDE.md`. Nivåene er Quick (~1 min, 359 målinger), Standard
+(~5 min, 1 802) og Full (~21 min, 7 535), målt 07.10.2026. Tabellen i
+`Scripts/PerfSuite/README.md` er kilden; den her skal følge den.
 
 Enkeltmålinger lyver. Det er dokumentert minst tre ganger nedenfor at en
 konklusjon trukket fra ett tilfelle ble motbevist av en full kjøring. Regelen
@@ -102,8 +103,9 @@ altså 44 ms av 410. Et rektangel dekker dessuten mange celler (Oslo: 209 ved
 For mye kompleksitet for 11 %.
 
 **Nivå 2 i bufferen** (parbøtter for to filtre). Målt til ~660 mill. rader og
-~16 GB for alle 66 par. To-filter-kallene er allerede 301 ms i snitt, og en
-stor del av det er svarstørrelse som nivå 2 ikke rører.
+~16 GB for alle 78 par (13 dimensjoner, se `AreaCountCacheDimensions.PairCount`).
+To-filter-kallene er allerede 389 ms i snitt, og en stor del av det er
+svarstørrelse som nivå 2 ikke rører.
 
 **Romlig sortering av utdataene for bedre komprimering.** Svaret sorteres på
 observasjonsantall, så koordinatene kommer i tilfeldig romlig rekkefølge.
@@ -368,9 +370,17 @@ forutsetning:
 1. **Delmengderegelen.** Er utdataområdet selv et valgt område, tilfredsstiller
    ankerraden `EXISTS`-leddet ved seg selv. Følger av spørringens form.
 2. **Etterkommerregelen.** Er utdataområdet en kommune i et valgt fylke, er det
-   en ANNEN rad som tilfredsstiller leddet. At den alltid finnes håndheves av
-   invariantsjekken i `BackfillAll.sql`, som avbryter ved brudd. Målt til 0
-   brudd over 357 kommuner.
+   en ANNEN rad som tilfredsstiller leddet. Målt til 0 brudd over 357 kommuner.
+
+   Invarianten kontrolleres to steder, og bare ett av dem stopper noe:
+   `BackfillAll.sql` **advarer** til slutt (den er embeddet i en migrasjon, og en
+   hard feil der ville låst migrasjonsrekka på en fersk database uten at en ny
+   kjøring kunne rydde opp), mens `Scripts/CheckAreaHierarchyInvariant.sql` er
+   samme kontroll som eget, re-kjørbart skript og **avbryter** ved brudd. Det er
+   den som skal kjøres fra pipelinen, og etter hvert skript som skriver til
+   `ObservationEntityIndex` — en anvendt migrasjon kjøres aldri igjen, så i
+   produksjon, der invarianten faktisk kan brytes, kjører ikke `BackfillAll.sql`
+   i det hele tatt.
 
 Sjekken står bevisst UTENFOR `@Kontroller` i backfillen: de kontrollene betyr
 «rader som gjenstår å behandle» og skriptet kjøres om igjen til summen er null.
@@ -744,7 +754,7 @@ Målt for Oslo-utsnittet, som inneholder 966 708 lokasjoner:
 Anslått hele kallet: 410 → ~250 ms ved 500 m, ~200 ms ved 1 km.
 
 **Det viktigste er ikke hastigheten.** Gridet dekker alle 966 708 lokasjonene i
-utsnittet, mens vi i dag returnerer de 100 000 mest observerte — altså 21 %.
+utsnittet, mens vi i dag returnerer de 100 000 mest observerte — altså 10,3 %.
 Forslaget er både raskere og mer komplett.
 
 Til perspektiv: utsnittet er 185 × 103 km vist på rundt 1500 piksler bredde, så

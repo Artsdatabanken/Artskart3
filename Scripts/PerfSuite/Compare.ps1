@@ -40,8 +40,7 @@ Import-Module (Join-Path $PSScriptRoot 'PerfLib.psm1') -Force
 $resultsDir = Join-Path (Get-PerfDataDir -Override $DataDir) 'results'
 
 if (-not $Baseline -or -not $Current) {
-    $filer = @(Get-ChildItem $resultsDir -Filter '*.csv' -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending)
+    $filer = @(Get-ChildItem $resultsDir -Filter '*.csv' -ErrorAction SilentlyContinue)
 
     if ($filer.Count -lt 2) {
         Write-Host 'Trenger minst to resultatfiler i results/ for aa sammenligne automatisk.' -ForegroundColor Red
@@ -49,11 +48,30 @@ if (-not $Baseline -or -not $Current) {
         exit 1
     }
 
-    if (-not $Current)  { $Current  = $filer[0].FullName }
-    if (-not $Baseline) { $Baseline = $filer[1].FullName }
+    # Valget ligger i Select-PerfRunPair, med begrunnelsen: den utelukker filen som
+    # alt er navngitt, og krever at en auto-valgt baseline er ELDRE enn naa-filen.
+    # Den gamle formen kunne sammenligne en fil med seg selv, eller snu
+    # sammenligningen slik at forbedringer ble rapportert som regresjoner.
+    $par = Select-PerfRunPair -Baseline $Baseline -Current $Current -Filer $filer
+
+    if ($par.Feil) {
+        Write-Host $par.Feil -ForegroundColor Red
+        Write-Host 'Angi -Baseline og -Current eksplisitt.' -ForegroundColor Red
+        exit 1
+    }
+
+    $Baseline = $par.Baseline
+    $Current  = $par.Current
 
     Write-Host "Baseline: $(Split-Path -Leaf $Baseline)" -ForegroundColor DarkGray
     Write-Host "Naa:      $(Split-Path -Leaf $Current)"  -ForegroundColor DarkGray
+}
+
+# Gjelder ogsaa naar begge er oppgitt eksplisitt: samme fil to ganger gir alltid
+# "ingen regresjoner", og det ser ut som et resultat.
+if ((Resolve-Path -LiteralPath $Baseline).Path -eq (Resolve-Path -LiteralPath $Current).Path) {
+    Write-Host 'Baseline og naa-fil er samme fil. Da sammenlignes den med seg selv.' -ForegroundColor Red
+    exit 1
 }
 
 Compare-PerfRuns -BaselinePath $Baseline -CurrentPath $Current `

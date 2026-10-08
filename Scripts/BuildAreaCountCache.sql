@@ -25,6 +25,10 @@
     KJØRING
     Sett @BuildLevel1 / @BuildLevel2 for å bygge ett nivå om gangen. Nivå 2 er 78
     grupperinger over 134 millioner rader og ~36 millioner rader å sette inn.
+
+    Bygges bare ETT nivå, blir Status stående på «Building» og bufferen brukes
+    ikke — det andre nivået er da fra et eldre datasett. Begge flaggene må være
+    satt i samme kjøring for at bufferen skal stemples klar.
 */
 
 SET NOCOUNT ON;
@@ -96,6 +100,61 @@ INSERT #dim VALUES
 -- når dimensjonen faktisk er med, så de 55 parene uten dem slipper kostnaden.
 DECLARE @JoinVern NVARCHAR(200) = N' LEFT JOIN #vern v ON v.ObservationId = i.ObservationId';
 DECLARE @JoinProj NVARCHAR(200) = N' LEFT JOIN #proj p ON p.ObservationId = i.ObservationId';
+
+-- ---------------------------------------------------------------------------
+-- MonthCollected MÅ stemme med MONTH(DateTimeCollected)
+--
+-- Periodedimensjonen bøttes på YEAR * 100 + MONTH(i.DateTimeCollected), mens
+-- tellingen filtrerer på i.MonthCollected (SearchRepository, månedsgrenen). To
+-- uttrykk som skal gi samme tall — og kontrakten er at bufferen skal gi NØYAKTIG
+-- det tellingen gir, ellers er den feil.
+--
+-- Kolonnen er ingen beregnet kolonne her: på Observation er MonthCollected
+-- beregnet av databasen og kan ikke sprike, men på ObservationEntityIndex er den
+-- en vanlig TINYINT fylt av en backfill (se migrasjon 20260920125459). En kopi
+-- kan bli stående igjen når kilden endres.
+--
+-- ALLE TRE TILFELLENE ER AVVIK, OG DE SLÅR UT HVER SIN VEI:
+--   måned <> MONTH(dato)   bufferen teller raden i feil månedsbøtte
+--   måned NULL, dato satt  bufferen legger den i NULL-bøtta, som utelukkes, mens
+--                          et filter på bare årstall teller den med
+--   dato NULL, måned satt  bufferen legger den i NULL-bøtta, mens et
+--                          månedsfilter teller den med
+--
+-- Derfor sjekkes invarianten her, framfor å bytte uttrykket til i.MonthCollected:
+-- det ville flyttet avviket til rad to og tre i tabellen over, ikke fjernet det.
+-- Holder invarianten, gir de to uttrykkene samme tall, og hvilket av dem skriptet
+-- bruker er likegyldig.
+--
+-- Står FØR Status settes til Building: en buffer som finnes og er i orden skal
+-- ikke slås av fordi en forutsetning ikke holder.
+-- ---------------------------------------------------------------------------
+DECLARE @MaanedAvvik BIGINT, @MaanedMangler BIGINT, @MaanedUtenDato BIGINT;
+
+SELECT @MaanedAvvik = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NOT NULL
+                                      AND i.MonthCollected IS NOT NULL
+                                      AND i.MonthCollected <> MONTH(i.DateTimeCollected)
+                                     THEN 1 END),
+       @MaanedMangler = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NOT NULL
+                                        AND i.MonthCollected IS NULL
+                                       THEN 1 END),
+       @MaanedUtenDato = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NULL
+                                         AND i.MonthCollected IS NOT NULL
+                                        THEN 1 END)
+FROM dbo.ObservationEntityIndex i;
+
+IF @MaanedAvvik + @MaanedMangler + @MaanedUtenDato > 0
+BEGIN
+    SET @Msg = CONCAT('MonthCollected stemmer ikke med DateTimeCollected: ',
+                      FORMAT(@MaanedAvvik, 'N0'), ' avviker, ',
+                      FORMAT(@MaanedMangler, 'N0'), ' mangler maaned med dato satt, ',
+                      FORMAT(@MaanedUtenDato, 'N0'), ' har maaned uten dato. ',
+                      'Periodebufferen ville gitt andre tall enn tellingen. Bufferen ',
+                      'bygges IKKE - kjoer migrasjon 20260920125459 om igjen eller ',
+                      'reparer kolonnen, og proev paa nytt.');
+    RAISERROR(@Msg, 16, 1);
+    RETURN;
+END
 
 -- Status settes til Building FØR tømmingen, ikke etter. Rekkefølgen er hele vernet:
 -- hver setning er sin egen transaksjon (XACT_ABORT uten omsluttende transaksjon), så
@@ -337,15 +396,35 @@ UPDATE STATISTICS dbo.AreaCountCacheLevel1;
 UPDATE STATISTICS dbo.AreaCountCacheLevel2;
 UPDATE STATISTICS dbo.AreaCountCacheBucketMember;
 
+-- «Ready» BARE naar BEGGE nivaaene er bygget i denne kjoeringen.
+--
+-- Overskriften inviterer til aa bygge ett nivaa om gangen, og tak-flaggene gater
+-- baade toemmingen og hver byggeblokk - men stemplet gjorde de ikke. Kjoerte man
+-- @BuildLevel1 = 0, @BuildLevel2 = 1 etter en import, ble nivaa 2 ferskt, nivaa 1 og
+-- medlemstabellen sto igjen fra forrige datasett, og SourceRows ble satt til dagens
+-- radantall. Da gaar ferskhetsvakten i AreaCountCacheService god for BEGGE nivaaene,
+-- og hvert ett-filter-kall - det vanlige tilfellet - svarer fra gamle tall.
+--
 -- @SourceRows ble lest FOER aggregeringene, se der. Skrives tallet som leses her,
 -- ville en endring i indekstabellen underveis gitt en buffer med gamle tall og nytt
 -- radantall - altsaa en buffer oppslaget tror er fersk.
-UPDATE dbo.AreaCountCacheState
-SET Status = 'Ready',
-    BuiltAt = SYSUTCDATETIME(),
-    SourceRows = @SourceRows,
-    DurationSeconds = DATEDIFF(SECOND, @Start, SYSUTCDATETIME())
-WHERE Id = 1;
+IF @BuildLevel1 = 1 AND @BuildLevel2 = 1
+BEGIN
+    UPDATE dbo.AreaCountCacheState
+    SET Status = 'Ready',
+        BuiltAt = SYSUTCDATETIME(),
+        SourceRows = @SourceRows,
+        DurationSeconds = DATEDIFF(SECOND, @Start, SYSUTCDATETIME())
+    WHERE Id = 1;
+END
+ELSE
+BEGIN
+    SET @Msg = CONCAT('Bare ett nivaa bygget (nivaa 1: ', @BuildLevel1,
+                      ', nivaa 2: ', @BuildLevel2, '). Status forblir Building, og ',
+                      'bufferen brukes IKKE. Kjoer med begge flaggene satt for aa ',
+                      'stemple den klar.');
+    RAISERROR(@Msg, 0, 1) WITH NOWAIT;
+END
 
 SELECT 'Nivaa 1' AS Tabell, FORMAT(COUNT_BIG(*), 'N0') AS Rader FROM dbo.AreaCountCacheLevel1
 UNION ALL SELECT 'Nivaa 2', FORMAT(COUNT_BIG(*), 'N0') FROM dbo.AreaCountCacheLevel2

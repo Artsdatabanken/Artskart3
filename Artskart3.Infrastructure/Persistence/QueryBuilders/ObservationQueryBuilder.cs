@@ -277,22 +277,42 @@ public static class ObservationQueryBuilder
         if (filter.CoordinatePrecision?.To.HasValue == true)
             query = query.Where(o => o.CoordinatePrecisionInMeters <= filter.CoordinatePrecision.To.Value);
 
+        // Samme datogrenser som søkestiene, via PeriodBounds. Formen under var
+        // >= 01.01 og <= 31.12 23:59:59, og den siste er en av-med-ett-feil:
+        // DateTimeCollected er datetime2(7), så en observasjon klokka 23:59:59,5
+        // nyttårsaften falt utenfor et filter som eksplisitt inkluderte året — altså
+        // med på kartet og i listen, men borte fra CSV-en for samme filter.
         if (filter.Period?.From.HasValue == true)
         {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            var fromDate = PeriodBounds.InclusiveLower(filter.Period.From.Value);
             query = query.Where(o => o.DateTimeCollected >= fromDate);
         }
 
         if (filter.Period?.To.HasValue == true)
         {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(o => o.DateTimeCollected <= toDate);
+            var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
+            query = query.Where(o => o.DateTimeCollected < beforeDate);
         }
 
+        // MonthCollected, ikke DateTimeCollected.Value.Month, som i søkestiene.
+        // Kolonnen er beregnet av databasen (datepart(month, DateTimeCollected)) og
+        // kan ikke sprike fra datoen, men den har IX_Observation_MonthCollected —
+        // DATEPART i predikatet er ikke sargbart og tvinger en skanning.
+        //
+        // Formen er ordrett den samme som listevisningens månedsgren i
+        // SearchRepository, tomlisteguarden inkludert: samme filter skal gi samme
+        // spørring, og en CSV som inneholder andre rader enn listen viste er den
+        // verste varianten av en uenighet mellom to stier.
         if (filter.Period?.Months?.Any() == true)
         {
-            var months = filter.Period.Months;
-            query = query.Where(o => o.DateTimeCollected.HasValue && months.Contains(o.DateTimeCollected.Value.Month));
+            var months = filter.Period.Months
+                .Where(m => m is >= 1 and <= 12)
+                .Distinct()
+                .ToList();
+
+            query = months.Count == 0
+                ? query.Where(o => false)
+                : query.Where(o => o.MonthCollected.HasValue && months.Contains(o.MonthCollected.Value));
         }
 
         return query;

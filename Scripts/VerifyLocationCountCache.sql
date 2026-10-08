@@ -17,8 +17,20 @@
 
 SET NOCOUNT ON;
 
-DECLARE @MinX INT = 191504, @MaxX INT = 376757,    -- Oslo-utsnittet slik frontenden
-        @MinY INT = 6987008, @MaxY INT = 7089626;  -- sender det paa maks zoom
+-- Oslo-utsnittet, samme verdier som perf-suitens «oslo»-fixture.
+--
+-- Her sto det tidligere 191504-376757 x 6987008-7089626 med kommentaren
+-- «Oslo-utsnittet». Det er IKKE Oslo: nordverdien rundt 7,0 millioner ligger paa
+-- Trondheims breddegrad, og oestverdiene gjoer utsnittet til mest aapent hav
+-- vest for Troendelag. YTELSE.md advarer mot nettopp den forvekslingen - formen
+-- ser riktig ut, og en maaling paa feil utsnitt ser helt troverdig ut.
+--
+-- Det gjorde mer enn aa feilmerke: avstemmingen under sammenligner buffer mot
+-- telling lokasjon for lokasjon, og et utsnitt nesten uten observasjoner
+-- sammenligner nesten ingenting. Verdiene her er perf-suitens, saa tallene kan
+-- holdes opp mot en maaling.
+DECLARE @MinX INT = 170566, @MaxX INT = 355820,
+        @MinY INT = 6599473, @MaxY INT = 6702091;
 
 PRINT '=== 1. Globale invarianter for dimensjon 0 (ufiltrert) ===';
 
@@ -168,7 +180,9 @@ SELECT DimensionId,
 FROM dbo.LocationCountCacheLevel1
 GROUP BY DimensionId ORDER BY DimensionId;
 
-SELECT SUM(p.rows)                                     AS Rader,
+-- p.[rows] i klammer, som i CountCacheSourceRows og begge byggeskriptene: ROWS er
+-- et reservert ord. Denne filen var den eneste som skrev det bart.
+SELECT SUM(p.[rows])                                   AS Rader,
        CAST(SUM(a.total_pages) * 8.0 / 1024 AS DECIMAL(10,1)) AS TotaltMB,
        CAST(SUM(a.used_pages)  * 8.0 / 1024 AS DECIMAL(10,1)) AS BruktMB
 FROM sys.partitions p

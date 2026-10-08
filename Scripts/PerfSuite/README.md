@@ -366,6 +366,32 @@ Så:
 - Vil du ha utsagn per case, må `-Runs` opp. Det er en parameter, ikke en
   kodeendring, og det koster kjøretid tilsvarende.
 
+### Målinger fra før 08.10.2026 kan ikke sammenlignes med nyere
+
+Tre feil i måleveien er rettet, og to av dem flyttet tallene:
+
+- **Medianen var ikke medianen.** `[int](3/2)` er 2 i PowerShell, ikke 1, så med
+  tre varme målinger ble *maksimum* rapportert. Å øke `-Runs` — som avsnittet over
+  anbefaler — gjorde derfor varmtiden systematisk høyere, og en `-Runs 4`-kjøring
+  mot en `-Runs 2`-baseline viste en regresjon over hele linja som bare var
+  målemetoden. Nå er det floor-indeksering, og snittet av de to midterste ved
+  jevnt antall.
+- **Radtellingen lå inne i stoppeklokka.** Den går gjennom hele svarobjektet, og
+  for de tre lokasjons-fixturene på 100 000 rader var det en merkbar, fast
+  klientkostnad i hver måling. Den er nå flyttet ut.
+- `-Runs 0` ga en komplett rapport der hver rad leste `OK, 60000 ms` uten at et
+  enkelt kall var sendt. `-Runs` er nå `[ValidateRange(1, 100)]`.
+
+**Ta en ny baseline før du sammenligner.** Gamle CSV-er i `results/` er fortsatt
+gyldige som historikk, men tallene er målt med en annen metode.
+
+**Dette står igjen:** `Invoke-RestMethod` parser JSON før den returnerer, så
+parsetiden ligger fortsatt inne i målingen. Den er en fast klientkostnad som
+ingen serverendring kan flytte, og den er størst på de største svarene. Å flytte
+den ut krever at kallet bytter til `Invoke-WebRequest` og parser etterpå — en
+endring i selve måleveien som bør gjøres med en kjøring før og etter, ikke
+blindt.
+
 ## Å lese rapporten
 
 - **Tregeste case** — den vanlige topplista, sortert på varm tid.

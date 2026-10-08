@@ -16,12 +16,16 @@
     C#, må BEGGE skriptene endres i takt, og @SchemaVersion oppdateres — ellers nekter
     oppslaget å bruke bufferen, som er poenget med den.
 
-    FORUTSETTER AreaCountCacheBucketMember
+    FORUTSETTER EN FERSK AreaCountCacheBucketMember
     Dimensjon 12 (geografi) og 13 (prosjekt) er flerverdi, og bøtte-id-ene deres slås
     opp i medlemstabellen som områdebufferen eier. Kjør BuildAreaCountCache.sql med
-    @BuildLevel1 = 1 først. Skriptet stopper med en tydelig feil hvis den er tom —
-    ikke fordi det ville krasjet, men fordi det ville bygget en buffer der et
-    fylkesvalg stille ga et tomt kart.
+    @BuildLevel1 = 1 først.
+
+    Skriptet stopper med en tydelig feil hvis tabellen er tom ELLER foreldet — ikke
+    fordi det ville krasjet, men fordi det ville bygget en buffer som så ferdig ut og
+    svarte for lite: en tom tabell gir tomt kart på hvert områdefilter, og en foreldet
+    gir for korte lokasjonslister for de observasjonene som har fått nye
+    områdemedlemskap siden bøttene ble bygget. Begge stemples ellers «Ready».
 
     HVORFOR COUNT(DISTINCT ObservationId)
     Én observasjon har én rad per område den ligger i — i snitt drøyt to. Grupperer
@@ -114,6 +118,84 @@ BEGIN
     RETURN;
 END
 
+-- ---------------------------------------------------------------------------
+-- Medlemstabellen må være bygget fra DE SAMME dataene som ligger der nå
+--
+-- Kontrollene over ser bare at tabellen ikke er tom. Det holder for et
+-- førstegangsbygg, men ikke for en ny kjøring: Scripts/README.md sier dette
+-- skriptet kan kjøres alene, og gjør man det etter en import, er bøttene
+-- områdebufferens — altså bygget fra dataene som var der FØR importen.
+--
+-- Da finner ikke en observasjon som har fått et nytt områdemedlemskap sin egen
+-- signatur igjen i #vernbucket, den indre joinen under slipper den, og
+-- LEFT JOIN-en i byggespørringen gir NULL-bøtte. NULL-bøtter filtreres bort.
+-- Resultatet er korte lokasjonslister — ikke tomme, bare for korte — stemplet
+-- «Ready» med dagens SourceRows, slik at ferskhetsvakten i
+-- LocationCountCacheService går god for dem.
+--
+-- Radantallet er samme uttrykk som CountCacheSourceRows.Sql. Det fanger ikke en
+-- endring som holder radantallet uendret; den eksakte kontrollen står etter at
+-- bøttene er slått opp, og denne er her for å stoppe på ett sekund i stedet for
+-- etter seks minutters arbeid.
+-- ---------------------------------------------------------------------------
+DECLARE @OmraadeKilde BIGINT = (SELECT SourceRows FROM dbo.AreaCountCacheState WHERE Id = 1);
+DECLARE @KildeNaa BIGINT = (
+    SELECT CAST(ISNULL(SUM(p.[rows]), 0) AS BIGINT)
+    FROM sys.partitions p
+    WHERE p.object_id = OBJECT_ID('dbo.ObservationEntityIndex')
+      AND p.index_id IN (0, 1));
+
+IF @OmraadeKilde IS NULL
+BEGIN
+    RAISERROR('AreaCountCacheState.SourceRows er ikke satt, saa bøttene kan ikke verifiseres mot dataene. Kjoer BuildAreaCountCache.sql foerst.', 16, 1);
+    RETURN;
+END
+
+IF @OmraadeKilde <> @KildeNaa
+BEGIN
+    SET @Msg = CONCAT('Omraadebufferen er bygget fra ', FORMAT(@OmraadeKilde, 'N0'),
+                      ' indeksrader, men det ligger ', FORMAT(@KildeNaa, 'N0'),
+                      ' der naa. Boettene er foreldet. Kjoer BuildAreaCountCache.sql foerst.');
+    RAISERROR(@Msg, 16, 1);
+    RETURN;
+END
+
+-- ---------------------------------------------------------------------------
+-- MonthCollected må stemme med MONTH(DateTimeCollected)
+--
+-- Samme invariant og samme tre avvikstilfeller som i BuildAreaCountCache.sql —
+-- begrunnelsen står der. Kort: periodedimensjonen bøttes på
+-- MONTH(i.DateTimeCollected), tellingen filtrerer på i.MonthCollected, og
+-- bufferen skal gi nøyaktig det tellingen gir.
+--
+-- Gjentas her fordi skriptet kan kjøres alene, og da er dette den eneste
+-- kontrollen av invarianten.
+-- ---------------------------------------------------------------------------
+DECLARE @MaanedAvvik BIGINT, @MaanedMangler BIGINT, @MaanedUtenDato BIGINT;
+
+SELECT @MaanedAvvik = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NOT NULL
+                                      AND i.MonthCollected IS NOT NULL
+                                      AND i.MonthCollected <> MONTH(i.DateTimeCollected)
+                                     THEN 1 END),
+       @MaanedMangler = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NOT NULL
+                                        AND i.MonthCollected IS NULL
+                                       THEN 1 END),
+       @MaanedUtenDato = COUNT_BIG(CASE WHEN i.DateTimeCollected IS NULL
+                                         AND i.MonthCollected IS NOT NULL
+                                        THEN 1 END)
+FROM dbo.ObservationEntityIndex i;
+
+IF @MaanedAvvik + @MaanedMangler + @MaanedUtenDato > 0
+BEGIN
+    SET @Msg = CONCAT('MonthCollected stemmer ikke med DateTimeCollected: ',
+                      FORMAT(@MaanedAvvik, 'N0'), ' avviker, ',
+                      FORMAT(@MaanedMangler, 'N0'), ' mangler maaned med dato satt, ',
+                      FORMAT(@MaanedUtenDato, 'N0'), ' har maaned uten dato. ',
+                      'Bufferen bygges IKKE - se BuildAreaCountCache.sql for hvorfor.');
+    RAISERROR(@Msg, 16, 1);
+    RETURN;
+END
+
 -- Status settes til Building FØR tømmingen, ikke etter. Settes den etterpå, etterlater
 -- et avbrudd mellom de to setningene en TOM buffer som fortsatt leses som Ready, og da
 -- svarer kartet null treff uten en eneste feilmelding.
@@ -176,6 +258,28 @@ SELECT s.ObservationId, b.BucketId
 INTO #vern FROM #vernsig s JOIN #vernbucket b ON b.Signatur = s.Signatur;
 CREATE CLUSTERED INDEX ix ON #vern(ObservationId);
 
+-- Den EKSAKTE kontrollen: fant hver observasjon sin egen signatur igjen som bøtte?
+-- Joinen over er indre, så en som ikke gjorde det er allerede borte her — og den
+-- ville blitt talt bort uten et tegn. Radantallsjekken øverst fanger det vanlige
+-- tilfellet; denne fanger også en endring som holdt radantallet uendret.
+--
+-- Status står på «Building» og Level1 er tømt når vi returnerer her, og det er
+-- den trygge tilstanden: oppslaget finner ingen klar buffer og aggregerer som før.
+DECLARE @VernUtenBoette BIGINT = (
+    SELECT COUNT_BIG(*) FROM #vernsig s
+    WHERE NOT EXISTS (SELECT 1 FROM #vernbucket b WHERE b.Signatur = s.Signatur));
+
+IF @VernUtenBoette > 0
+BEGIN
+    SET @Msg = CONCAT(FORMAT(@VernUtenBoette, 'N0'),
+                      ' observasjoner har en omraadesignatur som ikke finnes som boette. ',
+                      'De ville blitt talt bort i stillhet, og lokasjonslistene blitt ',
+                      'for korte. Bufferen bygges IKKE - kjoer BuildAreaCountCache.sql ',
+                      'med @BuildLevel1 = 1 og proev igjen.');
+    RAISERROR(@Msg, 16, 1);
+    RETURN;
+END
+
 SET @Msg = CONCAT('  geografi: ', FORMAT((SELECT COUNT(*) FROM #vernbucket), 'N0'),
                   ' boetter, ', DATEDIFF(SECOND, @T, SYSUTCDATETIME()), 's');
 RAISERROR(@Msg, 0, 1) WITH NOWAIT;
@@ -209,6 +313,21 @@ END
 SELECT s.ObservationId, b.BucketId
 INTO #proj FROM #projsig s JOIN #projbucket b ON b.Signatur = s.Signatur;
 CREATE CLUSTERED INDEX ix ON #proj(ObservationId);
+
+-- Samme eksakte kontroll som for geografi, se der.
+DECLARE @ProsjektUtenBoette BIGINT = (
+    SELECT COUNT_BIG(*) FROM #projsig s
+    WHERE NOT EXISTS (SELECT 1 FROM #projbucket b WHERE b.Signatur = s.Signatur));
+
+IF @ProsjektUtenBoette > 0
+BEGIN
+    SET @Msg = CONCAT(FORMAT(@ProsjektUtenBoette, 'N0'),
+                      ' observasjoner har en prosjektsignatur som ikke finnes som boette. ',
+                      'Bufferen bygges IKKE - kjoer BuildAreaCountCache.sql med ',
+                      '@BuildLevel1 = 1 og proev igjen.');
+    RAISERROR(@Msg, 16, 1);
+    RETURN;
+END
 
 SET @Msg = CONCAT('  prosjekt: ', FORMAT((SELECT COUNT(*) FROM #projbucket), 'N0'),
                   ' boetter, ', DATEDIFF(SECOND, @T, SYSUTCDATETIME()), 's');

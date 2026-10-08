@@ -936,6 +936,13 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             BasisOfRecordId = o.BasisOfRecordId,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             DateTimeCollected = o.DateTimeCollected,
+            // MonthCollected MÅ følge DateTimeCollected. I produksjon er den
+            // backfillet og verifisert av migrasjon 20260920125459, og
+            // byggeskriptene for tellebufferne nekter å bygge hvis de to spriker:
+            // periodedimensjonen bøttes på MONTH(DateTimeCollected), mens
+            // filterstiene leser MonthCollected. Et seed som bare satte datoen
+            // ville derfor stoppe CountCacheScriptIntegrationTests.
+            MonthCollected = (byte?)o.DateTimeCollected?.Month,
             RegistrationStatusId = o.RegistrationStatusId,
             HasMediaFiles = o.HasMediaFiles,
             BehaviorId = o.BehaviorId,

@@ -73,45 +73,97 @@ public class LocationCountCacheService : ILocationCountCacheService
     /// <summary>Én dimensjon med bøttene ferdig oppløst til id-er eller et intervall.</summary>
     private sealed record ResolvedDimension(byte DimensionId, int[]? Buckets, BucketRange? Range);
 
+    /// <summary>
+    /// Tilstanden bufferen ble lest under. Sammenlignes etter lesingen, se
+    /// <see cref="BekreftTilstandAsync"/>.
+    /// </summary>
+    private sealed record CacheTilstand(string Status, int SchemaVersion, long? SourceRows, DateTime? BuiltAt);
+
     /// <inheritdoc />
     public async Task<List<LocationModel>?> TryGetTopLocationsAsync(
         LocationSearchFilterDto filter,
         int maxResults,
         CancellationToken cancellationToken = default)
     {
-        var (kanSvare, dimensjon) = await BestemAsync(
-            filter, LocationCountCacheState.PointCacheId, cancellationToken);
+        const byte stateId = LocationCountCacheState.PointCacheId;
+
+        var (kanSvare, dimensjon, tilstand) = await BestemAsync(filter, stateId, cancellationToken);
 
         if (!kanSvare) return null;
-        if (dimensjon is null) return [];
 
-        return await LookupAsync(dimensjon, filter.Envelope, maxResults, cancellationToken);
+        // Også det tomme svaret bekreftes: beslutningen over leste medlemstabellen,
+        // og en halvveis tømt tabell kan gi «ingen bøtte» for et filter som har treff.
+        if (dimensjon is null)
+            return await BekreftTilstandAsync(tilstand!, stateId, cancellationToken) ? [] : null;
+
+        var resultat = await LookupAsync(dimensjon, filter.Envelope, maxResults, cancellationToken);
+
+        return await BekreftTilstandAsync(tilstand!, stateId, cancellationToken) ? resultat : null;
     }
+
+    /// <summary>
+    /// Bekrefter at bufferen ikke ble bygget om mens den ble lest.
+    ///
+    /// Ferskhetssjekken skjer før lesingen, og mellom de to er det ingenting som
+    /// holder bufferen i ro. BuildLocationCountCache.sql tømmer tabellen, så et
+    /// oppslag midt i en gjenoppbygging leser en halvveis tom buffer og svarer med
+    /// for få lokasjoner — eller ingen — med HTTP 200 og ingen logglinje.
+    ///
+    /// Det er nok å lese tilstandsraden på nytt: skriptet setter Status til
+    /// «Building» FØR det tømmer noe, så dataene kan ikke endres uten at denne raden
+    /// er endret først. Rekker hele byggingen seg ferdig mellom de to lesingene, er
+    /// Status «Ready» igjen, men BuiltAt og SourceRows er nye.
+    ///
+    /// Forkastes svaret, teller kalleren som før: tregere, aldri galt.
+    /// </summary>
+    private async Task<bool> BekreftTilstandAsync(
+        CacheTilstand lest, byte stateId, CancellationToken cancellationToken)
+    {
+        var naa = await LesTilstandAsync(stateId, cancellationToken);
+
+        if (naa == lest)
+            return true;
+
+        _logger.LogWarning(
+            "Lokasjonsbuffer {StateId} ble endret mens den ble lest (fra {Lest} til {Naa}). Svaret forkastes, og kallet teller i stedet.",
+            stateId, lest, naa);
+        return false;
+    }
+
+    private async Task<CacheTilstand?> LesTilstandAsync(byte stateId, CancellationToken cancellationToken) =>
+        await _context.Set<LocationCountCacheState>()
+            .AsNoTracking()
+            .Where(s => s.Id == stateId)
+            .Select(s => new CacheTilstand(s.Status, s.SchemaVersion, s.SourceRows, s.BuiltAt))
+            .FirstOrDefaultAsync(cancellationToken);
 
     /// <summary>
     /// Avgjør om bufferen kan svare på filteret, og hvilken bøtte det peker på.
     ///
     /// Tre utfall, som i ResolveAsync:
-    ///   (false, null) — kan ikke besvares; kalleren teller som før
-    ///   (true,  null) — utvalget traff ingen bøtte: null lokasjoner
-    ///   (true,  dim)  — slå opp
+    ///   (false, null, null) — kan ikke besvares; kalleren teller som før
+    ///   (true,  null, t)    — utvalget traff ingen bøtte: null lokasjoner
+    ///   (true,  dim,  t)    — slå opp
     ///
     /// Beslutningen er den risikable delen — en dimensjon som slipper gjennom
     /// uten å være dekket gir for mange lokasjoner med for høye tall — så den
     /// er skilt ut fra oppslaget og står ett sted.
+    ///
+    /// Tilstanden følger med ut når svaret er ja, fordi den må bekreftes etter at
+    /// radene er lest. Se <see cref="BekreftTilstandAsync"/>.
     /// </summary>
-    private async Task<(bool KanSvare, ResolvedDimension? Dimensjon)> BestemAsync(
+    private async Task<(bool KanSvare, ResolvedDimension? Dimensjon, CacheTilstand? Tilstand)> BestemAsync(
         LocationSearchFilterDto filter, byte stateId, CancellationToken cancellationToken)
     {
         if (!_options.Enabled)
-            return (false, null);
+            return (false, null, null);
 
         // Katalognummer er ikke en dimensjon og kan ikke bli det: ObservationIds
         // er en vilkårlig liste løst opp av typeahead-endepunktet, uten noe
         // endelig vokabular å bøtte på. Den trenger det heller ikke — filteret er
         // et seek på klyngeindeksen og er den raskeste stien vi har.
         if (filter.ObservationIds?.Length > 0)
-            return (false, null);
+            return (false, null, null);
 
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
         var active = new List<(CacheDimension Dimension, BucketSelection Buckets)>();
@@ -125,7 +177,7 @@ public class LocationCountCacheService : ILocationCountCacheService
             // på resten av filteret og se bort fra denne ville gitt for mange
             // lokasjoner med for høye tall.
             if (!selection.IsCacheable)
-                return (false, null);
+                return (false, null, null);
 
             if (selection.IsActive)
                 active.Add((dimension, selection.Buckets!));
@@ -134,13 +186,14 @@ public class LocationCountCacheService : ILocationCountCacheService
         // Bare ett nivå. To eller flere filtre krever samfordelingen, se
         // klassekommentaren.
         if (active.Count > 1)
-            return (false, null);
+            return (false, null, null);
 
-        if (!await IsReadyAsync(stateId, cancellationToken))
-            return (false, null);
+        var tilstand = await KlarTilstandAsync(stateId, cancellationToken);
+        if (tilstand is null)
+            return (false, null, null);
 
         if (active.Count == 0)
-            return (true, new ResolvedDimension(NoFilterDimensionId, [NoFilterBucketId], null));
+            return (true, new ResolvedDimension(NoFilterDimensionId, [NoFilterBucketId], null), tilstand);
 
         var (aktiv, buckets) = active[0];
         var one = await ResolveAsync(aktiv, buckets, cancellationToken);
@@ -148,14 +201,14 @@ public class LocationCountCacheService : ILocationCountCacheService
         // Ikke i stand til å svare — medlemstabellen er ikke bygget for denne
         // dimensjonen. Skilt fra «ingen bøtte matchet» med vilje, se ResolveAsync.
         if (one is null)
-            return (false, null);
+            return (false, null, null);
 
         // Et filter som ikke treffer noen bøtte gir ingen observasjoner, altså
         // ingen lokasjoner. Samme utfall som tellingen ville gitt.
         if (one.Buckets is { Length: 0 })
-            return (true, null);
+            return (true, null, tilstand);
 
-        return (true, one);
+        return (true, one, tilstand);
     }
 
     /// <summary>
@@ -170,25 +223,28 @@ public class LocationCountCacheService : ILocationCountCacheService
     /// ikke en endring som bytter verdier uten å endre antallet. Den er et
     /// sikkerhetsnett under importen, ikke en erstatning for at importen
     /// ugyldiggjør bufferen selv (se ImportJob).
+    ///
+    /// Returnerer tilstanden den sa ja til, ikke bare ja: den må bekreftes etter at
+    /// radene er lest. Se <see cref="BekreftTilstandAsync"/>.
     /// </summary>
-    private async Task<bool> IsReadyAsync(byte stateId, CancellationToken cancellationToken)
+    private async Task<CacheTilstand?> KlarTilstandAsync(byte stateId, CancellationToken cancellationToken)
     {
-        var state = await _context.Set<LocationCountCacheState>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == stateId, cancellationToken);
+        var state = await LesTilstandAsync(stateId, cancellationToken);
 
         if (state is null || state.Status != "Ready")
-            return false;
+            return null;
 
         if (state.SchemaVersion != AreaCountCacheDimensions.SchemaVersion)
         {
             _logger.LogWarning(
                 "Lokasjonsbuffer {StateId} er bygget med skjemaversjon {Built}, koden forventer {Expected}. Bufferen ignoreres til den er bygget på nytt.",
                 stateId, state.SchemaVersion, AreaCountCacheDimensions.SchemaVersion);
-            return false;
+            return null;
         }
 
-        return await KildenErUendretAsync(state.SourceRows, stateId, cancellationToken);
+        return await KildenErUendretAsync(state.SourceRows, stateId, cancellationToken)
+            ? state
+            : null;
     }
 
     /// <summary>
