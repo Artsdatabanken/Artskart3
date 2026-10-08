@@ -167,7 +167,7 @@
     "precision": "Precision",
     "taxonGroup": "Taxon group",
     "riskCategory": "Risk category",
-    "noResults": "No observations found"
+    "noResults": "The selected filter has no observations"
   },
   "sidebar": {
     "categories": "Red List- and Alien Species Categories",
