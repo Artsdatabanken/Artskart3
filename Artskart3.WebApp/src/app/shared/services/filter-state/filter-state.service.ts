@@ -1,6 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 
 export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
+
+/** A filter value picked by searching. The name is only for display; the id is what gets sent. */
+export interface NamedId {
+  id: number;
+  name: string;
+}
 
 export function imageFilterToWithImages(option: ImageFilterOption): boolean | undefined {
   if (option === 'withImage') return true;
@@ -32,13 +38,12 @@ export class FilterStateService {
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
   readonly periodTo = signal<number | null>(null);
-  // Samling, prosjekt og katalognummer filtreres på ID. Teksten beholdes kun for
-  // å vise hva brukeren har valgt — det er ID-ene som sendes til backend.
-  // Uten et valgt treff er ID-en null, og filteret er ikke aktivt.
-  readonly projectName = signal<string>('');
-  readonly projectOrgId = signal<number | null>(null);
-  readonly datasetName = signal<string>('');
-  readonly datasetOrgId = signal<number | null>(null);
+  readonly selectedProjects = signal<NamedId[]>([]);
+  readonly selectedDatasets = signal<NamedId[]>([]);
+  // Only the ids, so a name arriving later doesn't count as a filter change.
+  readonly selectedProjectIds = computed(() => idsOf(this.selectedProjects()), { equal: sameIds });
+  readonly selectedDatasetIds = computed(() => idsOf(this.selectedDatasets()), { equal: sameIds });
+  // The catalog number is only for display; the observation ids are what gets sent.
   readonly catalogNumber = signal<string>('');
   readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
@@ -252,20 +257,28 @@ export class FilterStateService {
     this.clearMonths();
   }
 
-  setProjectName(value: string): void {
-    this.projectName.set(value);
+  addProject(project: NamedId): void {
+    this.selectedProjects.update((projects) => addNamed(projects, project));
   }
 
-  setProjectOrgId(id: number | null): void {
-    this.projectOrgId.set(id);
+  removeProject(id: number): void {
+    this.selectedProjects.update((projects) => projects.filter((p) => p.id !== id));
   }
 
-  setDatasetName(value: string): void {
-    this.datasetName.set(value);
+  setProjectName(id: number, name: string): void {
+    this.selectedProjects.update((projects) => renameNamed(projects, id, name));
   }
 
-  setDatasetOrgId(id: number | null): void {
-    this.datasetOrgId.set(id);
+  addDataset(dataset: NamedId): void {
+    this.selectedDatasets.update((datasets) => addNamed(datasets, dataset));
+  }
+
+  removeDataset(id: number): void {
+    this.selectedDatasets.update((datasets) => datasets.filter((d) => d.id !== id));
+  }
+
+  setDatasetName(id: number, name: string): void {
+    this.selectedDatasets.update((datasets) => renameNamed(datasets, id, name));
   }
 
   setCatalogNumber(value: string): void {
@@ -281,10 +294,8 @@ export class FilterStateService {
   }
 
   clearOtherFindProperties(): void {
-    this.projectName.set('');
-    this.projectOrgId.set(null);
-    this.datasetName.set('');
-    this.datasetOrgId.set(null);
+    this.selectedProjects.set([]);
+    this.selectedDatasets.set([]);
     this.catalogNumber.set('');
     this.catalogObservationIds.set([]);
     this.imageFilter.set('all');
@@ -303,4 +314,20 @@ export class FilterStateService {
     this.clearTaxons();
     this.clearOtherFindProperties();
   }
+}
+
+function idsOf(items: NamedId[]): number[] {
+  return items.map((item) => item.id);
+}
+
+function sameIds(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+function addNamed(items: NamedId[], item: NamedId): NamedId[] {
+  return items.some((existing) => existing.id === item.id) ? items : [...items, item];
+}
+
+function renameNamed(items: NamedId[], id: number, name: string): NamedId[] {
+  return items.map((item) => (item.id === id ? { ...item, name } : item));
 }

@@ -476,19 +476,19 @@ public class SearchRepository : ISearchRepository
 
         // Prosjekt/datasett — semi-join mot ObservationProject. Egen tabell fordi
         // datasett ikke er 1:1: 745 066 observasjoner har flere enn ett.
-        if (filter.ProjectOrgId.HasValue)
+        var projectOrgIds = filter.GetProjectOrgIds();
+        if (projectOrgIds.Length > 0)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
             query = query.Where(o => _context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == o.Id && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == o.Id && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         // Samling — denormalisert kolonne. Frontend sender ID fra typeahead, så
         // strengsammenligningen mot CollectionCode er borte.
-        if (filter.DatasetOrgId.HasValue)
+        var datasetOrgIds = filter.GetDatasetOrgIds();
+        if (datasetOrgIds.Length > 0)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(o => o.DatasetOrgId == datasetOrgId);
+            query = query.Where(o => o.DatasetOrgId.HasValue && datasetOrgIds.Contains(o.DatasetOrgId.Value));
         }
 
         // Katalognummer løses opp til ObservationId-er av oppslagsendepunktet.
@@ -830,10 +830,10 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => idx.InstitutionOrgId.HasValue && orgIds.Contains(idx.InstitutionOrgId.Value));
         }
 
-        if (filter.DatasetOrgId.HasValue)
+        var datasetOrgIds = filter.GetDatasetOrgIds();
+        if (datasetOrgIds.Length > 0)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(idx => idx.DatasetOrgId == datasetOrgId);
+            query = query.Where(idx => idx.DatasetOrgId.HasValue && datasetOrgIds.Contains(idx.DatasetOrgId.Value));
         }
 
         if (filter.BehaviorIds?.Any() == true)
@@ -860,11 +860,11 @@ public class SearchRepository : ISearchRepository
         // Prosjekt/datasett — semi-join mot ObservationProject (14,5M smale rader).
         // Ikke en kolonne: 745 066 observasjoner har flere enn ett datasett, og en
         // enkelt kolonne ville stille droppet tilknytningen for dem.
-        if (filter.ProjectOrgId.HasValue)
+        var projectOrgIds = filter.GetProjectOrgIds();
+        if (projectOrgIds.Length > 0)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
             query = query.Where(idx => _context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == idx.ObservationId && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == idx.ObservationId && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         // Katalognummer er allerede løst opp til ObservationId-er av

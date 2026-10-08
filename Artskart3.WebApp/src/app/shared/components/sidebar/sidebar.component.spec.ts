@@ -10,6 +10,7 @@ import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category
 import { AuthService } from '../../services/auth/auth.service';
 import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
 import { SavedFilterDto } from '../../types/api.types';
+import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 
 describe('SidebarComponent', () => {
   let component: SidebarComponent;
@@ -342,79 +343,88 @@ describe('SidebarComponent', () => {
       expect(component.coordinatePrecisionToInput()).toBe('');
     });
   });
-  // MERK: her laa tester for de tre *Unresolved-computedene. De ble fjernet sammen
-  // med varselteksten de drev - se kommentaren i sidebar.component.ts. Testene under
-  // dekker fortsatt det som betyr noe for filteret: at teksten og den valgte ID-en
-  // ikke kan komme ut av synk.
 
-  // Redigerer man teksten etter et valg, må ID-en nullstilles. Ellers peker
-  // teksten og filteret på hver sin ting.
-  describe('typeahead - endring nullstiller valgt id', () => {
-    it('should clear projectOrgId when the text is edited', () => {
-      filterState.setProjectOrgId(14842);
-      component.onProjectNameChange('Kart');
+  describe('andre funnegenskaper', () => {
+    // Project, dataset and catalog number, in template order.
+    const otherPropertyFields = () =>
+      fixture.debugElement
+        .query(By.css('.other-properties-filter'))
+        .queryAll(By.directive(AutocompleteComponent))
+        .map((field) => field.componentInstance as AutocompleteComponent<unknown>);
 
-      expect(filterState.projectName()).toBe('Kart');
-      expect(filterState.projectOrgId()).toBeNull();
+    it('should keep every selected project, so several can be active at once', () => {
+      component.onProjectSelected({ id: 14842, name: 'Kartlegging' });
+      component.onProjectSelected({ id: 14843, name: 'Overvåking' });
+
+      expect(filterState.selectedProjects()).toEqual([
+        { id: 14842, name: 'Kartlegging' },
+        { id: 14843, name: 'Overvåking' },
+      ]);
     });
 
-    it('should clear datasetOrgId when the text is edited', () => {
-      filterState.setDatasetOrgId(26435);
-      component.onDatasetNameChange('Aqu');
+    it('should keep every selected dataset', () => {
+      component.onDatasetSelected({ id: 26435, name: 'Aqua Kompetanse AS' });
+      component.onDatasetSelected({ id: 26436, name: 'Artsobservasjoner' });
 
-      expect(filterState.datasetName()).toBe('Aqu');
-      expect(filterState.datasetOrgId()).toBeNull();
+      expect(filterState.selectedDatasetIds()).toEqual([26435, 26436]);
     });
 
-    it('should clear project filters when adb-search emits adb-clear', () => {
-      filterState.setProjectName('Kartlegging');
-      filterState.setProjectOrgId(14842);
+    it('should ignore a result without an id', () => {
+      component.onProjectSelected({ name: 'Uten id' });
+      component.onDatasetSelected({ name: 'Uten id' });
 
-      const searchElements = fixture.nativeElement.querySelectorAll('adb-search');
-      const projectSearch = searchElements[1] as HTMLElement;
-      projectSearch.dispatchEvent(new CustomEvent('adb-clear'));
-
-      expect(filterState.projectName()).toBe('');
-      expect(filterState.projectOrgId()).toBeNull();
+      expect(filterState.selectedProjects()).toEqual([]);
+      expect(filterState.selectedDatasets()).toEqual([]);
     });
 
-    it('should clear dataset filters when adb-search emits adb-clear', () => {
-      filterState.setDatasetName('Aqua Kompetanse AS');
-      filterState.setDatasetOrgId(26435);
+    it('should replace the catalog number when another one is selected', () => {
+      component.onCatalogNumberSelected({ catalogNumber: 'NHM-123', observationIds: [101, 102] });
+      component.onCatalogNumberSelected({ catalogNumber: 'NHM-456', observationIds: [201] });
 
-      const datasetSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[1] as HTMLElement;
-      datasetSearch?.dispatchEvent(new CustomEvent('adb-clear'));
-
-      expect(filterState.datasetName()).toBe('');
-      expect(filterState.datasetOrgId()).toBeNull();
+      expect(filterState.catalogNumber()).toBe('NHM-456');
+      expect(filterState.catalogObservationIds()).toEqual([201]);
     });
 
-    it('should clear catalog filters when adb-search emits adb-clear', () => {
-      filterState.setCatalogNumber('NHM-123');
-      filterState.setCatalogObservationIds([101, 102]);
+    it('should search each field through its own lookup endpoint', () => {
+      component.searchProjects('kart').subscribe();
+      component.searchDatasets('aqu').subscribe();
+      component.searchCatalogNumbers('NHM').subscribe();
 
-      const catalogSearch = fixture.nativeElement.querySelectorAll('.other-properties-search')[2] as HTMLElement;
-      catalogSearch?.dispatchEvent(new CustomEvent('adb-clear'));
-
-      expect(filterState.catalogNumber()).toBe('');
-      expect(filterState.catalogObservationIds()).toEqual([]);
-    });
-  });
-
-  describe('typeahead - valg av forslag', () => {
-    it('should set both name and id when a dataset suggestion is selected', () => {
-      component.selectProjectSuggestion({ id: 14842, name: 'Kartlegging' });
-
-      expect(filterState.projectName()).toBe('Kartlegging');
-      expect(filterState.projectOrgId()).toBe(14842);
-      expect(component.showProjectSuggestions()).toBe(false);
+      httpTesting.expectOne((req) => req.url === '/api/Lookup/Projects' && req.params.get('search') === 'kart').flush([]);
+      httpTesting.expectOne((req) => req.url === '/api/Lookup/Datasets' && req.params.get('search') === 'aqu').flush([]);
+      httpTesting.expectOne((req) => req.url === '/api/Lookup/CatalogNumbers' && req.params.get('search') === 'NHM').flush([]);
     });
 
-    it('should set both name and id when a collection suggestion is selected', () => {
-      component.selectDatasetSuggestion({ id: 26435, name: 'Aqua Kompetanse AS' });
+    // The label above already says what to type. An empty value keeps adb-search's own default placeholder away.
+    it('should show no placeholder in the fields', () => {
+      fixture.detectChanges();
+      const searches = [...fixture.nativeElement.querySelectorAll('.other-properties-filter adb-search')] as HTMLElement[];
 
-      expect(filterState.datasetName()).toBe('Aqua Kompetanse AS');
-      expect(filterState.datasetOrgId()).toBe(26435);
+      expect(searches.map((search) => search.getAttribute('placeholder'))).toEqual(['', '', '']);
+    });
+
+    it('should show the observation count after project and dataset names', () => {
+      const [projectField, datasetField] = otherPropertyFields();
+      for (const field of [projectField, datasetField]) {
+        field.results.set([{ id: 1, name: 'Kartlegging', observationCount: 1234 }]);
+        field.showAutocomplete.set(true);
+      }
+      fixture.detectChanges();
+
+      const options = [...fixture.nativeElement.querySelectorAll('.other-properties-filter .autocomplete-item')] as HTMLElement[];
+      expect(options.map((option) => option.textContent?.trim())).toEqual(['Kartlegging (1,234)', 'Kartlegging (1,234)']);
+    });
+
+    it('should add to the filter when a result is picked in each field', () => {
+      const [projectField, datasetField, catalogField] = otherPropertyFields();
+
+      projectField.select({ id: 14842, name: 'Kartlegging' });
+      datasetField.select({ id: 26435, name: 'Aqua Kompetanse AS' });
+      catalogField.select({ catalogNumber: 'NHM-123', observationIds: [101] });
+
+      expect(filterState.selectedProjectIds()).toEqual([14842]);
+      expect(filterState.selectedDatasetIds()).toEqual([26435]);
+      expect(filterState.catalogObservationIds()).toEqual([101]);
     });
   });
 });

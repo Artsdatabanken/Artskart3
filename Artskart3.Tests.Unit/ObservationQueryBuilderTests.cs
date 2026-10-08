@@ -48,6 +48,41 @@ public class ObservationQueryBuilderTests
     }
 
     [Fact]
+    public void ApplyFilters_WithDatasetOrgIds_ReturnsObservationsInAnyOfThem()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, datasetOrgId: 100),
+            CreateObservation(2, datasetOrgId: 200),
+            CreateObservation(3, datasetOrgId: 300),
+            CreateObservation(4, datasetOrgId: null));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgIds = [100, 300] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 3]);
+    }
+
+    /// <summary>
+    /// Lagrede filtre fra før listene kom har bare DatasetOrgId. Står begge,
+    /// teller de som én liste.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithDatasetOrgIdAndDatasetOrgIds_CombinesThemWithOr()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, datasetOrgId: 100),
+            CreateObservation(2, datasetOrgId: 200),
+            CreateObservation(3, datasetOrgId: 300));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 100, DatasetOrgIds = [200] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
     public void ApplyFilters_WithObservationIds_ReturnsOnlyThoseIds()
     {
         using var context = CreateInMemoryContext();
@@ -94,6 +129,39 @@ public class ObservationQueryBuilderTests
         var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithProjectOrgIds_ReturnsObservationsInAnyOfThemOnce()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context, CreateObservation(1), CreateObservation(2), CreateObservation(3));
+        context.Set<ObservationProject>().AddRange(
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 500 },
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 501 },
+            new ObservationProject { ObservationId = 2, ProjectOrgId = 501 },
+            new ObservationProject { ObservationId = 3, ProjectOrgId = 600 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgIds = [500, 501] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]).And.OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public void ApplyFilters_WithProjectOrgIdAndProjectOrgIds_CombinesThemWithOr()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context, CreateObservation(1), CreateObservation(2), CreateObservation(3));
+        context.Set<ObservationProject>().AddRange(
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 500 },
+            new ObservationProject { ObservationId = 2, ProjectOrgId = 600 },
+            new ObservationProject { ObservationId = 3, ProjectOrgId = 700 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500, ProjectOrgIds = [600] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
     }
 
     [Fact]
@@ -368,7 +436,9 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.RegistrationStatusId)] = f => f.RegistrationStatusId = 2,
         [nameof(IObservationFilter.CoordinatePrecision)] = f => f.CoordinatePrecision = new CoordinatePrecisionDto { From = 99_999 },
         [nameof(IObservationFilter.Period)] = f => f.Period = new PeriodDto { From = 2999 },
+        [nameof(IObservationFilter.DatasetOrgIds)] = f => f.DatasetOrgIds = [999],
         [nameof(IObservationFilter.DatasetOrgId)] = f => f.DatasetOrgId = 999,
+        [nameof(IObservationFilter.ProjectOrgIds)] = f => f.ProjectOrgIds = [999],
         [nameof(IObservationFilter.ProjectOrgId)] = f => f.ProjectOrgId = 999,
         [nameof(IObservationFilter.ObservationIds)] = f => f.ObservationIds = [999],
         // Observasjonen har ingen mediefiler.

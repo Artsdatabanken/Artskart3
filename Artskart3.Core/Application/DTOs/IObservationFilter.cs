@@ -21,11 +21,23 @@ public interface IObservationFilter
     PeriodDto? Period { get; }
     /// <summary>
     /// Datasett — Organization med OrganizationTypeId = 2. Velges i typeahead.
+    /// Les via <see cref="ObservationFilterExtensions.GetDatasetOrgIds"/>, som tar med <see cref="DatasetOrgId"/>.
+    /// </summary>
+    int[]? DatasetOrgIds { get; }
+
+    /// <summary>
+    /// Ett datasett. Beholdt fordi lagrede filtre og eksportjobber kan ha det; nye klienter sender <see cref="DatasetOrgIds"/>.
     /// </summary>
     int? DatasetOrgId { get; }
 
     /// <summary>
     /// Prosjekt — Organization med OrganizationTypeId = 3. Velges i typeahead.
+    /// Les via <see cref="ObservationFilterExtensions.GetProjectOrgIds"/>, som tar med <see cref="ProjectOrgId"/>.
+    /// </summary>
+    int[]? ProjectOrgIds { get; }
+
+    /// <summary>
+    /// Ett prosjekt. Beholdt fordi lagrede filtre og eksportjobber kan ha det; nye klienter sender <see cref="ProjectOrgIds"/>.
     /// </summary>
     int? ProjectOrgId { get; }
 

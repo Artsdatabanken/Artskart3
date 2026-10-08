@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  afterRenderEffect,
   computed,
   contentChild,
   inject,
@@ -48,9 +49,15 @@ export class AutocompleteComponent<T> {
   /** Translation key for the no-results message. Gets the term as `searchTerm`. */
   readonly noResultsKey = input('autocomplete.noResultsFor');
   readonly trackBy = input<(item: T) => unknown>((item) => item);
+  /**
+   * Lets the popup grow to fit its options, at least as wide as the field. It is shown
+   * in the top layer so a narrow, scrolling parent such as the sidebar can't clip it.
+   */
+  readonly fitContent = input(false);
   readonly selected = output<T>();
 
   protected readonly optionTemplate = contentChild.required<AutocompleteOptionDirective<T>>(AutocompleteOptionDirective);
+  private readonly popup = viewChild<ElementRef<HTMLElement>>('popup');
   readonly optionIdPrefix = `autocomplete-${nextInstanceId++}-option-`;
 
   private readonly searchInput$ = new Subject<string>();
@@ -61,7 +68,7 @@ export class AutocompleteComponent<T> {
   readonly highlightedIndex = signal(-1);
   private readonly dismissed = signal(false);
   private readonly layoutChanged = signal(0);
-  readonly popupPosition = computed(() => {
+  readonly popupStyle = computed((): Record<string, string> => {
     this.showAutocomplete();
     this.showNoResults();
     this.layoutChanged();
@@ -70,11 +77,39 @@ export class AutocompleteComponent<T> {
     const searchShadow = this.searchElement().nativeElement.shadowRoot;
     const inputRect = (searchShadow?.querySelector('.input-wrapper') ?? host).getBoundingClientRect();
     const buttonRect = searchShadow?.querySelector('.submit-button')?.getBoundingClientRect() ?? inputRect;
-    const hostRect = host.getBoundingClientRect();
-    return { top: inputRect.bottom - hostRect.top, left: inputRect.left - hostRect.left, width: buttonRect.right - inputRect.left };
+    const fieldWidth = `${buttonRect.right - inputRect.left}px`;
+    if (!this.fitContent()) {
+      const hostRect = host.getBoundingClientRect();
+      return { top: `${inputRect.bottom - hostRect.top}px`, left: `${inputRect.left - hostRect.left}px`, width: fieldWidth };
+    }
+    return {
+      top: `${inputRect.bottom}px`,
+      left: `${inputRect.left}px`,
+      'min-width': fieldWidth,
+      'max-width': `calc(100vw - ${inputRect.left}px - var(--adb-spacing-sm))`,
+      visibility: this.isInView(inputRect) ? 'visible' : 'hidden',
+    };
   });
 
   constructor() {
+    // The top-layer popup is positioned against the viewport, so it has to follow the field.
+    const doc = this.hostEl.nativeElement.ownerDocument;
+    const relayout = () => {
+      if (this.fitContent() && (this.showAutocomplete() || this.showNoResults())) this.layoutChanged.update((n) => n + 1);
+    };
+    doc.addEventListener('scroll', relayout, { capture: true, passive: true });
+    doc.defaultView?.addEventListener('resize', relayout, { passive: true });
+    inject(DestroyRef).onDestroy(() => {
+      doc.removeEventListener('scroll', relayout, { capture: true });
+      doc.defaultView?.removeEventListener('resize', relayout);
+    });
+
+    // Runs once per popup element: @if creates a new one each time the popup opens.
+    afterRenderEffect(() => {
+      const popup = this.popup()?.nativeElement;
+      if (popup?.popover) popup.showPopover();
+    });
+
     this.searchInput$
       .pipe(
         // distinctUntilChanged must precede debounceTime so the '' pushed by
@@ -130,6 +165,18 @@ export class AutocompleteComponent<T> {
 
   private isSearchable(term: string): boolean {
     return term.length >= this.minLength();
+  }
+
+  // Nothing clips the top-layer popup, so it is hidden while the field is scrolled out of view.
+  private isInView(inputRect: DOMRect): boolean {
+    const view = this.hostEl.nativeElement.ownerDocument.defaultView;
+    for (let el = this.hostEl.nativeElement.parentElement; el; el = el.parentElement) {
+      if (view?.getComputedStyle(el).overflowY !== 'visible') {
+        const clip = el.getBoundingClientRect();
+        return inputRect.bottom >= clip.top && inputRect.bottom <= clip.bottom;
+      }
+    }
+    return true;
   }
 
   onSearchInput(event: Event): void {

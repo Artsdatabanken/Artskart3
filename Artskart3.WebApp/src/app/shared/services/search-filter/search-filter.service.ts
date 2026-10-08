@@ -43,8 +43,8 @@ export class SearchFilterService {
       const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
-      const datasetOrgId = this.filterState.datasetOrgId();
-      const projectOrgId = this.filterState.projectOrgId();
+      const datasetOrgIds = this.filterState.selectedDatasetIds();
+      const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
 
@@ -60,8 +60,8 @@ export class SearchFilterService {
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        datasetOrgId: datasetOrgId ?? undefined,
-        projectOrgId: projectOrgId ?? undefined,
+        datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
+        projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
         period: hasPeriod
@@ -101,8 +101,8 @@ export class SearchFilterService {
     state.setCoordinatePrecision(filter.coordinatePrecision?.from ?? null, filter.coordinatePrecision?.to ?? null);
     state.setPeriod(filter.period?.from ?? null, filter.period?.to ?? null);
     state.selectedMonths.set(filter.period?.months ?? []);
-    state.setDatasetOrgId(filter.datasetOrgId ?? null);
-    state.setProjectOrgId(filter.projectOrgId ?? null);
+    state.selectedDatasets.set(withSingle(filter.datasetOrgIds, filter.datasetOrgId).map((id) => ({ id, name: '' })));
+    state.selectedProjects.set(withSingle(filter.projectOrgIds, filter.projectOrgId).map((id) => ({ id, name: '' })));
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
 
@@ -111,24 +111,21 @@ export class SearchFilterService {
 
   private resolveDisplayNames(filter: ObservationSearchFilter): void {
     const state = this.filterState;
-    const { datasetOrgId, projectOrgId, observationIds } = filter;
+    const { observationIds } = filter;
 
-    // Navnet settes bare hvis brukeren ikke har endret filteret mens oppslaget pågikk.
-    // Feiler oppslaget (f.eks. slettet organisasjon), vises ID-en, så filteret aldri er
-    // aktivt uten at det synes i panelet og som filterbrikke.
-    if (datasetOrgId != null) {
-      const setName = (name: string) => state.datasetOrgId() === datasetOrgId && state.setDatasetName(name);
-      this.organizationService.getOrganization(datasetOrgId).subscribe({
-        next: (organization) => setName(organization.name || `#${datasetOrgId}`),
-        error: () => setName(`#${datasetOrgId}`),
+    // Et navn som kommer etter at brukeren har fjernet valget, gjør ingenting. Feiler
+    // oppslaget (f.eks. slettet organisasjon), viser filterbrikken ID-en i stedet.
+    for (const { id } of state.selectedDatasets()) {
+      this.organizationService.getOrganization(id).subscribe({
+        next: (organization) => organization.name && state.setDatasetName(id, organization.name),
+        error: () => undefined,
       });
     }
 
-    if (projectOrgId != null) {
-      const setName = (name: string) => state.projectOrgId() === projectOrgId && state.setProjectName(name);
-      this.organizationService.getOrganization(projectOrgId).subscribe({
-        next: (organization) => setName(organization.name || `#${projectOrgId}`),
-        error: () => setName(`#${projectOrgId}`),
+    for (const { id } of state.selectedProjects()) {
+      this.organizationService.getOrganization(id).subscribe({
+        next: (organization) => organization.name && state.setProjectName(id, organization.name),
+        error: () => undefined,
       });
     }
 
@@ -141,6 +138,11 @@ export class SearchFilterService {
       });
     }
   }
+}
+
+/** Lagrede filtre fra før listene kom har bare én ID. */
+function withSingle(ids: number[] | null | undefined, single: number | null | undefined): number[] {
+  return [...new Set([...(ids ?? []), ...(single != null ? [single] : [])])];
 }
 
 function sameIds(a: number[], b: number[]): boolean {
