@@ -40,20 +40,60 @@ namespace Artskart3.Infrastructure.Migrations;
 public partial class AddLocationGeometryTypeId : Migration
 {
     /// <inheritdoc />
+    /// <remarks>
+    /// UTENFOR MIGRASJONSTRANSAKSJONEN, OG IDEMPOTENT — som de andre tunge
+    /// migrasjonene på denne grenen.
+    ///
+    /// En PERSISTERT beregnet kolonne skriver om HVER rad i Location: 5,1 millioner
+    /// rader, og den etterlot tabellen 95,4 % fragmentert (se
+    /// DatabaseMaintenanceJob). Ligger arbeidet i migrasjonstransaksjonen, holdes
+    /// tabellen under en skjemalås hele veien, og en timeout ruller tilbake både
+    /// omskrivingen OG indeksen — altså alt, etter å ha betalt for alt.
+    ///
+    /// Delt i to setninger med egne vakter i stedet: feiler indeksen, står kolonnen
+    /// igjen, og en ny kjøring hopper over den og tar bare indeksen.
+    ///
+    /// Uttrykket er duplisert fra ArtskartDbContext.LocationGeometryTypeSql med
+    /// vilje — en migrasjon skal beskrive skjemaet slik det var da den ble skrevet,
+    /// og ikke endre seg fordi en konstant i koden endres senere.
+    /// </remarks>
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.AddColumn<byte>(
-            name: "GeometryTypeId",
-            table: "Location",
-            type: "tinyint",
-            nullable: false,
-            computedColumnSql: "CAST(CASE [Geometry].STGeometryType()\n    WHEN 'Point'              THEN 1\n    WHEN 'Polygon'            THEN 2\n    WHEN 'MultiPolygon'       THEN 3\n    WHEN 'LineString'         THEN 4\n    WHEN 'MultiLineString'    THEN 5\n    WHEN 'GeometryCollection' THEN 6\n    ELSE 0\nEND AS TINYINT)",
-            stored: true);
+        migrationBuilder.Sql("""
+            IF COL_LENGTH('dbo.Location', 'GeometryTypeId') IS NULL
+            BEGIN
+                RAISERROR('Legger til Location.GeometryTypeId (omskriver 5,1 mill. rader)...', 0, 1) WITH NOWAIT;
 
-        migrationBuilder.CreateIndex(
-            name: "IX_Location_GeometryTypeEastNorth",
-            table: "Location",
-            columns: new[] { "GeometryTypeId", "East", "North" });
+                ALTER TABLE dbo.Location ADD GeometryTypeId AS CAST(CASE [Geometry].STGeometryType()
+                    WHEN 'Point'              THEN 1
+                    WHEN 'Polygon'            THEN 2
+                    WHEN 'MultiPolygon'       THEN 3
+                    WHEN 'LineString'         THEN 4
+                    WHEN 'MultiLineString'    THEN 5
+                    WHEN 'GeometryCollection' THEN 6
+                    ELSE 0
+                END AS TINYINT) PERSISTED NOT NULL;
+            END
+            """, suppressTransaction: true);
+
+        migrationBuilder.Sql("""
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                           WHERE name = 'IX_Location_GeometryTypeEastNorth'
+                             AND object_id = OBJECT_ID('dbo.Location'))
+            BEGIN
+                RAISERROR('Oppretter IX_Location_GeometryTypeEastNorth...', 0, 1) WITH NOWAIT;
+
+                CREATE NONCLUSTERED INDEX IX_Location_GeometryTypeEastNorth
+                ON dbo.Location (GeometryTypeId, East, North);
+            END
+
+            -- MERK: omskrivingen over etterlater Location kraftig fragmentert - 95,4 %
+            -- maalt. En ALTER INDEX ALL ON dbo.Location REBUILD WITH (MAXDOP = 4) boer
+            -- kjoeres etter denne migrasjonen. Den staar IKKE her: den tar minutter,
+            -- og en betinget sjekk paa fragmenteringsgraden ville krevd
+            -- VIEW DATABASE STATE, altsaa gjort migrasjonen avhengig av en rettighet
+            -- den ellers ikke trenger. Se DatabaseMaintenanceJob.
+            """, suppressTransaction: true);
     }
 
     /// <inheritdoc />

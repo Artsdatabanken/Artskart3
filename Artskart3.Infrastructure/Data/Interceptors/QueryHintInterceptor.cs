@@ -22,34 +22,14 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     public const string RecompileTag = "listview-search";
 
     /// <summary>
-    /// Lokasjonssøket og polygonhentingen.
-    ///
-    /// Samme begrunnelse som listevisningen, men den ble funnet på den dyre
-    /// måten. Riktig plan avhenger fullstendig av hvor selektivt filteret er, og
-    /// de to ytterpunktene vil ha motsatt plan:
-    ///
-    ///   Sak                   Tvunget loop join fra Location   RECOMPILE
-    ///   katalognr (9 id-er)                        2328 ms         8 ms
-    ///   atferd:lett (39k obs)                      3217 ms       509 ms
-    ///   ufiltrert, stort utsnitt                    999 ms      1780 ms
-    ///   ufiltrert, lite utsnitt                     107 ms       555 ms
-    ///   kommune Oslo, stort utsnitt                2310 ms      4425 ms
-    ///
-    /// En tvunget plan var 10x raskere på de brede filtrene og ble først lagt
-    /// inn — men den er 260x tregere på de smale, og Standard-kjøringen viste
-    /// katalognr:tung gå fra 9 ms til 13 007 ms. RECOMPILE taper aldri mer enn
-    /// rundt det dobbelte, og den asymmetrien er hele poenget: optimizeren får
-    /// se de faktiske verdiene og velge selv.
-    ///
-    /// Spørringsformen viste seg å ikke bety noe. Med RECOMPILE gir join fra
-    /// Location og IN-subspørring samme tall (1885 mot 1780 ufiltrert, 6 mot 8
-    /// på katalognr), fordi optimizeren normaliserer dem. Derfor står EF-ens
-    /// naturlige form igjen.
-    /// </summary>
-    public const string LocationsTag = "locations-search";
-
-    /// <summary>
     /// Tagg → hintet den utløser. Rekkefølgen her blir rekkefølgen i OPTION-leddet.
+    ///
+    /// MED ÉN TAGG ER SAMMENSLÅINGEN UTESTET. Dedupliseringen og kommaskillingen i
+    /// <see cref="Rewrite"/> kan ikke nås med bare ett hint registrert, så testene
+    /// dekker dem ikke — de dekker at ukjente tagger ignoreres. Legges et ANDRE
+    /// hint til her, er den som gjør det den første som kjører den koden: skriv en
+    /// test for to ulike hint i samme OPTION-ledd samtidig, for to ledd i én
+    /// setning er en syntaksfeil.
     ///
     /// POLYGONHENTINGEN HADDE EN GANG SITT EGET HINT — DEN ER BORTE MED VILJE
     /// Den ble drevet fra Location med tvungen loop join, og det var en stor
@@ -66,7 +46,6 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     private static readonly (string Tag, string Hint)[] Hints =
     [
         (RecompileTag, "RECOMPILE"),
-        (LocationsTag, "RECOMPILE"),
     ];
 
     public override InterceptionResult<DbDataReader> ReaderExecuting(

@@ -57,27 +57,55 @@ IF OBJECT_ID('dbo.BackfillProgress') IS NULL
 DECLARE @Msg NVARCHAR(400);
 DECLARE @Rows INT;
 
+-- BATCHES, IKKE ÉN SETNING PER KOLONNE.
+--
+-- Hver UPDATE under var opprinnelig ett gjennomløp: 16,5 millioner rader for
+-- atferd (150 s maalt) og 4,0 millioner for mediefiler (37 s). Som én setning er
+-- det ÉN transaksjon som holder U/X-laaser paa Observation hele veien og skriver
+-- flere GB logg foer noe kan trunkeres - og columnstore er droppet i det samme
+-- vinduet, saa omraadetellingene er ~10x tregere mens det staar paa.
+--
+-- Predikatene er selv-begrensende: en rad som er oppdatert matcher ikke lenger.
+-- Loekka kan derfor kjoere til den ikke treffer noe, og et avbrudd midt i koster
+-- bare de radene batchen holdt paa - resten staar.
+DECLARE @BatchSize INT = 500000;
+DECLARE @Batch INT;
+
 -- Registreringsstatus. Bare avvikene fra defaulten (1) trenger oppdatering:
 -- 201 429 av 61 052 216 rader.
 IF ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
            WHERE Section = 'G1_ObservationRegistrationStatus'), 0) = 0
 BEGIN
-    UPDATE o SET o.RegistrationStatusId = 2
-    FROM dbo.Observation o
-    WHERE o.RegistrationStatusId <> 2
-      AND EXISTS (SELECT 1 FROM dbo.ObservationTags ot
-                  WHERE ot.ObservationId = o.Id AND ot.TagId = 5);
-    SET @Rows = @@ROWCOUNT;
+    SET @Rows = 0;
+    SET @Batch = 1;
+    WHILE @Batch > 0
+    BEGIN
+        UPDATE TOP (@BatchSize) o SET o.RegistrationStatusId = 2
+        FROM dbo.Observation o
+        WHERE o.RegistrationStatusId <> 2
+          AND EXISTS (SELECT 1 FROM dbo.ObservationTags ot
+                      WHERE ot.ObservationId = o.Id AND ot.TagId = 5);
+        SET @Batch = @@ROWCOUNT;
+        SET @Rows = @Rows + @Batch;
+    END
+
+    DECLARE @Rows3 INT = 0;
+    SET @Batch = 1;
 
     -- Etter 2, slik at NotRecovered vinner der begge taggene finnes.
-    UPDATE o SET o.RegistrationStatusId = 3
-    FROM dbo.Observation o
-    WHERE o.RegistrationStatusId <> 3
-      AND EXISTS (SELECT 1 FROM dbo.ObservationTags ot
-                  WHERE ot.ObservationId = o.Id AND ot.TagId = 6);
+    WHILE @Batch > 0
+    BEGIN
+        UPDATE TOP (@BatchSize) o SET o.RegistrationStatusId = 3
+        FROM dbo.Observation o
+        WHERE o.RegistrationStatusId <> 3
+          AND EXISTS (SELECT 1 FROM dbo.ObservationTags ot
+                      WHERE ot.ObservationId = o.Id AND ot.TagId = 6);
+        SET @Batch = @@ROWCOUNT;
+        SET @Rows3 = @Rows3 + @Batch;
+    END
 
     SET @Msg = CONCAT('G1 registreringsstatus: ', FORMAT(@Rows, 'N0'), ' + ',
-                      FORMAT(@@ROWCOUNT, 'N0'), ' rader');
+                      FORMAT(@Rows3, 'N0'), ' rader');
     RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 
     MERGE dbo.BackfillProgress AS t
@@ -91,12 +119,19 @@ END
 IF ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
            WHERE Section = 'G2_ObservationHasMediaFiles'), 0) = 0
 BEGIN
-    UPDATE o SET o.HasMediaFiles = 1
-    FROM dbo.Observation o
-    WHERE o.HasMediaFiles = 0
-      AND EXISTS (SELECT 1 FROM dbo.MediaFile mf WHERE mf.Observation_Id = o.Id);
+    SET @Rows = 0;
+    SET @Batch = 1;
+    WHILE @Batch > 0
+    BEGIN
+        UPDATE TOP (@BatchSize) o SET o.HasMediaFiles = 1
+        FROM dbo.Observation o
+        WHERE o.HasMediaFiles = 0
+          AND EXISTS (SELECT 1 FROM dbo.MediaFile mf WHERE mf.Observation_Id = o.Id);
+        SET @Batch = @@ROWCOUNT;
+        SET @Rows = @Rows + @Batch;
+    END
 
-    SET @Msg = CONCAT('G2 mediefiler: ', FORMAT(@@ROWCOUNT, 'N0'), ' rader');
+    SET @Msg = CONCAT('G2 mediefiler: ', FORMAT(@Rows, 'N0'), ' rader');
     RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 
     MERGE dbo.BackfillProgress AS t
@@ -111,12 +146,19 @@ END
 IF ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
            WHERE Section = 'G3_ObservationBehavior'), 0) = 0
 BEGIN
-    UPDATE o SET o.BehaviorId = CAST(b.BehaviorId AS TINYINT)
-    FROM dbo.Observation o
-    INNER JOIN dbo.ObservationBehaviors b ON b.ObservationId = o.Id
-    WHERE o.BehaviorId IS NULL;
+    SET @Rows = 0;
+    SET @Batch = 1;
+    WHILE @Batch > 0
+    BEGIN
+        UPDATE TOP (@BatchSize) o SET o.BehaviorId = CAST(b.BehaviorId AS TINYINT)
+        FROM dbo.Observation o
+        INNER JOIN dbo.ObservationBehaviors b ON b.ObservationId = o.Id
+        WHERE o.BehaviorId IS NULL;
+        SET @Batch = @@ROWCOUNT;
+        SET @Rows = @Rows + @Batch;
+    END
 
-    SET @Msg = CONCAT('G3 atferd: ', FORMAT(@@ROWCOUNT, 'N0'), ' rader');
+    SET @Msg = CONCAT('G3 atferd: ', FORMAT(@Rows, 'N0'), ' rader');
     RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 
     MERGE dbo.BackfillProgress AS t

@@ -114,15 +114,26 @@ BEGIN
     RETURN;
 END
 
-RAISERROR('Toemmer lokasjonsbufferen...', 0, 1) WITH NOWAIT;
-TRUNCATE TABLE dbo.LocationCountCacheLevel1;
-
--- Status settes til Building mens vi holder på. Oppslaget krever Ready, så en avbrutt
--- kjøring etterlater en buffer som ikke brukes — framfor en halv buffer som brukes.
+-- Status settes til Building FØR tømmingen, ikke etter. Settes den etterpå, etterlater
+-- et avbrudd mellom de to setningene en TOM buffer som fortsatt leses som Ready, og da
+-- svarer kartet null treff uten en eneste feilmelding.
 MERGE dbo.LocationCountCacheState AS t
 USING (SELECT CAST(1 AS TINYINT) AS Id) AS s ON t.Id = s.Id
 WHEN MATCHED THEN UPDATE SET Status = 'Building', SchemaVersion = @SchemaVersion
 WHEN NOT MATCHED THEN INSERT (Id, SchemaVersion, Status) VALUES (1, @SchemaVersion, 'Building');
+
+-- Radantallet leses HER, før aggregeringen, med samme uttrykk som
+-- CountCacheSourceRows.Sql og BuildAreaCountCache.sql. Leses det ved «Ready» til slutt,
+-- ville en endring i indekstabellen underveis gitt en buffer med gamle tall og nytt
+-- radantall — og oppslaget hadde trodd den var fersk. Se BuildAreaCountCache.sql.
+DECLARE @SourceRows BIGINT = (
+    SELECT CAST(ISNULL(SUM(p.[rows]), 0) AS BIGINT)
+    FROM sys.partitions p
+    WHERE p.object_id = OBJECT_ID('dbo.ObservationEntityIndex')
+      AND p.index_id IN (0, 1));
+
+RAISERROR('Toemmer lokasjonsbufferen...', 0, 1) WITH NOWAIT;
+TRUNCATE TABLE dbo.LocationCountCacheLevel1;
 
 -- ---------------------------------------------------------------------------
 -- Flerverdi-bøttene leses TILBAKE fra medlemstabellen
@@ -151,6 +162,16 @@ INTO #vernsig
 FROM dbo.ObservationEntityIndex WHERE EntityTypeId IN (1, 2, 3, 4, 6)
 GROUP BY ObservationId;
 
+-- SIGNATUREN MAA IKKE VAERE AVKORTET. CAST til en kort strengtype avkorter I
+-- STILLHET, og to ulike mengder som avkortes til samme tekst faar SAMME boette -
+-- da summerer oppslaget observasjoner som ikke hoerer sammen. Se
+-- BuildAreaCountCache.sql, som har samme vakt paa samme uttrykk.
+IF EXISTS (SELECT 1 FROM #vernsig WHERE LEN(Signatur) >= 3990)
+BEGIN
+    RAISERROR('Geografi-signaturen naermer seg 4000 tegn og kan vaere avkortet. Bufferen bygges IKKE. Utvid Signatur eller bytt til en HASHBYTES-signatur.', 16, 1);
+    RETURN;
+END
+
 SELECT s.ObservationId, b.BucketId
 INTO #vern FROM #vernsig s JOIN #vernbucket b ON b.Signatur = s.Signatur;
 CREATE CLUSTERED INDEX ix ON #vern(ObservationId);
@@ -174,6 +195,16 @@ SELECT ObservationId,
        CAST(STRING_AGG(CAST(ProjectOrgId AS VARCHAR(12)), ',') WITHIN GROUP (ORDER BY ProjectOrgId) AS NVARCHAR(4000)) AS Signatur
 INTO #projsig
 FROM dbo.ObservationProject GROUP BY ObservationId;
+
+-- SIGNATUREN MAA IKKE VAERE AVKORTET. CAST til en kort strengtype avkorter I
+-- STILLHET, og to ulike mengder som avkortes til samme tekst faar SAMME boette -
+-- da summerer oppslaget observasjoner som ikke hoerer sammen. Se
+-- BuildAreaCountCache.sql, som har samme vakt paa samme uttrykk.
+IF EXISTS (SELECT 1 FROM #projsig WHERE LEN(Signatur) >= 3990)
+BEGIN
+    RAISERROR('Prosjekt-signaturen naermer seg 4000 tegn og kan vaere avkortet. Bufferen bygges IKKE. Utvid Signatur eller bytt til en HASHBYTES-signatur.', 16, 1);
+    RETURN;
+END
 
 SELECT s.ObservationId, b.BucketId
 INTO #proj FROM #projsig s JOIN #projbucket b ON b.Signatur = s.Signatur;
@@ -232,10 +263,11 @@ CLOSE c1; DEALLOCATE c1;
 -- ---------------------------------------------------------------------------
 UPDATE STATISTICS dbo.LocationCountCacheLevel1;
 
+-- @SourceRows ble lest FOER aggregeringen, se der.
 UPDATE dbo.LocationCountCacheState
 SET Status = 'Ready',
     BuiltAt = SYSUTCDATETIME(),
-    SourceRows = (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex),
+    SourceRows = @SourceRows,
     DurationSeconds = DATEDIFF(SECOND, @Start, SYSUTCDATETIME())
 WHERE Id = 1;
 

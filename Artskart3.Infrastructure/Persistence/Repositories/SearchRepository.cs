@@ -283,6 +283,18 @@ public class SearchRepository : ISearchRepository
     private const int MaxBranches = 8;
 
     /// <summary>
+    /// Høyeste antall OMRÅDEgrener. Eget tak, høyere enn <see cref="MaxBranches"/>,
+    /// fordi områdegrenene er billigere og mer forutsigbare: hver er et rent
+    /// range seek på (EntityTypeId, EntityId, DateTimeCollected DESC) og måles i 2-4 ms.
+    ///
+    /// Taket er ikke en ytelsesavveining, men en grense mot misbruk. Norge har 357
+    /// kommuner, og det største reelle valget er alle kommunene i et fylke pluss
+    /// noen verneområder — godt under 64. Validatoren tillater 500 id-er per liste,
+    /// altså 1500 grener til sammen, og hver gren er også en plankompilering.
+    /// </summary>
+    private const int MaxAreaBranches = 64;
+
+    /// <summary>
     /// Henter observasjons-IDene i datosortert rekkefølge med én spørring per
     /// verdi i ett flerverdifilter. Returnerer null når grening ikke gjelder.
     ///
@@ -432,14 +444,25 @@ public class SearchRepository : ISearchRepository
     private async Task<List<int>> GetAreaFilteredObservationIdsAsync(
         ObservationSearchFilterDto filter, int skip, int take, CancellationToken cancellationToken)
     {
-        var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+        // Alle de fem listene forhåndsfiltreres mot områder som faktisk finnes i
+        // indeksen, ikke bare fylkene. Hver gjenstående id blir én egen spørring i
+        // løkka under, med sitt eget RECOMPILE — så en liste med 500 vilkårlige
+        // tall ville blitt 500 tur-retur og 500 plankompileringer for null treff.
+        // Filtrert bort her forsvinner grenen i stedet helt.
+        var municipalityIds = _areaHierarchy.FilterToExistingAreas(
+            _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds),
+            (int)ObservationIndexEntityType.Municipality);
         var countyIds       = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
         var svalbardIds     = _areaHierarchy.FilterToExistingAreas(
             countyIds, (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen);
         countyIds           = _areaHierarchy.FilterToExistingAreas(
             countyIds, (int)ObservationIndexEntityType.County);
-        var restrictedIds   = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
-        var oceanIds        = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+        var restrictedIds   = _areaHierarchy.FilterToExistingAreas(
+            _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds),
+            (int)ObservationIndexEntityType.RestrictedArea);
+        var oceanIds        = _areaHierarchy.FilterToExistingAreas(
+            _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds),
+            (int)ObservationIndexEntityType.OceanArea);
 
         // ÉN GREN PER OMRÅDE, SLÅTT SAMMEN MED UNION ALL
         //
@@ -484,6 +507,61 @@ public class SearchRepository : ISearchRepository
         //
         // Kostnaden er ett tur-retur per område. Med femten fylker er det
         // femten kall à 2–4 ms mot ett på 1736 ms.
+        // OVER TAKET KOSTER ÉN SPØRRING PER OMRÅDE MER ENN DEN SPARER
+        //
+        // Hver gren er både en tur-retur og en PLANKOMPILERING, siden den er merket
+        // med RecompileTag (~20 ms målt). Femten fylker er femten raske kall, men
+        // filtervalidatoren tillater 500 id-er per liste, og kommune + verneområde +
+        // havområde gir da 1500 grener — rundt 30 s SQL-CPU og 1500 sekvensielle
+        // tur-returer for ÉN forespørsel på et anonymt endepunkt.
+        //
+        // Over taket brukes ELLER-formen i stedet: tregere per spørring, men én
+        // spørring, og sortering og paginering blir igjen på databasen. Taket er satt
+        // romslig nok til at ingen reell brukerreise treffer det.
+        var grener = omraader.Sum(o => o.Ids.Length);
+        if (grener > MaxAreaBranches)
+        {
+            _logger.LogInformation(
+                "Områdefilteret ga {Grener} grener, over taket på {Tak}. Bruker ELLER-formen.",
+                grener, MaxAreaBranches);
+
+            var orIds = new AreaFilterIds(
+                municipalityIds, countyIds, svalbardIds, restrictedIds, oceanIds,
+                IsUnset: false, IsEmptied: false);
+
+            // GROUP BY ObservationId, ikke DISTINCT på (id, dato).
+            //
+            // Distinct på paret ville hvilt på at datoen er den samme på alle
+            // områderadene til en observasjon. Den er denormalisert per rad, og
+            // ingenting håndhever det: BackfillOceanAndSvalbardAreas.sql skriver
+            // DateTimeCollected bare for type 4 og 6, så to rader for samme
+            // observasjon KAN drifte fra hverandre — det er nettopp hva
+            // CheckAreaIndexDrift.sql finnes for. Da ville paret overlevd
+            // dedupliseringen, observasjonen dukket opp to ganger i samme side, og
+            // siden inneholdt færre distinkte observasjoner enn den skulle. Grenformen
+            // grupperer på ObservationId og ville gitt én. Samme filter, ulike sider
+            // over og under taket.
+            //
+            // Max(dato) velger én verdi deterministisk. Grenformen tar g.First(),
+            // som ved drift kan velge en annen rad — men den driften er en
+            // datafeil, ikke et tilfelle noen av stiene skal gi et pent svar på.
+            return await ApplyAreaFilterToEntityIndex(
+                    ApplyListViewFiltersToEntityIndex(
+                        _context.Set<ObservationEntityIndex>()
+                            .AsNoTracking()
+                            .TagWith(QueryHintInterceptor.RecompileTag),
+                        filter),
+                    orIds)
+                .GroupBy(idx => idx.ObservationId)
+                .Select(g => new { ObservationId = g.Key, Dato = g.Max(idx => idx.DateTimeCollected) })
+                .OrderByDescending(x => x.Dato)
+                .ThenByDescending(x => x.ObservationId)
+                .Skip(skip)
+                .Take(take)
+                .Select(x => x.ObservationId)
+                .ToListAsync(cancellationToken);
+        }
+
         var trengs = skip + take;
         var kandidater = new List<(int ObservationId, DateTime? Dato)>();
 
@@ -797,14 +875,16 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.From.HasValue == true)
         {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            var fromDate = PeriodBounds.InclusiveLower(filter.Period.From.Value);
             query = query.Where(idx => idx.DateTimeCollected >= fromDate);
         }
 
         if (filter.Period?.To.HasValue == true)
         {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(idx => idx.DateTimeCollected <= toDate);
+            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // et sekund, og <= 23:59:59 utelot dem.
+            var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
+            query = query.Where(idx => idx.DateTimeCollected < beforeDate);
         }
 
         if (filter.Period?.Months?.Any() == true)
@@ -823,6 +903,7 @@ public class SearchRepository : ISearchRepository
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
                 .Select(m => (byte)m)
+                .Distinct()
                 .ToList();
 
             query = months.Count == 0
@@ -1321,14 +1402,16 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.From.HasValue == true)
         {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            var fromDate = PeriodBounds.InclusiveLower(filter.Period.From.Value);
             query = query.Where(o => o.DateTimeCollected >= fromDate);
         }
 
         if (filter.Period?.To.HasValue == true)
         {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(o => o.DateTimeCollected <= toDate);
+            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // et sekund, og <= 23:59:59 utelot dem.
+            var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
+            query = query.Where(o => o.DateTimeCollected < beforeDate);
         }
 
         // Prosjekt/datasett — semi-join mot ObservationProject. Egen tabell fordi
@@ -1369,8 +1452,14 @@ public class SearchRepository : ISearchRepository
         {
             // Observation.MonthCollected har IX_Observation_MonthCollected.
             // DATEPART paa DateTimeCollected kunne ikke bruke den.
+            //
+            // Distinct som i de to andre filterstiene. Validatoren begrenser lista
+            // til tolv, saa det er ikke lenger et volumsporsmaal — men de tre stiene
+            // skal gi samme spoerring for samme filter, og det er denne eksporten
+            // bruker.
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
+                .Distinct()
                 .ToList();
 
             query = months.Count == 0
@@ -1806,14 +1895,16 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.From.HasValue == true)
         {
-            var fromDate = new DateTime(filter.Period.From.Value, 1, 1);
+            var fromDate = PeriodBounds.InclusiveLower(filter.Period.From.Value);
             query = query.Where(idx => idx.DateTimeCollected >= fromDate);
         }
 
         if (filter.Period?.To.HasValue == true)
         {
-            var toDate = new DateTime(filter.Period.To.Value, 12, 31, 23, 59, 59);
-            query = query.Where(idx => idx.DateTimeCollected <= toDate);
+            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // et sekund, og <= 23:59:59 utelot dem.
+            var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
+            query = query.Where(idx => idx.DateTimeCollected < beforeDate);
         }
 
         if (filter.Period?.Months?.Any() == true)
@@ -1832,6 +1923,7 @@ public class SearchRepository : ISearchRepository
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
                 .Select(m => (byte)m)
+                .Distinct()
                 .ToList();
 
             query = months.Count == 0
@@ -2172,9 +2264,8 @@ public class SearchRepository : ISearchRepository
     /// <summary>
     /// Snevrer observasjonene inn til lokasjoner som er interessante for kallet.
     ///
-    /// <paramref name="onlyPolygonLocations"/> settes av polygonhentingen, og det
-    /// er ikke en mikrooptimalisering: bare 73 888 av 5 100 794 lokasjoner har
-    /// Polygon eller MultiPolygon — 1,4 %.
+    /// Innsnevringen til geometri-lokasjoner er ikke en mikrooptimalisering: bare
+    /// 73 888 av 5 100 794 lokasjoner har Polygon eller MultiPolygon — 1,4 %.
     ///
     /// Uten den aggregerte polygonstien over ALLE lokasjoner, tok de 5000 med
     /// flest observasjoner, og oppdaget så at bare 159 av dem hadde polygon.
@@ -2188,16 +2279,6 @@ public class SearchRepository : ISearchRepository
     /// At grensen skal telle polygoner står i dens egen begrunnelse —
     /// SearchConstants: «geometry is expensive to transfer and render».
     /// </summary>
-    private IQueryable<Observation> ApplyLocationFilter(
-        IQueryable<Observation> query, EnvelopeDto? envelope, bool onlyPolygonLocations)
-    {
-        if (envelope == null && !onlyPolygonLocations) return query;
-
-        var locationIds = LocationsForFilter(envelope, onlyPolygonLocations).Select(l => l.Id);
-
-        return query.Where(o => o.LocationId != null && locationIds.Contains(o.LocationId.Value));
-    }
-
     /// <summary>
     /// Lokasjonene et kall kan treffe: innenfor kartutsnittet, og eventuelt
     /// bare de som har en geometri å tegne.
@@ -2205,7 +2286,7 @@ public class SearchRepository : ISearchRepository
     /// Skilt ut fordi polygonstien trenger dem som ytre tabell i en join, mens
     /// lokasjonssøket bare trenger ID-ene i en subspørring.
     /// </summary>
-    private IQueryable<Location> LocationsForFilter(EnvelopeDto? envelope, bool onlyPolygonLocations)
+    private IQueryable<Location> PolygonLocationsForFilter(EnvelopeDto? envelope)
     {
         var locations = _context.Set<Location>().AsQueryable();
 
@@ -2220,7 +2301,6 @@ public class SearchRepository : ISearchRepository
                                              l.North >= minY && l.North <= maxY);
         }
 
-        if (onlyPolygonLocations)
         {
             // GeometryTypeId, ikke Geometry.GeometryType. Funksjonen måtte
             // kalles per rad — 967 649 ganger for Oslo-utsnittet, for å finne
@@ -2283,38 +2363,26 @@ public class SearchRepository : ISearchRepository
     /// øvrige har ekte posisjon — de fleste på russergrensa i Pasvik, akkurat
     /// utenfor de norske områdepolygonene.
     ///
-    /// PLANEN VELGES PER KJØRING
-    /// Riktig plan avhenger av hvor selektivt filteret er, og et tvunget
-    /// planvalg var 260x feil i den ene enden. Se
-    /// QueryHintInterceptor.LocationsTag for målingene.
+    /// BARE POLYGONSTIEN, OG BARE SOM TILBAKEFALL
+    /// Polygonsøket svarer fra PolygonLocationStore. Denne spørringen brukes i de
+    /// ~37 sekundene minnelageret bygges ved oppstart, og dersom byggingen feiler.
+    /// Lokasjonssøket har sin egen sti mot indekstabellen (GetLocationsAsync).
+    ///
+    /// Ingen tagg og intet planhint: i et vindu på titalls sekunder er «aldri
+    /// katastrofal» verdt mer enn «rask i snitt», og den uhintede planen er
+    /// nettopp det. Se QueryHintInterceptor.
     /// </summary>
-    private IQueryable<Observation> BuildLocationsQuery(
-        LocationSearchFilterDto filter, AreaFilterIds areaIds, bool onlyPolygonLocations = false)
+    private IQueryable<Observation> BuildPolygonLocationsQuery(
+        LocationSearchFilterDto filter, AreaFilterIds areaIds)
     {
-        // Polygonstien drives FRA Location. Kandidatsettet er de 1,5 % av
-        // lokasjonene som ikke er punkt — 10 902 for Oslo-utsnittet mot
-        // 967 649 totalt.
-        //
-        // Ingen tagg og intet planhint her: denne stien brukes bare til
-        // PolygonLocationStore er bygget. Se GetLocationPolygonsAsync.
-        if (onlyPolygonLocations)
-        {
-            var polygonQuery = LocationsForFilter(filter.Envelope, onlyPolygonLocations: true)
-                .Join(_context.Set<Observation>(),
-                    l => (int?)l.Id, o => o.LocationId, (l, o) => o)
-                .AsNoTracking();
+        // Drives FRA Location. Kandidatsettet er de 1,5 % av lokasjonene som ikke
+        // er punkt — 10 902 for Oslo-utsnittet mot 967 649 totalt.
+        var polygonQuery = PolygonLocationsForFilter(filter.Envelope)
+            .Join(_context.Set<Observation>(),
+                l => (int?)l.Id, o => o.LocationId, (l, o) => o)
+            .AsNoTracking();
 
-            return ApplyCommonFilters(polygonQuery, filter, areaIds);
-        }
-
-        var query = _context.Set<Observation>()
-            .AsNoTracking()
-            .TagWith(QueryHintInterceptor.LocationsTag);
-
-        query = ApplyCommonFilters(query, filter, areaIds);
-        query = ApplyLocationFilter(query, filter.Envelope, onlyPolygonLocations);
-
-        return query;
+        return ApplyCommonFilters(polygonQuery, filter, areaIds);
     }
 
     private async Task<List<(int LocationId, int ObservationCount)>> AggregateLocationObservations(
@@ -2389,14 +2457,14 @@ public class SearchRepository : ISearchRepository
             // gjøre databasestien rask nok til daglig bruk, og er fjernet med
             // vilje — i et oppstartsvindu er «aldri katastrofal» verdt mer enn
             // «rask i snitt», og den uhintede planen er nettopp det.
-            var query = BuildLocationsQuery(filter, areaIds, onlyPolygonLocations: true);
+            var query = BuildPolygonLocationsQuery(filter, areaIds);
             var aggregated = await AggregateLocationObservations(query, polygonMaxResults, cancellationToken);
 
             if (aggregated.Count == 0) return [];
 
             var locationIds = aggregated.Select(x => x.LocationId).ToList();
 
-            // Typefilteret er allerede gjort i BuildLocationsQuery, så her
+            // Typefilteret er allerede gjort i BuildPolygonLocationsQuery, så her
             // hentes bare geometrien for de utvalgte. Å gjenta predikatet ville
             // kalt STGeometryType() på nytt — funksjonen kolonnen finnes for å
             // slippe.

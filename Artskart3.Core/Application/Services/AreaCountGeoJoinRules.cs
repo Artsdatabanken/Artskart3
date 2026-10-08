@@ -31,10 +31,16 @@ namespace Artskart3.Core.Application.Services;
 ///    ingen fylkesrad. Det er en ANNEN rad som gjør det, og at den alltid finnes
 ///    er en egenskap ved hvordan indeksen bygges.
 ///
-///    Invarianten håndheves i <c>Scripts/BackfillAll.sql</c>, som avbryter
-///    dersom det finnes en kommunerad uten tilhørende fylkesrad. Målt til 0
-///    brudd over 357 kommuner. Holder den ikke, blir tallene på kartet for høye
-///    uten noen feilmelding — derfor stopper backfillen i stedet for å advare.
+///    Invarianten kontrolleres av <c>Scripts/CheckAreaHierarchyInvariant.sql</c>,
+///    som avbryter dersom det finnes en kommunerad uten tilhørende fylkesrad.
+///    Målt til 0 brudd over 357 kommuner. Holder den ikke, blir tallene på kartet
+///    for høye uten noen feilmelding — derfor stopper skriptet med severity 16 i
+///    stedet for å advare.
+///
+///    Skriptet er re-kjørbart og hører i deploy-pipelinen. Samme kontroll står
+///    også til slutt i <c>Scripts/BackfillAll.sql</c>, men den er embeddet i en
+///    migrasjon og kjører derfor bare på ferske databaser — ikke i produksjon,
+///    som er nettopp der et manuelt skript kan bryte invarianten.
 ///
 /// Skal etterkommerregelen rulles tilbake en dag, er det én linje: returner
 /// <c>alleErValgte</c> alene. Ikke slå de to uttrykkene sammen — da forsvinner

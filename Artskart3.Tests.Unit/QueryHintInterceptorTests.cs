@@ -12,30 +12,22 @@ namespace Artskart3.Tests.Unit;
 /// </summary>
 public class QueryHintInterceptorTests
 {
-    private const string LokasjonsSql = """
-        -- locations-search
-
-        SELECT [o].[LocationId] FROM [Observation] AS [o]
-        """;
-
     private const string ListevisningsSql = """
         -- listview-search
 
         SELECT [o].[Id] FROM [Observation] AS [o]
         """;
 
-    private const string BeggeTagger = """
+    /// <summary>
+    /// Én kjent tagg sammen med en ukjent. Den ukjente skal ikke gi noe hint, og
+    /// den kjente skal gi nøyaktig ett OPTION-ledd.
+    /// </summary>
+    private const string KjentOgUkjentTagg = """
         -- listview-search
-        -- locations-search
+        -- en-tagg-uten-hint
 
         SELECT 1
         """;
-
-    [Fact]
-    public void Lokasjonssoeket_faar_recompile()
-    {
-        QueryHintInterceptor.Rewrite(LokasjonsSql).Should().EndWith("OPTION (RECOMPILE)");
-    }
 
     [Fact]
     public void Listevisningen_faar_recompile()
@@ -43,27 +35,25 @@ public class QueryHintInterceptorTests
         QueryHintInterceptor.Rewrite(ListevisningsSql).Should().EndWith("OPTION (RECOMPILE)");
     }
 
-    /// <summary>
-    /// Begge taggene gir RECOMPILE i dag. Uten dedupliseringen ville en spørring
-    /// som bar begge fått OPTION (RECOMPILE, RECOMPILE) — en syntaksfeil.
-    /// </summary>
     [Fact]
-    public void Begge_taggene_gir_ett_recompile_ikke_to()
+    public void Ukjent_tagg_ved_siden_av_en_kjent_endrer_ingenting()
     {
-        var resultat = QueryHintInterceptor.Rewrite(BeggeTagger);
+        var resultat = QueryHintInterceptor.Rewrite(KjentOgUkjentTagg);
 
         resultat.Should().EndWith("OPTION (RECOMPILE)");
         resultat.Should().NotContain("RECOMPILE, RECOMPILE");
     }
 
     /// <summary>
-    /// Ett OPTION-ledd per setning. Skulle to tagger en dag gi ULIKE hint, må de
-    /// slås sammen i ett ledd — ikke skrives som to.
+    /// Ett OPTION-ledd per setning, uansett hvor mange tagger spørringen bærer.
+    /// Legges det en dag til et andre hint, MÅ de to slås sammen i ett ledd — to
+    /// ledd er en syntaksfeil, og det er hele grunnen til at hintene står i én
+    /// tabell i én interceptor.
     /// </summary>
     [Fact]
     public void Aldri_mer_enn_ett_OPTION_ledd()
     {
-        QueryHintInterceptor.Rewrite(BeggeTagger).Split("OPTION (").Should().HaveCount(2);
+        QueryHintInterceptor.Rewrite(KjentOgUkjentTagg).Split("OPTION (").Should().HaveCount(2);
     }
 
     [Fact]
@@ -81,7 +71,7 @@ public class QueryHintInterceptorTests
     [Fact]
     public void Kjoert_to_ganger_gir_samme_resultat()
     {
-        var en = QueryHintInterceptor.Rewrite(LokasjonsSql);
+        var en = QueryHintInterceptor.Rewrite(ListevisningsSql);
 
         QueryHintInterceptor.Rewrite(en).Should().Be(en);
     }
@@ -120,7 +110,7 @@ public class QueryHintInterceptorTests
     public void Ingen_spoerring_faar_tvunget_planvalg()
     {
         const string sql = """
-            -- locations-search
+            -- listview-search
 
             SELECT 1 FROM [Location] AS [l]
             INNER JOIN [Observation] AS [o] ON [l].[Id] = [o].[LocationId]

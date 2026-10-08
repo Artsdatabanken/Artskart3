@@ -55,6 +55,7 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
+        Period?.Months?.Length > 0 ||
         DatasetOrgId.HasValue ||
         ProjectOrgId.HasValue ||
         ObservationIds?.Length > 0 ||
@@ -79,6 +80,7 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
+        Period?.Months?.Length > 0 ||
         DatasetOrgId.HasValue ||
         ProjectOrgId.HasValue ||
         ObservationIds?.Length > 0 ||

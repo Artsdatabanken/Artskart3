@@ -65,7 +65,12 @@ IF OBJECT_ID('dbo.BackfillProgress') IS NULL
             CONSTRAINT DF_BackfillProgress_UpdatedAt DEFAULT SYSUTCDATETIME()
     );
 
-DECLARE @BatchSize INT = 10000000;
+-- 500 000 observasjons-id-er per batch, som BackfillAll bruker. Var 10 millioner,
+-- altsaa rundt 20 millioner indeksrader i én transaksjon: laaser og logg for
+-- hele det volumet foer noe kan trunkeres, og en timeout kaster hele batchen.
+-- Mindre batcher koster noen flere gjennomloep og gir til gjengjeld et vannmerke
+-- som faktisk flytter seg underveis.
+DECLARE @BatchSize INT = 500000;
 DECLARE @MinId INT, @MaxId INT, @CurrentId INT, @BatchEnd INT;
 DECLARE @Rows INT, @Total BIGINT = 0;
 DECLARE @Msg NVARCHAR(400);
@@ -96,6 +101,15 @@ BEGIN
         -- mangler den ene kolonnen fortsatt etter oppdateringen. Mot columnstore
         -- er det dyrt - hver UPDATE markerer den gamle raden i delete-bitmappen
         -- og legger en ny versjon i delta store.
+        --
+        -- NULL-SJEKKEN STAAR PAA idx ALENE MED VILJE. Den er evaluerbar uten aa
+        -- se paa o, saa en batch som allerede er fylt filtreres bort billig og en
+        -- gjenopptagelse koster nesten ingenting. Utvides den til ogsaa aa fange
+        -- FEIL verdi, maa hver indeksrad i omraadet joines mot Observation og
+        -- sammenlignes - og o.MonthCollected er en ikke-persistert beregnet
+        -- kolonne, saa datepart() kjoeres per rad. Det er maalt i titalls
+        -- millioner rader per batch. Reparasjon av feil verdier hoerer derfor i
+        -- etterpassen under, som bare kjoerer naar verifiseringen finner avvik.
         UPDATE idx
         SET idx.LocationId     = o.LocationId,
             idx.MonthCollected = CAST(o.MonthCollected AS TINYINT)
@@ -157,26 +171,97 @@ SET NOCOUNT ON;
 RAISERROR('Oppdaterer statistikk (10-20 min)...', 0, 1) WITH NOWAIT;
 UPDATE STATISTICS dbo.ObservationEntityIndex WITH FULLSCAN;
 
--- Verifisering: hver indeksrad skal ha samme LocationId som observasjonen sin.
--- Kontrollen leser mot kilden, ikke mot vannmerket, og er oppfyllbar.
+-- Verifisering: hver indeksrad skal ha samme LocationId OG samme MonthCollected som
+-- observasjonen sin. Begge kolonnene skrives av loekka over, saa begge kontrolleres -
+-- en maaned som ikke ble satt gjoer maanedsfilteret tomt for raden, like stille som en
+-- manglende LocationId gjoer den usynlig for lokasjonssoeket.
+--
+-- Kontrollen leser mot kilden, ikke mot vannmerket, og den teller ogsaa rader med FEIL
+-- verdi - ikke bare NULL.
 DECLARE @Avvik BIGINT;
 SELECT @Avvik = COUNT_BIG(*)
 FROM dbo.ObservationEntityIndex idx
 INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
-WHERE o.LocationId IS NOT NULL
-  AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId);
+WHERE (o.LocationId IS NOT NULL
+         AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+   OR (o.MonthCollected IS NOT NULL
+         AND (idx.MonthCollected IS NULL
+              OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT)));
 
 DECLARE @Msg NVARCHAR(400) = CONCAT('Verifisering: ', FORMAT(@Avvik,'N0'), ' avvikende rader');
 RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 
+-- ETTERPASS: reparerer rader med feil verdi, og bare dem.
+--
+-- Loekka over ser bare paa NULL, slik at en gjenopptagelse er billig. Da kan den
+-- ikke rette en rad som har driftet til en ANNEN verdi - og kontrollen teller
+-- nettopp slike. Uten denne passen var kontrollen uoppfyllbar: den feilet og ba om
+-- en ny kjoering, som filtrerte bort de samme radene igjen og reparerte ingenting.
+--
+-- Passen kjoerer bare naar det faktisk er avvik, og den batcher paa samme
+-- ObservationId-omraader som loekka over. Avvikene er per definisjon faa, men
+-- SOEKET etter dem er det ikke: predikatet maa joine mot Observation og evaluere
+-- datepart() per rad. Uten batching ville den eneste ubegrensede setningen i hele
+-- migrasjonen staatt her, over ~192 millioner indeksrader i én transaksjon.
+IF @Avvik > 0
+BEGIN
+    RAISERROR('Reparerer rader med avvikende LocationId/MonthCollected...', 0, 1) WITH NOWAIT;
+
+    -- Eget @BatchSize: dette er en annen SQL-batch enn loekka over, saa den
+    -- deklarasjonen er ikke i scope her. Samme verdi med vilje.
+    DECLARE @BatchSize INT = 500000;
+    DECLARE @RepMinId INT, @RepMaxId INT, @RepId INT, @RepEnd INT;
+    DECLARE @Reparert BIGINT = 0;
+
+    SELECT @RepMinId = MIN(ObservationId), @RepMaxId = MAX(ObservationId)
+    FROM dbo.ObservationEntityIndex;
+
+    SET @RepId = @RepMinId;
+
+    WHILE @RepId IS NOT NULL AND @RepId <= @RepMaxId
+    BEGIN
+        SET @RepEnd = @RepId + @BatchSize - 1;
+
+        UPDATE idx
+        SET idx.LocationId     = o.LocationId,
+            idx.MonthCollected = CAST(o.MonthCollected AS TINYINT)
+        FROM dbo.ObservationEntityIndex idx
+        INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
+        WHERE idx.ObservationId >= @RepId AND idx.ObservationId <= @RepEnd
+          AND ((o.LocationId IS NOT NULL
+                  AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+            OR (o.MonthCollected IS NOT NULL
+                  AND (idx.MonthCollected IS NULL
+                       OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT))))
+        OPTION (RECOMPILE);
+
+        SET @Reparert = @Reparert + @@ROWCOUNT;
+        SET @RepId = @RepEnd + 1;
+    END
+
+    SET @Msg = CONCAT('Reparerte ', FORMAT(@Reparert,'N0'), ' rader.');
+    RAISERROR(@Msg, 0, 1) WITH NOWAIT;
+
+    SELECT @Avvik = COUNT_BIG(*)
+    FROM dbo.ObservationEntityIndex idx
+    INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
+    WHERE (o.LocationId IS NOT NULL
+             AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+       OR (o.MonthCollected IS NOT NULL
+             AND (idx.MonthCollected IS NULL
+                  OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT)));
+END
+
 IF @Avvik > 0
 BEGIN
     SET @Msg = CONCAT('UFULLSTENDIG: ', FORMAT(@Avvik,'N0'),
-                      ' rader mangler LocationId. Nullstill H1_EntityIndexLocationId og kjoer paa nytt.');
+                      ' rader mangler eller avviker paa LocationId/MonthCollected ',
+                      'etter reparasjonsforsoek. Nullstill H1_EntityIndexLocationId og ',
+                      'kjoer paa nytt - staar den paa MaxId, hopper loekka over seg selv.');
     RAISERROR(@Msg, 16, 1) WITH NOWAIT;
 END
 ELSE
-    RAISERROR('Verifisering OK - LocationId stemmer med Observation.', 0, 1) WITH NOWAIT;
+    RAISERROR('Verifisering OK - LocationId og MonthCollected stemmer med Observation.', 0, 1) WITH NOWAIT;
 ", suppressTransaction: true);
     }
 

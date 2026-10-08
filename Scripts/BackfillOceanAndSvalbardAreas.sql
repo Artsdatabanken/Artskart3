@@ -64,8 +64,11 @@ SET XACT_ABORT ON;
 -- ---------------------------------------------------------------------------
 -- Innstillinger
 -- ---------------------------------------------------------------------------
-DECLARE @DryRun      BIT = 0;     -- 1 = rapporter bare, ikke skriv
-DECLARE @UtfoerSletting BIT = 1;  -- 0 = hopp over steg 1 (kun innsetting)
+-- Standardverdiene er de trygge, slik at F5 i SSMS rapporterer framfor å slette.
+-- Steg 1 sletter indeksrader, så den må slås på bevisst — ikke være påskrudd for den
+-- som åpner filen og kjører det som står der.
+DECLARE @DryRun      BIT = 1;     -- 0 = skriv for ekte
+DECLARE @UtfoerSletting BIT = 0;  -- 1 = utfoer steg 1 (sletting), se steg 1
 DECLARE @Statistikk  BIT = 1;     -- oppdater statistikk til slutt
 DECLARE @Reorganiser BIT = 0;     -- komprimer columnstore-deltastore til slutt
 -- BEVISST MYE STOERRE ENN BackfillAll SINE 500 000.
@@ -397,13 +400,23 @@ WHILE @CurrentId <= @MaxId
 BEGIN
     SET @BatchEnd = @CurrentId + @BatchSize - 1;
 
+    -- Predikatet maa treffe BAADE urOErte rader og rader som mangler LocationId /
+    -- MonthCollected. Ville det bare sett paa TaxonGroupId = 0, kunne ikke kontroll 7
+    -- oppfylles av en ny kjoering i en database der kolonnene ble fylt foer de to ble
+    -- lagt til her: radene er «ferdige» og blir aldri roert igjen. (Vannmerket i
+    -- BackfillProgress maa fortsatt nullstilles, se toppen av filet.)
     IF @DryRun = 1
         SELECT @Rows = COUNT(*)
         FROM dbo.ObservationEntityIndex idx
         JOIN dbo.Observation o ON o.Id = idx.ObservationId
         JOIN #Typer t          ON t.AreaTypeId = idx.EntityTypeId
         WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
-          AND idx.TaxonGroupId = 0;
+          AND (idx.TaxonGroupId = 0
+               OR (o.LocationId IS NOT NULL
+                     AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+               OR (o.MonthCollected IS NOT NULL
+                     AND (idx.MonthCollected IS NULL
+                          OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT))));
     ELSE
     BEGIN
         UPDATE idx
@@ -412,6 +425,13 @@ BEGIN
             idx.BasisOfRecordId             = o.BasisOfRecordId,
             idx.CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             idx.DateTimeCollected           = o.DateTimeCollected,
+            -- LocationId og MonthCollected MÅ være med. Lokasjonssøket og
+            -- envelopefilteret ankrer på LocationId IS NOT NULL, og månedsfilteret
+            -- på MonthCollected IS NOT NULL. Står de tomme, finnes radene i
+            -- indeksen men er usynlige for begge — tomt punktlag og null treff for
+            -- et havområde- eller Svalbard-valg, uten at noe feiler.
+            idx.LocationId                  = o.LocationId,
+            idx.MonthCollected              = CAST(o.MonthCollected AS TINYINT),
             idx.HasMediaFiles = CASE WHEN EXISTS (
                 SELECT 1 FROM dbo.MediaFile mf WHERE mf.Observation_Id = o.Id) THEN 1 ELSE 0 END,
             idx.RegistrationStatusId = CASE
@@ -422,7 +442,12 @@ BEGIN
         INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
         INNER JOIN #Typer t          ON t.AreaTypeId = idx.EntityTypeId
         WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
-          AND idx.TaxonGroupId = 0
+          AND (idx.TaxonGroupId = 0
+               OR (o.LocationId IS NOT NULL
+                     AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+               OR (o.MonthCollected IS NOT NULL
+                     AND (idx.MonthCollected IS NULL
+                          OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT))))
         OPTION (RECOMPILE);
 
         SET @Rows = @@ROWCOUNT;
@@ -763,7 +788,21 @@ SELECT 6, 'BehaviorId',
        (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex idx
         JOIN dbo.ObservationBehaviors b ON b.ObservationId = idx.ObservationId
         JOIN #Typer t                   ON t.AreaTypeId = idx.EntityTypeId
-        WHERE idx.BehaviorId IS NULL);
+        WHERE idx.BehaviorId IS NULL)
+UNION ALL
+-- LocationId og MonthCollected har sin egen kontroll fordi de ankrer hele
+-- lokasjonssoeket og maanedsfilteret: en rad uten dem finnes, men er usynlig.
+-- Kontrollen fanger ogsaa feil verdi, ikke bare NULL, slik at en rad som har
+-- driftet fra kilden ikke staar og ser komplett ut.
+SELECT 7, 'LocationId/MonthCollected',
+       (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex idx
+        JOIN dbo.Observation o ON o.Id = idx.ObservationId
+        JOIN #Typer t          ON t.AreaTypeId = idx.EntityTypeId
+        WHERE (o.LocationId IS NOT NULL
+                 AND (idx.LocationId IS NULL OR idx.LocationId <> o.LocationId))
+           OR (o.MonthCollected IS NOT NULL
+                 AND (idx.MonthCollected IS NULL
+                      OR idx.MonthCollected <> CAST(o.MonthCollected AS TINYINT))));
 
 SELECT Nr, Navn, Gjenstaar,
        CASE WHEN Gjenstaar = 0 THEN 'OK' ELSE 'MANGLER' END AS Status
@@ -792,8 +831,17 @@ IF @DryRun = 1
     RAISERROR('DRY RUN - ingenting ble skrevet. Sett @DryRun = 0 for aa kjoere.', 0, 1) WITH NOWAIT;
 ELSE IF @Mangler > 0
 BEGIN
+    -- «Kjoer paa nytt» holder bare saa lenge vannmerket ikke staar paa @MaxId.
+    -- Gjoer det det, hopper steget over seg selv og kontrollen feiler i det
+    -- uendelige. Det er nettopp tilstanden en database havner i naar den ble
+    -- fylt av en TIDLIGERE versjon av dette skriptet - den som ikke skrev
+    -- LocationId og MonthCollected - saa meldingen maa si hvilket vannmerke som
+    -- skal nullstilles, ikke bare «kjoer paa nytt».
     SET @Msg = CONCAT('UFULLSTENDIG: ', FORMAT(@Mangler, 'N0'),
-                      ' rader gjenstaar. Kjoer skriptet paa nytt - det fortsetter der det slapp.');
+                      ' rader gjenstaar. Kjoer skriptet paa nytt - det fortsetter der det slapp. ',
+                      'Sier et steg «Allerede fullfoert» mens kontrollen dets fortsatt feiler, ',
+                      'nullstill vannmerkene foerst: ',
+                      'DELETE FROM dbo.BackfillProgress WHERE Section LIKE ''X46[_]%'';');
     RAISERROR(@Msg, 16, 1) WITH NOWAIT;
 END
 ELSE

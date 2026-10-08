@@ -1,4 +1,3 @@
-using Artskart3.Core.Application.Services;
 using FluentAssertions;
 
 namespace Artskart3.Tests.Unit;
@@ -25,12 +24,12 @@ public class AreaExistenceFilterTests
     {
         var stub = new StubAreaHierarchyService();
         foreach (var (type, id) in omraader)
-            stub.Bounds[(type, id)] = new AreaBounds(0, 0, 1000, 1000);
+            stub.ExistingAreas.Add((type, id));
         return stub;
     }
 
     /// <summary>
-    /// DEN VIKTIGSTE. Boksene lastes ved oppstart, og før første last vet vi
+    /// DEN VIKTIGSTE. Områdene lastes ved oppstart, og før første last vet vi
     /// ingenting. Tolkes «vet ikke» som «finnes ikke», forsvinner ALLE grener
     /// og områdefilteret returnerer stille tomt — et tomt kart uten
     /// feilmelding. Det er mye verre enn en treg spørring.

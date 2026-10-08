@@ -15,14 +15,23 @@ public static class LocationGeometryRules
     /// Sann når WKT-strengen er et rektangel — nøyaktig fem koordinatpar i
     /// ytre ring. Det er rutenettrutene, som ikke er reelle geografiske
     /// utstrekninger og derfor ikke skal tegnes.
+    ///
+    /// Gjelder BARE POLYGON. Regelen teller koordinatpar etter andre parentes, og
+    /// det er ytre ring bare for POLYGON((...)). For MULTILINESTRING((...),(...))
+    /// er det den første linja, så en transekt med fem punkter ble lest som en
+    /// rutenettrute og forsvant fra kartet. Verken MULTIPOLYGON eller
+    /// (MULTI)LINESTRING er rutenettruter, så de skal alltid tegnes.
     /// </summary>
     public static bool IsRectangularPolygon(string? wkt)
     {
         if (string.IsNullOrEmpty(wkt)) return false;
 
-        // Ytre ring ligger etter ANDRE parentes: POLYGON((...)). En LINESTRING
-        // har bare én, så ringStart blir -1 — og IndexOf(')', -1) kaster.
-        // Vakten må derfor stå før det andre oppslaget, ikke etter.
+        var geometri = wkt.AsSpan().TrimStart();
+        if (!geometri.StartsWith("POLYGON", StringComparison.OrdinalIgnoreCase)) return false;
+
+        // Ytre ring ligger etter ANDRE parentes: POLYGON((...)). Er det bare én,
+        // blir ringStart -1 — og IndexOf(')', -1) kaster. Vakten må derfor stå
+        // før det andre oppslaget, ikke etter.
         var ringStart = wkt.IndexOf('(', wkt.IndexOf('(') + 1);
         if (ringStart < 0) return false;
 

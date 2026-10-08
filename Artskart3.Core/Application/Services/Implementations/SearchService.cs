@@ -17,6 +17,33 @@ public class SearchService : ISearchService
     private static readonly TimeSpan AreasCacheDuration = TimeSpan.FromHours(1);
     private static readonly TimeSpan AreaCountsCacheDuration = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Låser for å unngå at en kald buffer bygges mange ganger samtidig.
+    ///
+    /// Uten dem kjører N samtidige kall hele områdespørringen hver, serialiserer
+    /// 20,7 MB hver og gzipper hver — hundrevis av millisekunder CPU, N ganger, for
+    /// et resultat alle skal dele. Striper framfor én lås per nøkkel fordi
+    /// områdetellingene nøkles på en filterhash: nøkkelrommet er ubegrenset, og et
+    /// låseregister per nøkkel ville vokst med det. Samme mønster som
+    /// ObservationMapService.
+    ///
+    /// Statisk fordi tjenesten er Scoped: én lås per forespørsel ville ikke låst noe.
+    /// </summary>
+    private static readonly SemaphoreSlim[] CacheLocks =
+        Enumerable.Range(0, 16).Select(_ => new SemaphoreSlim(1)).ToArray();
+
+    private static SemaphoreSlim LockFor(string cacheKey) =>
+        CacheLocks[(uint)cacheKey.GetHashCode(StringComparison.Ordinal) % CacheLocks.Length];
+
+    /// <summary>
+    /// Omtrentlig minnebruk for en bufret post, i byte. Den delte IMemoryCache har en
+    /// SizeLimit, og da MÅ hver Set oppgi en størrelse — uten den kaster Set. Tallet
+    /// trenger ikke være presist, bare proporsjonalt: det er det som gjør at de store
+    /// geometripostene kan kastes ut under press framfor at bufferen vokser fritt.
+    /// </summary>
+    private static long EstimatedSize(IEnumerable<AreaMarkerDto> areas) =>
+        areas.Sum(a => (long)((a.WktsPolygon?.Length ?? 0) * 2) + 256);
+
     public SearchService(ISearchRepository searchRepository, IMemoryCache cache)
     {
         _searchRepository = searchRepository;
@@ -61,12 +88,39 @@ public class SearchService : ISearchService
         if (!hasFilters && zoomLevel is 1 or 2)
         {
             var cacheKey = $"areas_zoom_{zoomLevel}";
-            if (!_cache.TryGetValue(cacheKey, out IEnumerable<AreaMarkerDto>? cached))
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<AreaMarkerDto>? cached))
+                return cached!;
+
+            var laas = LockFor(cacheKey);
+            await laas.WaitAsync(cancellationToken);
+            try
             {
-                cached = await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
-                _cache.Set(cacheKey, cached, AreasCacheDuration);
+                // Sjekkes på nytt: en annen forespørsel kan ha bygget den mens vi
+                // ventet, og da skal vi ikke bygge den om igjen.
+                if (_cache.TryGetValue(cacheKey, out cached))
+                    return cached!;
+
+                var bygget = await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
+                _cache.Set(cacheKey, bygget, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = AreasCacheDuration,
+                    Size = EstimatedSize(bygget),
+
+                    // NeverRemove: MemoryCache kjenner ikke gjenoppbyggingskost og
+                    // kaster ut etter alder blant poster med samme prioritet. Uten
+                    // dette kunne denne posten — stor og dyr — blitt kastet for å gi
+                    // plass til en 46 kB tellepost, og neste kall måtte bygge den på
+                    // nytt. Det er maks to slike poster (zoomnivå 1 og 2), så
+                    // mengden er kjent og begrenset. Tellepostene står på Normal med
+                    // vilje: det er DE som skal vike når grensen nås.
+                    Priority = CacheItemPriority.NeverRemove,
+                });
+                return bygget;
             }
-            return cached!;
+            finally
+            {
+                laas.Release();
+            }
         }
 
         return await _searchRepository.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
@@ -90,21 +144,46 @@ public class SearchService : ISearchService
         if (_cache.TryGetValue(cacheKey, out AreaMarkersPayloadDto? cached))
             return cached!;
 
-        // Går via GetAreaMarkersAsync slik at DTO-cachen deles med den vanlige stien —
-        // to bufre over samme data ville kunne komme i utakt.
-        var areas = (await GetAreaMarkersAsync(zoomLevel, null, cancellationToken)).ToArray();
-
-        var raw = JsonSerializer.SerializeToUtf8Bytes(areas, PayloadJsonOptions);
-
-        using var buffer = new MemoryStream();
-        using (var gzip = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true))
+        // Låses: dette er det dyreste byggearbeidet i tjenesten — 20,7 MB
+        // serialisering pluss gzip på Optimal — og uten låsen gjør N samtidige kall
+        // på en kald buffer det N ganger.
+        var laas = LockFor(cacheKey);
+        await laas.WaitAsync(cancellationToken);
+        try
         {
-            gzip.Write(raw, 0, raw.Length);
-        }
+            if (_cache.TryGetValue(cacheKey, out cached))
+                return cached!;
 
-        var payload = new AreaMarkersPayloadDto(raw, buffer.ToArray());
-        _cache.Set(cacheKey, payload, AreasCacheDuration);
-        return payload;
+            // Går via GetAreaMarkersAsync slik at DTO-cachen deles med den vanlige stien —
+            // to bufre over samme data ville kunne komme i utakt.
+            var areas = (await GetAreaMarkersAsync(zoomLevel, null, cancellationToken)).ToArray();
+
+            var raw = JsonSerializer.SerializeToUtf8Bytes(areas, PayloadJsonOptions);
+
+            using var buffer = new MemoryStream();
+            using (var gzip = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true))
+            {
+                gzip.Write(raw, 0, raw.Length);
+            }
+
+            var gzipped = buffer.ToArray();
+            var payload = new AreaMarkersPayloadDto(raw, gzipped);
+            _cache.Set(cacheKey, payload, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = AreasCacheDuration,
+                Size = raw.Length + gzipped.Length,
+
+                // Den dyreste posten i bufferen — ~297 ms serialisering pluss gzip
+                // på Optimal over 20,7 MB. Skjermes fra utkasting, se
+                // GetAreaMarkersAsync. Maks to poster.
+                Priority = CacheItemPriority.NeverRemove,
+            });
+            return payload;
+        }
+        finally
+        {
+            laas.Release();
+        }
     }
 
     public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
@@ -146,7 +225,16 @@ public class SearchService : ISearchService
         var etag = $"\"{Convert.ToHexStringLower(hash)}\"";
 
         var result = new AreaCountsResultDto(countsArray, etag);
-        _cache.Set(cacheKey, result, AreaCountsCacheDuration);
+
+        // Nøkkelen er en filterhash, så nøkkelrommet er ubegrenset — og det er
+        // nettopp derfor størrelsen må oppgis: SizeLimit er det som gjør at mange
+        // ulike filtre ikke kan fylle minnet. Én celle er to korte felt; 128 byte
+        // er rikelig per celle og trenger ikke være presist.
+        _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = AreaCountsCacheDuration,
+            Size = countsArray.Length * 128L + 256,
+        });
 
         return result;
     }

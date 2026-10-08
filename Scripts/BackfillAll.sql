@@ -1009,6 +1009,13 @@ ELSE
 -- Stille gale tall er verre enn en stoppet deploy, saa dette er severity 16.
 -- Maa invarianten mykes opp, er tilbakefallet aa returnere alleErValgte alene
 -- i CanSkipGeoJoin - se kommentaren der.
+--
+-- KONTROLLEN HER DEKKER BARE FERSKE DATABASER. Filen er embeddet i migrasjonen
+-- BackfillAll, og en anvendt migrasjon kjoeres aldri igjen - i produksjon, der
+-- invarianten faktisk kan brytes av et manuelt skript, kjoerer den altsaa ikke.
+-- Scripts/CheckAreaHierarchyInvariant.sql er samme kontroll som eget,
+-- re-kjoerbart skript. Kjoer DEN fra pipelinen og etter hvert skript som skriver
+-- til ObservationEntityIndex.
 -- ---------------------------------------------------------------------------
 DECLARE @HierarkiBrudd BIGINT = (
     SELECT COUNT_BIG(*)
@@ -1018,7 +1025,6 @@ DECLARE @HierarkiBrudd BIGINT = (
      AND ka.IsCurrent = 1
      AND ka.ParentFid IS NOT NULL
      AND TRY_CAST(REPLACE(ka.Fid, '_', '') AS INT) = k.EntityId
-    JOIN dbo.Observation o ON o.Id = k.ObservationId
     WHERE k.EntityTypeId = 1
       AND NOT EXISTS (
             SELECT 1 FROM dbo.ObservationEntityIndex f

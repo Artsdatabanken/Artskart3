@@ -42,9 +42,17 @@ internal sealed class StubAreaHierarchyService : IAreaHierarchyService
         => AreaBoundsPruner.Prune(entityIds, envelope, Bounds, entityTypeIds);
 
     /// <summary>
-    /// Samme regel som tjenesten: tom boksoversikt betyr «vet ikke», og da
-    /// beholdes ID-ene. Testene fyller Bounds naar de vil styre utfallet.
+    /// Samme regel som tjenesten: tom oversikt betyr «vet ikke», og da beholdes
+    /// ID-ene. Testene fyller ExistingAreas naar de vil styre utfallet.
+    ///
+    /// ATSKILT FRA Bounds, som i tjenesten. Boksene er utledet av observasjonsdata,
+    /// mens eksistens leses fra Area-tabellen. Et omraade uten observasjoner med
+    /// lokasjon har ingen boks, men finnes.
     /// </summary>
+    public HashSet<(int EntityTypeId, int EntityId)> ExistingAreas { get; } = [];
+
     public int[] FilterToExistingAreas(int[] entityIds, int entityTypeId)
-        => Bounds.Count == 0 ? entityIds : entityIds.Where(id => Bounds.ContainsKey((entityTypeId, id))).ToArray();
+        => ExistingAreas.Count == 0
+            ? entityIds
+            : entityIds.Where(id => ExistingAreas.Contains((entityTypeId, id))).ToArray();
 }

@@ -101,6 +101,16 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private static readonly bool AvSlaatt =
         Environment.GetEnvironmentVariable(AvBryterVariabel) == "1";
 
+    /// <summary>
+    /// Tidsavbrudd for byggespørringene, i sekunder.
+    ///
+    /// Raust, men ENDELIG. Byggingen tar titalls sekunder og skal tåle en treg
+    /// database uten å gi opp, men 0 — uendelig — betyr at en blokkert spørring
+    /// holder en tilkobling for alltid, uten et eneste signal om at noe står fast.
+    /// Et tidsavbrudd gir en loggført feil og databasestien som før.
+    /// </summary>
+    private const int ByggeTidsavbruddSekunder = 1800;
+
     public bool IsReady => _ready && !AvSlaatt;
 
     public string Describe() => _beskrivelse;
@@ -217,7 +227,12 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public HashSet<int>? ObservasjonsIder { get; init; }
         public HashSet<byte>? Maaneder { get; init; }
 
-        public byte RegStatus { get; init; }         // 0 = ikke satt
+        // Egen «satt»-flagg framfor 0 som sentinel: en forespørsel med
+        // registrationStatusId = 0 (eller 256, som smalner til 0) ville ellers blitt
+        // lest som «ikke satt» og svart med ALLE polygonene, mens spørringsstien
+        // svarer tomt for samme filter. Samme mønster som HarBilderSatt.
+        public bool RegStatusSatt { get; init; }
+        public byte RegStatus { get; init; }
         public int Datasett { get; init; }           // Ingen = ikke satt
         public bool HarBilderSatt { get; init; }
         public bool HarBilder { get; init; }
@@ -225,7 +240,11 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public int KoordFra { get; init; }           // Ingen = ikke satt
         public int KoordTil { get; init; }
         public long TicksFra { get; init; }          // long.MinValue = ikke satt
-        public long TicksTil { get; init; }
+
+        // EKSKLUSIV grense: ticks for 1. januar året etter. Se PeriodBounds —
+        // spørringsstien sammenligner på samme måte, og en inklusiv 23:59:59
+        // utelot brøkdelene datetime2 faktisk lagrer.
+        public long TicksFoer { get; init; }         // long.MinValue = ikke satt
 
         public bool[]? Takson { get; init; }         // tett taksonindeks -> treffer
         public bool[]? GeoBucket { get; init; }      // tett bucketindeks -> treffer
@@ -256,7 +275,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             if (v == 0 || !atf.Contains(v)) return false;
         }
 
-        if (p.RegStatus != 0 && _regStatus[i] != p.RegStatus) return false;
+        if (p.RegStatusSatt && _regStatus[i] != p.RegStatus) return false;
 
         if (p.Datasett != Ingen && _datasett[i] != p.Datasett) return false;
 
@@ -278,10 +297,10 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             var v = _samletTicks[i];
             if (v == long.MinValue || v < p.TicksFra) return false;
         }
-        if (p.TicksTil != long.MinValue)
+        if (p.TicksFoer != long.MinValue)
         {
             var v = _samletTicks[i];
-            if (v == long.MinValue || v > p.TicksTil) return false;
+            if (v == long.MinValue || v >= p.TicksFoer) return false;
         }
 
         if (p.Maaneder is { } mnd)
@@ -334,6 +353,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         if (f.Period?.Months?.Length > 0)
         {
             maaneder = f.Period.Months.Where(m => m is >= 1 and <= 12).Select(m => (byte)m).ToHashSet();
+            // HashSet dedupliserer alt, men spørringsstien må kalle Distinct selv.
             if (maaneder.Count == 0) tomt = true;
         }
 
@@ -405,14 +425,15 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             Atferd = atferd,
             ObservasjonsIder = f.ObservationIds?.Length > 0 ? f.ObservationIds.ToHashSet() : null,
             Maaneder = maaneder,
-            RegStatus = f.RegistrationStatusId is { } rs ? (byte)rs : (byte)0,
+            RegStatusSatt = f.RegistrationStatusId.HasValue,
+            RegStatus = f.RegistrationStatusId is { } rs and >= 0 and <= 255 ? (byte)rs : (byte)0,
             Datasett = f.DatasetOrgId ?? Ingen,
             HarBilderSatt = f.WithImages.HasValue,
             HarBilder = f.WithImages ?? false,
             KoordFra = f.CoordinatePrecision?.From ?? Ingen,
             KoordTil = f.CoordinatePrecision?.To ?? Ingen,
-            TicksFra = f.Period?.From is { } fra ? new DateTime(fra, 1, 1).Ticks : long.MinValue,
-            TicksTil = f.Period?.To is { } til ? new DateTime(til, 12, 31, 23, 59, 59).Ticks : long.MinValue,
+            TicksFra = f.Period?.From is { } fra ? PeriodBounds.InclusiveLower(fra).Ticks : long.MinValue,
+            TicksFoer = f.Period?.To is { } til ? PeriodBounds.ExclusiveUpper(til).Ticks : long.MinValue,
             Takson = takson,
             GeoBucket = geo,
             ProjBucket = proj,
@@ -426,6 +447,17 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     /// <inheritdoc />
     public async Task BuildAsync(CancellationToken cancellationToken = default)
     {
+        // SKAL KALLES ÉN GANG, VED OPPSTART. Metoden er ikke trygg å kalle om igjen
+        // mens tjenesten svarer: lastemetodene under skriver rett inn i de parallelle
+        // radarrayene, mens TryQuery leser dem gjennom hele skanningen. Å sette
+        // _ready = false her ville bare stengt ut NYE lesere — en leser som alt er
+        // inne, leser videre og får rad i fra det nye datasettet og rad j fra det
+        // gamle. Noen arrayer byttes tidlig her og andre helt til slutt, så den
+        // leseren kan også indeksere et nytt array med gamle offsett.
+        //
+        // Skal datasettet kunne bygges om i prosessen, må arrayene samles i én
+        // snapshot-klasse som publiseres med én volatile referanseskriving. Se
+        // PolygonLocationStoreBuilder.
         var klokke = Stopwatch.StartNew();
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IArtsKartDbContext>();
@@ -571,7 +603,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             await conn.OpenAsync(ct);
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
-            cmd.CommandTimeout = 0;
+            cmd.CommandTimeout = ByggeTidsavbruddSekunder;
 
             await using var leser = await cmd.ExecuteReaderAsync(ct);
             while (await leser.ReadAsync(ct))
@@ -639,6 +671,14 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             WHERE l.GeometryTypeId IN (2,3,4,5) AND i.EntityTypeId IN (1,2,3,4,6)
             GROUP BY i.ObservationId;
 
+            -- Signaturen MAA ikke vaere avkortet. CAST til en kort strengtype
+            -- avkorter i stillhet, og to ulike omraademengder som avkortes til
+            -- samme tekst faar samme boette - da matcher minnelageret flere
+            -- observasjoner enn spoerringen. Feiler dette, logges det og
+            -- polygonsoeket bruker databasen som foer.
+            IF EXISTS (SELECT 1 FROM #sig WHERE LEN(Signatur) >= 3990)
+                THROW 50001, 'Geografi-signaturen kan vaere avkortet. Minnelageret bygges ikke.', 1;
+
             -- Boettene nummereres her, av signaturene selv. Se LesBoetter for
             -- hvorfor de ikke laanes fra AreaCountCacheBucketMember.
             SELECT Signatur, CAST(DENSE_RANK() OVER (ORDER BY Signatur) AS INT) AS BucketId
@@ -657,6 +697,9 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             WHERE l.GeometryTypeId IN (2,3,4,5)
             GROUP BY pr.ObservationId;
 
+            IF EXISTS (SELECT 1 FROM #psig WHERE LEN(Signatur) >= 3990)
+                THROW 50002, 'Prosjekt-signaturen kan vaere avkortet. Minnelageret bygges ikke.', 1;
+
             SELECT Signatur, CAST(DENSE_RANK() OVER (ORDER BY Signatur) AS INT) AS BucketId
             INTO #pb FROM (SELECT DISTINCT Signatur FROM #psig) q;
 
@@ -673,7 +716,15 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             FROM #pb b CROSS APPLY STRING_SPLIT(b.Signatur, ',') v;
             """;
 
-        var antall = await TellAsync(context,
+        await using var conn = NyTilkobling(context);
+        await conn.OpenAsync(ct);
+
+        // Antallet leses på SAMME tilkobling som dataene. Gjøres det på en egen, er
+        // de to spørringene ikke engang i samme sesjon, og en import imellom gir flere
+        // rader enn arrayene har plass til. Rekkevidden er likevel bare et anslag —
+        // to setninger er to øyeblikksbilder — så løkka under vokser arrayene framfor
+        // å stole på tallet.
+        var antall = await TellAsync(conn,
             "SELECT COUNT_BIG(*) FROM dbo.Observation o JOIN dbo.Location l ON l.Id = o.LocationId WHERE l.GeometryTypeId IN (2,3,4,5)",
             ct);
 
@@ -685,22 +736,18 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _taksonIdx = new int[n]; _geoBucketIdx = new int[n]; _projBucketIdx = new int[n];
 
         var teller = new int[_locId.Length + 1];
-        var lokPerObs = new int[n];
-
-        await using var conn = NyTilkobling(context);
-        await conn.OpenAsync(ct);
 
         await using (var forb = conn.CreateCommand())
         {
             forb.CommandText = forberedelse;
-            forb.CommandTimeout = 0;
+            forb.CommandTimeout = ByggeTidsavbruddSekunder;
             await forb.ExecuteNonQueryAsync(ct);
         }
 
         await using (var bcmd = conn.CreateCommand())
         {
             bcmd.CommandText = boetter;
-            bcmd.CommandTimeout = 0;
+            bcmd.CommandTimeout = ByggeTidsavbruddSekunder;
             await using var bleser = await bcmd.ExecuteReaderAsync(ct);
             LesBoetter(bleser, geografi: true);
             await bleser.NextResultAsync(ct);
@@ -711,14 +758,18 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         await using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = sql;
-            cmd.CommandTimeout = 0;
+            cmd.CommandTimeout = ByggeTidsavbruddSekunder;
             await using var leser = await cmd.ExecuteReaderAsync(ct);
             while (await leser.ReadAsync(ct))
             {
                 var locId = leser.GetInt32(1);
                 if (!lokIndeks.TryGetValue(locId, out var loc)) continue;
 
-                lokPerObs[i] = loc;
+                // Kom det flere rader enn antallet lovet, vokser vi framfor å kaste
+                // eller å la rader falle ut: en manglende observasjon ville gitt for
+                // lave tall uten at noe feilet.
+                if (i == _obsId.Length) Voks(i + 1);
+
                 teller[loc + 1]++;
 
                 _obsId[i] = leser.GetInt32(0);
@@ -745,26 +796,52 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _obsStart = new int[_locId.Length + 1];
         for (var k = 1; k <= _locId.Length; k++) _obsStart[k] = _obsStart[k - 1] + teller[k];
 
-        if (i != n)
-        {
-            Array.Resize(ref _obsId, i); Array.Resize(ref _regStatus, i); Array.Resize(ref _behavior, i);
-            Array.Resize(ref _harBilder, i); Array.Resize(ref _funntype, i); Array.Resize(ref _kategori, i);
-            Array.Resize(ref _institusjon, i); Array.Resize(ref _taksongruppe, i); Array.Resize(ref _datasett, i);
-            Array.Resize(ref _koordpresisjon, i); Array.Resize(ref _samletTicks, i); Array.Resize(ref _maaned, i);
-            Array.Resize(ref _taksonIdx, i); Array.Resize(ref _geoBucketIdx, i); Array.Resize(ref _projBucketIdx, i);
-        }
+        if (i != _obsId.Length) EndreStoerrelse(i);
+    }
+
+    /// <summary>
+    /// Vokser radarrayene til minst <paramref name="minimum"/> plasser.
+    ///
+    /// Vokser IKKE ved dobling. Oversvømmelsen dette finnes for er per konstruksjon
+    /// liten — rader som kom til mellom tellingen og lesningen på samme tilkobling —
+    /// og en dobling fra 3,9 millioner ville allokert et helt nytt sett med femten
+    /// arrayer, altså ~300 MB ekstra, for å ta imot en håndfull rader. Et påslag på
+    /// en åttendedel, minst 1024 plasser, holder kopieringene amortisert billige
+    /// uten det spranget. Nedre grense på 1024 er det som gjør at et nulltall fra
+    /// tellingen ikke gir én omallokering per rad.
+    /// </summary>
+    private void Voks(int minimum)
+    {
+        var paaslag = Math.Max(1024, _obsId.Length / 8);
+        var vokst = (int)Math.Min((long)_obsId.Length + paaslag, int.MaxValue);
+        EndreStoerrelse(Math.Max(minimum, vokst));
+    }
+
+    /// <summary>
+    /// Alle radarrayene er parallelle — rad i betyr det samme i alle femten. De må
+    /// derfor endre størrelse sammen; treffer en endring bare noen av dem, leses
+    /// resten på feil rad.
+    /// </summary>
+    private void EndreStoerrelse(int stoerrelse)
+    {
+        Array.Resize(ref _obsId, stoerrelse); Array.Resize(ref _regStatus, stoerrelse);
+        Array.Resize(ref _behavior, stoerrelse); Array.Resize(ref _harBilder, stoerrelse);
+        Array.Resize(ref _funntype, stoerrelse); Array.Resize(ref _kategori, stoerrelse);
+        Array.Resize(ref _institusjon, stoerrelse); Array.Resize(ref _taksongruppe, stoerrelse);
+        Array.Resize(ref _datasett, stoerrelse); Array.Resize(ref _koordpresisjon, stoerrelse);
+        Array.Resize(ref _samletTicks, stoerrelse); Array.Resize(ref _maaned, stoerrelse);
+        Array.Resize(ref _taksonIdx, stoerrelse); Array.Resize(ref _geoBucketIdx, stoerrelse);
+        Array.Resize(ref _projBucketIdx, stoerrelse);
     }
 
     private static SqlConnection NyTilkobling(IArtsKartDbContext context) =>
         new(((DbContext)context).Database.GetConnectionString());
 
-    private static async Task<long> TellAsync(IArtsKartDbContext context, string sql, CancellationToken ct)
+    private static async Task<long> TellAsync(SqlConnection conn, string sql, CancellationToken ct)
     {
-        await using var conn = NyTilkobling(context);
-        await conn.OpenAsync(ct);
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        cmd.CommandTimeout = 0;
+        cmd.CommandTimeout = ByggeTidsavbruddSekunder;
         return (long)(await cmd.ExecuteScalarAsync(ct))!;
     }
 }

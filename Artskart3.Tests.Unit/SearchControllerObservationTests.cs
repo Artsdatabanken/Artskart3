@@ -97,6 +97,55 @@ public class SearchControllerObservationTests
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    // Offsettet er minnebruk, ikke en SQL-OFFSET: det forgrenede søket leser
+    // skip + take rader per gren inn i prosessen. Uten grensen kan ett kall be om
+    // side 100 000 à 10 000 og dra hele fylket inn i minnet.
+    [Theory]
+    [InlineData(100000, 10000)]
+    [InlineData(12, 10000)]        // 110 000, altså ett hakk over taket
+    [InlineData(10002, 10)]
+    [InlineData(int.MaxValue, 10)] // må ikke renne over i (side - 1) * perSide
+    public async Task GetObservations_WithPaginationPastMaxSkip_ReturnsBadRequest(int pageNumber, int resultsPerPage)
+    {
+        var sut = CreateSut();
+        var filter = new ObservationSearchFilterDto { PageNumber = pageNumber, ResultsPerPage = resultsPerPage };
+
+        var result = await sut.GetObservations(filter);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetObservations_WithPaginationAtMaxSkip_IsAccepted()
+    {
+        var sut = CreateSut();
+        _serviceMock
+            .Setup(s => s.GetObservationsAsync(It.IsAny<ObservationSearchFilterDto>()))
+            .ReturnsAsync(new List<ObservationDto>());
+
+        // (11 - 1) * 10 000 = 100 000, altså nøyaktig taket.
+        var filter = new ObservationSearchFilterDto { PageNumber = 11, ResultsPerPage = 10000 };
+
+        var result = await sut.GetObservations(filter);
+
+        result.Result.Should().NotBeOfType<BadRequestObjectResult>();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(256)]
+    [InlineData(-1)]
+    public async Task GetObservations_WithRegistrationStatusIdOutOfRange_ReturnsBadRequest(int status)
+    {
+        var sut = CreateSut();
+        var filter = new ObservationSearchFilterDto { RegistrationStatusId = status };
+
+        var result = await sut.GetObservations(filter);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
     [Fact]
     public async Task GetObservations_WithValidPagination_ReturnsPagedResult()
     {

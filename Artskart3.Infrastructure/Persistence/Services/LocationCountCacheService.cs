@@ -159,10 +159,17 @@ public class LocationCountCacheService : ILocationCountCacheService
     }
 
     /// <summary>
-    /// Bufferen brukes bare når den er ferdig bygget OG bygget med samme
-    /// dimensjonsregister som koden her kjenner. Uten versjonssjekken ville en
-    /// buffer bygget før en dimensjon ble lagt til eller endret svart med
-    /// bøtte-id-er som ikke lenger betyr det oppslaget tror.
+    /// Bufferen brukes bare når den er ferdig bygget, bygget med samme
+    /// dimensjonsregister som koden her kjenner, OG bygget fra de dataene som ligger
+    /// der nå. Uten versjonssjekken ville en buffer bygget før en dimensjon ble lagt
+    /// til eller endret svart med bøtte-id-er som ikke lenger betyr det oppslaget
+    /// tror. Uten radtallsjekken ville en buffer eldre enn dataene blitt trodd —
+    /// gamle tall i riktig format, uten en eneste feilmelding.
+    ///
+    /// Radtallsjekken fanger det som flytter radantallet i ObservationEntityIndex,
+    /// ikke en endring som bytter verdier uten å endre antallet. Den er et
+    /// sikkerhetsnett under importen, ikke en erstatning for at importen
+    /// ugyldiggjør bufferen selv (se ImportJob).
     /// </summary>
     private async Task<bool> IsReadyAsync(byte stateId, CancellationToken cancellationToken)
     {
@@ -181,7 +188,48 @@ public class LocationCountCacheService : ILocationCountCacheService
             return false;
         }
 
-        return true;
+        return await KildenErUendretAsync(state.SourceRows, stateId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sammenligner radantallet bufferen ble bygget fra med det som ligger der nå.
+    ///
+    /// Alle usikre utfall gir false. Mangler SourceRows, eller er katalogen
+    /// utilgjengelig (<c>VIEW DATABASE STATE</c> mangler), KAN vi ikke vite om
+    /// bufferen er fersk — og da er aggregering det trygge svaret. Det koster tid; å
+    /// svare fra en buffer vi ikke kan verifisere koster riktighet.
+    /// </summary>
+    private async Task<bool> KildenErUendretAsync(
+        long? builtFromRows, byte stateId, CancellationToken cancellationToken)
+    {
+        if (builtFromRows is null)
+        {
+            _logger.LogWarning(
+                "Lokasjonsbuffer {StateId} mangler SourceRows og kan ikke verifiseres mot dataene. Faller tilbake til telling.",
+                stateId);
+            return false;
+        }
+
+        long naa;
+        try
+        {
+            naa = await CountCacheSourceRows.ReadAsync(_context, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Kunne ikke lese radantallet for ObservationEntityIndex. Lokasjonsbuffer {StateId} brukes ikke.",
+                stateId);
+            return false;
+        }
+
+        if (naa == builtFromRows)
+            return true;
+
+        _logger.LogWarning(
+            "Lokasjonsbuffer {StateId} er bygget fra {Bygget} rader, ObservationEntityIndex har {Naa}. Bufferen er eldre enn dataene og brukes ikke.",
+            stateId, builtFromRows, naa);
+        return false;
     }
 
     /// <summary>

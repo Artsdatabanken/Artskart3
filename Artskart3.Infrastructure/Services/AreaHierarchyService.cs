@@ -2,6 +2,7 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -34,6 +35,19 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
     private volatile Dictionary<string, string> _municipalityToCounty = new();
     private volatile Dictionary<string, List<string>> _countyToMunicipalities = new();
     private volatile Dictionary<(int EntityTypeId, int EntityId), AreaBounds> _areaBounds = new();
+
+    /// <summary>
+    /// Hvilke (områdetype, id) som FINNES, lest fra Area-tabellen.
+    ///
+    /// Holdes atskilt fra <see cref="_areaBounds"/> med vilje. Boksene er utledet av
+    /// observasjonsdata, og «har ingen boks» betyr bare «har ingen observasjon med
+    /// lokasjon» — ikke «finnes ikke». Brukte eksistenssjekken boksene, ville en
+    /// avbrutt LocationId-backfill, eller et område hvis første observasjoner kom
+    /// etter forrige lasting, blitt lest som ikke-eksisterende, og et helt legitimt
+    /// områdefilter hadde svart tomt med status 200. Area er autoritativ for hva som
+    /// finnes, og den er billig å lese.
+    /// </summary>
+    private volatile HashSet<(int EntityTypeId, int EntityId)> _existingAreas = [];
     private volatile bool _initialized;
     private PeriodicTimer? _timer;
     private Task? _backgroundTask;
@@ -107,20 +121,35 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
                 list.Add(m.Fid);
         }
 
+        // Eksistensmengden bygges av de samme radene. Verneområde-Fid-ene ligger som
+        // «Naturbase VVnnnnnnnn» og må konverteres med sin egen regel — ellers ville
+        // alle verneområder sett ut som om de ikke finnes.
+        var existingAreas = new HashSet<(int, int)>();
+        foreach (var a in areas)
+        {
+            var entityId = a.AreaTypeId == (int)ObservationIndexEntityType.RestrictedArea
+                ? RestrictedAreaFidToEntityId(a.Fid)
+                : FidToEntityId(a.Fid);
+
+            if (entityId is { } id)
+                existingAreas.Add((a.AreaTypeId, id));
+        }
+
         var areaBounds = await LoadAreaBoundsAsync(context, cancellationToken);
 
-        // Volatile swap — hver referanse settes atomisk, men de tre tilordningene er ikke
+        // Volatile swap — hver referanse settes atomisk, men tilordningene er ikke
         // atomiske samlet. En leser kan i et kort øyeblikk se ny _municipalityToCounty
         // med gammel _countyToMunicipalities. Akseptabelt fordi data sjelden endres
         // og en enkelt forespørsel typisk bruker bare én av oppslagene.
         _municipalityToCounty = municipalityToCounty;
         _countyToMunicipalities = countyToMunicipalities;
+        _existingAreas = existingAreas;
         _areaBounds = areaBounds;
         _initialized = true;
 
         _logger.LogInformation(
-            "Lastet områdehierarki: {MunicipalityCount} kommuner, {CountyCount} fylker, {BoundsCount} områdebokser",
-            municipalityToCounty.Count, countyToMunicipalities.Count, areaBounds.Count);
+            "Lastet områdehierarki: {MunicipalityCount} kommuner, {CountyCount} fylker, {AreaCount} områder, {BoundsCount} områdebokser",
+            municipalityToCounty.Count, countyToMunicipalities.Count, existingAreas.Count, areaBounds.Count);
     }
 
     /// <summary>
@@ -182,12 +211,12 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
     {
         if (entityIds.Length == 0) return entityIds;
 
-        // Boksene er ikke lastet ennå. Da vet vi ingenting, og «vet ikke» skal
+        // Area-tabellen er ikke lastet ennå. Da vet vi ingenting, og «vet ikke» skal
         // gi med grenen — ikke uten. Se grensesnittet.
-        var bounds = _areaBounds;
-        if (bounds.Count == 0) return entityIds;
+        var existing = _existingAreas;
+        if (existing.Count == 0) return entityIds;
 
-        return entityIds.Where(id => bounds.ContainsKey((entityTypeId, id))).ToArray();
+        return entityIds.Where(id => existing.Contains((entityTypeId, id))).ToArray();
     }
 
     public string? GetCountyFid(string municipalityFid)

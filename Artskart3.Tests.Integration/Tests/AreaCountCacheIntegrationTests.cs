@@ -330,6 +330,35 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
         result.Should().BeNull();
     }
 
+    /// <summary>
+    /// En buffer bygget fra et annet radantall enn det som ligger der nå er eldre enn
+    /// dataene. Uten denne sjekken blir den trodd: Status er 'Ready', SchemaVersion
+    /// stemmer, og svaret er gamle tall i riktig format — uten en feilmelding.
+    /// </summary>
+    [Fact]
+    public async Task Buffer_bygget_fra_annet_radantall_brukes_ikke()
+    {
+        await BuildLevel1Async(TaxonGroupDimensionId, r => r.TaxonGroupId);
+        await SetSourceRowsAsync(999_999);
+
+        var result = await CreateCacheService().TryGetCountsAsync(
+            new LocationSearchFilterDto { TaxonGroupIds = [TaxonGroupA] }, await AreasAsync(), areasAreNarrowed: false);
+
+        result.Should().BeNull("bufferen er eldre enn dataene og skal falle tilbake til telling");
+    }
+
+    [Fact]
+    public async Task Buffer_uten_sourcerows_kan_ikke_verifiseres_og_brukes_ikke()
+    {
+        await BuildLevel1Async(TaxonGroupDimensionId, r => r.TaxonGroupId);
+        await SetSourceRowsAsync(null);
+
+        var result = await CreateCacheService().TryGetCountsAsync(
+            new LocationSearchFilterDto { TaxonGroupIds = [TaxonGroupA] }, await AreasAsync(), areasAreNarrowed: false);
+
+        result.Should().BeNull("uten SourceRows kan ikke bufferen verifiseres mot dataene");
+    }
+
     [Fact]
     public async Task Repository_faller_tilbake_til_telling_naar_bufferen_ikke_svarer()
     {
@@ -401,9 +430,18 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
             SchemaVersion = AreaCountCacheDimensions.SchemaVersion,
             Status = "Ready",
             BuiltAt = DateTime.UtcNow,
+
+            // Må settes, og må settes med samme uttrykk byggeskriptet bruker:
+            // oppslaget nekter å bruke en buffer det ikke kan verifisere mot
+            // dataene. Står den tom, er bufferen aldri klar.
+            SourceRows = await CountCacheSourceRows.ReadAsync(_context, CancellationToken.None),
         });
         await _context.SaveChangesAsync();
     }
+
+    private Task SetSourceRowsAsync(long? rows) =>
+        _context.Set<AreaCountCacheState>().Where(s => s.Id == 1)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.SourceRows, rows));
 
     private Task SetStatusAsync(string status) =>
         _context.Set<AreaCountCacheState>().Where(s => s.Id == 1)

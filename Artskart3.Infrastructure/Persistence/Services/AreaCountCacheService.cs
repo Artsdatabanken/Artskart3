@@ -124,9 +124,16 @@ public class AreaCountCacheService : IAreaCountCacheService
         {
             var one = await ResolveAsync(dimension, buckets, cancellationToken);
 
-            // Et filter som ikke treffer noen bøtte gir ingen observasjoner. Tomt
-            // resultat, aldri ufiltrert — samme utfall som spørringen ville gitt.
+            // null betyr at dimensjonen ikke kan besvares herfra — medlemstabellen er
+            // ikke bygget for den. Hele oppslaget må da falle tilbake til telling.
+            // Svarte vi tomt her, ville en ubygget medlemstabell gitt blankt kart.
             if (one is null)
+                return null;
+
+            // Tom bøtteliste er noe annet: filteret treffer ingen bøtte, altså ingen
+            // observasjoner. Tomt resultat, aldri ufiltrert — samme utfall som
+            // spørringen ville gitt, og uten en spørring som garantert gir null rader.
+            if (one.Buckets is { Length: 0 })
                 return [];
 
             resolved.Add(one);
@@ -141,10 +148,17 @@ public class AreaCountCacheService : IAreaCountCacheService
     }
 
     /// <summary>
-    /// Bufferen brukes bare når den er ferdig bygget OG bygget med samme
-    /// dimensjonsregister som koden her kjenner. Uten versjonssjekken ville en buffer
-    /// bygget før en ny dimensjon ble lagt til svart på forskjøvne pargruppe-id-er —
-    /// altså riktige tall for feil par.
+    /// Bufferen brukes bare når den er ferdig bygget, bygget med samme
+    /// dimensjonsregister som koden her kjenner, OG bygget fra de dataene som ligger
+    /// der nå. Uten versjonssjekken ville en buffer bygget før en ny dimensjon ble
+    /// lagt til svart på forskjøvne pargruppe-id-er — altså riktige tall for feil
+    /// par. Uten radtallsjekken ville en buffer eldre enn dataene blitt trodd: gamle
+    /// tall i riktig format, uten en eneste feilmelding.
+    ///
+    /// Radtallsjekken fanger det som flytter radantallet i ObservationEntityIndex —
+    /// en import, en sletting, en backfill. Den fanger IKKE en endring som bytter
+    /// verdier uten å endre antallet. Den er et sikkerhetsnett under importen, ikke
+    /// en erstatning for at importen ugyldiggjør bufferen selv (se ImportJob).
     /// </summary>
     private async Task<bool> IsReadyAsync(CancellationToken cancellationToken)
     {
@@ -163,13 +177,66 @@ public class AreaCountCacheService : IAreaCountCacheService
             return false;
         }
 
-        return true;
+        return await KildenErUendretAsync(state.SourceRows, "Områdebufferen", cancellationToken);
+    }
+
+    /// <summary>
+    /// Sammenligner radantallet bufferen ble bygget fra med det som ligger der nå.
+    ///
+    /// Alle usikre utfall gir false. Mangler SourceRows, eller er katalogen utilgjengelig
+    /// (<c>VIEW DATABASE STATE</c> mangler), KAN vi ikke vite om bufferen er fersk — og
+    /// da er aggregering det trygge svaret. Det koster tid; å svare fra en buffer vi ikke
+    /// kan verifisere koster riktighet.
+    /// </summary>
+    private async Task<bool> KildenErUendretAsync(
+        long? builtFromRows, string buffernavn, CancellationToken cancellationToken)
+    {
+        if (builtFromRows is null)
+        {
+            _logger.LogWarning(
+                "{Buffer} mangler SourceRows og kan ikke verifiseres mot dataene. Faller tilbake til telling.",
+                buffernavn);
+            return false;
+        }
+
+        long naa;
+        try
+        {
+            naa = await CountCacheSourceRows.ReadAsync(_context, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Kunne ikke lese radantallet for ObservationEntityIndex. {Buffer} brukes ikke.",
+                buffernavn);
+            return false;
+        }
+
+        if (naa == builtFromRows)
+            return true;
+
+        _logger.LogWarning(
+            "{Buffer} er bygget fra {Bygget} rader, ObservationEntityIndex har {Naa}. Bufferen er eldre enn dataene og brukes ikke.",
+            buffernavn, builtFromRows, naa);
+        return false;
     }
 
     /// <summary>
     /// Gjør et utvalg om til bøtte-id-er. Flerverdi-dimensjonene må slå opp hvilke
     /// bøtter som inneholder de valgte medlemmene; de andre er allerede bøtter.
-    /// Returnerer null når utvalget ikke treffer noen bøtte.
+    ///
+    /// Tre utfall, som i LocationCountCacheService.ResolveAsync:
+    ///
+    ///   bøtter        — slå opp disse
+    ///   tom liste     — utvalget treffer ingen bøtte: ingen observasjoner
+    ///   null          — kan ikke besvares: fall tilbake til telling
+    ///
+    /// Skillet mellom de to siste er hele poenget. Er medlemstabellen ikke bygget for
+    /// dimensjonen, treffer ingen medlemmer noen bøtte — og leses det som «ingen
+    /// observasjoner», svarer et verneområdevalg blankt kart uten en eneste
+    /// feilmelding. Derfor sjekkes det eksplisitt om dimensjonen har medlemmer i det
+    /// hele tatt, men bare i det tomme tilfellet, så den vanlige stien ikke betaler
+    /// for det.
     /// </summary>
     private async Task<ResolvedDimension?> ResolveAsync(
         CacheDimension dimension, BucketSelection buckets, CancellationToken cancellationToken)
@@ -179,7 +246,7 @@ public class AreaCountCacheService : IAreaCountCacheService
 
         var values = ((BucketSet)buckets).Values;
         if (values.Count == 0)
-            return null;
+            return new ResolvedDimension(dimension.Id, [], null);
 
         if (dimension.Kind != CacheDimensionKind.MultiValue)
             return new ResolvedDimension(dimension.Id, values.ToArray(), null);
@@ -187,14 +254,27 @@ public class AreaCountCacheService : IAreaCountCacheService
         var memberIds = values.ToArray();
         var dimensionId = dimension.Id;
 
-        var resolved = await _context.Set<AreaCountCacheBucketMember>()
-            .AsNoTracking()
+        var members = _context.Set<AreaCountCacheBucketMember>().AsNoTracking();
+
+        var resolved = await members
             .Where(m => m.DimensionId == dimensionId && memberIds.Contains(m.MemberId))
             .Select(m => m.BucketId)
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
-        return resolved.Length == 0 ? null : new ResolvedDimension(dimension.Id, resolved, null);
+        if (resolved.Length > 0)
+            return new ResolvedDimension(dimension.Id, resolved, null);
+
+        var harMedlemmer = await members
+            .AnyAsync(m => m.DimensionId == dimensionId, cancellationToken);
+
+        if (harMedlemmer)
+            return new ResolvedDimension(dimension.Id, [], null);
+
+        _logger.LogWarning(
+            "Områdebufferen mangler medlemmer for dimensjon {Dimension}. Faller tilbake til telling.",
+            dimension.Name);
+        return null;
     }
 
     private async Task<Dictionary<(int EntityTypeId, int EntityId), int>> LookupLevel1Async(

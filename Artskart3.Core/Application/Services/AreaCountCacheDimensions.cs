@@ -205,10 +205,26 @@ public static class AreaCountCacheDimensions
     /// Semi-joinen matcher <c>EntityTypeId = 6</c> mot <c>countyIds</c>, ikke mot en egen
     /// liste. Et fylkevalg kan derfor treffe Svalbard-områder, og fylke-Fid-ene slås opp
     /// mot begge typene. Uten det ville bufferen svart noe annet enn tellingen.
+    ///
+    /// ET VALG SOM IKKE LØSER SEG OPP ER IKKE «INGEN FILTER»
+    /// Aktiv eller ikke avgjøres av om filteret NEVNTE områder, ikke av om Fid-ene lot
+    /// seg slå opp. Avgjorde den på medlemslista, ville et valg der ingen Fid kan tolkes
+    /// blitt lest som «ingen geografi valgt», og bufferen hadde svart ufiltrert for hele
+    /// landet — mens tellingen svarer tomt for samme filter. En tom bøttemengde gir tomt
+    /// resultat, og det er det ene svaret som er trygt.
     /// </summary>
     private static DimensionSelection SelectGeography(CacheDimensionContext c)
     {
         var filter = c.Filter;
+
+        var harOmraadevalg = filter.MunicipalityIds?.Length > 0
+            || filter.CountyIds?.Length > 0
+            || filter.RestrictedAreaIds?.Length > 0
+            || filter.OceanAreaIds?.Length > 0;
+
+        if (!harOmraadevalg)
+            return DimensionSelection.Inactive;
+
         var members = new List<int>();
 
         foreach (var entityId in c.AreaHierarchy.FidsToEntityIds(filter.MunicipalityIds))
@@ -226,9 +242,7 @@ public static class AreaCountCacheDimensions
         foreach (var entityId in c.AreaHierarchy.FidsToEntityIds(filter.OceanAreaIds))
             members.Add(PackAreaMember(AreaTypeOcean, entityId));
 
-        return members.Count == 0
-            ? DimensionSelection.Inactive
-            : DimensionSelection.Of(new BucketSet(members.Distinct().ToArray()));
+        return DimensionSelection.Of(new BucketSet(members.Distinct().ToArray()));
     }
 
     private static DimensionSelection Set(int[]? values) =>
@@ -309,11 +323,27 @@ public static class AreaCountCacheDimensions
     {
         var ids = All.Select(d => d.Id).OrderBy(id => id).ToArray();
         var pairs = new Dictionary<(byte, byte), byte>();
-        byte next = 1;
+        var next = 1;
 
         for (var i = 0; i < ids.Length; i++)
             for (var j = i + 1; j < ids.Length; j++)
-                pairs[(ids[i], ids[j])] = next++;
+            {
+                // Pargruppe-id-en er tinyint i databasen (DimensionPairId, og
+                // ROW_NUMBER CAST til TINYINT i byggeskriptet). 13 dimensjoner gir 78
+                // par, men 23 gir 253 og 24 gir 276 — og da ville C# rullet rundt i
+                // stillhet (byte-inkrement er unchecked) mens skriptet feilet med en
+                // aritmetisk overflyt. To buffere som nummererer par ulikt svarer
+                // riktige tall for feil par, så dette skal stoppe her.
+                if (next > byte.MaxValue)
+                {
+                    throw new InvalidOperationException(
+                        $"{ids.Length} dimensjoner gir {ids.Length * (ids.Length - 1) / 2} par, " +
+                        $"men pargruppe-id-en er tinyint og rommer {byte.MaxValue}. " +
+                        "Utvid DimensionPairId til smallint i både entitetene og byggeskriptene.");
+                }
+
+                pairs[(ids[i], ids[j])] = (byte)next++;
+            }
 
         return pairs;
     }

@@ -26,6 +26,22 @@ public static class SearchConstants
     // og begrenser størrelsen på SQL IN-klausuler for å hindre misbruk mot dette anonyme endepunktet.
     public const int MaxFilterArraySize = 500;
 
+    // Navnet på rate limit-policyen søkeendepunktene bruker. Konstant fordi både
+    // Program.cs (som definerer den) og kontrolleren (som slår den på) må bruke
+    // nøyaktig samme streng — en skrivefeil i attributtet gir en 500 ved oppstart av
+    // forespørselen, ikke en kompileringsfeil.
+    public const string SearchRateLimitPolicy = "search";
+
+    // Hvor langt ut i treffmengden paginering kan nå: (PageNumber - 1) * ResultsPerPage.
+    //
+    // Grensen er ikke kosmetisk. Det forgrenede søket henter TOP(skip + take) per gren
+    // og fletter i minnet (se SearchRepository), så offsettet er ikke en SQL-OFFSET
+    // lenger — det er rader som faktisk leses inn i prosessen. Uten grensen kan ett
+    // anonymt kall be om side 100 000 à 10 000 og dra hele fylket (~8 M rader) inn i
+    // minnet per gren. 100 000 er langt forbi der noen blar manuelt, og bulkuttak
+    // hører til eksportendepunktet.
+    public const int MaxObservationSkip = 100000;
+
     // ObservationListInfo search constants
     public const int MaxLocationIdsObservationList = 500;
 

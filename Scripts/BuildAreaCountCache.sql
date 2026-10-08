@@ -97,6 +97,35 @@ INSERT #dim VALUES
 DECLARE @JoinVern NVARCHAR(200) = N' LEFT JOIN #vern v ON v.ObservationId = i.ObservationId';
 DECLARE @JoinProj NVARCHAR(200) = N' LEFT JOIN #proj p ON p.ObservationId = i.ObservationId';
 
+-- Status settes til Building FØR tømmingen, ikke etter. Rekkefølgen er hele vernet:
+-- hver setning er sin egen transaksjon (XACT_ABORT uten omsluttende transaksjon), så
+-- feiler tømmingen halvveis, er bufferen allerede merket ikke-klar. Settes statusen
+-- etterpå, etterlater et avbrudd en TOM buffer som fortsatt leses som Ready — blankt
+-- kart, status 200, ingen feilmelding. Oppslaget krever Ready, så en avbrutt kjøring
+-- skal etterlate en buffer som ikke brukes, framfor en halv buffer som brukes.
+MERGE dbo.AreaCountCacheState AS t
+USING (SELECT CAST(1 AS TINYINT) AS Id) AS s ON t.Id = s.Id
+WHEN MATCHED THEN UPDATE SET Status = 'Building', SchemaVersion = @SchemaVersion
+WHEN NOT MATCHED THEN INSERT (Id, SchemaVersion, Status) VALUES (1, @SchemaVersion, 'Building');
+
+-- Radantallet leses HER, før aggregeringene, ikke ved «Ready» til slutt. Uttrykket er
+-- det samme som CountCacheSourceRows.Sql leser det med, og oppslaget nekter å bruke en
+-- buffer der de to tallene spriker.
+--
+-- Tidspunktet er det som gjør sjekken til et vern. Endres indekstabellen MENS bygget
+-- går, har bufferen tall fra de gamle dataene — leses radantallet etterpå, lagres det
+-- NYE tallet, de to stemmer, og bufferen blir brukt. Altså feil vei. Lest her er tallet
+-- fra dataene bufferen faktisk ble bygget fra, og en endring underveis gir et avvik som
+-- forkaster bufferen.
+--
+-- sys.partitions og ikke sys.dm_db_partition_stats: samme tall, men DMV-en krever
+-- VIEW DATABASE STATE, som db_datareader ikke gir. Se CountCacheSourceRows.
+DECLARE @SourceRows BIGINT = (
+    SELECT CAST(ISNULL(SUM(p.[rows]), 0) AS BIGINT)
+    FROM sys.partitions p
+    WHERE p.object_id = OBJECT_ID('dbo.ObservationEntityIndex')
+      AND p.index_id IN (0, 1));
+
 -- Tømmer bare det nivået som faktisk bygges, slik at nivåene kan bygges hver for seg.
 -- Medlemstabellen hører til nivå 1 fordi det er der flerverdi-bøttene defineres.
 RAISERROR('Tømmer det som skal bygges...', 0, 1) WITH NOWAIT;
@@ -106,13 +135,6 @@ BEGIN
     TRUNCATE TABLE dbo.AreaCountCacheBucketMember;
 END
 IF @BuildLevel2 = 1 TRUNCATE TABLE dbo.AreaCountCacheLevel2;
-
--- Status settes til Building mens vi holder på. Oppslaget krever Ready, så en avbrutt
--- kjøring etterlater en buffer som ikke brukes — framfor en halv buffer som brukes.
-MERGE dbo.AreaCountCacheState AS t
-USING (SELECT CAST(1 AS TINYINT) AS Id) AS s ON t.Id = s.Id
-WHEN MATCHED THEN UPDATE SET Status = 'Building', SchemaVersion = @SchemaVersion
-WHEN NOT MATCHED THEN INSERT (Id, SchemaVersion, Status) VALUES (1, @SchemaVersion, 'Building');
 
 -- ---------------------------------------------------------------------------
 -- Flerverdi-bøttene
@@ -134,6 +156,20 @@ SELECT ObservationId,
 INTO #vernsig
 FROM dbo.ObservationEntityIndex WHERE EntityTypeId IN (1, 2, 3, 4, 6)
 GROUP BY ObservationId;
+
+-- SIGNATUREN MAA IKKE VAERE AVKORTET.
+--
+-- CAST til en kort strengtype avkorter I STILLHET. Blir to ulike omraademengder
+-- avkortet til samme tekst, faar de SAMME boette-id - og da summerer oppslaget
+-- observasjoner som ikke hoerer sammen. Gale tall, ingen feilmelding, stivnet i
+-- en tabell. ~9 tegn per medlem gir tak rundt 440 omraader paa en observasjon,
+-- altsaa langt utenfor det plausible, men en stille sammenblanding er ikke noe
+-- aa risikere paa et "burde ikke skje".
+IF EXISTS (SELECT 1 FROM #vernsig WHERE LEN(Signatur) >= 3990)
+BEGIN
+    RAISERROR('Geografi-signaturen naermer seg 4000 tegn og kan vaere avkortet. Bufferen bygges IKKE. Utvid Signatur eller bytt til en HASHBYTES-signatur.', 16, 1);
+    RETURN;
+END
 
 CREATE TABLE #vernbucket (
     -- COLLATE DATABASE_DEFAULT: en CREATE TABLE-kolonne i tempdb arver tempdbs
@@ -177,6 +213,13 @@ SELECT ObservationId,
        CAST(STRING_AGG(CAST(ProjectOrgId AS VARCHAR(12)), ',') WITHIN GROUP (ORDER BY ProjectOrgId) AS NVARCHAR(4000)) AS Signatur
 INTO #projsig
 FROM dbo.ObservationProject GROUP BY ObservationId;
+
+-- Samme vakt som for geografi-signaturen over, av samme grunn.
+IF EXISTS (SELECT 1 FROM #projsig WHERE LEN(Signatur) >= 3990)
+BEGIN
+    RAISERROR('Prosjekt-signaturen naermer seg 4000 tegn og kan vaere avkortet. Bufferen bygges IKKE. Utvid Signatur eller bytt til en HASHBYTES-signatur.', 16, 1);
+    RETURN;
+END
 
 CREATE TABLE #projbucket (
     -- COLLATE DATABASE_DEFAULT: en CREATE TABLE-kolonne i tempdb arver tempdbs
@@ -294,10 +337,13 @@ UPDATE STATISTICS dbo.AreaCountCacheLevel1;
 UPDATE STATISTICS dbo.AreaCountCacheLevel2;
 UPDATE STATISTICS dbo.AreaCountCacheBucketMember;
 
+-- @SourceRows ble lest FOER aggregeringene, se der. Skrives tallet som leses her,
+-- ville en endring i indekstabellen underveis gitt en buffer med gamle tall og nytt
+-- radantall - altsaa en buffer oppslaget tror er fersk.
 UPDATE dbo.AreaCountCacheState
 SET Status = 'Ready',
     BuiltAt = SYSUTCDATETIME(),
-    SourceRows = (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex),
+    SourceRows = @SourceRows,
     DurationSeconds = DATEDIFF(SECOND, @Start, SYSUTCDATETIME())
 WHERE Id = 1;
 

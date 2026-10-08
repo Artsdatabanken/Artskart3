@@ -5,6 +5,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
@@ -59,6 +60,19 @@ public class ExportService
         var columns = JsonSerializer.Deserialize<List<string>>(job.SelectedColumns) ?? [];
         var filter = JsonSerializer.Deserialize<ObservationSearchFilterDto>(job.FilterJson)
                      ?? new ObservationSearchFilterDto();
+
+        // Filteret valideres her OGSÅ, selv om ExportController validerer før jobben
+        // legges inn. Jobben er lagret JSON, og den kan være lagret før reglene ble
+        // strengere — eller av et lagret filter laget da. ObservationQueryBuilder
+        // smalner RegistrationStatusId til byte med en unchecked cast, så 258 ville
+        // blitt 2 og CSV-en inneholdt «ikke påvist» uten at noen hadde bedt om det.
+        // Bedre en jobb som feiler med en begrunnelse enn en fil med feil innhold.
+        if (ObservationFilterValidator.GetError(filter) is { } filterError)
+        {
+            _logger.LogWarning(
+                "Eksportjobb {JobId} har et ugyldig filter og kjøres ikke: {Feil}", job.Id, filterError);
+            throw new InvalidOperationException($"Ugyldig filter: {filterError}");
+        }
 
         var validColumns = _columnRegistry.GetValidColumnNames();
         columns = columns.Where(c => validColumns.Contains(c)).ToList();

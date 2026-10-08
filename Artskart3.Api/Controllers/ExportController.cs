@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Application.Validation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +36,9 @@ public class ExportController : ControllerBase
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
 
+        if (ValidateFilter(request.Filter) is { } filterError)
+            return filterError;
+
         var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
         return Ok(summary);
     }
@@ -44,6 +48,9 @@ public class ExportController : ControllerBase
     {
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
+
+        if (ValidateFilter(request.Filter) is { } filterError)
+            return filterError;
 
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
@@ -123,6 +130,20 @@ public class ExportController : ControllerBase
 
         var history = await _exportService.GetUserExportHistoryAsync(userId, cancellationToken);
         return Ok(history);
+    }
+
+    /// <summary>
+    /// Samme filterregler som søket. Eksporten gikk tidligere rett i
+    /// ObservationQueryBuilder uten validering, og der smalnes RegistrationStatusId
+    /// til byte med en unchecked cast — 258 ble 2, og CSV-en inneholdt «ikke påvist»
+    /// uten at noen hadde bedt om det. Et lagret filter kan dessuten være laget før
+    /// reglene ble strengere, så det må valideres når det brukes, ikke bare når det
+    /// lages.
+    /// </summary>
+    private BadRequestObjectResult? ValidateFilter(ObservationSearchFilterDto filter)
+    {
+        var error = ObservationFilterValidator.GetError(filter);
+        return error == null ? null : BadRequest(new { error });
     }
 
     private ActionResult? TryGetUserId(out Guid userId)

@@ -15,6 +15,7 @@ kjøre når som helst; alt som skriver skal avklares først, og mot hvilken inst
 | `RebuildLocationAreasForAreaTypes.sql` | Regner `LocationAreas` på nytt ved romlig snitt | **Ja** | Engangsverktøy — se *Reparasjon* under |
 | `VerifyLocationCountCache.sql` | Avstemmer lokasjonsbufferen mot tellingen, lokasjon for lokasjon | Nei | Etter hver bygging av bufferen |
 | `CheckAreaIndexDrift.sql` | Avstemmer `ObservationEntityIndex` mot `Area` | Nei | Etter hver `Area`-oppdatering — se *Drift* under |
+| `CheckAreaHierarchyInvariant.sql` | Kontrollerer at hver kommunerad har fylkesraden for sitt fylke | Nei | Fra pipelinen, og etter hvert skript som skriver til indeksen — se *Invarianten* under |
 | `IndexUsageDiff.sql` | Indeksbruk før/etter en endring | Nei | Ved indeksarbeid |
 | `MeasureLocationSortCost.sql` | Bryter ned hva et buffret lokasjonsoppslag bruker tiden på | Nei | Ved regresjon i lokasjonsstien |
 | `PerfTestListView.ps1` | Kort måling av listevisningen | Nei* | Rask sjekk |
@@ -62,6 +63,22 @@ Ufiltrerte karttall kommer fra `Area.ObservationCount` og ser riktige ut.
 Filtrerte tall kommer fra indekstabellen og blir for høye. Kjør derfor
 `CheckAreaIndexDrift.sql` etter hver `Area`-oppdatering — avviket må måles, ikke
 antas.
+
+## Invarianten områdetellingene hviler på
+
+`AreaCountGeoJoinRules.CanSkipGeoJoin` utelater geo-semijoinen når utdataområdene
+er kommuner i et valgt fylke. Det forutsetter at hver kommunerad i indeksen
+følges av fylkesraden for kommunens eget fylke. Holder det ikke, blir
+områdetallene **for høye uten feilmelding**.
+
+`CheckAreaHierarchyInvariant.sql` kontrollerer det, leser bare, og stopper med
+severity 16 ved brudd. Kjør den fra pipelinen, etter hvert skript som skriver til
+`ObservationEntityIndex`, og før tellebufferne bygges — bygges de over en brutt
+invariant, stivner de gale tallene i `AreaCountCacheLevel1`.
+
+Samme kontroll står også til slutt i `BackfillAll.sql`, men den filen er embeddet
+i en migrasjon og kjører derfor bare på ferske databaser. I produksjon er det
+dette skriptet som gjelder.
 
 ## Reparasjon etter en Area-oppdatering
 

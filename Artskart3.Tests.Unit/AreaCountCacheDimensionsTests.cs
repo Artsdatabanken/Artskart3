@@ -338,6 +338,36 @@ public class AreaCountCacheDimensionsTests
         Select("Geografi", new LocationSearchFilterDto { TaxonGroupIds = [8] }).IsActive.Should().BeFalse();
     }
 
+    /// <summary>
+    /// Et områdevalg der ingen Fid kan slås opp er IKKE det samme som «ingen
+    /// geografi valgt». Avgjorde dimensjonen på medlemslista, ville den svart at
+    /// filteret ikke gjelder geografi, og bufferen hadde gitt tall for hele landet
+    /// — mens tellingen gir tomt for samme filter. En aktiv dimensjon med tom
+    /// bøttemengde er det ene svaret som er trygt.
+    /// </summary>
+    [Theory]
+    [InlineData("county")]
+    [InlineData("municipality")]
+    [InlineData("restricted")]
+    [InlineData("ocean")]
+    public void Geografi_med_uoppslagbart_omraade_er_aktiv_men_tom(string type)
+    {
+        var filter = new LocationSearchFilterDto();
+        switch (type)
+        {
+            case "county": filter.CountyIds = ["Nordland"]; break;
+            case "municipality": filter.MunicipalityIds = ["Bodø"]; break;
+            case "restricted": filter.RestrictedAreaIds = ["ikke en fid"]; break;
+            case "ocean": filter.OceanAreaIds = ["Barentshavet"]; break;
+        }
+
+        var selection = Select("Geografi", filter);
+
+        selection.IsActive.Should().BeTrue();
+        selection.IsCacheable.Should().BeTrue();
+        Values(selection).Should().BeEmpty();
+    }
+
     [Fact]
     public void Prosjekt_er_flerverdi()
     {

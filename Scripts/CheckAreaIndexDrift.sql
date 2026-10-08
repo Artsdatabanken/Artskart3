@@ -226,5 +226,39 @@ ELSE
     FROM dbo.BackfillProgress p
     ORDER BY p.Section;
 
+-- ---------------------------------------------------------------------------
+-- 6. INDEKSRADER MED LocationId SOM IKKE FINNES I Location
+--
+-- ObservationEntityIndex.LocationId har INGEN fremmednoekkel - tabellen er en
+-- denormalisert indeks, og kolonnen er en naken int. At den likevel ikke peker i
+-- tomme luften hviler paa noe annet: INGENTING i loesningen skriver til
+-- Observation.LocationId. Den settes av backfill-migrasjonene og aldri av
+-- applikasjonskoden, saa indeksraden kan ikke bli hengende etter en flytting.
+--
+-- Fremmednoekkelen som FINNES er Observation.LocationId -> Location.Id, med
+-- ON DELETE NO ACTION. Den hindrer at en lokasjon med observasjoner slettes, men
+-- den sier ingenting om indekstabellen. En foreldreloes indeksrad krever derfor en
+-- manuell UPDATE etterfulgt av en DELETE - altsaa mulig, bare ikke fra koden.
+--
+-- HVORFOR DET BETYR NOE: lokasjonssoeket og lokasjonsbufferen behandler slike
+-- rader ULIKT. Bufferen bygges med en INNER JOIN mot Location og utelater dem
+-- helt (BuildLocationCountCache.sql), mens GetLocationsAsync grupperer paa
+-- LocationId FOERST og joiner Location ETTER Take - med vilje, joinen foer
+-- aggregeringen kostet 2332 ms. En foreldreloes lokasjon bruker derfor opp en
+-- plass i topp-N og faller ut etterpaa, saa de to stiene kan gi ulike lister
+-- rundt kuttet.
+--
+-- Begge stiene forutsetter altsaa at dette tallet er null. Er det ikke det, maa
+-- radene slettes - ikke kompenseres for i spoerringene.
+-- ---------------------------------------------------------------------------
+PRINT '';
+PRINT '=== 6. INDEKSRADER MED FORELDRELOES LocationId ===';
+
+SELECT COUNT_BIG(*)                      AS ForeldreloeseRader,
+       COUNT(DISTINCT idx.LocationId)    AS ForeldreloeseLokasjoner
+FROM dbo.ObservationEntityIndex idx
+WHERE idx.LocationId IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM dbo.Location l WHERE l.Id = idx.LocationId);
+
 DROP TABLE IF EXISTS #IndexAreas;
 DROP TABLE IF EXISTS #ValidAreas;
