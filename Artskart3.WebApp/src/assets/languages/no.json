@@ -169,6 +169,11 @@
     "riskCategory": "Risikokategori",
     "noResults": "Ingen observasjoner funnet"
   },
+  "autocomplete": {
+    "resultCount": "Treff: {{count}}",
+    "noResults": "Ingen treff",
+    "noResultsFor": "Ingen treff på “{{searchTerm}}”."
+  },
   "sidebar": {
     "categories": "Rødliste- og fremmedartskategorier",
     "areas": "Områder",
@@ -249,14 +254,11 @@
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
-    "noSearchResults": "Ingen treff",
-    "noSearchResultsFor": "Ingen treff på “{{searchTerm}}”.",
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
     "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
-    "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
       "Kingdom": "Rike",
       "Subkingdom": "Underrike",
