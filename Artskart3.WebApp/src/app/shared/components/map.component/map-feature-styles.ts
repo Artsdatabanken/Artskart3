@@ -15,11 +15,11 @@ const MARKERS = {
 } satisfies Record<MapMarkerKind, { radius: number; font: string | undefined }>;
 
 const COLOR_TOKENS = {
-  primary: '--adb-surface-accent-primary',
-  hover: '--adb-surface-accent-hover',
-  border: '--adb-border-base-subtle',
-  hoverRing: '--adb-border-base-strong',
-  selectedRing: '--adb-border-brand-4',
+  primary: '--adb-color-brand-freshwater-blue-90',
+  hover: '--adb-color-brand-freshwater-blue-100',
+  border: '--adb-color-neutrals-ocean-10',
+  hoverRing: '--adb-color-neutrals-ocean-50',
+  selectedRing: '--adb-color-brand-sun-70',
 } as const;
 
 type MapPalette = Record<keyof typeof COLOR_TOKENS, Color>;
