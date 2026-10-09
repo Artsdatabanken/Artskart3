@@ -3,6 +3,11 @@
   position: relative;
 }
 
+adb-search {
+  display: flex;
+  width: 100%;
+}
+
 .autocomplete-list {
   position: absolute;
   box-sizing: border-box;
@@ -16,6 +21,16 @@
   overflow-y: auto;
   z-index: 1000;
   color: var(--adb-text-accent-primary);
+  /* Rows set their own weight, so a bold label around the field doesn't leak in. */
+  font-weight: var(--adb-font-weight-primary);
+}
+
+/* Popover in the top layer: placed against the viewport, and overriding the browser's
+   centred popover defaults. */
+.autocomplete-list--fit-content {
+  position: fixed;
+  inset: auto;
+  width: max-content;
 }
 
 .autocomplete-item {

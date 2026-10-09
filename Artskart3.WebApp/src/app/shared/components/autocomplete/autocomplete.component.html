@@ -22,12 +22,13 @@
      instead of closing the popup through focusout before the click lands. -->
 @if (showAutocomplete()) {
   <ul
+    #popup
     class="autocomplete-list"
+    [class.autocomplete-list--fit-content]="fitContent()"
+    [attr.popover]="fitContent() ? 'manual' : null"
     role="listbox"
     [attr.aria-label]="listLabel() ?? label()"
-    [style.top.px]="popupPosition().top"
-    [style.left.px]="popupPosition().left"
-    [style.width.px]="popupPosition().width"
+    [style]="popupStyle()"
     (mousedown)="$event.preventDefault()"
   >
     @for (item of results(); track trackBy()(item) ?? $index) {
@@ -49,10 +50,11 @@
 }
 @if (showNoResults()) {
   <div
+    #popup
     class="autocomplete-list autocomplete-no-results"
-    [style.top.px]="popupPosition().top"
-    [style.left.px]="popupPosition().left"
-    [style.width.px]="popupPosition().width"
+    [class.autocomplete-list--fit-content]="fitContent()"
+    [attr.popover]="fitContent() ? 'manual' : null"
+    [style]="popupStyle()"
     (mousedown)="$event.preventDefault()"
   >
     <adb-icon name="info" size="md"></adb-icon>

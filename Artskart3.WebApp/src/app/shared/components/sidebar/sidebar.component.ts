@@ -1,16 +1,5 @@
-import {
-  Component,
-  CUSTOM_ELEMENTS_SCHEMA,
-  DestroyRef,
-  inject,
-  signal,
-  computed,
-  linkedSignal,
-  output,
-} from '@angular/core';
-import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, computed, linkedSignal, output } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
 import { AreaService, CountyGroup } from '../../services/area/area.service';
@@ -31,9 +20,13 @@ import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
 import { SpeciesSearchComponent } from '../species-search/species-search.component';
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
+import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
+import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
 import type { components } from '../../types/api.generated';
 
-const MinProjectNameSearchLength = 1;
+type OrganizationDto = components['schemas']['OrganizationDto'];
+type CatalogNumberMatchDto = components['schemas']['CatalogNumberMatchDto'];
 
 @Component({
   selector: 'app-sidebar',
@@ -44,6 +37,9 @@ const MinProjectNameSearchLength = 1;
     SpeciesSearchComponent,
     TaxonTreeComponent,
     RiskCategoryBadgeComponent,
+    AutocompleteComponent,
+    AutocompleteOptionDirective,
+    HighlightTextComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',
@@ -61,7 +57,6 @@ export class SidebarComponent {
   private readonly searchFilter = inject(SearchFilterService);
   private readonly savedFilterService = inject(SavedFilterService);
   protected readonly authService = inject(AuthService);
-  private readonly destroyRef = inject(DestroyRef);
 
   readonly saveFilterRequested = output<void>();
 
@@ -70,97 +65,6 @@ export class SidebarComponent {
   );
   protected readonly translate = inject(TranslateService);
 
-  // Samling, prosjekt og katalognummer er typeahead-felt: brukeren skriver
-  // fritekst, velger et treff, og filteret får en ID. Fritekstsøket skjer i
-  // Lookup-endepunktene mot små tabeller eller en indeks — aldri i selve
-  // søkespørringen mot 61M observasjoner.
-  private readonly projectSearch$ = new Subject<string>();
-  readonly projectSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
-  readonly showProjectSuggestions = signal<boolean>(false);
-  readonly projectSearchTerm = signal('');
-  readonly projectSearchPending = signal<boolean>(false);
-
-  private readonly datasetSearch$ = new Subject<string>();
-  readonly datasetSuggestions = signal<components['schemas']['OrganizationDto'][]>([]);
-  readonly showDatasetSuggestions = signal<boolean>(false);
-  readonly datasetSearchTerm = signal('');
-  readonly datasetSearchPending = signal<boolean>(false);
-
-  private readonly catalogNumberSearch$ = new Subject<string>();
-  readonly catalogNumberSuggestions = signal<components['schemas']['CatalogNumberMatchDto'][]>([]);
-  readonly showCatalogNumberSuggestions = signal<boolean>(false);
-
-  // MERK: her lå tre *Unresolved-computeds og tre *NoMatches-signaler som varslet
-  // «tekst skrevet, men ingen ID valgt». De ble fjernet sammen med teksten de drev.
-  //
-  // Tilstanden finnes fortsatt — filteret sender ID-er, ikke tekst, så et felt kan
-  // vise «Universitetsmuseet i Bergen» mens søket er helt ufiltrert. Det er bare
-  // ingenting som sier det til brukeren nå. Skal det varsles igjen, er regelen
-  // «navn satt og ID null» (og for katalognummer: tom ID-liste).
-
-  constructor() {
-    this.projectSearch$
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        switchMap((term) => {
-          const trimmed = term.trim();
-          if (trimmed.length < MinProjectNameSearchLength) {
-            return of<components['schemas']['OrganizationDto'][]>([]);
-          }
-          return this.organizationService
-            .searchProjects(trimmed)
-            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((organizations) => {
-        this.projectSuggestions.set(organizations);
-        this.projectSearchPending.set(false);
-        this.showProjectSuggestions.set(this.projectSearchTerm().trim().length > 0);
-      });
-
-    this.datasetSearch$
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        switchMap((term) => {
-          const trimmed = term.trim();
-          if (trimmed.length < MinProjectNameSearchLength) {
-            return of<components['schemas']['OrganizationDto'][]>([]);
-          }
-          return this.organizationService
-            .searchDatasets(trimmed)
-            .pipe(catchError(() => of<components['schemas']['OrganizationDto'][]>([])));
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((organizations) => {
-        this.datasetSuggestions.set(organizations);
-        this.datasetSearchPending.set(false);
-        this.showDatasetSuggestions.set(this.datasetSearchTerm().trim().length > 0);
-      });
-
-    this.catalogNumberSearch$
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        switchMap((term) => {
-          const trimmed = term.trim();
-          if (trimmed.length < MinProjectNameSearchLength) {
-            return of<components['schemas']['CatalogNumberMatchDto'][]>([]);
-          }
-          return this.organizationService
-            .searchCatalogNumbers(trimmed)
-            .pipe(catchError(() => of<components['schemas']['CatalogNumberMatchDto'][]>([])));
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((matches) => {
-        this.catalogNumberSuggestions.set(matches);
-        this.showCatalogNumberSuggestions.set(matches.length > 0);
-      });
-  }
   readonly registreringOptions = REGISTRATION_STATUS_OPTIONS;
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
@@ -418,95 +322,30 @@ export class SidebarComponent {
     this.filterState.setPeriod(from, to);
   }
 
-  readonly projectName = this.filterState.projectName;
-  readonly datasetName = this.filterState.datasetName;
-  readonly catalogNumber = this.filterState.catalogNumber;
-  readonly projectOrgId = this.filterState.projectOrgId;
-  readonly datasetOrgId = this.filterState.datasetOrgId;
-  readonly catalogObservationIds = this.filterState.catalogObservationIds;
   readonly imageFilter = this.filterState.imageFilter;
 
-  // Felles for alle tre: å skrive i feltet nullstiller den valgte ID-en. Uten
-  // det ville teksten og filteret kunne peke på hver sin ting — brukeren ser
-  // «Fugler», men filteret står fortsatt på forrige valg.
-  onProjectNameChange(value: string): void {
-    this.projectSearchTerm.set(value);
-    this.filterState.setProjectName(value);
-    this.filterState.setProjectOrgId(null);
-    this.showProjectSuggestions.set(value.trim().length > 0);
-    this.projectSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
-    this.projectSearch$.next(value);
+  // Free text is matched by the Lookup endpoints; the filter only ever gets ids.
+  readonly searchProjects: AutocompleteSearch<OrganizationDto> = (term) => this.organizationService.searchProjects(term);
+  readonly searchDatasets: AutocompleteSearch<OrganizationDto> = (term) => this.organizationService.searchDatasets(term);
+  readonly searchCatalogNumbers: AutocompleteSearch<CatalogNumberMatchDto> = (term) => this.organizationService.searchCatalogNumbers(term);
+  readonly trackByOrganizationId = (organization: OrganizationDto) => organization.id;
+  readonly trackByCatalogNumber = (match: CatalogNumberMatchDto) => match.catalogNumber;
+
+  onProjectSelected(organization: OrganizationDto): void {
+    if (organization.id == null) return;
+    this.filterState.addProject({ id: organization.id, name: organization.name ?? '' });
   }
 
-  onProjectNameFocus(): void {
-    if (this.projectSuggestions().length > 0) {
-      this.showProjectSuggestions.set(true);
-    }
-  }
-
-  onProjectNameBlur(): void {
-    // Delay hiding so a (mousedown) selection on a suggestion registers first.
-    setTimeout(() => this.showProjectSuggestions.set(false), 150);
-  }
-
-  selectProjectSuggestion(organization: components['schemas']['OrganizationDto']): void {
-    this.filterState.setProjectName(organization.name ?? '');
-    this.filterState.setProjectOrgId(organization.id ?? null);
-    this.projectSuggestions.set([]);
-    this.showProjectSuggestions.set(false);
-    this.projectSearchTerm.set(organization.name ?? '');
-  }
-
-  onDatasetNameChange(value: string): void {
-    this.datasetSearchTerm.set(value);
-    this.filterState.setDatasetName(value);
-    this.filterState.setDatasetOrgId(null);
-    this.showDatasetSuggestions.set(value.trim().length > 0);
-    this.datasetSearchPending.set(value.trim().length >= MinProjectNameSearchLength);
-    this.datasetSearch$.next(value);
-  }
-
-  onDatasetNameFocus(): void {
-    if (this.datasetSuggestions().length > 0) {
-      this.showDatasetSuggestions.set(true);
-    }
-  }
-
-  onDatasetNameBlur(): void {
-    setTimeout(() => this.showDatasetSuggestions.set(false), 150);
-  }
-
-  selectDatasetSuggestion(organization: components['schemas']['OrganizationDto']): void {
-    this.filterState.setDatasetName(organization.name ?? '');
-    this.filterState.setDatasetOrgId(organization.id ?? null);
-    this.datasetSuggestions.set([]);
-    this.showDatasetSuggestions.set(false);
-    this.datasetSearchTerm.set(organization.name ?? '');
-  }
-
-  onCatalogNumberChange(value: string): void {
-    this.filterState.setCatalogNumber(value);
-    this.filterState.setCatalogObservationIds([]);
-    this.catalogNumberSearch$.next(value);
-  }
-
-  onCatalogNumberFocus(): void {
-    if (this.catalogNumberSuggestions().length > 0) {
-      this.showCatalogNumberSuggestions.set(true);
-    }
-  }
-
-  onCatalogNumberBlur(): void {
-    setTimeout(() => this.showCatalogNumberSuggestions.set(false), 150);
+  onDatasetSelected(organization: OrganizationDto): void {
+    if (organization.id == null) return;
+    this.filterState.addDataset({ id: organization.id, name: organization.name ?? '' });
   }
 
   // Treffet bærer ObservationId-ene med seg, så det trengs ikke noe ekstra kall
   // for å gjøre om katalognummeret til et filter.
-  selectCatalogNumberSuggestion(match: components['schemas']['CatalogNumberMatchDto']): void {
+  onCatalogNumberSelected(match: CatalogNumberMatchDto): void {
     this.filterState.setCatalogNumber(match.catalogNumber ?? '');
     this.filterState.setCatalogObservationIds(match.observationIds ?? []);
-    this.catalogNumberSuggestions.set([]);
-    this.showCatalogNumberSuggestions.set(false);
   }
 
   onImageFilterChange(event: Event): void {

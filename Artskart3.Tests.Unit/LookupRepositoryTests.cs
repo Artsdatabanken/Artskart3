@@ -194,6 +194,23 @@ public class LookupRepositoryTests
         (await sut.GetOrganizationByIdAsync(2)).Should().BeNull();
     }
 
+    [Fact]
+    public async Task SearchOrganizationsByTypeAsync_ReturnsCountAndSkipsOrganizationsWithoutObservations()
+    {
+        var context = CreateContext();
+        context.Organizations.AddRange(
+            new Organization { Id = 1, Name = "Kartlegging Nord", OrganizationTypeId = 3, ObservationCount = 1234 },
+            new Organization { Id = 2, Name = "Kartlegging Tom", OrganizationTypeId = 3, ObservationCount = null },
+            new Organization { Id = 3, Name = "Kartlegging Null", OrganizationTypeId = 3, ObservationCount = 0 },
+            new Organization { Id = 4, Name = "Kartlegging Datasett", OrganizationTypeId = 2, ObservationCount = 5 });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.SearchOrganizationsByTypeAsync("kartlegging", 3, 10);
+
+        result.Should().ContainSingle().Which.Should().BeEquivalentTo(new { Id = 1, Name = "Kartlegging Nord", ObservationCount = 1234 });
+    }
+
     private static Taxon CreateTaxon(int id, TaxonGroup group) => new()
     {
         Id = id,

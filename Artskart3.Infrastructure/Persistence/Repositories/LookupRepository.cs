@@ -149,6 +149,9 @@ public class LookupRepository : ILookupRepository
     /// Organization har 25 943 rader, så delstrengsøk er gratis her. Det er kun
     /// filterspørringen mot 61M/192M rader som ikke tåler strengsammenligning —
     /// derfor returnerer denne en ID som frontend sender videre som filter.
+    ///
+    /// ObservationCount er forhåndsberegnet ved import. Uten observasjoner er den
+    /// null, og et slikt treff ville bare gitt et tomt søk, så det tas ikke med.
     /// </summary>
     public async Task<IEnumerable<OrganizationDto>> SearchOrganizationsByTypeAsync(
         string name, int organizationTypeId, int maxCount, CancellationToken cancellationToken = default)
@@ -165,13 +168,15 @@ public class LookupRepository : ILookupRepository
             return await _context.Set<Organization>()
                 .Where(o => !o.IsDeleted
                     && o.OrganizationTypeId == organizationTypeId
+                    && o.ObservationCount > 0
                     && EF.Functions.Like(o.Name, searchPattern))
                 .OrderBy(o => o.Name)
                 .Take(maxCount)
                 .Select(o => new OrganizationDto
                 {
                     Id = o.Id,
-                    Name = o.Name
+                    Name = o.Name,
+                    ObservationCount = o.ObservationCount
                 })
                 .ToListAsync(cancellationToken);
         }

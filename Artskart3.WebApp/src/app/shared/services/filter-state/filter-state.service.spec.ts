@@ -326,35 +326,53 @@ describe('FilterStateService', () => {
       expect(service.selectedOceanAreaIds()).toEqual([]);
     });
   });
-// Prosjekt, samling og katalognummer holder BÅDE teksten brukeren skrev og
-  // ID-en et treff ga. Bare ID-en sendes til backend; teksten er kun visning.
-  // Kommer de to ut av synk, viser feltet et filter som ikke er i bruk.
-  describe('andre funnegenskaper', () => {
+
+  describe('projects and datasets', () => {
+    const kartlegging = { id: 14842, name: 'Kartlegging' };
+    const overvaking = { id: 14843, name: 'Overvåking' };
+
     it('should start empty', () => {
-      expect(service.projectName()).toBe('');
-      expect(service.projectOrgId()).toBeNull();
-      expect(service.datasetName()).toBe('');
-      expect(service.datasetOrgId()).toBeNull();
+      expect(service.selectedProjects()).toEqual([]);
+      expect(service.selectedDatasets()).toEqual([]);
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
     });
 
-    it('should set dataset name and id independently', () => {
-      service.setProjectName('Kartlegging');
-      expect(service.projectOrgId()).toBeNull();
-
-      service.setProjectOrgId(14842);
-      expect(service.projectName()).toBe('Kartlegging');
-      expect(service.projectOrgId()).toBe(14842);
+    it('should add several projects and ignore one that is already selected', () => {
+      service.addProject(kartlegging);
+      service.addProject(overvaking);
+      service.addProject({ ...kartlegging, name: 'Duplikat' });
+      expect(service.selectedProjects()).toEqual([kartlegging, overvaking]);
+      expect(service.selectedProjectIds()).toEqual([14842, 14843]);
     });
 
-    it('should set collection name and id independently', () => {
-      service.setDatasetName('Aqua Kompetanse AS');
-      expect(service.datasetOrgId()).toBeNull();
+    it('should remove only the given project', () => {
+      service.addProject(kartlegging);
+      service.addProject(overvaking);
+      service.removeProject(14842);
+      expect(service.selectedProjects()).toEqual([overvaking]);
+    });
 
-      service.setDatasetOrgId(26435);
-      expect(service.datasetName()).toBe('Aqua Kompetanse AS');
-      expect(service.datasetOrgId()).toBe(26435);
+    it('should rename a selected project without changing the ids', () => {
+      service.addProject({ id: 14842, name: '' });
+      const idsBefore = service.selectedProjectIds();
+      service.setProjectName(14842, 'Kartlegging');
+      expect(service.selectedProjects()).toEqual([kartlegging]);
+      expect(service.selectedProjectIds()).toBe(idsBefore);
+    });
+
+    it('should not add a project when renaming one that is not selected', () => {
+      service.setProjectName(14842, 'Kartlegging');
+      expect(service.selectedProjects()).toEqual([]);
+    });
+
+    it('should add, rename and remove datasets the same way', () => {
+      service.addDataset({ id: 26435, name: '' });
+      service.addDataset({ id: 26436, name: 'Aqua Kompetanse AS' });
+      service.setDatasetName(26435, 'Artsobservasjoner');
+      service.removeDataset(26436);
+      expect(service.selectedDatasets()).toEqual([{ id: 26435, name: 'Artsobservasjoner' }]);
+      expect(service.selectedDatasetIds()).toEqual([26435]);
     });
 
     it('should set catalog number and observation ids independently', () => {
@@ -365,33 +383,20 @@ describe('FilterStateService', () => {
       expect(service.catalogNumber()).toBe('104168');
       expect(service.catalogObservationIds()).toEqual([8368071, 8368072]);
     });
-
-    it('should allow clearing a selected id without clearing the text', () => {
-      service.setProjectName('Kartlegging');
-      service.setProjectOrgId(14842);
-      service.setProjectOrgId(null);
-
-      expect(service.projectName()).toBe('Kartlegging');
-      expect(service.projectOrgId()).toBeNull();
-    });
   });
 
   describe('clearOtherFindProperties', () => {
-    it('should reset all three typeahead filters and the image filter', () => {
-      service.setProjectName('Kartlegging');
-      service.setProjectOrgId(14842);
-      service.setDatasetName('Aqua Kompetanse AS');
-      service.setDatasetOrgId(26435);
+    it('should reset projects, datasets, catalog number and the image filter', () => {
+      service.addProject({ id: 14842, name: 'Kartlegging' });
+      service.addDataset({ id: 26435, name: 'Aqua Kompetanse AS' });
       service.setCatalogNumber('104168');
       service.setCatalogObservationIds([8368071]);
       service.setImageFilter('withImage');
 
       service.clearOtherFindProperties();
 
-      expect(service.projectName()).toBe('');
-      expect(service.projectOrgId()).toBeNull();
-      expect(service.datasetName()).toBe('');
-      expect(service.datasetOrgId()).toBeNull();
+      expect(service.selectedProjects()).toEqual([]);
+      expect(service.selectedDatasets()).toEqual([]);
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
       expect(service.imageFilter()).toBe('all');
@@ -402,15 +407,15 @@ describe('FilterStateService', () => {
   // blir «nullstill alle filtre» liggende igjen med et aktivt ID-filter som
   // ikke lenger vises noe sted.
   describe('clearAll', () => {
-    it('should also clear the typeahead filters', () => {
-      service.setProjectOrgId(14842);
-      service.setDatasetOrgId(26435);
+    it('should also clear projects, datasets and catalog number', () => {
+      service.addProject({ id: 14842, name: 'Kartlegging' });
+      service.addDataset({ id: 26435, name: 'Aqua Kompetanse AS' });
       service.setCatalogObservationIds([8368071]);
 
       service.clearAll();
 
-      expect(service.projectOrgId()).toBeNull();
-      expect(service.datasetOrgId()).toBeNull();
+      expect(service.selectedProjectIds()).toEqual([]);
+      expect(service.selectedDatasetIds()).toEqual([]);
       expect(service.catalogObservationIds()).toEqual([]);
     });
   });

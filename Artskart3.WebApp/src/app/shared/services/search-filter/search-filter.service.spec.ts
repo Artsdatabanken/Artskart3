@@ -71,8 +71,8 @@ describe('SearchFilterService', () => {
     filterState.setCoordinatePrecision(10, 20);
     filterState.setPeriod(1990, 2000);
     filterState.toggleMonth(6);
-    filterState.setDatasetOrgId(8);
-    filterState.setProjectOrgId(9);
+    filterState.addDataset({ id: 8, name: 'Datasett' });
+    filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
 
@@ -88,8 +88,8 @@ describe('SearchFilterService', () => {
       taxonIds: [6],
       oceanAreaIds: ['7'],
       coordinatePrecision: { from: 10, to: 20 },
-      datasetOrgId: 8,
-      projectOrgId: 9,
+      datasetOrgIds: [8],
+      projectOrgIds: [9],
       observationIds: [10],
       withImages: true,
       period: { from: 1990, to: 2000, months: [6] },
@@ -162,8 +162,9 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.setCoordinatePrecision(10, 200);
     filterState.setPeriod(1980, 2000);
     filterState.toggleMonth(6);
-    filterState.setDatasetOrgId(8);
-    filterState.setProjectOrgId(9);
+    filterState.addDataset({ id: 8, name: 'Datasett' });
+    filterState.addDataset({ id: 80, name: 'Datasett 2' });
+    filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
     const saved = service.observationFilter();
@@ -177,18 +178,24 @@ describe('SearchFilterService.applyFilter', () => {
     expect(saved.countyIds).toEqual(['21', '03']);
     expect(filterState.selectedMunicipalityIds()).toEqual(expect.arrayContaining(['0301', '1101']));
     expect(filterState.selectedCountyIds()).toEqual(['21']);
-    expect(filterState.datasetName()).toBe('Organisasjon 8');
-    expect(filterState.projectName()).toBe('Organisasjon 9');
+    expect(filterState.selectedDatasets()).toEqual([
+      { id: 8, name: 'Organisasjon 8' },
+      { id: 80, name: 'Organisasjon 80' },
+    ]);
+    expect(filterState.selectedProjects()).toEqual([{ id: 9, name: 'Organisasjon 9' }]);
     expect(filterState.catalogNumber()).toBe('O-123');
   });
 
   /**
    * Typen krever hvert felt i filteret. Får ObservationSearchFilterDto et nytt
    * felt, kompilerer ikke testen før feltet er lagt til her — og da feiler den
-   * til `applyFilter` også håndterer det.
+   * til `applyFilter` også håndterer det. De gamle enkelt-ID-ene for datasett og
+   * prosjekt kommer tilbake som lister, og har en egen test.
    */
   it('håndterer hvert felt i filteret', async () => {
-    type FilterFields = Required<Omit<ObservationSearchFilter, 'pageNumber' | 'resultsPerPage' | 'isPaginated' | 'restrictedAreaIds'>>;
+    type FilterFields = Required<
+      Omit<ObservationSearchFilter, 'pageNumber' | 'resultsPerPage' | 'isPaginated' | 'restrictedAreaIds' | 'datasetOrgId' | 'projectOrgId'>
+    >;
     const sample: FilterFields = {
       taxonGroupIds: [1],
       taxonIds: [2],
@@ -202,8 +209,8 @@ describe('SearchFilterService.applyFilter', () => {
       registrationStatusId: 1,
       coordinatePrecision: { from: 0, to: 100 },
       period: { from: 1990, to: 2000, months: [5, 6] },
-      datasetOrgId: 7,
-      projectOrgId: 8,
+      datasetOrgIds: [7, 70],
+      projectOrgIds: [8],
       observationIds: [9],
       withImages: true,
     };
@@ -223,25 +230,35 @@ describe('SearchFilterService.applyFilter', () => {
     expect(service.observationFilter()).toEqual(expect.objectContaining({ taxonIds: [1], categoryIds: undefined, withImages: undefined }));
   });
 
-  it('overskriver ikke navnet hvis brukeren har byttet datasett mens oppslaget pågikk', async () => {
-    await service.applyFilter({ datasetOrgId: 8 });
-    filterState.setDatasetOrgId(12);
-    filterState.setDatasetName('Valgt etterpå');
+  it('gjør om lagrede filtre med én datasett- eller prosjekt-ID til lister', async () => {
+    await service.applyFilter({ datasetOrgId: 8, datasetOrgIds: [12, 8], projectOrgId: 9 });
+    flushNameLookups();
+
+    const filter = service.observationFilter();
+    expect(filter.datasetOrgIds).toEqual([12, 8]);
+    expect(filter.projectOrgIds).toEqual([9]);
+    expect(filter.datasetOrgId).toBeUndefined();
+    expect(filter.projectOrgId).toBeUndefined();
+  });
+
+  it('legger ikke tilbake et datasett brukeren fjernet mens navneoppslaget pågikk', async () => {
+    await service.applyFilter({ datasetOrgIds: [8, 12] });
+    filterState.removeDataset(8);
 
     flushNameLookups();
 
-    expect(filterState.datasetName()).toBe('Valgt etterpå');
+    expect(filterState.selectedDatasets()).toEqual([{ id: 12, name: 'Organisasjon 12' }]);
   });
 
-  it('viser ID-en når navneoppslaget feiler, så filteret ikke blir usynlig', async () => {
-    await service.applyFilter({ projectOrgId: 9, observationIds: [10, 11] });
+  it('beholder valget uten navn når navneoppslaget feiler', async () => {
+    await service.applyFilter({ projectOrgIds: [9], observationIds: [10, 11] });
 
     httpTesting.expectOne('/api/Lookup/Organizations/9').flush(null, { status: 404, statusText: 'Not Found' });
     httpTesting
       .expectOne('/api/Lookup/CatalogNumbers/ByObservationIds')
       .flush(null, { status: 404, statusText: 'Not Found' });
 
-    expect(filterState.projectName()).toBe('#9');
+    expect(filterState.selectedProjects()).toEqual([{ id: 9, name: '' }]);
     expect(filterState.catalogNumber()).toBe('#10 (+1)');
   });
 

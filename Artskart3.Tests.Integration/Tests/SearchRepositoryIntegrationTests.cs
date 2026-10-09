@@ -636,6 +636,70 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
+    /// <summary>
+    /// Flere valgte datasett er ETT filter med OR internt, som institusjoner.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_MultipleDatasets_CountsAllOfThem()
+    {
+        const int firstObservationId = 981800;
+        const int secondObservationId = 981801;
+        const int otherObservationId = 981802;
+        const string areaFid = "981810";
+        const int areaEntityId = 981810;
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(firstObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(secondObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(otherObservationId, areaFid);
+        SeedArea(areaFid, "Datasett OR kommune");
+        SeedIndexRow(firstObservationId, areaEntityId, datasetOrgId: 26435);
+        SeedIndexRow(secondObservationId, areaEntityId, datasetOrgId: 26436);
+        SeedIndexRow(otherObservationId, areaEntityId, datasetOrgId: 26437);
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            DatasetOrgIds = [26435, 26436]
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(2);
+    }
+
+    /// <summary>
+    /// En observasjon i to av de valgte prosjektene skal fortsatt telles én gang.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_ObservationInSeveralSelectedProjects_IsCountedOnce()
+    {
+        const string areaFid = "981910";
+        const int areaEntityId = 981910;
+
+        var observationId = await _context.Set<Observation>()
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        await RemoveSyntheticDatasetRowsAsync(observationId);
+        var projectOrgIds = await CreateDatasetOrganizationsAsync(3);
+        SeedArea(areaFid, "Flere valgte prosjekter kommune");
+        SeedIndexRow(observationId, areaEntityId);
+        _context.Set<ObservationProject>().AddRange(
+            projectOrgIds.Select(id => new ObservationProject
+            {
+                ObservationId = observationId,
+                ProjectOrgId = id,
+            }));
+        await _context.SaveChangesAsync();
+
+        var result = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            ProjectOrgIds = [projectOrgIds[0], projectOrgIds[1]]
+        });
+
+        result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
     private SearchRepository CreateCompleteFilterRepository() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
             new StubAreaHierarchyService(), new StubTaxonHierarchyService());
