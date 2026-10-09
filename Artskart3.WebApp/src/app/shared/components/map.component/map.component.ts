@@ -60,6 +60,7 @@ import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
 @Component({
@@ -84,6 +85,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private readonly mapOverlayLoadKeys: EventsKey[] = [];
+  private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
@@ -1409,6 +1412,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const existing = this.mapOverlayLayers.get(layer.id);
     if (existing) {
       existing.setVisible(visible);
+      if (visible) existing.getSource()?.refresh();
+      else this.mapLayerService.setLayerFailed(layer.id, false);
       return;
     }
     if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
@@ -1424,6 +1429,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         attributions: layer.attribution ?? undefined,
       }),
     });
+    const source = overlay.getSource()!;
+    this.mapOverlayLoadKeys.push(
+      source.on('tileloaderror', () => {
+        if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+      }),
+    );
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
   }
@@ -1444,6 +1455,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
+    unByKey(this.mapOverlayLoadKeys);
+    this.mapOverlayLoadKeys.length = 0;
+    for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.map?.destroy?.();
   }

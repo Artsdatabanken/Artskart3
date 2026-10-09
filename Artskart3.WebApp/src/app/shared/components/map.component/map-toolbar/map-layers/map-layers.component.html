@@ -1,8 +1,9 @@
 <div class="map-toolbar-menu-container">
   <adb-icon-button
-    variant="secondary"
+    [attr.variant]="isOpen ? 'primary' : 'secondary'"
     (click)="toggleMapLayers()"
     [attr.aria-label]="'mapToolbar.layersAriaLabel' | translate"
+    [attr.aria-pressed]="isOpen"
     [attr.aria-expanded]="isOpen"
     aria-haspopup="true"
   >
@@ -22,6 +23,15 @@
         <adb-checkbox [checked]="isLayerEnabled(layer.id)" (change)="onLayerChange(layer, $event)">
           {{ (mapLayerLabels[layer.name] ?? layer.name) | translate }}
         </adb-checkbox>
+        @if (isLayerEnabled(layer.id) && failedLayerIds().has(layer.id)) {
+          <adb-alert
+            class="map-layer-error"
+            variant="warning"
+            type="inline"
+            size="sm"
+            [attr.heading]="'mapToolbar.layerLoadError' | translate"
+          ></adb-alert>
+        }
       } @empty {
         <span class="map-layers-empty">{{ 'mapToolbar.noLayers' | translate }}</span>
       }

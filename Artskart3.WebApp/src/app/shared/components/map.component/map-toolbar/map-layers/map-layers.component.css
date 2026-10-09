@@ -1,7 +1,26 @@
+.map-toolbar-menu-dropdown {
+  width: max-content;
+  min-width: 200px;
+  max-width: calc(100vw - 100px);
+}
+
 adb-checkbox {
   margin-left: var(--adb-spacing-xsm);
 }
 
 .map-layers-empty {
   color: var(--adb-text-base-secondary);
+}
+
+.map-layer-error {
+  margin-inline: var(--adb-spacing-xsm);
+  margin-block-end: var(--adb-spacing-xsm);
+}
+
+.map-layer-error::part(heading) {
+  font-family: var(--adb-font-family-primary);
+  font-size: var(--adb-font-size-3);
+  font-style: normal;
+  font-weight: var(--adb-font-weight-primary);
+  line-height: 160%;
 }

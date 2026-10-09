@@ -297,6 +297,8 @@
     "layersAriaLabel": "Lag",
     "layersHeading": "Kartlag",
     "noLayers": "Ingen kartlag tilgjengelig",
+    "layerLoadError": "Kartlaget kunne ikke lastes",
+    "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
     "filterAriaLabel": "Innstillinger",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "Min posisjon",
