@@ -10,6 +10,7 @@ import {
   input,
   linkedSignal,
   output,
+  untracked,
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Tree, TreeItem, TreeItemGroup } from '@angular/aria/tree';
@@ -28,9 +29,17 @@ import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category
 export class ObservationTreeComponent {
   readonly nodes = input<readonly ObservationTreeNode[]>([]);
   readonly resetKey = input('');
+  readonly openFirstSection = input(false);
   readonly expandedNodeIds = linkedSignal({
     source: this.resetKey,
-    computation: () => new Set<string>(),
+    // Untracked so only resetKey resets expansions, not rebuilt nodes (e.g. after a language change).
+    computation: () =>
+      untracked(
+        () =>
+          new Set<string>(
+            this.openFirstSection() ? this.nodes().flatMap((group) => group.children.slice(0, 1).map((section) => section.id)) : [],
+          ),
+      ),
   });
   readonly observationActivated = output<number>();
   protected readonly translate = inject(TranslateService);
