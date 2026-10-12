@@ -61,7 +61,6 @@
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <!-- Other -->
-    <PackageVersion Include="RobotsTxtCore" Version="3.0.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
   </ItemGroup>
 
