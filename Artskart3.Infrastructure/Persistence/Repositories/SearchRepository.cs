@@ -228,6 +228,7 @@ public class SearchRepository : ISearchRepository
             TaxonGroupName = o.Taxon.TaxonGroup.Name,
             LocationId = o.LocationId,
             Locality = o.Location != null ? o.Location.Locality : null,
+            CoordinatePrecision = o.Location != null ? o.Location.CoordinatePrecision : null,
             CategoryId = o.CategoryId,
             CategoryName = o.Category != null ? o.Category.Name : string.Empty,
             CategoryCode = o.Category != null ? o.Category.Code : null,

@@ -22,6 +22,7 @@ export interface ObservationTreeNode {
   readonly kind: 'group' | 'status' | 'species' | 'observation';
   readonly label: string;
   readonly count: number;
+  readonly coordinatePrecision?: number;
   readonly scientific: boolean;
   readonly badges: readonly CategoryBadge[];
   readonly status?: RegistrationStatus;
@@ -109,6 +110,7 @@ export function buildObservationTree(
         kind: 'group',
         label: topLabel(key, first),
         count: records.length,
+        coordinatePrecision: mode === 'location' ? (first.coordinatePrecision ?? undefined) : undefined,
         scientific: false,
         badges:
           (mode === 'redList' || mode === 'alienSpecies') && CATEGORY_ORDER.includes(key) ? [{ code: key, label: categoryLabel(key) }] : [],

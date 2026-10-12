@@ -439,6 +439,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registreringer",
+    "coordinatePrecision": "Koordinatpresisjon: {{precision}}",
     "title": "Funnliste",
     "taxonGroup": "Grupper på artsgruppe",
     "location": "Grupper på lokalitet",
@@ -453,7 +454,7 @@
     "unknownCategory": "Ukjent kategori",
     "unknownTaxonGroup": "Ukjent artsgruppe",
     "unknownSpecies": "Ukjent art",
-    "unknownLocality": "Ukjent lokalitet",
+    "unknownLocality": "Ikke navngitt lokalitet",
     "unknownDate": "Ukjent dato",
     "unknownCollector": "Ukjent observatør",
     "loading": "Henter registreringer …",

@@ -50,6 +50,27 @@ describe('ObservationTreeComponent', () => {
     expect(rows().filter((row) => row.tabIndex === 0)).toHaveLength(1);
   });
 
+  it('shows the coordinate precision under locality headings that have one', async () => {
+    expect(fixture.nativeElement.querySelector('.precision')).toBeNull();
+    fixture.componentRef.setInput(
+      'nodes',
+      buildObservationTree(
+        [
+          { id: 1, taxonId: 1, displayName: 'Lav', locationId: 5, locality: 'Åsen', coordinatePrecision: 100 },
+          { id: 2, taxonId: 1, displayName: 'Lav', locationId: 6, locality: 'Bø', coordinatePrecision: null },
+        ],
+        'location',
+        'no',
+        (key) => key,
+        () => '2024',
+      ),
+    );
+    await fixture.whenStable();
+    const precision: HTMLElement[] = [...fixture.nativeElement.querySelectorAll('.precision')];
+    expect(precision).toHaveLength(1);
+    expect(precision[0].closest('[role="treeitem"]')?.textContent).toContain('Åsen');
+  });
+
   it('pins headings open for clicks and keyboard collapse', async () => {
     rows()[0].click();
     await fixture.whenStable();
