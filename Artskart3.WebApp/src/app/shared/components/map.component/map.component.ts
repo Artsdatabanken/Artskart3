@@ -319,6 +319,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .subscribe((observations) => {
         this.observationList.set(observations);
         this.observationRequestState.set('ready');
+        const [onlyObservation] = observations;
+        if (observations.length === 1 && onlyObservation.id) this.observationPanel()?.open(onlyObservation.id);
       });
   }
 
@@ -808,6 +810,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         const value = Number(member.get('observationCount'));
         return sum + (Number.isFinite(value) ? value : 1);
       }, 0) || members.length || 1;
+      if (members.length === 1 && total === 1) return styles.marker('location', this.locationFeatureState(feature));
+
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
       return styles.marker('cluster', this.locationFeatureState(feature), label);

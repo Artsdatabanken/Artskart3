@@ -17,7 +17,7 @@
     [position]="position() + 1 || 1"
     [count]="count()"
     [navigationError]="navigationError()"
-    [hasList]="selection() !== null"
+    [hasList]="selection() !== null && !singleObservation()"
     (previous)="move(-1)"
     (next)="move(1)"
     (dismiss)="dismiss()"
