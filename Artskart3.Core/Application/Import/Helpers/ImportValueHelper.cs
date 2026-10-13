@@ -120,6 +120,26 @@ public static class ImportValueHelper
     }
 
     /// <summary>
+    /// Som <see cref="Left"/>, men setter <c>...</c> til slutt når det faktisk ble
+    /// kuttet noe og grensen er over ti tegn. Port av <c>StringHelper.DotLeft</c>,
+    /// som Artskart 2 bruker på <c>ErrorContext</c>.
+    /// </summary>
+    public static string? DotLeft(string? value, int length)
+    {
+        if (value is null) return null;
+
+        // Merk: betingelsen er «strengt større», slik Artskart 2 har den. En streng som
+        // er nøyaktig like lang som grensen får derfor punktene — samme lengde, men de
+        // tre siste tegnene byttes. Beholdt fordi ErrorContext-verdier i basen er
+        // skrevet med den regelen.
+        if (length > value.Length) return value;
+
+        var medTrePunkter = length > 10 && value.Length > 10;
+
+        return medTrePunkter ? value[..(length - 3)] + "..." : value[..length];
+    }
+
+    /// <summary>
     /// Som <see cref="Left"/>, men fjerner alle mellomrom først. Port av
     /// <c>StringHelper.NonSpaceLeft</c>.
     /// </summary>
