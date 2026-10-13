@@ -2,15 +2,19 @@
   @for (image of images(); track image.id) {
     <article>
       @if (source(image); as source) {
-        <button
-          type="button"
-          class="photo"
-          (click)="selected.set(image.id ?? null)"
-          [attr.aria-label]="'observationDetails.enlargeImage' | translate"
-        >
+        <div class="photo">
           <img loading="lazy" [src]="source" [alt]="alt(image)" (error)="fail(image, source)" />
-          <span class="enlarge" aria-hidden="true">&#8599;</span>
-        </button>
+          <adb-icon-button
+            class="enlarge"
+            variant="secondary"
+            size="sm"
+            (click)="selected.set(image.id ?? null)"
+            [attr.aria-label]="'observationDetails.enlargeImage' | translate"
+          >
+            <adb-icon name="open-in-full" aria-hidden="true" />
+            <span class="adb-sr-only">{{ 'observationDetails.enlargeImage' | translate }}</span>
+          </adb-icon-button>
+        </div>
       } @else {
         <p role="status">{{ 'observationDetails.imageUnavailable' | translate }}</p>
       }

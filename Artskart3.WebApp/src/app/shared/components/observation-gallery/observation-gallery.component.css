@@ -11,12 +11,6 @@ article {
 }
 .photo {
   position: relative;
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
 }
 .photo img {
   width: 100%;
@@ -28,10 +22,6 @@ article {
   position: absolute;
   right: 0.5rem;
   bottom: 0.5rem;
-  padding: 0.3rem;
-  border-radius: 50%;
-  background: var(--adb-surface-base-primary);
-  color: var(--adb-text-accent-primary);
 }
 .metadata {
   padding: 0.5rem;
@@ -43,8 +33,4 @@ p {
 }
 a {
   color: var(--adb-text-accent-primary);
-}
-button:focus-visible {
-  outline: 3px solid var(--adb-text-accent-primary);
-  outline-offset: -3px;
 }
