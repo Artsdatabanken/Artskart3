@@ -2,6 +2,19 @@
 <html lang="no" data-density="compact">
 <head>
   <script id="CookieConsent" src="https://policy.app.cookieinformation.com/uc.js" data-culture="NB" data-gcm-version="2.0" type="text/javascript"></script>
+  <script>
+    const cookieConfigs = {
+      'artskart3.test.artsdatabanken.no': 'artskart3.test.artsdatabanken.no',
+      'artskart3.artsdatabanken.no': 'artskart3.artsdatabanken.no',
+    };
+    const cookieConfig = cookieConfigs[location.hostname];
+    if (cookieConfig) {
+      const cookieConfigScript = document.createElement('script');
+      cookieConfigScript.src = `https://policy.app.cookieinformation.com/latest/${cookieConfig}/nb.js`;
+      cookieConfigScript.charset = 'UTF-8';
+      document.head.appendChild(cookieConfigScript);
+    }
+  </script>
   <meta charset="utf-8">
   <title>Artskart</title>
   <base href="/">
