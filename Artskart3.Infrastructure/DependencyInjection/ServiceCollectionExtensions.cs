@@ -78,7 +78,12 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Tolkningstjenestene importen bruker. Ingen av dem rører en database.
+    /// Tolkningstjenestene importen bruker.
+    ///
+    /// Alle er singleton fordi de holder referansedata i minnet: 4 224
+    /// områdegeometrier (319 MB) og hele taksonomien (152 756 taksoner, 228 639 navn).
+    /// Oppslagene leser fra indeksbasen én gang, ved første bruk — en worker som ikke
+    /// importerer betaler ingenting.
     /// </summary>
     public static IServiceCollection AddImportServices(this IServiceCollection services)
     {
@@ -89,6 +94,11 @@ public static class ServiceCollectionExtensions
         // singleton — én kopi per prosess, lastet ved første oppslag.
         services.AddSingleton<IAreaGeometrySource, EfAreaGeometrySource>();
         services.AddSingleton<IGeographyService, GeographyService>();
+
+        // Navneoppslaget holder hele taksonomien i minnet og er singleton av samme
+        // grunn som geografitjenesten.
+        services.AddSingleton<ITaxonomySource, EfTaxonomySource>();
+        services.AddSingleton<ITaxonNameResolver, TaxonNameResolver>();
 
         return services;
     }
