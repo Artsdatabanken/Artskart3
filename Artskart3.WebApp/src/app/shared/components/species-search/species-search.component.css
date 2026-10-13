@@ -5,6 +5,7 @@
 /* Autocomplete dropdown */
 .autocomplete-list {
   position: fixed;
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -55,9 +56,9 @@
   font-weight: var(--adb-font-weight-heavy);
 }
 
-.autocomplete-scientific,
-.autocomplete-match-scientific {
-  font-style: italic;
+/* Wraps as a whole so the genus doesn't end up alone next to the vernacular name. */
+.autocomplete-scientific {
+  display: inline-block;
 }
 
 .autocomplete-match {
@@ -75,13 +76,14 @@
   font-family: var(--adb-font-family-secondary);
   font-size: var(--adb-font-size-3);
   color: var(--adb-text-base-primary);
+  background: var(--adb-surface-base-primary);
   padding: var(--adb-spacing-3xsm) var(--adb-spacing-xsm);
   border: 2px solid var(--adb-border-base-primary);
   border-radius: var(--adb-border-radius-sm);
 }
 
 mark {
-  background: var(--adb-border-brand-4);
+  background: var(--adb-text-base-highlight);
   color: inherit;
 }
 

@@ -404,8 +404,8 @@ describe('SpeciesSearchComponent', () => {
   });
 
   describe('highlightMatch', () => {
-    const marked = (text: string) => ({ text, isMatch: true });
-    const plain = (text: string) => ({ text, isMatch: false });
+    const marked = (text: string, italic = false) => ({ text, isMatch: true, italic });
+    const plain = (text: string, italic = false) => ({ text, isMatch: false, italic });
 
     it('should mark the matching substring', () => {
       component.searchTerm.set('kjøtt');
@@ -442,6 +442,39 @@ describe('SpeciesSearchComponent', () => {
       ]);
     });
 
+    it('should keep the italic parts of a formatted name', () => {
+      component.searchTerm.set('pub sub');
+      expect(component.highlightMatch('<i>Betula pubescens </i>subsp.<i> pubescens</i>', true)).toEqual([
+        plain('Betula ', true),
+        marked('pub', true),
+        plain('escens ', true),
+        marked('sub'),
+        plain('sp.'),
+        plain(' ', true),
+        marked('pub', true),
+        plain('escens', true),
+      ]);
+    });
+
+    it('should highlight a match that crosses a tag boundary', () => {
+      component.searchTerm.set('×multi');
+      expect(component.highlightMatch('<i>Salix </i>×<i>multinervis</i>', true)).toEqual([
+        plain('Salix ', true),
+        marked('×'),
+        marked('multi', true),
+        plain('nervis', true),
+      ]);
+    });
+
+    it('should render only the text of tags other than i', () => {
+      component.searchTerm.set('');
+      expect(component.highlightMatch('<img src="x"><b>Parus</b> <i>major</i>', true)).toEqual([
+        plain('Parus'),
+        plain(' '),
+        plain('major', true),
+      ]);
+    });
+
     it('should render matches as mark elements', () => {
       component.searchTerm.set('kjøtt');
       component.speciesResults.set([mockSpecies[0]]);
@@ -450,6 +483,29 @@ describe('SpeciesSearchComponent', () => {
       const vernacular = fixture.nativeElement.querySelector('.autocomplete-vernacular');
       expect(vernacular.querySelector('mark').textContent).toBe('Kjøtt');
       expect(vernacular.textContent).toBe('Kjøttmeis');
+    });
+
+    it('should render the formatted scientific name with italics and marks', () => {
+      component.searchTerm.set('pubescens');
+      component.speciesResults.set([
+        {
+          taxonId: 1,
+          scientificName: 'Betula pubescens subsp. pubescens',
+          scientificNameFormatted: '<i>Betula pubescens </i>subsp.<i> pubescens</i>',
+        },
+      ]);
+      component.showAutocomplete.set(true);
+      fixture.detectChanges();
+      const scientific = fixture.nativeElement.querySelector('.autocomplete-scientific');
+      expect(scientific.textContent).toBe('Betula pubescens subsp. pubescens');
+      expect([...scientific.querySelectorAll('i')].map((i) => i.textContent)).toEqual([
+        'Betula ',
+        'pubescens',
+        ' ',
+        ' ',
+        'pubescens',
+      ]);
+      expect(scientific.querySelectorAll('i mark').length).toBe(2);
     });
   });
 
@@ -462,7 +518,7 @@ describe('SpeciesSearchComponent', () => {
       taxonGroupName: 'Bløtdyr',
       preferredVernacularNames: [{ name: 'Flanellsnegl', language: 'nb' }],
       vernacularNameSynonyms: [{ name: 'Lodden flanellsnegl', language: 'nb' }],
-      scientificNameSynonyms: [{ name: 'Coryphella chriskaugei' }],
+      scientificNameSynonyms: [{ name: 'Coryphella chriskaugei', nameFormatted: '<i>Coryphella chriskaugei</i>' }],
     };
 
     function rowFor(term: string, species: SpeciesDto = coryphellaSynonym) {
@@ -476,24 +532,37 @@ describe('SpeciesSearchComponent', () => {
       expect(rowFor('flanell').matchLine).toBeNull();
     });
 
-    it('should show a scientific synonym when only it matches', () => {
+    it('should show the formatted scientific synonym when only it matches', () => {
       expect(rowFor('coryphella chris').matchLine).toEqual({
         kind: 'synonym',
-        text: 'Coryphella chriskaugei',
-        italic: true,
+        text: '<i>Coryphella chriskaugei</i>',
+        isMarkup: true,
       });
     });
 
+    it('should fall back to the plain scientific synonym when it has no formatted name', () => {
+      const species = { ...coryphellaSynonym, scientificNameSynonyms: [{ name: 'Coryphella chriskaugei' }] };
+      expect(rowFor('coryphella chris', species).matchLine?.text).toBe('Coryphella chriskaugei');
+    });
+
     it('should show a vernacular synonym when only it matches', () => {
-      expect(rowFor('lodden').matchLine).toEqual({ kind: 'synonym', text: 'Lodden flanellsnegl', italic: false });
+      expect(rowFor('lodden').matchLine).toEqual({ kind: 'synonym', text: 'Lodden flanellsnegl', isMarkup: false });
     });
 
     it('should show the author when it matches', () => {
-      expect(rowFor('padula').matchLine).toEqual({ kind: 'author', text: 'Padula, 2014', italic: false });
+      expect(rowFor('padula').matchLine).toEqual({ kind: 'author', text: 'Padula, 2014', isMarkup: false });
     });
 
     it('should show the taxon id for a numeric search', () => {
-      expect(rowFor('100').matchLine).toEqual({ kind: 'id', text: '100', italic: false });
+      expect(rowFor('100').matchLine).toEqual({ kind: 'id', text: '100', isMarkup: false });
+    });
+
+    it('should fall back to the plain scientific name when it has no formatted name', () => {
+      expect(rowFor('flanell').scientificNameMarkup).toBe('Fjordia chriskaugei');
+      expect(
+        rowFor('flanell', { ...coryphellaSynonym, scientificNameFormatted: '<i>Fjordia chriskaugei</i>' })
+          .scientificNameMarkup,
+      ).toBe('<i>Fjordia chriskaugei</i>');
     });
 
     it('should expose the vernacular name and taxon group', () => {
