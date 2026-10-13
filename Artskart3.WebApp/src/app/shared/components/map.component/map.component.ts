@@ -60,6 +60,10 @@ import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import ImageLayer from 'ol/layer/Image';
+import ImageWMS from 'ol/source/ImageWMS';
+import type ImageWrapper from 'ol/Image';
+import type Tile from 'ol/Tile';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
@@ -70,6 +74,8 @@ import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
+  private static readonly OGC_PIXEL_SIZE_METERS = 0.00028;
+
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
@@ -84,7 +90,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
-  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS> | ImageLayer<ImageWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
@@ -1408,6 +1414,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setLayerVisibility(layerId, true);
   }
 
+  private scaleDenominatorToResolution(scaleDenominator: number): number {
+    return scaleDenominator * MapComponent.OGC_PIXEL_SIZE_METERS;
+  }
+
   onMapToolbarMenuItemChange({ layer, visible }: MapToolbarMenuItemChange): void {
     const existing = this.mapOverlayLayers.get(layer.id);
     if (existing) {
@@ -1418,23 +1428,75 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
     if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
 
-    const overlay = new TileLayer({
-      source: new TileWMS({
-        url: layer.url,
-        params: {
-          LAYERS: layer.layers ?? undefined,
-          FORMAT: layer.format ?? 'image/png',
-          VERSION: layer.version ?? '1.3.0',
-        },
-        attributions: layer.attribution ?? undefined,
-      }),
-    });
-    const source = overlay.getSource()!;
-    this.mapOverlayLoadKeys.push(
-      source.on('tileloaderror', () => {
-        if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
-      }),
-    );
+    const params = {
+      LAYERS: layer.layers ?? undefined,
+      FORMAT: layer.format ?? 'image/png',
+      VERSION: layer.version ?? '1.3.0',
+    };
+    const useSingleImage = layer.useSingleImage ?? false;
+    const retryDelayMs = Math.max(0, layer.retryAfterSeconds ?? 0) * 1000;
+    let retryAt = 0;
+    const loadImageElement = (imageElement: HTMLImageElement, src: string) => {
+      if (retryDelayMs > 0 && Date.now() < retryAt) {
+        imageElement.onload = null;
+        imageElement.onerror = null;
+        imageElement.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+        return;
+      }
+      imageElement.onload = () => {
+        retryAt = 0;
+        this.mapLayerService.setLayerFailed(layer.id, false);
+      };
+      imageElement.onerror = () => {
+        if (retryDelayMs === 0) return;
+        retryAt = Date.now() + retryDelayMs;
+        this.mapLayerService.setLayerFailed(layer.id, true);
+      };
+      imageElement.src = src;
+    };
+    const loadSingleImage = (image: ImageWrapper, src: string) => loadImageElement(image.getImage() as HTMLImageElement, src);
+    const loadTileImage = (tile: Tile, src: string) => loadImageElement((tile as ImageTile).getImage() as HTMLImageElement, src);
+    const commonOptions = {
+      opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
+      minResolution:
+        layer.minScaleDenominator != null ? this.scaleDenominatorToResolution(layer.minScaleDenominator) : undefined,
+      maxResolution:
+        layer.maxScaleDenominator != null ? this.scaleDenominatorToResolution(layer.maxScaleDenominator) : undefined,
+    };
+    const overlay = useSingleImage
+      ? new ImageLayer({
+          ...commonOptions,
+          source: new ImageWMS({
+            url: layer.url,
+            params,
+            attributions: layer.attribution ?? undefined,
+            imageLoadFunction: loadSingleImage,
+          }),
+        })
+      : new TileLayer({
+          ...commonOptions,
+          source: new TileWMS({
+            url: layer.url,
+            params,
+            attributions: layer.attribution ?? undefined,
+            tileLoadFunction: loadTileImage,
+          }),
+        });
+    if (useSingleImage) {
+      const source = overlay.getSource() as ImageWMS;
+      this.mapOverlayLoadKeys.push(
+        source.on('imageloaderror', () => {
+          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+        }),
+      );
+    } else {
+      const source = overlay.getSource() as TileWMS;
+      this.mapOverlayLoadKeys.push(
+        source.on('tileloaderror', () => {
+          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+        }),
+      );
+    }
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
   }

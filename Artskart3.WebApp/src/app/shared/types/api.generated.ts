@@ -1878,6 +1878,11 @@ export interface components {
             format?: null | string;
             version?: null | string;
             attribution?: null | string;
+            minScaleDenominator?: null | number;
+            maxScaleDenominator?: null | number;
+            useSingleImage?: boolean;
+            retryAfterSeconds?: number;
+            opacity?: number;
         };
         NotificationModel: {
             id?: string;
