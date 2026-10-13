@@ -19,6 +19,7 @@ public class ObservationListInfoDto
     public string? InstitutionName { get; set; }
     public int? LocationId { get; set; }
     public string? Locality { get; set; }
+    public int? CoordinatePrecision { get; set; }
     public string? MunicipalityName { get; set; }
     public string? CountyName { get; set; }
     public IEnumerable<string>? RegistrationType { get; set; }
