@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { LanguageService, SupportedLanguage } from '../../services/languages/language.service';
 import { AuthService } from '../../services/auth/auth.service';
+import { environment } from '../../../../environments/environment';
 
 export interface MenuItem {
   label: string;
@@ -29,6 +30,7 @@ interface CookieInformationWindow {
 export class HeaderComponent implements OnInit, OnDestroy {
   readonly projectName = input('Artskart');
   readonly menuItems = input<MenuItem[]>([]);
+  readonly environmentName = environment.environmentName;
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;

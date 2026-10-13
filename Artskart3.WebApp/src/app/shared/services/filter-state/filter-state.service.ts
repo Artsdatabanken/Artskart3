@@ -8,6 +8,12 @@ export function imageFilterToWithImages(option: ImageFilterOption): boolean | un
   return undefined;
 }
 
+export function withImagesToImageFilter(withImages: boolean | null | undefined): ImageFilterOption {
+  if (withImages === true) return 'withImage';
+  if (withImages === false) return 'withoutImage';
+  return 'all';
+}
+
 @Injectable({
   providedIn: 'root',
 })

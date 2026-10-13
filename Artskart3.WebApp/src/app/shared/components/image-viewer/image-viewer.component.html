@@ -1,0 +1,29 @@
+<!-- Native dialog manages focus. -->
+<!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
+<dialog
+  #dialog
+  (cancel)="cancel($event)"
+  (keydown.escape)="cancel($event)"
+  [attr.aria-label]="'observationDetails.imageViewer' | translate"
+>
+  <button type="button" class="close" autofocus (click)="closed.emit()">{{ 'common.close' | translate }}</button>
+  @if (image(); as image) {
+    <img [src]="image.src" [alt]="image.alt" (error)="failed.emit()" />
+    @if (image.description) {
+      <p>{{ image.description }}</p>
+    }
+    @if (image.rightsHolder) {
+      <p>{{ 'observationDetails.rightsHolder' | translate }}: {{ image.rightsHolder }}</p>
+    }
+    @if (image.license) {
+      <p>
+        {{ 'observationDetails.license' | translate }}:
+        @if (webUrl(image.license); as url) {
+          <a [href]="url" target="_blank" rel="noopener noreferrer">{{ image.license }}</a>
+        } @else {
+          {{ image.license }}
+        }
+      </p>
+    }
+  }
+</dialog>

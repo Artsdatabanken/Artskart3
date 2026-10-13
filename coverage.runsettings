@@ -10,7 +10,6 @@
             <ModulePaths>
               <Exclude>
                 <!-- Tredjeparts NuGet-pakker -->
-                <ModulePath>.*\\robotstxtcore\.dll</ModulePath>
                 <ModulePath>.*\\duende\..*\.dll</ModulePath>
                 <ModulePath>.*\\testcontainers.*\.dll</ModulePath>
                 <ModulePath>.*\\docker\.dotnet\.dll</ModulePath>

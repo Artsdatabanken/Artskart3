@@ -6,6 +6,7 @@ import {
   signal,
   computed,
   linkedSignal,
+  output,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
@@ -23,16 +24,27 @@ import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import { AuthService } from '../../services/auth/auth.service';
+import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
+import { SearchFilterService } from '../../services/search-filter/search-filter.service';
 import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
 import { SpeciesSearchComponent } from '../species-search/species-search.component';
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import type { components } from '../../types/api.generated';
 
 const MinProjectNameSearchLength = 1;
 
 @Component({
   selector: 'app-sidebar',
-  imports: [TranslateModule, FormatNumberPipe, FilterChipsComponent, SpeciesSearchComponent, TaxonTreeComponent],
+  imports: [
+    TranslateModule,
+    FormatNumberPipe,
+    FilterChipsComponent,
+    SpeciesSearchComponent,
+    TaxonTreeComponent,
+    RiskCategoryBadgeComponent,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
@@ -46,7 +58,16 @@ export class SidebarComponent {
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly organizationService = inject(OrganizationService);
   private readonly filterState = inject(FilterStateService);
+  private readonly searchFilter = inject(SearchFilterService);
+  private readonly savedFilterService = inject(SavedFilterService);
+  protected readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+
+  readonly saveFilterRequested = output<void>();
+
+  readonly showUseDefaultFilter = computed(
+    () => this.authService.isAuthenticated() && !this.searchFilter.hasActiveFilter() && this.savedFilterService.defaultFilter() !== null,
+  );
   protected readonly translate = inject(TranslateService);
 
   // Samling, prosjekt og katalognummer er typeahead-felt: brukeren skriver
@@ -197,6 +218,11 @@ export class SidebarComponent {
 
   onClearFilter(): void {
     this.filterState.clearAll();
+  }
+
+  onUseDefaultFilter(): void {
+    const defaultFilter = this.savedFilterService.defaultFilter();
+    if (defaultFilter) this.savedFilterService.activate(defaultFilter);
   }
 
   isMunicipalitySelected(fid: string): boolean {
@@ -403,9 +429,7 @@ export class SidebarComponent {
   // Felles for alle tre: å skrive i feltet nullstiller den valgte ID-en. Uten
   // det ville teksten og filteret kunne peke på hver sin ting — brukeren ser
   // «Fugler», men filteret står fortsatt på forrige valg.
-  onProjectNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
+  onProjectNameChange(value: string): void {
     this.projectSearchTerm.set(value);
     this.filterState.setProjectName(value);
     this.filterState.setProjectOrgId(null);
@@ -433,9 +457,7 @@ export class SidebarComponent {
     this.projectSearchTerm.set(organization.name ?? '');
   }
 
-  onDatasetNameChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
+  onDatasetNameChange(value: string): void {
     this.datasetSearchTerm.set(value);
     this.filterState.setDatasetName(value);
     this.filterState.setDatasetOrgId(null);
@@ -462,11 +484,10 @@ export class SidebarComponent {
     this.datasetSearchTerm.set(organization.name ?? '');
   }
 
-  onCatalogNumberChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.filterState.setCatalogNumber(input.value);
+  onCatalogNumberChange(value: string): void {
+    this.filterState.setCatalogNumber(value);
     this.filterState.setCatalogObservationIds([]);
-    this.catalogNumberSearch$.next(input.value);
+    this.catalogNumberSearch$.next(value);
   }
 
   onCatalogNumberFocus(): void {

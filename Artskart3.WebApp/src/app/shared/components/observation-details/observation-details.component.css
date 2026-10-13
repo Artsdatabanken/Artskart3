@@ -1,0 +1,224 @@
+:host {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  container-type: inline-size;
+}
+dialog {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  max-height: calc(100dvh - 12rem);
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--adb-border-base-primary);
+  border-radius: 1rem;
+  color: var(--adb-text-base-primary);
+  background: var(--adb-background-primary);
+  box-shadow: 0 4px 12px #00000014;
+}
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog.expanded {
+  position: fixed;
+  inset: 5rem 1rem 1rem;
+  width: calc(100vw - 2rem);
+  height: calc(100dvh - 6rem);
+  max-height: none;
+}
+dialog::backdrop {
+  background: #0006;
+}
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+.navigation adb-icon-button,
+.navigation adb-minimal-button {
+  flex-shrink: 0;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+dialog:not(.expanded) .navigation {
+  display: grid;
+  grid-template-columns: 5.25rem minmax(0, 1fr) 5.25rem;
+}
+dialog:not(.expanded) .back-to-list {
+  grid-area: 1 / 1;
+  justify-self: start;
+  align-self: start;
+}
+dialog:not(.expanded) .pager {
+  grid-area: 1 / 2;
+  justify-content: center;
+  min-width: 0;
+}
+dialog:not(.expanded) .header-actions {
+  grid-area: 1 / 3;
+  justify-self: end;
+  align-self: start;
+}
+/* Slotted text names the native button inside the design-system shadow root. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.previous-icon {
+  transform: rotate(90deg);
+}
+.next-icon {
+  transform: rotate(-90deg);
+}
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+.pager [role='status'] {
+  min-width: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.body {
+  overflow: auto;
+  min-height: 0;
+  padding: 1rem;
+}
+.columns {
+  display: grid;
+  gap: 1rem;
+}
+.metadata,
+.visuals {
+  min-width: 0;
+}
+h2 {
+  font-size: var(--adb-font-size-7);
+  margin: 0;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+.species {
+  padding: 0.75rem 0.5rem;
+}
+.species p {
+  margin: 0.5rem 0;
+}
+.scientific {
+  font-size: var(--adb-font-size-7);
+  font-style: italic;
+}
+.species h2 + .scientific {
+  margin-top: 0;
+}
+.category {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+adb-accordion {
+  background: var(--adb-surface-base-primary);
+}
+dl {
+  font-size: 0.875rem;
+  margin: 1.25rem 0;
+}
+dl > div {
+  margin: 0.6rem 0;
+  overflow-wrap: anywhere;
+}
+dt,
+dd {
+  display: inline;
+}
+dt {
+  font-weight: 700;
+  margin-right: 0.25rem;
+}
+dd {
+  margin: 0;
+}
+dd.empty {
+  font-style: italic;
+  color: var(--adb-text-base-secondary);
+}
+.maps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.map-image {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+}
+.map-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  color: var(--adb-text-accent-primary);
+  background: transparent;
+  border: 1px solid currentColor;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+button:focus-visible {
+  outline: 3px solid var(--adb-text-accent-primary);
+  outline-offset: 2px;
+}
+@media (min-width: 900px) {
+  .expanded .columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}
+@media (max-width: 380px) {
+  .expanded .navigation {
+    flex-wrap: wrap;
+  }
+  .expanded .pager {
+    order: -1;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+  .maps {
+    grid-template-columns: 1fr;
+  }
+}
+@container (max-width: 26rem) {
+  dialog:not(.expanded) .navigation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  dialog:not(.expanded) .header-actions {
+    grid-area: 1 / 1;
+  }
+  dialog:not(.expanded) .pager {
+    grid-area: 2 / 1;
+  }
+}

@@ -17,9 +17,11 @@ export class MapLayersComponent {
   @Output() mapLayersOpenChange = new EventEmitter<boolean>();
   @Output() mapLayerVisibilityChange = new EventEmitter<{ layer: MapLayerDto; visible: boolean }>();
 
-  readonly mapLayers = toSignal(inject(MapLayerService).getMapLayers(), { initialValue: [] });
+  private readonly mapLayerService = inject(MapLayerService);
+  readonly mapLayers = toSignal(this.mapLayerService.getMapLayers(), { initialValue: [] });
+  readonly failedLayerIds = this.mapLayerService.failedLayerIds;
   readonly enabledLayerIds = signal(new Set<number>());
-  readonly mapLayerLabels = MAP_LAYER_LABELS;
+  readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
   toggleMapLayers(): void {
     this.mapLayersOpenChange.emit(!this.isOpen);
   }

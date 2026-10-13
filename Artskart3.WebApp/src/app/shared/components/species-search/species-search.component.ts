@@ -12,15 +12,33 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject, of, timer, switchMap, debounce, distinctUntilChanged } from 'rxjs';
 import { SpeciesSearchService } from '../../services/species-search/species-search.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SpeciesDto } from '../../types/api.types';
 
+export interface HighlightSegment {
+  text: string;
+  isMatch: boolean;
+}
+
+export interface SpeciesMatchLine {
+  kind: 'id' | 'author' | 'synonym';
+  text: string;
+  italic: boolean;
+}
+
+export interface SpeciesResultRow {
+  species: SpeciesDto;
+  vernacularName: string;
+  matchLine: SpeciesMatchLine | null;
+}
+
 @Component({
   selector: 'app-species-search',
-  imports: [TranslateModule],
+  imports: [TranslateModule, NgTemplateOutlet],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './species-search.component.html',
   styleUrl: './species-search.component.css',
@@ -43,12 +61,25 @@ export class SpeciesSearchComponent implements OnInit {
   readonly showNoResults = signal(false);
   readonly searchTerm = signal('');
   readonly highlightedIndex = signal(-1);
+  private readonly searchWords = computed(() =>
+    this.searchTerm()
+      .split(/\s+/)
+      .filter((w) => w.length > 0),
+  );
+  readonly resultRows = computed<SpeciesResultRow[]>(() =>
+    this.speciesResults().map((species) => {
+      const vernacularName = this.getVernacularName(species);
+      return { species, vernacularName, matchLine: this.getMatchLine(species, vernacularName) };
+    }),
+  );
   private readonly dismissed = signal(false);
   readonly autocompletePosition = computed(() => {
     this.showAutocomplete();
     const el = this.searchField()?.nativeElement;
     if (!el) return { top: 0, left: 0, width: 0 };
-    const rect = el.getBoundingClientRect();
+    // Align with the text input only, not the submit button next to it.
+    const inputBox = el.querySelector('adb-search')?.shadowRoot?.querySelector('.input-wrapper') ?? el;
+    const rect = inputBox.getBoundingClientRect();
     return { top: rect.bottom, left: rect.left, width: rect.width };
   });
 
@@ -219,14 +250,38 @@ export class SpeciesSearchComponent implements OnInit {
     return (nbName ?? names[0])?.name ?? '';
   }
 
-  highlightMatch(text: string | null | undefined): string {
-    if (!text) return '';
-    const term = this.searchTerm();
-    if (!term) return text;
-    const words = term.split(/\s+/).filter((w) => w.length > 0);
-    if (words.length === 0) return text;
+  highlightMatch(text: string | null | undefined): HighlightSegment[] {
+    if (!text) return [];
+    const words = this.searchWords();
+    if (words.length === 0) return [{ text, isMatch: false }];
     const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const pattern = escaped.join('|');
-    return text.replace(new RegExp(`(${pattern})`, 'gi'), '<strong>$1</strong>');
+    // With a capturing group, split() puts the matches at odd indices.
+    return text
+      .split(new RegExp(`(${escaped.join('|')})`, 'gi'))
+      .map((part, i) => ({ text: part, isMatch: i % 2 === 1 }))
+      .filter((segment) => segment.text.length > 0);
+  }
+
+  private getMatchLine(species: SpeciesDto, vernacularName: string): SpeciesMatchLine | null {
+    if (/^\d+$/.test(this.searchTerm())) {
+      return species.taxonId == null ? null : { kind: 'id', text: String(species.taxonId), italic: false };
+    }
+    if (!this.matchesSearch(vernacularName) && !this.matchesSearch(species.scientificName)) {
+      const scientificSynonym = species.scientificNameSynonyms?.find((s) => this.matchesSearch(s.name));
+      if (scientificSynonym?.name) return { kind: 'synonym', text: scientificSynonym.name, italic: true };
+      const vernacularSynonym = species.vernacularNameSynonyms?.find((s) => this.matchesSearch(s.name));
+      if (vernacularSynonym?.name) return { kind: 'synonym', text: vernacularSynonym.name, italic: false };
+    }
+    if (species.author && this.matchesSearch(species.author)) {
+      return { kind: 'author', text: species.author, italic: false };
+    }
+    return null;
+  }
+
+  private matchesSearch(text: string | null | undefined): boolean {
+    const words = this.searchWords();
+    if (!text || words.length === 0) return false;
+    const lower = text.toLowerCase();
+    return words.every((w) => lower.includes(w.toLowerCase()));
   }
 }

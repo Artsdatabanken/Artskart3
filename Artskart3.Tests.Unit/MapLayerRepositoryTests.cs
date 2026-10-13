@@ -10,6 +10,42 @@ namespace Artskart3.Tests.Unit;
 public class MapLayerRepositoryTests
 {
     [Fact]
+    public async Task GetMapLayersAsync_OrdersBySortOrder_ThenName()
+    {
+        using var context = CreateContext();
+        context.Set<MapLayer>().AddRange(
+            new MapLayer { Name = "Turkart", Type = "WMS", Url = "https://example.com/wms" },
+            new MapLayer { Name = "Grenser", Type = "WMS", Url = "https://example.com/wms" },
+            new MapLayer { Name = "Beta", SortOrder = 10, Type = "WMS", Url = "https://example.com/wms" },
+            new MapLayer { Name = "Alpha", SortOrder = 20, Type = "WMS", Url = "https://example.com/wms" });
+        await context.SaveChangesAsync();
+
+        var sut = new MapLayerRepository(context, NullLogger<MapLayerRepository>.Instance);
+
+        var result = await sut.GetMapLayersAsync();
+
+        result.Select(layer => layer.Name).Should().Equal("Beta", "Alpha", "Grenser", "Turkart");
+    }
+
+    [Fact]
+    public async Task GetMapLayersAsync_ReflectsUpdatedSortOrder()
+    {
+        using var context = CreateContext();
+        var first = new MapLayer { Name = "Alpha", SortOrder = 10, Type = "WMS", Url = "https://example.com/wms" };
+        var second = new MapLayer { Name = "Beta", SortOrder = 20, Type = "WMS", Url = "https://example.com/wms" };
+        context.Set<MapLayer>().AddRange(first, second);
+        await context.SaveChangesAsync();
+        var sut = new MapLayerRepository(context, NullLogger<MapLayerRepository>.Instance);
+
+        (await sut.GetMapLayersAsync()).Select(layer => layer.Name).Should().Equal("Alpha", "Beta");
+
+        second.SortOrder = 5;
+        await context.SaveChangesAsync();
+
+        (await sut.GetMapLayersAsync()).Select(layer => layer.Name).Should().Equal("Beta", "Alpha");
+    }
+
+    [Fact]
     public async Task GetMapLayersAsync_ReturnsMapLayers_OrderedByName()
     {
         var context = CreateContext();

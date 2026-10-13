@@ -289,6 +289,72 @@ public class LookupRepository : ILookupRepository
         }
     }
 
+    public async Task<OrganizationDto?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _context.Set<Organization>()
+                .AsNoTracking()
+                .Where(o => !o.IsDeleted && o.Id == id)
+                .Select(o => new OrganizationDto
+                {
+                    Id = o.Id,
+                    Name = o.Name
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av organisasjon med id: {Id}", id);
+            throw new ApplicationException("Feil ved henting av organisasjon", ex);
+        }
+    }
+
+    /// <summary>
+    /// Den omvendte veien av katalognummer-typeaheaden: gjenskaper teksten et
+    /// lagret filter ble laget fra, ut fra ObservationId-ene i filteret.
+    ///
+    /// Faller tilbake på ProxyId og så OccurrenceId, fordi et treff fra en innlimt
+    /// URN ikke nødvendigvis har katalognummer.
+    /// </summary>
+    public async Task<CatalogNumberMatchDto?> GetCatalogNumberByObservationIdsAsync(
+        int[] observationIds, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var observations = await _context.Set<Observation>()
+                .AsNoTracking()
+                .Where(o => observationIds.Contains(o.Id))
+                .Select(o => new { o.Id, o.CatalogNumber, o.ProxyId, o.OccurrenceId })
+                .ToListAsync(cancellationToken);
+
+            if (observations.Count == 0)
+            {
+                return null;
+            }
+
+            var label = observations.Select(o => o.CatalogNumber).FirstOrDefault(v => !string.IsNullOrEmpty(v))
+                ?? observations.Select(o => o.ProxyId).FirstOrDefault(v => !string.IsNullOrEmpty(v))
+                ?? observations.Select(o => o.OccurrenceId).FirstOrDefault(v => !string.IsNullOrEmpty(v));
+
+            if (label == null)
+            {
+                return null;
+            }
+
+            return new CatalogNumberMatchDto
+            {
+                CatalogNumber = label,
+                ObservationIds = observations.Select(o => o.Id).ToArray()
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av katalognummer for {Count} observasjoner", observationIds.Length);
+            throw new ApplicationException("Feil ved henting av katalognummer", ex);
+        }
+    }
+
     /// <summary>
     /// Legger til observasjoner der søketeksten er et EKSAKT ProxyId eller
     /// OccurrenceId, uten å fortrenge katalognummertreffene.
@@ -365,6 +431,25 @@ public class LookupRepository : ILookupRepository
         {
             _logger.LogError(ex, "Feil ved henting av taksongrupper");
             throw new ApplicationException("Feil ved henting av taksongrupper", ex);
+        }
+    }
+
+    public async Task<Dictionary<int, string>> GetTaxonGroupNamesByTaxonIdsAsync(IReadOnlyCollection<int> taxonIds, CancellationToken cancellationToken = default)
+    {
+        if (taxonIds.Count == 0)
+            return [];
+
+        try
+        {
+            return await _context.Set<Taxon>()
+                .Where(t => taxonIds.Contains(t.Id) && !t.TaxonGroup.IsDeleted)
+                .Select(t => new { t.Id, t.TaxonGroup.Name })
+                .ToDictionaryAsync(t => t.Id, t => t.Name, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av taksongrupper for taksoner");
+            throw new ApplicationException("Feil ved henting av taksongrupper for taksoner", ex);
         }
     }
 

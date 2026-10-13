@@ -1,0 +1,38 @@
+<div class="gallery">
+  @for (image of images(); track image.id) {
+    <article>
+      @if (source(image); as source) {
+        <button
+          type="button"
+          class="photo"
+          (click)="selected.set(image.id ?? null)"
+          [attr.aria-label]="'observationDetails.enlargeImage' | translate"
+        >
+          <img loading="lazy" [src]="source" [alt]="alt(image)" (error)="fail(image, source)" />
+          <span class="enlarge" aria-hidden="true">&#8599;</span>
+        </button>
+      } @else {
+        <p role="status">{{ 'observationDetails.imageUnavailable' | translate }}</p>
+      }
+      <div class="metadata">
+        @if (image.description) {
+          <p>{{ image.description }}</p>
+        }
+        @if (image.rightsHolder) {
+          <p>{{ 'observationDetails.rightsHolder' | translate }}: {{ image.rightsHolder }}</p>
+        }
+        @if (image.license) {
+          <p>
+            {{ 'observationDetails.license' | translate }}:
+            @if (webUrl(image.license); as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer">{{ image.license }}</a>
+            } @else {
+              {{ image.license }}
+            }
+          </p>
+        }
+      </div>
+    </article>
+  }
+</div>
+<app-image-viewer [image]="viewer()" (closed)="selected.set(null)" (failed)="viewerFailed()" />
