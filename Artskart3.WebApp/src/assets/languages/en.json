@@ -169,6 +169,11 @@
     "riskCategory": "Risk category",
     "noResults": "No observations found"
   },
+  "autocomplete": {
+    "resultCount": "Results: {{count}}",
+    "noResults": "No results",
+    "noResultsFor": "No results for “{{searchTerm}}”."
+  },
   "sidebar": {
     "categories": "Red List- and Alien Species Categories",
     "areas": "Areas",
@@ -249,14 +254,11 @@
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
     "chipPeriod": "Year: {{from}}-{{to}}",
-    "noSearchResults": "No results",
-    "noSearchResultsFor": "No results for “{{searchTerm}}”.",
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
     "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
     "searchResults": "Search results",
-    "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
       "Kingdom": "Kingdom",
       "Subkingdom": "Subkingdom",

@@ -1,91 +1,40 @@
-<div class="search-field" #searchField>
-  <adb-search
-    size="sm"
-    variant="with-button"
-    button-variant="filled"
-    [attr.placeholder]="'baseLayout.searchPlaceholder' | translate"
-    [attr.label]="'baseLayout.searchPlaceholder' | translate"
-    (adb-input)="onSearchInput($event)"
-    (adb-search)="onSearchSubmit()"
-    (adb-clear)="onSearchClear()"
-  ></adb-search>
-</div>
-<!-- Live region must exist in the DOM before results arrive — a region injected
-     already populated is never announced by screen readers. -->
-<div class="sr-only" role="status" aria-atomic="true">
-  @if (showAutocomplete()) {
-    {{ 'sidebar.searchResultsAnnouncement' | translate: { count: speciesResults().length } }}
-  } @else if (showNoResults()) {
-    {{ 'sidebar.noSearchResults' | translate }}
-  }
-</div>
-<!-- One line on purpose: whitespace between segments would add spaces inside words. -->
-<ng-template #highlighted let-text let-isMarkup="isMarkup"
-  >@for (segment of highlightMatch(text, isMarkup); track $index) {@if (segment.italic && segment.isMatch) {<i><mark>{{ segment.text }}</mark></i>} @else if (segment.italic) {<i>{{ segment.text }}</i>} @else if (segment.isMatch) {<mark>{{ segment.text }}</mark>} @else {<ng-container>{{ segment.text }}</ng-container>}}</ng-template
+<app-autocomplete
+  class="search-field"
+  variant="with-button"
+  [search]="search"
+  [label]="'baseLayout.searchPlaceholder' | translate"
+  [listLabel]="'sidebar.searchResults' | translate"
+  [trackBy]="trackByTaxonId"
+  (selected)="onSelected($event)"
 >
-@if (showAutocomplete()) {
-  <ul
-    class="autocomplete-list"
-    role="listbox"
-    [attr.aria-label]="'sidebar.searchResults' | translate"
-    [style.top.px]="autocompletePosition().top"
-    [style.left.px]="autocompletePosition().left"
-    [style.width.px]="autocompletePosition().width"
-  >
-    @for (row of resultRows(); track row.species.taxonId ?? $index) {
-      <li
-        class="autocomplete-item"
-        [class.autocomplete-item--active]="highlightedIndex() === $index"
-        [id]="'species-option-' + $index"
-        role="option"
-        [attr.aria-selected]="highlightedIndex() === $index"
-        [attr.tabindex]="highlightedIndex() === $index ? 0 : -1"
-        (click)="onSpeciesSelect(row.species)"
-        (keydown.enter)="onSpeciesSelect(row.species)"
-        (keydown.space)="onSpeciesSelect(row.species); $event.preventDefault()"
-      >
-        <span class="autocomplete-text">
-          <span class="autocomplete-names">
-            @if (row.vernacularName) {
-              <span class="autocomplete-vernacular"
-                ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.vernacularName }" /></span
-              >{{ ' ' }}
-            }
-            <span class="autocomplete-scientific"
-              ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.scientificNameMarkup, isMarkup: true }"
-            /></span>
-          </span>
-          @if (row.matchLine; as matchLine) {
-            <span class="autocomplete-match">
-              @if (matchLine.kind === 'id') {
-                {{ 'sidebar.taxonIdLabel' | translate }}{{ ' ' }}
-              } @else if (matchLine.kind === 'synonym') {
-                {{ 'sidebar.synonymMatch' | translate }}{{ ' ' }}
-              }
-              <ng-container
-                *ngTemplateOutlet="highlighted; context: { $implicit: matchLine.text, isMarkup: matchLine.isMarkup }"
-              />
-            </span>
+  <ng-template [appAutocompleteOption]="search" let-row let-term="term">
+    <span class="species-row">
+      <span class="autocomplete-text">
+        <span class="autocomplete-names">
+          @if (row.vernacularName) {
+            <span class="autocomplete-vernacular"><app-highlight-text [text]="row.vernacularName" [term]="term" /></span>{{ ' ' }}
           }
-          @if (row.species.taxonGroupName) {
-            <span class="autocomplete-group">{{ row.species.taxonGroupName }}</span>
-          }
+          <span class="autocomplete-scientific"
+            ><app-highlight-text [text]="row.scientificNameMarkup" [term]="term" [markup]="true"
+          /></span>
         </span>
-        @if (row.species.rank) {
-          <span class="autocomplete-rank">{{ 'sidebar.rank.' + row.species.rank | translate }}</span>
+        @if (matchLine(row, term); as matchLine) {
+          <span class="autocomplete-match">
+            @if (matchLine.kind === 'id') {
+              {{ 'sidebar.taxonIdLabel' | translate }}{{ ' ' }}
+            } @else if (matchLine.kind === 'synonym') {
+              {{ 'sidebar.synonymMatch' | translate }}{{ ' ' }}
+            }
+            <app-highlight-text [text]="matchLine.text" [term]="term" [markup]="matchLine.isMarkup" />
+          </span>
         }
-      </li>
-    }
-  </ul>
-}
-@if (showNoResults()) {
-  <div
-    class="autocomplete-list autocomplete-no-results"
-    [style.top.px]="autocompletePosition().top"
-    [style.left.px]="autocompletePosition().left"
-    [style.width.px]="autocompletePosition().width"
-  >
-    <adb-icon name="info" size="md"></adb-icon>
-    <span>{{ 'sidebar.noSearchResultsFor' | translate: { searchTerm: searchTerm() } }}</span>
-  </div>
-}
+        @if (row.species.taxonGroupName) {
+          <span class="autocomplete-group">{{ row.species.taxonGroupName }}</span>
+        }
+      </span>
+      @if (row.species.rank) {
+        <span class="autocomplete-rank">{{ 'sidebar.rank.' + row.species.rank | translate }}</span>
+      }
+    </span>
+  </ng-template>
+</app-autocomplete>
