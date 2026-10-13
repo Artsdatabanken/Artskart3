@@ -2094,12 +2094,6 @@ export interface components {
             /** Format: int32 */
             id?: number;
             parentIds?: number[];
-            levels?: components["schemas"]["TaxonAncestryLevelDto"][];
-        };
-        TaxonAncestryLevelDto: {
-            /** Format: int32 */
-            parentId?: number;
-            childIds?: number[];
         };
         TaxonDto: {
             /** Format: int32 */
