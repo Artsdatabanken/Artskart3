@@ -127,11 +127,14 @@ export class ObservationPanelComponent {
     this.dismissRequest.next();
     this.detail.set(null);
     this.activePoint.emit(null);
+    const detailsOpen = this.rawId() !== null;
     if (invalidate) {
       this.activeContext.set(null);
       this.returnFocus = null;
+      // The parent is replacing the selection, so the URL change must not count as the user closing it.
+      this.rawId.set(null);
     }
-    if (this.rawId() !== null) this.navigate(null, true, null);
+    if (detailsOpen) this.navigate(null, true, null);
   }
 
   closeList(): void {

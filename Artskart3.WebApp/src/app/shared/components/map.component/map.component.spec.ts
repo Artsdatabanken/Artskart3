@@ -463,6 +463,27 @@ describe('MapComponent', () => {
       expect(component.observationSelection()).toBeNull();
     });
 
+    it('replaces open lone-observation details with the next clicked location', async () => {
+      const service = TestBed.inject(ObservationService);
+      const pending = new Subject<ObservationListInfoDto[]>();
+      vi.spyOn(service, 'getObservationByLocation').mockReturnValueOnce(of([{ id: 7 }])).mockReturnValueOnce(pending);
+      vi.spyOn(service, 'getDetail').mockImplementation((id: number) => of({ id }));
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      await fixture.whenStable();
+      const panel = component.observationPanel()!;
+      expect(panel.selectedId()).toBe(7);
+      click([{ layerId: 'area-markers-locations', feature: point(2) }]);
+      await fixture.whenStable();
+      expect(panel.rawId()).toBeNull();
+      expect(component.showObservationList()).toBe(true);
+      expect(component.observationSelection()?.locationIds).toEqual([2]);
+      expect(pending.observed).toBe(true);
+      pending.next([{ id: 8 }]);
+      await fixture.whenStable();
+      expect(panel.selectedId()).toBe(8);
+    });
+
     it('dismisses and cancels the selection when search filters change', async () => {
       const pending = new Subject<ObservationListInfoDto[]>();
       vi.spyOn(TestBed.inject(ObservationService), 'getObservationByLocation').mockReturnValue(pending);
