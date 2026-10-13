@@ -47,7 +47,12 @@
     }
     @case ('ready') {
       @if (groups().length) {
-        <app-observation-tree [nodes]="groups()" [resetKey]="resetKey()" (observationActivated)="observationActivated.emit($event)" />
+        <app-observation-tree
+          [nodes]="groups()"
+          [resetKey]="resetKey()"
+          [openFirstSection]="true"
+          (observationActivated)="observationActivated.emit($event)"
+        />
       } @else {
         <p role="status">{{ 'listView.noResults' | translate }}</p>
       }
