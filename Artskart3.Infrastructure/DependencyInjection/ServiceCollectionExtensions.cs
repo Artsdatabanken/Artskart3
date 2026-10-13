@@ -85,6 +85,11 @@ public static class ServiceCollectionExtensions
         // Transformasjonene bufres statisk og er tråd-trygge etter opprettelse.
         services.AddSingleton<ICoordinateTransformer, ProjNetCoordinateTransformer>();
 
+        // Geografitjenesten holder 4 224 områdegeometrier i minnet og må derfor være
+        // singleton — én kopi per prosess, lastet ved første oppslag.
+        services.AddSingleton<IAreaGeometrySource, EfAreaGeometrySource>();
+        services.AddSingleton<IGeographyService, GeographyService>();
+
         return services;
     }
 }
