@@ -183,11 +183,11 @@ describe('MapComponent', () => {
       return result;
     }
 
-    it('links polygon hover to its containing cluster without highlighting unrelated member polygons', () => {
+    it('hovers a cluster only when all its members are hovered', () => {
       hover([{ feature: polygon(1), layerId: 'location-polygons' }]);
       expect(component['locationFeatureState'](polygon(1))).toBe('hover');
       expect(component['locationFeatureState'](location(1))).toBe('hover');
-      expect(component['locationFeatureState'](cluster(1, 2))).toBe('hover');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('default');
       expect(component['locationFeatureState'](polygon(2))).toBe('default');
       hover([{ feature: cluster(1, 2), layerId: 'area-markers-locations' }]);
       expect(component['locationFeatureState'](polygon(1))).toBe('hover');
@@ -223,16 +223,18 @@ describe('MapComponent', () => {
       expect(render('area-markers-counties', area)).toBe(component['featureStyles']!.marker('area', 'default', '12 k'));
     });
 
-    it('makes selection win over hover and highlights any cluster member without selecting other polygons', () => {
+    it('makes selection win over hover and selects a cluster only when all its members are selected', () => {
       hover([{ feature: cluster(1, 2), layerId: 'area-markers-locations' }]);
       select([1]);
       expect(component['locationFeatureState'](location(1))).toBe('selected');
       expect(component['locationFeatureState'](polygon(1))).toBe('selected');
-      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('hover');
       expect(component['locationFeatureState'](polygon(2))).toBe('hover');
       component['clearMarkerHover']();
       expect(component['locationFeatureState'](polygon(2))).toBe('default');
       expect(component.observationSelection()?.locationIds).toEqual([1]);
+      select([1, 2]);
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
     });
 
     it('wires singleton, cluster, polygon, and detail-highlight styles without changing labels or pickability', () => {
@@ -243,7 +245,7 @@ describe('MapComponent', () => {
       const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [location(1, 1)] });
       expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected'));
       const grouped = render('area-markers-locations', cluster(1, 2), true);
-      expect(grouped[1].getText()?.getText()).toBe('4');
+      expect(grouped.at(-1)?.getText()?.getText()).toBe('4');
       expect(render('location-polygons', polygon(1))).toBe(styles.polygon('selected'));
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
       expect(layers.get('observation-details-highlight')?.pickable).toBe(false);
@@ -274,12 +276,12 @@ describe('MapComponent', () => {
       hover([{ feature: location(3), layerId: 'area-markers-locations' }]);
       component['applyGeoJsonToLayer'](ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection","features":[]}');
       expect(component['locationFeatureState'](location(3))).toBe('default');
-      expect(component['locationFeatureState'](cluster(1, 3))).toBe('selected');
-      expect(component['locationFeatureState'](cluster(2, 4))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 3))).toBe('default');
       expect(component['locationFeatureState'](polygon(1))).toBe('selected');
       select([3]);
       expect(component['locationFeatureState'](polygon(1))).toBe('default');
-      expect(component['locationFeatureState'](cluster(1, 3))).toBe('selected');
+      expect(component['locationFeatureState'](location(3))).toBe('selected');
     });
 
     it('redraws on selection changes without refetching data and skips unchanged hover state', async () => {

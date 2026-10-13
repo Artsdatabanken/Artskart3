@@ -662,8 +662,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private locationFeatureState(feature: FeatureLike): MapFeatureState {
     const ids = this.locationIdsForFeature(feature);
-    if (ids.some((id) => this.selectedLocationIds().has(id))) return 'selected';
-    return ids.some((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+    if (!ids.length) return 'default';
+    // A cluster that also holds unselected locations would suggest its whole count is selected.
+    if (ids.every((id) => this.selectedLocationIds().has(id))) return 'selected';
+    return ids.every((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
   }
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
