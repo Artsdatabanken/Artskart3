@@ -130,11 +130,11 @@ describe('MapComponent', () => {
     beforeEach(() => {
       const tokens = document.createElement('div').style;
       for (const [token, value] of [
-        ['--adb-surface-accent-primary', '#005A71'],
-        ['--adb-surface-accent-hover', '#004557'],
-        ['--adb-border-base-subtle', '#D2DDE0'],
-        ['--adb-border-base-strong', '#768083'],
-        ['--adb-border-brand-4', '#F8AE00'],
+        ['--adb-color-brand-freshwater-blue-90', '#005A71'],
+        ['--adb-color-brand-freshwater-blue-100', '#004557'],
+        ['--adb-color-neutrals-ocean-10', '#D2DDE0'],
+        ['--adb-color-neutrals-ocean-50', '#768083'],
+        ['--adb-color-brand-sun-70', '#F8AE00'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
