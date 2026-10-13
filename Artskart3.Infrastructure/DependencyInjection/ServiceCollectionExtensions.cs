@@ -1,10 +1,14 @@
+using Artskart3.Core.Application.Import;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Cache;
+using Artskart3.Infrastructure.Import;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Persistence.Services;
 using Artskart3.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Infrastructure.DependencyInjection;
@@ -44,6 +48,43 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         // Add other application services here
+        return services;
+    }
+
+    /// <summary>
+    /// Lesestien mot Artskart 2s cache-database. Egen kontekst og egen
+    /// tilkoblingsstreng (<c>ConnectionStrings:ArtskartCache</c>) fordi cachen er en
+    /// annen database med en annen eier — den skal leses, aldri skrives.
+    ///
+    /// Registreres bare der den brukes, altså i Artskart3.Workers. API-et har ingenting
+    /// å gjøre i cachen.
+    /// </summary>
+    public static IServiceCollection AddCacheReader(this IServiceCollection services, string? connectionString)
+    {
+        services.AddDbContext<ArtskartCacheDbContext>(options =>
+        {
+            options.UseSqlServer(connectionString, sql => sql.CommandTimeout(600));
+
+            // Cache-skjemaet eies av EF6-modellen i Artskart 2 og er ikke under
+            // migrasjonskontroll her. Uten dette advarer EF om ventende
+            // modellendringer for en kontekst som aldri skal migrere noe.
+            options.ConfigureWarnings(w =>
+                w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        });
+
+        services.AddScoped<ICacheRecordReader, CacheRecordReader>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Tolkningstjenestene importen bruker. Ingen av dem rører en database.
+    /// </summary>
+    public static IServiceCollection AddImportServices(this IServiceCollection services)
+    {
+        // Transformasjonene bufres statisk og er tråd-trygge etter opprettelse.
+        services.AddSingleton<ICoordinateTransformer, ProjNetCoordinateTransformer>();
+
         return services;
     }
 }

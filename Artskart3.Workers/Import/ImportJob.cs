@@ -23,10 +23,12 @@ namespace Artskart3.Workers.Import;
 /// </summary>
 public class ImportJob
 {
+    private readonly ImportService _importService;
     private readonly ILogger<ImportJob> _logger;
 
-    public ImportJob(ILogger<ImportJob> logger)
+    public ImportJob(ImportService importService, ILogger<ImportJob> logger)
     {
+        _importService = importService;
         _logger = logger;
     }
 
@@ -34,5 +36,19 @@ public class ImportJob
     {
         _logger.LogInformation("ImportJob er ikke implementert ennå");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Leser én node fra cachen og logger hva som finnes der. Skriver ingenting.
+    ///
+    /// Egen inngang, og ikke en del av <see cref="ExecuteAsync"/>, fordi den hører til
+    /// verifiseringen av lesestien: den kjøres manuelt mot en node (enqueues fra
+    /// Hangfire-dashbordet eller kalles direkte), mens <see cref="ExecuteAsync"/> blir
+    /// den ordinære importen når den finnes. Når importen er på plass, er denne
+    /// fortsatt den billigste måten å se om cachen svarer som forventet.
+    /// </summary>
+    public async Task ReadNodeAsync(int nodeId, int? maxRecords, CancellationToken cancellationToken)
+    {
+        await _importService.ReadNodeAsync(nodeId, maxRecords, cancellationToken);
     }
 }

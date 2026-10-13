@@ -8,7 +8,9 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Services;
 using Artskart3.Workers.Export;
+using Artskart3.Workers.Import;
 using Artskart3.Workers.Configuration;
+using Artskart3.Infrastructure.DependencyInjection;
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -48,6 +50,21 @@ builder.Services.AddDbContext<ArtskartDbContext>(options =>
 builder.Services.AddScoped<IArtsKartDbContext>(provider =>
     provider.GetRequiredService<ArtskartDbContext>());
 
+// Cache-databasen til Artskart 2. Leses av importen, aldri skrevet til.
+//
+// Registreres uansett, slik at workeren starter på en maskin uten tilgang til cachen.
+// Mangler strengen, feiler først den jobben som faktisk prøver å lese — og da har
+// loggen allerede sagt hvorfor.
+var cacheConnectionString = builder.Configuration.GetConnectionString("ArtskartCache");
+builder.Services.AddCacheReader(cacheConnectionString);
+builder.Services.AddImportServices();
+
+if (string.IsNullOrWhiteSpace(cacheConnectionString))
+{
+    logger.LogWarning(
+        "ConnectionStrings:ArtskartCache er ikke satt. Importjobber kan ikke lese fra cache-databasen.");
+}
+
 // Hangfire
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -71,6 +88,8 @@ builder.Services.Configure<CsvExportOptions>(
 builder.Services.AddScoped<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
 builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<ExportService>();
+builder.Services.AddScoped<ImportService>();
+builder.Services.AddScoped<ImportJob>();
 builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
 
 // Taksonhierarki. Workeren trenger dette fordi taksonfilteret må utvides hierarkisk

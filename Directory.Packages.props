@@ -45,6 +45,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.0" />
     <PackageVersion Include="GeoJSON.Net" Version="1.4.1" />
     <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+    <PackageVersion Include="ProjNET" Version="2.1.0" />
 
     <!-- Swagger -->
     <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />

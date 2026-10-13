@@ -13,8 +13,13 @@ using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NetTopologySuite;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 using AreaType = Artskart3.Core.Domain.Enums.AreaType;
+// NetTopologySuite.Geometries har sin egen Location-type. Aliaser framfor et
+// namespace-import, slik at entiteten Location fortsatt er den som gjelder her.
+using Coordinate = NetTopologySuite.Geometries.Coordinate;
+using Geometry = NetTopologySuite.Geometries.Geometry;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -1076,24 +1081,47 @@ public class SearchRepository : ISearchRepository
     /// utsnittet er — målt til ~3 s både for 122x61 km og for 4x2 km, altså flat kostnad
     /// uten sammenheng med utsnittets størrelse.
     ///
-    /// Ved å hente LocationId-ene først treffer vi IX_EastNorth på Location (et lite
-    /// sett), og slår deretter opp observasjonene via IX_Observation_LocationId.
+    /// Ved å hente LocationId-ene først treffer vi den romlige indeksen på
+    /// Location.Geometry (et lite sett), og slår deretter opp observasjonene via
+    /// IX_Observation_LocationId.
+    ///
+    /// Filteret står på geometrien, ikke på representasjonspunktet East/North.
+    /// Et punkt i boks faller feil i én retning: en geometri kan dekke kartvinduet
+    /// uten at punktet ligger inni, og da forsvant lokaliteten. 75 999 av 5,1 M
+    /// lokaliteter er ikke punkt — funksjonsområder, kartleggingsområder og linjer
+    /// som krysser utsnittet. Det er nettopp dem brukeren leter etter.
+    ///
+    /// Forutsetter at geometriene er merket 25833, slik migrasjonen
+    /// RelabelGeometrySridTo25833 gjør. SQL Server reprojiserer ikke: med to ulike
+    /// SRID-er gir Intersects NULL, ikke en feilmelding, og filteret ville svart
+    /// «ingen treff» på alt.
     /// </summary>
     private IQueryable<Observation> ApplyEnvelopeFilter(IQueryable<Observation> query, EnvelopeDto? envelope)
     {
         if (envelope == null) return query;
 
-        var minX = (int)envelope.MinX;
-        var maxX = (int)envelope.MaxX;
-        var minY = (int)envelope.MinY;
-        var maxY = (int)envelope.MaxY;
+        var utsnitt = CreateEnvelopeGeometry(envelope);
 
         var locationIds = _context.Set<Location>()
-            .Where(l => l.East >= minX && l.East <= maxX &&
-                        l.North >= minY && l.North <= maxY)
+            .Where(l => l.Geometry != null && l.Geometry.Intersects(utsnitt))
             .Select(l => l.Id);
 
         return query.Where(o => o.LocationId != null && locationIds.Contains(o.LocationId.Value));
+    }
+
+    private static Geometry CreateEnvelopeGeometry(EnvelopeDto envelope)
+    {
+        // Samme NTS-oppsett som EF bruker, så presisjonsmodellen er den samme på
+        // begge sider av sammenligningen.
+        var factory = NtsGeometryServices.Instance.CreateGeometryFactory(SearchConstants.DefaultEpsgCode);
+
+        return factory.CreatePolygon([
+            new Coordinate(envelope.MinX, envelope.MinY),
+            new Coordinate(envelope.MaxX, envelope.MinY),
+            new Coordinate(envelope.MaxX, envelope.MaxY),
+            new Coordinate(envelope.MinX, envelope.MaxY),
+            new Coordinate(envelope.MinX, envelope.MinY)
+        ]);
     }
 
     private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
