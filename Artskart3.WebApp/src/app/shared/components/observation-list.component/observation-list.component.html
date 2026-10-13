@@ -1,7 +1,13 @@
 <section class="observation-list" [attr.aria-label]="'observationList.title' | translate">
   <header class="header">
-    <div class="geometry" [attr.title]="selection().geometryLabel">
-      {{ 'observationList.' + selection().kind | translate }}: {{ selection().geometryLabel }}
+    <div class="title-row">
+      <div class="geometry" [attr.title]="selection().geometryLabel">
+        {{ 'observationList.' + selection().kind | translate }}: {{ selection().geometryLabel }}
+      </div>
+      <adb-minimal-button size="sm" (click)="dismiss.emit()" [attr.aria-label]="'common.close' | translate">
+        <adb-icon name="close" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'common.close' | translate }}</span>
+      </adb-minimal-button>
     </div>
     @if (selection().kind === 'selection') {
       <div>

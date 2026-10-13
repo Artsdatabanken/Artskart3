@@ -134,6 +134,11 @@ export class ObservationPanelComponent {
     if (this.rawId() !== null) this.navigate(null, true, null);
   }
 
+  closeList(): void {
+    this.closed.emit();
+    this.restoreFocus(null);
+  }
+
   retryDetails(): void {
     this.retryDetail.next();
   }
@@ -159,8 +164,7 @@ export class ObservationPanelComponent {
     this.state.set('error');
   }
 
-  private restoreFocus(): void {
-    const target = this.returnFocus;
+  private restoreFocus(target = this.returnFocus): void {
     afterNextRender(
       () => {
         if (target?.isConnected) target.focus({ preventScroll: true });
