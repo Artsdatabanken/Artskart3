@@ -1974,6 +1974,8 @@ export interface components {
             /** Format: int32 */
             locationId?: null | number;
             locality?: null | string;
+            /** Format: int32 */
+            coordinatePrecision?: null | number;
             municipalityName?: null | string;
             countyName?: null | string;
             registrationType?: null | string[];

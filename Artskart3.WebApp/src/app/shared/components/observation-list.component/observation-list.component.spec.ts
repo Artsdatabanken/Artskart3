@@ -52,6 +52,15 @@ describe('Observation grouping', () => {
     expect(tree([record(1), record(2, { locationId: 6 })], 'location')).toHaveLength(2);
   });
 
+  it('adds the coordinate precision to locality groups only', () => {
+    const records = [record(1, { coordinatePrecision: 100 }), record(2, { locationId: 6, locality: 'Bø', coordinatePrecision: null })];
+    expect(tree(records, 'location').map((group) => [group.label, group.coordinatePrecision])).toEqual([
+      ['Bø', undefined],
+      ['Åsen', 100],
+    ]);
+    expect(tree(records)[0].coordinatePrecision).toBeUndefined();
+  });
+
   it.each(['redList', 'alienSpecies'] as const)('merges nonmatching records into the default category in %s', (mode) => {
     const fallback = mode === 'redList' ? 'NE' : 'NR';
     const type = mode === 'redList' ? 1 : 2;

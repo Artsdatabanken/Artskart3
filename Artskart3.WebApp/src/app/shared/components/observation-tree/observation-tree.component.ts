@@ -13,12 +13,13 @@ import {
 } from '@angular/core';
 import { LoggingService } from '@shared/logging.service';
 import { Tree, TreeItem, TreeItemGroup } from '@angular/aria/tree';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { MeterUnitPipe } from '@shared/pipes/meter-unit.pipe';
 import { ObservationTreeNode } from '../observation-list.component/observation-list.model';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 @Component({
-  imports: [Tree, TreeItem, TreeItemGroup, NgTemplateOutlet, TranslateModule, RiskCategoryBadgeComponent],
+  imports: [Tree, TreeItem, TreeItemGroup, NgTemplateOutlet, TranslateModule, RiskCategoryBadgeComponent, MeterUnitPipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-tree',
   styleUrl: './observation-tree.component.css',
@@ -32,6 +33,7 @@ export class ObservationTreeComponent {
     computation: () => new Set<string>(),
   });
   readonly observationActivated = output<number>();
+  protected readonly translate = inject(TranslateService);
   private readonly logger = inject(LoggingService);
 
   openObservation(node: ObservationTreeNode): void {

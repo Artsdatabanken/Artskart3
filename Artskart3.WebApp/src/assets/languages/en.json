@@ -442,6 +442,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registrations",
+    "coordinatePrecision": "Coordinate precision: {{precision}}",
     "title": "Observations",
     "taxonGroup": "Group by taxon group",
     "location": "Group by locality",
@@ -456,7 +457,7 @@
     "unknownCategory": "Unknown category",
     "unknownTaxonGroup": "Unknown taxon group",
     "unknownSpecies": "Unknown species",
-    "unknownLocality": "Unknown locality",
+    "unknownLocality": "Unnamed locality",
     "unknownDate": "Unknown date",
     "unknownCollector": "Unknown observer",
     "loading": "Loading observations …",

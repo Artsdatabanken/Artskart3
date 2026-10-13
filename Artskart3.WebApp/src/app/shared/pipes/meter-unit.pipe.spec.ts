@@ -27,6 +27,11 @@ describe('MeterUnitPipe', () => {
     expect(result).toContain('m');
   });
 
+  it('should spell out the unit when asked for the long form', () => {
+    expect(pipe.transform(100, 'no', 'long')).toBe('100 meter');
+    expect(pipe.transform(100, 'en', 'long')).toBe('100 metres');
+  });
+
   it('should format zero', () => {
     const result = pipe.transform(0, 'en');
     expect(result).toContain('0');
