@@ -48,4 +48,17 @@ export class OrganizationService {
       params: { search },
     });
   }
+
+  /** Én organisasjon på id, uansett type. Gir navnet til et datasett- eller prosjektfilter. */
+  getOrganization(id: number): Observable<components['schemas']['OrganizationDto']> {
+    return this.http.get<components['schemas']['OrganizationDto']>(`${this.endpoint}/${id}`);
+  }
+
+  /** Katalognummeret et sett ObservationId-er kom fra. Den omvendte veien av `searchCatalogNumbers`. */
+  getCatalogNumberForObservations(observationIds: number[]): Observable<components['schemas']['CatalogNumberMatchDto']> {
+    return this.http.post<components['schemas']['CatalogNumberMatchDto']>(
+      `${this.catalogNumbersEndpoint}/ByObservationIds`,
+      observationIds,
+    );
+  }
 }

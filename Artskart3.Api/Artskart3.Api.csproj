@@ -20,7 +20,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="OpenTelemetry.Api" />
-    <PackageReference Include="RobotsTxtCore" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore.Swagger" />

@@ -3,13 +3,17 @@
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
-  <app-place-search (placeSelected)="onPlaceSelected($event)"></app-place-search>
-  <div #mapEl class="map"></div>
-  @if (showObservationList()) {
-    <app-observation-list [observationList]="observationList()" [clickCoordinates]="clickCoordinates()"/>
+  @if (placeSearchEnabled) {
+    <app-place-search (placeSelected)="onPlaceSelected($event)"></app-place-search>
   }
-  <app-loading-indicator
-    [active]="isLoadingAreaData()"
-    [label]="'mapToolbar.loadingObservationsLabel' | translate"
-  ></app-loading-indicator>
+  <div #mapEl class="map"></div>
+  <app-observation-panel
+    [observations]="observationList()"
+    [selection]="showObservationList() ? observationSelection() : null"
+    [requestState]="observationRequestState()"
+    (retry)="retryObservations()"
+    (activePoint)="highlightObservation($event)"
+    (detailsOpened)="detailsOpened.emit()"
+  />
+  <app-loading-indicator [active]="isLoadingAreaData()" [label]="'mapToolbar.loadingObservationsLabel' | translate"></app-loading-indicator>
 </div>

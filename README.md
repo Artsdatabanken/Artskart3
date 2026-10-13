@@ -147,6 +147,57 @@ For å gjøre endringer i Artskart krever det at det lages en pull request som m
 ## Varsler (notifications)
 Driftsmeldinger og andre varsler som vises i portalen styres via en JSON-fil som redigeres manuelt av en superbruker. Se [`Artskart3.Infrastructure/Data/JsonDb/README.md`](Artskart3.Infrastructure/Data/JsonDb/README.md) for feltbeskrivelse og fremgangsmåte for å legge til nye varsler.
 
+## Detaljer om funn
+
+Et funn i kartets funnliste åpner et detaljpanel. Listen beholdes i DOM-en med
+gruppering, åpne grener og rulleposisjon. Forrige/neste følger treets rekkefølge,
+også gjennom lukkede grener, og går rundt ved første/siste funn. Detaljene kan
+utvides med knappen i smal visning. Tilbake-knappen vises bare i fullskjerm og
+går tilbake til smal detaljvisning; lukk viser listen igjen fra begge visninger.
+Det valgte funnet markeres i hovedkartet
+uten panorering eller endring av zoom, også ved forrige/neste og direkte lenker.
+
+Lenker på formen `/?observationId=123` åpner et enkelt funn. Hvert skifte av
+funn legger til en oppføring i nettleserhistorikken. En lenke uten gjeldende
+listekontekst viser ett funn uten forrige/neste; filtre og listeutvalg lagres
+ikke i URL-en. Endrede filtre eller et nytt kartutvalg avslutter den gamle
+detaljøkten.
+
+API:
+
+- `GET /api/observations/{id}` returnerer offentlige opplysninger og
+  bildemetadata, aldri bildeblob eller base64. Vanlig BFF-header `X-CSRF: 1`
+  kreves som for andre JSON-endepunkter.
+- `GET /api/observations/{id}/media/{mediaId}/image` leverer lagret bilde
+  ved behov. Nettleseren prøver først `MediaFile.Origin`, deretter blob-endepunktet
+  én gang. Kun støttede rasterbildetyper vises; tomme bildegallerier skjules.
+- `GET /api/observations/{id}/maps/local` og `/maps/overview` returnerer
+  henholdsvis 800x800 og 500x800 PNG. Begge bildeendepunktene er offentlige,
+  skrivebeskyttede og unntatt BFF-headerkravet slik at de virker i `<img>`.
+  Slettede funn/bilder eller bilder som tilhører et annet funn, utleveres ikke.
+
+Kartene genereres med SkiaSharp fra faste HTTPS WMS-kilder hos Kartverket
+(Norges grunnkart, terrengmodell og GEBCO) og Norsk Polarinstitutt (Svalbard).
+Kildelenker vises under kartene og i bildeviseren. Ingen vilkårlige WMS-adresser,
+lag, bildestørrelser eller koordinater kan angis av API-klienten.
+Offentlige koordinater brukes gjennomgående; `SensitiveObservationData`
+brukes ikke. Lokalkartet er omtrent 82 km bredt, og oversiktskartet utvides
+ved behov for å inkludere funnet.
+
+Rendereren har fire samtidige jobber, en egen 64 MiB minnebuffer med 15 minutters
+levetid, 25 sekunders samlet tidsgrense og maksimalt 12 MiB per WMS-svar.
+Kartendepunktet tillater fire samtidige forespørsler og 16 i kø; over dette
+returneres 429. Feil fra kartkilder gir 502/504 og kan prøves på nytt i panelet.
+Bilder støtter ETag og fem minutters HTTP-mellomlagring. Deployment må inkludere
+SkiaSharps native Linux-bibliotek (pakken `SkiaSharp.NativeAssets.Linux.NoDependencies`);
+en bygging på macOS alene verifiserer ikke Linux-runtime.
+
+Vurderingslenker velges fra aktive `TaxonProperty`-rader for riktig kategori og
+område, med siste årstall i prefikset. Tvetydige/udaterte lenker utelates og
+logges. For eldre importerte taxa brukes den eksisterende offentlige takson-ID-en
+når `ExternalTaxonId` ikke er fylt ut. Dataleverandørlenke utelates inntil modellen
+har en pålitelig URL-kilde.
+
 
 ## Begrenset tilgjengelighet til miljøene
 Per juli 2026 er alle miljøene kun tilgjengelig dersom man er tilkoblet Artsdatabankens nettverk direkte eller via VPN.

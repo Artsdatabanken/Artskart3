@@ -3,4 +3,5 @@ export const MAP_LAYER_LABELS: Record<string, string> = {
   Vern: 'mapToolbar.mapLayers.vern',
   Bioseksjoner: 'mapToolbar.mapLayers.bioseksjoner',
   Biosoner: 'mapToolbar.mapLayers.biosoner',
+  Eiendomskart: 'mapToolbar.mapLayers.eiendomskart',
 };

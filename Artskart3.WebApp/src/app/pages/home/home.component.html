@@ -26,7 +26,7 @@
     [isDraggable]="true"
     (widthChanged)="onFilterPanelResize($event)"
   >
-    <app-sidebar></app-sidebar>
+    <app-sidebar (saveFilterRequested)="showSaveFilterModal.set(true)"></app-sidebar>
   </app-resizable-panel>
 </aside>
 
@@ -138,13 +138,15 @@
     }
 
     <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 0">
-      <app-map></app-map>
+      <app-map (detailsOpened)="activeTab.set(0)"></app-map>
     </div>
     <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 1">
       <app-list-view></app-list-view>
     </div>
   </div>
 </div>
+
+<app-save-filter-dialog [(open)]="showSaveFilterModal" />
 
 <!-- Export name prompt modal -->
 <app-modal

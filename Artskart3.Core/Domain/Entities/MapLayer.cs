@@ -6,6 +6,8 @@ public class MapLayer : BaseEntity
 {
     public string Name { get; set; } = null!;
 
+    public int SortOrder { get; set; } = 100;
+
     /// <summary>
     /// WMS, WMTS or Tile
     /// </summary>

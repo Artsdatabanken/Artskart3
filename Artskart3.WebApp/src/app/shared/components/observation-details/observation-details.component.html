@@ -1,0 +1,196 @@
+<!-- Native dialog manages focus. -->
+<!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
+<dialog
+  #dialog
+  [class.expanded]="expanded()"
+  (cancel)="cancel($event)"
+  (keydown.escape)="cancel($event)"
+  [attr.aria-label]="'observationDetails.title' | translate"
+>
+  <header class="navigation">
+    <adb-minimal-button
+      #backButton
+      [hidden]="!expanded()"
+      size="sm"
+      (click)="toggleExpanded()"
+      [attr.aria-label]="'observationDetails.back' | translate"
+    >
+      <adb-icon name="arrow-back" aria-hidden="true" />
+      <span class="visually-hidden">{{ 'observationDetails.back' | translate }}</span>
+    </adb-minimal-button>
+    @if (hasList() && !expanded()) {
+      <adb-minimal-button
+        class="back-to-list"
+        size="sm"
+        (click)="dismiss.emit()"
+        [attr.aria-label]="'observationDetails.backToList' | translate"
+      >
+        <adb-icon name="arrow-back" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'observationDetails.backToList' | translate }}</span>
+      </adb-minimal-button>
+    }
+    <div class="pager">
+      <adb-icon-button
+        variant="tertiary"
+        size="sm"
+        (click)="previous.emit()"
+        [disabled]="count() < 2"
+        [attr.aria-label]="'observationDetails.previous' | translate"
+      >
+        <adb-icon class="previous-icon" name="chevron-down" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'observationDetails.previous' | translate }}</span>
+      </adb-icon-button>
+      <span role="status" aria-live="polite">{{ 'observationDetails.counter' | translate: { current: position(), total: count() } }}</span>
+      <adb-icon-button
+        variant="tertiary"
+        size="sm"
+        (click)="next.emit()"
+        [disabled]="count() < 2"
+        [attr.aria-label]="'observationDetails.next' | translate"
+      >
+        <adb-icon class="next-icon" name="chevron-down" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'observationDetails.next' | translate }}</span>
+      </adb-icon-button>
+    </div>
+    <div class="header-actions">
+      <adb-minimal-button
+        #expandButton
+        [hidden]="expanded()"
+        size="sm"
+        (click)="toggleExpanded()"
+        [attr.aria-label]="'observationDetails.expand' | translate"
+      >
+        <adb-icon name="open-in-full" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'observationDetails.expand' | translate }}</span>
+      </adb-minimal-button>
+      <adb-minimal-button
+        [hidden]="hasList() && !expanded()"
+        size="sm"
+        (click)="dismiss.emit()"
+        [attr.aria-label]="'common.close' | translate"
+      >
+        <adb-icon name="close" aria-hidden="true" />
+        <span class="visually-hidden">{{ 'common.close' | translate }}</span>
+      </adb-minimal-button>
+    </div>
+  </header>
+  <div #body class="body" [attr.aria-busy]="state() === 'loading'">
+    @if (navigationError()) {
+      <p role="alert">{{ 'observationDetails.navigationError' | translate }}</p>
+    }
+    @switch (state()) {
+      @case ('loading') {
+        <p role="status">{{ 'observationDetails.loading' | translate }}</p>
+      }
+      @case ('notFound') {
+        <p role="alert">{{ 'observationDetails.notFound' | translate }}</p>
+      }
+      @case ('error') {
+        <p role="alert">{{ 'observationDetails.error' | translate }}</p>
+        <button type="button" (click)="retry.emit()">{{ 'observationList.retry' | translate }}</button>
+      }
+      @case ('ready') {
+        @if (detail(); as detail) {
+          <div class="columns">
+            <div class="metadata">
+              <div class="species">
+                <h2 [class.scientific]="!detail.popularName && !!detail.scientificName">{{ title() }}</h2>
+                @if (detail.popularName && detail.scientificName) {
+                  <p class="scientific">
+                    <i>{{ detail.scientificName }}</i>
+                  </p>
+                }
+                @if (detail.externalTaxonId && detail.externalTaxonId > 0) {
+                  <p>
+                    <a
+                      class="adb-link adb-link--external"
+                      [href]="'https://artsdatabanken.no/taxon/' + detail.externalTaxonId"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {{ 'observationDetails.speciesLink' | translate }}
+                      <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                    </a>
+                  </p>
+                }
+                @if (detail.categoryCode) {
+                  <p class="category">
+                    <app-risk-category-badge [code]="detail.categoryCode" aria-hidden="true" />{{
+                      'observationList.categories.' + detail.categoryCode | translate
+                    }}
+                  </p>
+                }
+                @if (detail.assessmentUrl) {
+                  <p>
+                    <a class="adb-link adb-link--external" [href]="detail.assessmentUrl" target="_blank" rel="noopener noreferrer">
+                      {{
+                        (detail.categoryTypeId === 2 ? 'observationDetails.alienAssessment' : 'observationDetails.redAssessment')
+                          | translate
+                      }}
+                      <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                    </a>
+                  </p>
+                }
+              </div>
+              <adb-accordion>
+                @for (section of sections(); track section.id) {
+                  <adb-accordion-item
+                    [attr.heading]="'observationDetails.sections.' + section.id | translate"
+                    [open]="sectionsOpen()[section.id]"
+                    (toggle)="setSection(section.id, $event)"
+                  >
+                    <dl>
+                      @for (row of section.rows; track row.label) {
+                        <div>
+                          <dt>{{ 'observationDetails.fields.' + row.label | translate }}:</dt>
+                          <dd [class.empty]="row.empty">{{ row.value }}</dd>
+                        </div>
+                      }
+                    </dl>
+                  </adb-accordion-item>
+                }
+              </adb-accordion>
+            </div>
+            <div class="visuals">
+              <h3>{{ 'observationDetails.location' | translate }}</h3>
+              @if (detail.point) {
+                <div class="maps">
+                  @for (view of mapViews; track view) {
+                    <div>
+                      @if (failedMaps().has(view)) {
+                        <p role="status">{{ 'observationDetails.mapUnavailable' | translate }}</p>
+                        <button type="button" (click)="retryMap(view)">{{ 'observationList.retry' | translate }}</button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="map-image"
+                          (click)="enlargeMap(view)"
+                          [attr.aria-label]="'observationDetails.enlargeMap' | translate"
+                        >
+                          <img
+                            [src]="mapUrl(view)"
+                            [alt]="'observationDetails.maps.' + view | translate"
+                            [width]="view === 'local' ? 800 : 500"
+                            height="800"
+                            (error)="mapFailed(view)"
+                          />
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p>{{ 'observationDetails.noCoordinates' | translate }}</p>
+              }
+              @if (detail.images?.length && observationId(); as id) {
+                <h3>{{ 'observationDetails.images' | translate }}</h3>
+                <app-observation-gallery [observationId]="id" [images]="detail.images" [species]="title()" />
+              }
+            </div>
+          </div>
+        }
+      }
+    }
+  </div>
+  <app-image-viewer [image]="viewer()" (closed)="viewer.set(null)" (failed)="viewerFailed()" />
+</dialog>

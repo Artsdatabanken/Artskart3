@@ -437,4 +437,55 @@ public class LookupControllerTests
             s => s.SearchCatalogNumbersAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task GetOrganizationById_WhenNotFound_ReturnsNotFound()
+    {
+        _serviceMock.Setup(s => s.GetOrganizationByIdAsync(5, It.IsAny<CancellationToken>())).ReturnsAsync((OrganizationDto?)null);
+
+        var result = await _sut.GetOrganizationById(5);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetOrganizationById_WhenFound_ReturnsOk()
+    {
+        _serviceMock.Setup(s => s.GetOrganizationByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrganizationDto { Id = 5, Name = "Prosjekt" });
+
+        var result = await _sut.GetOrganizationById(5);
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeEquivalentTo(new OrganizationDto { Id = 5, Name = "Prosjekt" });
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIds_WithEmptyList_ReturnsBadRequest()
+    {
+        var result = await _sut.GetCatalogNumberByObservationIds([]);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIds_WithTooManyIds_ReturnsBadRequest()
+    {
+        var result = await _sut.GetCatalogNumberByObservationIds(Enumerable.Range(1, SearchConstants.MaxObservationIdFilterSize + 1).ToArray());
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIds_WhenNothingMatches_ReturnsNotFound()
+    {
+        _serviceMock.Setup(s => s.GetCatalogNumberByObservationIdsAsync(It.IsAny<int[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CatalogNumberMatchDto?)null);
+
+        var result = await _sut.GetCatalogNumberByObservationIds([1, 2]);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
 }

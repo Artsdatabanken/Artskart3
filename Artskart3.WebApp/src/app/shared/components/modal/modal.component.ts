@@ -10,6 +10,8 @@ import {
 import { TranslateModule } from '@ngx-translate/core';
 
 export type ModalVariant = 'prompt' | 'info';
+export type ModalConfirmColor = 'accent' | 'danger';
+export type ModalCancelVariant = 'tertiary' | 'secondary';
 
 @Component({
   selector: 'app-modal',
@@ -32,6 +34,8 @@ export class ModalComponent {
   readonly cancelLabel = input<string>('Avbryt');
   readonly confirmDisabled = input(false);
   readonly loading = input(false);
+  readonly confirmColor = input<ModalConfirmColor>('accent');
+  readonly cancelVariant = input<ModalCancelVariant>('tertiary');
 
   readonly modalConfirm = output<void>();
   readonly modalCancel = output<void>();

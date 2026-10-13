@@ -1,0 +1,28 @@
+<app-modal
+  [open]="open()"
+  [title]="'savedFilters.modalTitle' | translate"
+  variant="prompt"
+  [confirmLabel]="saving() ? ('savedFilters.saving' | translate) : ('savedFilters.saveConfirm' | translate)"
+  [cancelLabel]="'savedFilters.cancel' | translate"
+  [confirmDisabled]="!name().trim() || saving()"
+  [loading]="saving()"
+  (modalConfirm)="onConfirm()"
+  (modalCancel)="close()"
+>
+  <label class="name-label" for="save-filter-name-input">
+    <span class="name-label-text">{{ 'savedFilters.nameLabel' | translate }}</span>
+    <span class="name-required">{{ 'savedFilters.nameRequired' | translate }}</span>
+  </label>
+  <input
+    id="save-filter-name-input"
+    type="text"
+    class="name-input"
+    maxlength="200"
+    [value]="name()"
+    (input)="name.set($any($event.target).value)"
+    (keydown.enter)="onConfirm()"
+  />
+  <adb-checkbox class="default-checkbox" [attr.checked]="isDefault() ? '' : null" (change)="isDefault.set(!isDefault())">
+    {{ 'savedFilters.setAsDefault' | translate }}
+  </adb-checkbox>
+</app-modal>

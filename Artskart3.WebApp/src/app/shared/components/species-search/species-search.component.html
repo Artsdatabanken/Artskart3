@@ -19,6 +19,10 @@
     {{ 'sidebar.noSearchResults' | translate }}
   }
 </div>
+<!-- One line on purpose: whitespace between segments would add spaces inside words. -->
+<ng-template #highlighted let-text
+  >@for (segment of highlightMatch(text); track $index) {@if (segment.isMatch) {<mark>{{ segment.text }}</mark>} @else {<ng-container>{{ segment.text }}</ng-container>}}</ng-template
+>
 @if (showAutocomplete()) {
   <ul
     class="autocomplete-list"
@@ -26,9 +30,9 @@
     [attr.aria-label]="'sidebar.searchResults' | translate"
     [style.top.px]="autocompletePosition().top"
     [style.left.px]="autocompletePosition().left"
-    [style.min-width.px]="autocompletePosition().width"
+    [style.width.px]="autocompletePosition().width"
   >
-    @for (species of speciesResults(); track species.taxonId ?? $index) {
+    @for (row of resultRows(); track row.species.taxonId ?? $index) {
       <li
         class="autocomplete-item"
         [class.autocomplete-item--active]="highlightedIndex() === $index"
@@ -36,17 +40,39 @@
         role="option"
         [attr.aria-selected]="highlightedIndex() === $index"
         [attr.tabindex]="highlightedIndex() === $index ? 0 : -1"
-        (click)="onSpeciesSelect(species)"
-        (keydown.enter)="onSpeciesSelect(species)"
-        (keydown.space)="onSpeciesSelect(species); $event.preventDefault()"
+        (click)="onSpeciesSelect(row.species)"
+        (keydown.enter)="onSpeciesSelect(row.species)"
+        (keydown.space)="onSpeciesSelect(row.species); $event.preventDefault()"
       >
-        <span class="autocomplete-vernacular" [innerHTML]="highlightMatch(getVernacularName(species))"></span>
-        <span class="autocomplete-scientific" [innerHTML]="highlightMatch(species.scientificName)"></span>
-        @if (species.author) {
-          <span class="autocomplete-author">– <span [innerHTML]="highlightMatch(species.author)"></span></span>
-        }
-        @if (species.rank) {
-          <span class="autocomplete-rank">{{ 'sidebar.rank.' + species.rank | translate }}</span>
+        <span class="autocomplete-text">
+          <span class="autocomplete-names">
+            @if (row.vernacularName) {
+              <span class="autocomplete-vernacular"
+                ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.vernacularName }" /></span
+              >{{ ' ' }}
+            }
+            <span class="autocomplete-scientific"
+              ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: row.species.scientificName }"
+            /></span>
+          </span>
+          @if (row.matchLine; as matchLine) {
+            <span class="autocomplete-match">
+              @if (matchLine.kind === 'id') {
+                {{ 'sidebar.taxonIdLabel' | translate }}{{ ' ' }}
+              } @else if (matchLine.kind === 'synonym') {
+                {{ 'sidebar.synonymMatch' | translate }}{{ ' ' }}
+              }
+              <span [class.autocomplete-match-scientific]="matchLine.italic"
+                ><ng-container *ngTemplateOutlet="highlighted; context: { $implicit: matchLine.text }"
+              /></span>
+            </span>
+          }
+          @if (row.species.taxonGroupName) {
+            <span class="autocomplete-group">{{ row.species.taxonGroupName }}</span>
+          }
+        </span>
+        @if (row.species.rank) {
+          <span class="autocomplete-rank">{{ 'sidebar.rank.' + row.species.rank | translate }}</span>
         }
       </li>
     }
@@ -57,8 +83,9 @@
     class="autocomplete-list autocomplete-no-results"
     [style.top.px]="autocompletePosition().top"
     [style.left.px]="autocompletePosition().left"
-    [style.min-width.px]="autocompletePosition().width"
+    [style.width.px]="autocompletePosition().width"
   >
-    {{ 'sidebar.noSearchResults' | translate }}
+    <adb-icon name="info" size="md"></adb-icon>
+    <span>{{ 'sidebar.noSearchResultsFor' | translate: { searchTerm: searchTerm() } }}</span>
   </div>
 }

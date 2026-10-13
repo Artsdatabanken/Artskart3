@@ -1,7 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 
-#nullable disable
-
 namespace Artskart3.Infrastructure.Migrations;
 
 /// <inheritdoc />
@@ -17,6 +15,7 @@ public partial class SeedBioklimatiskeMapLayers : Migration
         migrationBuilder.InsertData(
             table: "MapLayer",
             columns: ["Name", "Type", "Url", "Layers", "Format", "Version", "Attribution", "CreatedAt", "UpdatedAt", "IsDeleted"],
+            columnTypes: ["nvarchar(200)", "nvarchar(20)", "nvarchar(1000)", "nvarchar(500)", "nvarchar(100)", "nvarchar(20)", "nvarchar(1000)", "datetime2", "datetime2", "bit"],
             values: new object[,]
             {
                 { "Bioseksjoner", "WMS", "https://kart.artsdatabanken.no/wms/lkm.aspx?", "seksjoner2017", "image/png", "1.3.0", "Artsdatabanken", SeededAt, SeededAt, false },
@@ -32,6 +31,7 @@ public partial class SeedBioklimatiskeMapLayers : Migration
             migrationBuilder.DeleteData(
                 table: "MapLayer",
                 keyColumn: "Name",
+                keyColumnType: "nvarchar(200)",
                 keyValue: name);
         }
     }

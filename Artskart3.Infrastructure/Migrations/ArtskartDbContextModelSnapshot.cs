@@ -931,6 +931,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(100);
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2197,6 +2202,68 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "RecordId" }, "NonClusteredIndex-20171028-195228");
 
                     b.ToTable("RejectedRecord", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.SavedFilter", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilterJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("MaxX")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MaxY")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MinX")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MinY")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "PublicId" }, "IX_SavedFilter_PublicId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_SavedFilter_UserId");
+
+                    b.ToTable("SavedFilter", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.SensitiveObservationDatum", b =>
