@@ -257,7 +257,8 @@
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
-    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in datasets for \"{{searchTerm}}\"",
+    "noSearchResultsCatalogNumber": "No results in ids or catalog numbers for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "rank": {
       "Kingdom": "Kingdom",
