@@ -1,0 +1,25 @@
+:host {
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: var(--adb-font-family-primary);
+  font-style: normal;
+  font-weight: var(--adb-font-weight-primary);
+}
+
+.risk-category-circle-small {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  border-style: solid;
+  border-width: 1px;
+}
+
+.risk-category-tag-label-small {
+  font-size: 12px;
+  line-height: 24px;
+  margin: auto;
+  display: block;
+  text-align: center;
+}

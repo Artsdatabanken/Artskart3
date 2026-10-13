@@ -1,0 +1,46 @@
+.date-cell {
+  white-space: nowrap;
+}
+
+.default-tag {
+  display: inline-block;
+  margin-left: var(--adb-spacing-2xsm);
+  padding: 0 var(--adb-spacing-2xsm);
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-border-radius-sm);
+  font-family: var(--adb-font-family-secondary);
+  font-size: var(--adb-font-size-1);
+  color: var(--adb-text-base-primary);
+  white-space: nowrap;
+}
+
+.link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--adb-text-accent-primary);
+  text-decoration: underline;
+  text-align: left;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--adb-focus-outer);
+    outline-offset: 2px;
+  }
+}
+
+.delete-column {
+  width: 1%;
+  text-align: center;
+}
+
+.delete-message {
+  margin: 0;
+  color: var(--adb-text-base-primary);
+}

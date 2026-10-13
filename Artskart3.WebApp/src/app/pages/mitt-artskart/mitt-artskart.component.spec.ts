@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MittArtskartComponent } from './mitt-artskart.component';
+import { SavedFiltersTableComponent } from './saved-filters-table/saved-filters-table.component';
 import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types';
 
 const TRANSLATIONS = {
@@ -22,7 +23,10 @@ describe('MittArtskartComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MittArtskartComponent, TranslateModule.forRoot()],
       providers: [provideHttpClient(), provideHttpClientTesting()],
-    }).compileComponents();
+    })
+      // Tabellen for lagrede filtre har egne tester og egne HTTP-kall.
+      .overrideComponent(MittArtskartComponent, { remove: { imports: [SavedFiltersTableComponent] } })
+      .compileComponents();
 
     const translate = TestBed.inject(TranslateService);
     translate.setTranslation('no', TRANSLATIONS);

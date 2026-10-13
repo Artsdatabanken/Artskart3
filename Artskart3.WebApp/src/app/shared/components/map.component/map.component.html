@@ -4,11 +4,13 @@
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
   <div #mapEl class="map"></div>
-  @if (showObservationList()) {
-    <app-observation-list [observationList]="observationList()" [clickCoordinates]="clickCoordinates()"/>
-  }
-  <app-loading-indicator
-    [active]="isLoadingAreaData()"
-    [label]="'mapToolbar.loadingObservationsLabel' | translate"
-  ></app-loading-indicator>
+  <app-observation-panel
+    [observations]="observationList()"
+    [selection]="showObservationList() ? observationSelection() : null"
+    [requestState]="observationRequestState()"
+    (retry)="retryObservations()"
+    (activePoint)="highlightObservation($event)"
+    (detailsOpened)="detailsOpened.emit()"
+  />
+  <app-loading-indicator [active]="isLoadingAreaData()" [label]="'mapToolbar.loadingObservationsLabel' | translate"></app-loading-indicator>
 </div>

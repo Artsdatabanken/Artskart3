@@ -1,4 +1,5 @@
 using Artskart3.Core.Constants;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
@@ -105,12 +106,111 @@ public class LookupRepositoryTests
         result.Should().BeEmpty();
     }
 
-    private static LookupRepository CreateRepository()
+    [Fact]
+    public async Task GetTaxonGroupNamesByTaxonIdsAsync_ReturnsGroupNamePerRequestedTaxon()
+    {
+        var context = CreateContext();
+        var fish = new TaxonGroup { Id = 1, Name = "Fisker" };
+        var molluscs = new TaxonGroup { Id = 2, Name = "Bløtdyr" };
+        var deletedGroup = new TaxonGroup { Id = 3, Name = "Slettet", IsDeleted = true };
+        context.AddRange(fish, molluscs, deletedGroup);
+        context.AddRange(
+            CreateTaxon(42911, fish),
+            CreateTaxon(79773, molluscs),
+            CreateTaxon(55555, molluscs),
+            CreateTaxon(66666, deletedGroup));
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.GetTaxonGroupNamesByTaxonIdsAsync([42911, 79773, 66666, 99999]);
+
+        result.Should().BeEquivalentTo(new Dictionary<int, string> { [42911] = "Fisker", [79773] = "Bløtdyr" });
+    }
+
+    [Fact]
+    public async Task GetTaxonGroupNamesByTaxonIdsAsync_WithNoIds_ReturnsEmpty()
+    {
+        var sut = CreateRepository();
+
+        var result = await sut.GetTaxonGroupNamesByTaxonIdsAsync([]);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_UsesCatalogNumberWhenPresent()
+    {
+        var context = CreateContext();
+        context.Observations.AddRange(
+            new Observation { Id = 1, CatalogNumber = "O-123", ProxyId = "urn:catalog:o:l:O-123" },
+            new Observation { Id = 2, CatalogNumber = "O-123" });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([1, 2]);
+
+        result!.CatalogNumber.Should().Be("O-123");
+        result.ObservationIds.Should().BeEquivalentTo([1, 2]);
+    }
+
+    /// <summary>
+    /// Et filter laget fra en innlimt URN peker på observasjoner som ikke
+    /// nødvendigvis har katalognummer.
+    /// </summary>
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_WithoutCatalogNumber_FallsBackToProxyId()
+    {
+        var context = CreateContext();
+        context.Observations.Add(new Observation { Id = 1, ProxyId = "urn:catalog:o:l:37", OccurrenceId = "urn:catalog:O:L:37" });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([1]);
+
+        result!.CatalogNumber.Should().Be("urn:catalog:o:l:37");
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIdsAsync_WithUnknownIds_ReturnsNull()
+    {
+        var sut = CreateRepository();
+
+        var result = await sut.GetCatalogNumberByObservationIdsAsync([999]);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetOrganizationByIdAsync_ReturnsNameAndSkipsDeleted()
+    {
+        var context = CreateContext();
+        context.Organizations.AddRange(
+            new Organization { Id = 1, Name = "Prosjekt A", OrganizationTypeId = 3 },
+            new Organization { Id = 2, Name = "Slettet", OrganizationTypeId = 2, IsDeleted = true });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        (await sut.GetOrganizationByIdAsync(1))!.Name.Should().Be("Prosjekt A");
+        (await sut.GetOrganizationByIdAsync(2)).Should().BeNull();
+    }
+
+    private static Taxon CreateTaxon(int id, TaxonGroup group) => new()
+    {
+        Id = id,
+        TaxonGroup = group,
+        ScientificNameIdHiarchy = string.Empty,
+        TaxonIdHiarchy = string.Empty
+    };
+
+    private static ArtskartDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new LookupRepository(new ArtskartDbContext(options), NullLogger<LookupRepository>.Instance);
+        return new ArtskartDbContext(options);
     }
+
+    private static LookupRepository CreateRepository() =>
+        new(CreateContext(), NullLogger<LookupRepository>.Instance);
 }

@@ -1,7 +1,12 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
+using Artskart3.Core.Domain.Entities;
+using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -382,5 +387,60 @@ public class LookupEndpointTests : IAsyncLifetime
             entry.TryGetProperty("parentIds", out var parentIds).Should().BeTrue();
             parentIds.ValueKind.Should().Be(JsonValueKind.Array);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Omvendte oppslag for lagrede filtre
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetOrganizationById_WithUnknownId_Returns404()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Organizations/999999999");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetOrganizationById_WithExistingOrganization_ReturnsName()
+    {
+        int organizationId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+            const int organizationTypeId = 9003;
+            if (!await context.OrganizationTypes.AnyAsync(t => t.Id == organizationTypeId))
+            {
+                context.OrganizationTypes.Add(new OrganizationType { Id = organizationTypeId, Name = "Test", Description = "Test" });
+            }
+            var organization = new Organization { Name = "Testprosjekt for lagrede filter", OrganizationTypeId = organizationTypeId, DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow };
+            context.Organizations.Add(organization);
+            await context.SaveChangesAsync();
+            organizationId = organization.Id;
+        }
+
+        var response = await _client.GetAsync($"/api/Lookup/Organizations/{organizationId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("name").GetString().Should().Be("Testprosjekt for lagrede filter");
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIds_WithSeededObservation_ReturnsCatalogNumber()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Lookup/CatalogNumbers/ByObservationIds", new[] { SeededObservationId });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("catalogNumber").GetString().Should().Be("104168");
+    }
+
+    [Fact]
+    public async Task GetCatalogNumberByObservationIds_WithEmptyList_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Lookup/CatalogNumbers/ByObservationIds", Array.Empty<int>());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 }

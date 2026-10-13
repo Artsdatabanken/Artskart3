@@ -28,17 +28,27 @@
   },
   "private": true,
   "devEngines": {
-    "runtime": { "name": "node", "version": ">=24.15.0", "onFail": "warn" },
-    "packageManager": { "name": "npm", "version": ">=11", "onFail": "warn" }
+    "runtime": {
+      "name": "node",
+      "version": ">=24.15.0",
+      "onFail": "warn"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11",
+      "onFail": "warn"
+    }
   },
   "dependencies": {
+    "@angular/aria": "~22.1.4",
     "@angular/common": "^22.1.4",
     "@angular/compiler": "^22.1.4",
     "@angular/core": "^22.1.4",
     "@angular/forms": "^22.1.4",
     "@angular/platform-browser": "^22.1.4",
     "@angular/router": "^22.1.4",
-    "@artsdatabanken/components": "^2.0.1",
+    "@artsdatabanken/components": "^2.0.2",
+    "@artsdatabanken/icons": "^2.0.1",
     "@artsdatabanken/tokens": "^2.0.0",
     "@artsdatabanken/nbic-map-component": "0.3.0",
     "@microsoft/applicationinsights-angularplugin-js": "^15.3.8",

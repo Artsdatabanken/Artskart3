@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { of, Subject } from 'rxjs';
 import { SpeciesSearchComponent } from './species-search.component';
 import { SpeciesSearchService } from '../../services/species-search/species-search.service';
@@ -404,31 +404,116 @@ describe('SpeciesSearchComponent', () => {
   });
 
   describe('highlightMatch', () => {
-    it('should bold matching substring', () => {
+    const marked = (text: string) => ({ text, isMatch: true });
+    const plain = (text: string) => ({ text, isMatch: false });
+
+    it('should mark the matching substring', () => {
       component.searchTerm.set('kjøtt');
-      expect(component.highlightMatch('Kjøttmeis')).toBe('<strong>Kjøtt</strong>meis');
+      expect(component.highlightMatch('Kjøttmeis')).toEqual([marked('Kjøtt'), plain('meis')]);
+    });
+
+    it('should mark a match inside a word', () => {
+      component.searchTerm.set('ulke');
+      expect(component.highlightMatch('Sargassoulke')).toEqual([plain('Sargasso'), marked('ulke')]);
     });
 
     it('should highlight multiple words independently', () => {
       component.searchTerm.set('kj m');
-      const result = component.highlightMatch('Kjøttmeis');
-      expect(result).toBe('<strong>Kj</strong>øtt<strong>m</strong>eis');
+      expect(component.highlightMatch('Kjøttmeis')).toEqual([marked('Kj'), plain('øtt'), marked('m'), plain('eis')]);
     });
 
-    it('should return original text when no search term', () => {
+    it('should return the whole text unmarked when no search term', () => {
       component.searchTerm.set('');
-      expect(component.highlightMatch('Kjøttmeis')).toBe('Kjøttmeis');
+      expect(component.highlightMatch('Kjøttmeis')).toEqual([plain('Kjøttmeis')]);
     });
 
-    it('should return empty string for null/undefined input', () => {
+    it('should return no segments for null/undefined input', () => {
       component.searchTerm.set('test');
-      expect(component.highlightMatch(null)).toBe('');
-      expect(component.highlightMatch(undefined)).toBe('');
+      expect(component.highlightMatch(null)).toEqual([]);
+      expect(component.highlightMatch(undefined)).toEqual([]);
     });
 
     it('should escape regex special characters in search term', () => {
       component.searchTerm.set('test(1)');
-      expect(component.highlightMatch('this is test(1) here')).toBe('this is <strong>test(1)</strong> here');
+      expect(component.highlightMatch('this is test(1) here')).toEqual([
+        plain('this is '),
+        marked('test(1)'),
+        plain(' here'),
+      ]);
+    });
+
+    it('should render matches as mark elements', () => {
+      component.searchTerm.set('kjøtt');
+      component.speciesResults.set([mockSpecies[0]]);
+      component.showAutocomplete.set(true);
+      fixture.detectChanges();
+      const vernacular = fixture.nativeElement.querySelector('.autocomplete-vernacular');
+      expect(vernacular.querySelector('mark').textContent).toBe('Kjøtt');
+      expect(vernacular.textContent).toBe('Kjøttmeis');
+    });
+  });
+
+  describe('resultRows', () => {
+    const coryphellaSynonym: SpeciesDto = {
+      taxonId: 100,
+      scientificName: 'Fjordia chriskaugei',
+      author: 'Padula, 2014',
+      rank: 'Species',
+      taxonGroupName: 'Bløtdyr',
+      preferredVernacularNames: [{ name: 'Flanellsnegl', language: 'nb' }],
+      vernacularNameSynonyms: [{ name: 'Lodden flanellsnegl', language: 'nb' }],
+      scientificNameSynonyms: [{ name: 'Coryphella chriskaugei' }],
+    };
+
+    function rowFor(term: string, species: SpeciesDto = coryphellaSynonym) {
+      component.searchTerm.set(term);
+      component.speciesResults.set([species]);
+      return component.resultRows()[0];
+    }
+
+    it('should show no match line when the name itself matches', () => {
+      expect(rowFor('fjordia chris').matchLine).toBeNull();
+      expect(rowFor('flanell').matchLine).toBeNull();
+    });
+
+    it('should show a scientific synonym when only it matches', () => {
+      expect(rowFor('coryphella chris').matchLine).toEqual({
+        kind: 'synonym',
+        text: 'Coryphella chriskaugei',
+        italic: true,
+      });
+    });
+
+    it('should show a vernacular synonym when only it matches', () => {
+      expect(rowFor('lodden').matchLine).toEqual({ kind: 'synonym', text: 'Lodden flanellsnegl', italic: false });
+    });
+
+    it('should show the author when it matches', () => {
+      expect(rowFor('padula').matchLine).toEqual({ kind: 'author', text: 'Padula, 2014', italic: false });
+    });
+
+    it('should show the taxon id for a numeric search', () => {
+      expect(rowFor('100').matchLine).toEqual({ kind: 'id', text: '100', italic: false });
+    });
+
+    it('should expose the vernacular name and taxon group', () => {
+      const row = rowFor('flanell');
+      expect(row.vernacularName).toBe('Flanellsnegl');
+      expect(row.species.taxonGroupName).toBe('Bløtdyr');
+    });
+  });
+
+  describe('no results', () => {
+    it('should show the search term in the message', () => {
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('no', { sidebar: { noSearchResultsFor: 'Ingen treff på “{{searchTerm}}”.' } });
+      translate.use('no');
+      component.searchTerm.set('Coryfella');
+      component.showNoResults.set(true);
+      fixture.detectChanges();
+      const message = fixture.nativeElement.querySelector('.autocomplete-no-results');
+      expect(message.textContent).toContain('Ingen treff på “Coryfella”.');
+      expect(message.querySelector('adb-icon[name="info"]')).toBeTruthy();
     });
   });
 });
