@@ -3,26 +3,15 @@
 ## Forutsetninger
 
 Sørg for at du har følgende installert:
-- **Node.js 24 LTS, minst 24.15.0** (påkrevd for Angular 22)
-- **npm 11+** (følger med Node 24; angitt i package.json)
+- **Node.js 24 LTS, minst 24.15.0** (Angular 22 krever `^22.22.3 || ^24.15.0 || >=26`)
+- **npm** (følger med Node)
 - **Git** (for å klone repositorier)
 - **Angular**: 22
 - **Visual Studio 2026** (for .NET 10 backend)
 
 ## Oppsett: Klone begge repositorier
 
-### Steg 1: Sikre at begge repositorier er klonet og verifisert
-
-Hvis du ikke allerede har gjort det, klone begge repositorier til din lokale maskin:
-
-```bash
-# Naviger til arbeidsmappe-katalogen din
-# Verifiser at begge mapper eksisterer (de burde gjøre det basert på arbeidsstrukturen)
-# - Artskart3/
-# - nbic-map-component/
-```
-
-Begge repositorier burde allerede være klonet til:
+Begge repositoriene må ligge i samme mappe, siden stiene under er relative:
 - `c:\Users\xxxx\source\repos\ArtsKart3\Artskart3`
 - `c:\Users\xxxx\source\repos\ArtsKart3\nbic-map-component`
 
@@ -35,22 +24,12 @@ cd nbic-map-component
 npm install
 ```
 
-Dette installerer alle utviklingsavhengigheter som trengs for å bygge og teste komponentbiblioteket.
-
-### Steg 2: Bygg nbic-map-component
-
-```bash
-npm run build
-```
-
-Dette genererer `dist/`-mappen med:
+`npm install` bygger også `dist/` (via `prepare`-scriptet):
 - `dist/index.js` — ES module bygg
 - `dist/index.cjs` — CommonJS bygg
 - `dist/index.d.ts` — TypeScript typedefinisjon
 
-**Viktig:** Hver gang du gjør endringer i komponentkildekoden, må du kjøre `npm run build` for å generere nytt output.
-
-### Steg 3: Installer avhengigheter i Artskart3.WebApp
+### Steg 2: Installer avhengigheter i Artskart3.WebApp
 
 ```bash
 cd ..\Artskart3\Artskart3.WebApp
@@ -59,140 +38,69 @@ npm install
 
 ---
 
-## Metoder for å lenke lokal pakke
+## Bruke lokal versjon av komponenten i Artskart3
 
-### Metode: Bruk `file:` referanse i package.json
+Artskart3 installerer komponenten som en pakket `.tgz`-fil, akkurat slik den blir publisert.
 
-#### Steg 1: Rediger package.json
-
-I `Artskart3.WebApp\package.json`, endre avhengighetslinja:
-
-```json
-{
-  "dependencies": {
-    "@artsdatabanken/nbic-map-component": "file:../../nbic-map-component",
-    ...
-  }
-}
-```
-
-**Viktig:** Bruk relativstien fra WebApp-mappen til nbic-map-component-mappen (juster stien etter din mappestruktur).
-
-#### Steg 2: Oppdater node_modules
+### Steg 1: Pakk komponenten
 
 ```bash
-cd Artskart3.WebApp
-npm install
+cd nbic-map-component
+npm pack
 ```
 
-Dette oppretter en lenke i `node_modules` som peker til din lokale nbic-map-component.
+Dette bygger `dist/` og lager `artsdatabanken-nbic-map-component-<versjon>.tgz` (f.eks. `artsdatabanken-nbic-map-component-0.3.0.tgz`). Filen er ignorert av git.
 
-#### Verifiser lenken
-
-Kontroller at `node_modules/@artsdatabanken/nbic-map-component` peker til din lokale mappe:
+### Steg 2: Installer pakken i Artskart3
 
 ```bash
-# På Windows
-dir node_modules\@artsdatabanken\nbic-map-component
-
-# Du burde se de lokale kildefilene, ikke bare dist/
+cd ..\Artskart3\Artskart3.WebApp
+npm install ../../nbic-map-component/artsdatabanken-nbic-map-component-0.3.0.tgz
 ```
-For å bekrefte at det bruker den lokale versjonen, sjekk den faktiske node_modules-oppføringen:
+
+`package.json` peker nå på `file:../../nbic-map-component/artsdatabanken-nbic-map-component-0.3.0.tgz`.
+
+- **Ikke commit** `package.json` og `package-lock.json` mens de peker på `.tgz`-filen.
+- Advarselen `allow-scripts … (prepare: npm run build)` kan ignoreres, fordi `dist/` allerede ligger i `.tgz`-filen.
+
+### Hvorfor ikke `file:../../nbic-map-component`?
+
+Med en mappe-lenke installerer npm komponentens avhengigheter (`ol`, `proj4` m.fl.) i komponentens egen `node_modules`. Artskart3 får da enten ingen `ol` eller to kopier av den. Kartkomponenten registrerer EPSG:25833 i sin egen kopi, så `transform(…, 'EPSG:25833')` i Artskart3 og lag eller kontroller som Artskart3 sender inn, kan feile. Med `.tgz` deler Artskart3 og komponenten én `ol`.
+
+### Gå tilbake til publisert versjon
+
 ```bash
-# Vis package.json som ble løst
-cat node_modules/@artsdatabanken/nbic-map-component/package.json
-```
-
-#### Gå tilbake til publisert versjon
-
-Endre `package.json` tilbake til:
-
-```json
-{
-  "dependencies": {
-    "@artsdatabanken/nbic-map-component": "^0.2.2",
-    ...
-  }
-}
-```
-
-Og installer på nytt:
-```bash
+cd Artskart3\Artskart3.WebApp
+git checkout -- package.json package-lock.json
 npm install
 ```
 
 ---
 
-## Kjøre begge prosjekter i utviklingsmodus
-
-### Metode: Tilnærming med to terminaler
-
-#### Terminal 1: Komponenten i utviklingsmodus
-
-**Alternativ A: Live reload med Vite dev server**
-```bash
-cd nbic-map-component
-npm run dev
-```
-Dette kjører Vite-utviklingsserveren for componentene playground med instant reload under utvikling.
-
-**Alternativ B: Enkelt bygg etter endringer**
-```bash
-cd nbic-map-component
-npm run build
-```
-Dette genererer nye filer i `dist/` som kan testes i Artskart3.
-
-**Anbefaling:** Bruk `npm run dev` for løpende utvikling. Bruk `npm run build` når du skal teste endringene i Artskart3-appen.
-
-#### Terminal 2: Kjør Artskart WebApp i utviklingsmodus
+## Kjøre Artskart3
 
 ```bash
 cd Artskart3\Artskart3.WebApp
 npm start
 ```
 
-På Windows kjører dette kommandoen:
-```
-ng serve --ssl --ssl-cert "%APPDATA%\ASP.NET\https\artskart3.webapp.pem" --ssl-key "%APPDATA%\ASP.NET\https\artskart3.webapp.key" --host=127.0.0.1
-```
+`npm start` kjører `ng serve --ssl` med dev-sertifikatet fra ASP.NET:
+- Windows: `%APPDATA%\ASP.NET\https\artskart3.webapp.pem` / `.key`
+- Mac/Linux: `$HOME/.aspnet/https/artskart3.webapp.pem` / `.key`
 
-Angular-utviklingsserveren er tilgjengelig på `https://127.0.0.1:4200` (sjekk output for faktisk port).
+Åpne **https://localhost:49219** (porten er satt i `angular.json`). Sertifikatet gjelder bare `localhost`, så `https://127.0.0.1:49219` gir sertifikatfeil.
 
 ## Arbeidsflyt: Gjøre og teste endringer
 
-### Steg 1: Gjør endringer i nbic-map-component
+1. Gjør endringer i `nbic-map-component/src/`.
+2. Pakk på nytt: `npm pack` (i nbic-map-component).
+3. Installer på nytt i Artskart3.WebApp, med samme kommando som i steg 2 over. npm plukker opp det nye innholdet selv om versjonsnummeret er det samme.
+4. Start `npm start` på nytt. Ved oppstart ser Angular/Vite at lockfilen er endret og bygger avhengighetene på nytt.
 
-Rediger kildefiler i `nbic-map-component/src/`:
+For å utvikle og teste komponenten alene, uten Artskart3, bruk playgrounden: `npm run dev` i nbic-map-component (Vite med live reload). Artskart3 ser ikke endringer derfra før du har pakket og installert på nytt.
 
-```typescript
-// nbic-map-component/src/din-fil.ts
-// Gjør dine endringer her
-```
+## Test
 
-### Steg 2: Bygg komponenten
-
-```bash
-cd nbic-map-component
-npm run build
-```
-
-Dette genererer nye filer i `dist/`.
-
-### Steg 3: Test i Artskart
-
-Angular-utviklingsserveren oppdager endringer og hot-reloader
-
-Hvis endringer ikke vises:
-1. Sjekk nettleserkonsollen for feil
-2. Tøm nettlesercache (Ctrl+Shift+Delete)
-3. Hard refresh (Ctrl+Shift+R)
-4. Start Angular dev-serveren på nytt
-
-### Steg 4: Test grundig
-
-- Test i Artskart-grensesnittet
-- Kjør komponenttester: `npm run test:watch` (i nbic-map-component)
-- Kjør Artskart-tester: `npm test` (i Artskart3.WebApp)
-- Sjekk nettleserkonsollen for feil
-- Verifiser at TypeScript-typer er korrekte
+- Komponenten: `npm test` eller `npm run test:watch` (i nbic-map-component)
+- Artskart3: `npm run lint`, `npm run test -- --watch=false` og `npm run build` (i Artskart3.WebApp)
+- Test i Artskart-grensesnittet og sjekk nettleserkonsollen for feil
