@@ -6,11 +6,13 @@ import { FilterStateService } from '../../services/filter-state/filter-state.ser
 import { TaxonSelectionService } from '../../services/taxon-selection/taxon-selection.service';
 import { LoggingService } from '../../logging.service';
 import { TaxonTreeNodeDto } from '../../types/api.types';
+import { By } from '@angular/platform-browser';
 
-function node(id: number, hasChildren = false): TaxonTreeNodeDto {
+function node(id: number, hasChildren = false, preferredPopularName?: string): TaxonTreeNodeDto {
   return {
     id,
     validScientificName: `Taxon ${id}`,
+    preferredPopularName,
     taxonRankId: 10,
     taxonGroupId: 1,
     existsInCountry: true,
@@ -146,5 +148,31 @@ describe('TaxonTreeComponent', () => {
   it('sender ancestorIds videre til neste tre-nivå', () => {
     expect(component.childAncestorIds(1)).toEqual([1]);
     expect(component.ancestorIds()).toEqual([]);
+  });
+
+  it('viser populærnavn som standard', () => {
+    expect(component.displayName(node(1, false, 'Bakterier'))).toBe('Bakterier');
+  });
+
+  it('faller tilbake til vitenskapelig navn når populærnavn mangler', () => {
+    expect(component.displayName(node(1))).toBe('Taxon 1');
+  });
+
+  it('viser vitenskapelig navn når showScientificNames er på', () => {
+    fixture.componentRef.setInput('showScientificNames', true);
+    expect(component.displayName(node(1, false, 'Bakterier'))).toBe('Taxon 1');
+  });
+
+  it('sender showScientificNames videre til neste tre-nivå', () => {
+    fixture.componentRef.setInput('showScientificNames', true);
+    component.onNodeToggle(1);
+    fixture.detectChanges();
+    httpTesting
+      .expectOne((r) => r.url === '/api/Lookup/TaxonTree' && r.params.get('parentTaxonId') === '1')
+      .flush([node(4, false, 'Barn')]);
+    fixture.detectChanges();
+
+    const childTree = fixture.debugElement.query(By.directive(TaxonTreeComponent));
+    expect(childTree.nativeElement.querySelector('adb-checkbox > span:not([slot])').innerHTML).toBe('Taxon 4');
   });
 });
