@@ -507,6 +507,13 @@ public class SearchRepository : ISearchRepository
                 : query.Where(o => !o.MediaFiles.Any());
         }
 
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = filter.ChangedByAnnotation.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges));
+        }
+
         if (filter.Period?.Months?.Any() == true)
         {
             var months = filter.Period.Months;
@@ -809,6 +816,20 @@ public class SearchRepository : ISearchRepository
             query = filter.WithImages.Value
                 ? query.Where(idx => idx.HasMediaFiles)
                 : query.Where(idx => !idx.HasMediaFiles);
+        }
+
+        // Semi-join rett mot koblingstabellen, ikke via Observation.Tags: veien
+        // gjennom Observation brukte ~10x så mye CPU på fylkesnivå. Bare ~133k
+        // observasjoner har taggen, og IX_TagIdObsId gjør oppslaget til et seek,
+        // så en denormalisert kolonne er ikke verdt en ny backfill.
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            var changedByAnnotation = _context.Set<Dictionary<string, object>>("ObservationTag")
+                .Where(ot => (int)ot["TagId"] == (int)TagEnum.AnnotatedChanges)
+                .Select(ot => (int)ot["ObservationId"]);
+            query = filter.ChangedByAnnotation.Value
+                ? query.Where(idx => changedByAnnotation.Contains(idx.ObservationId))
+                : query.Where(idx => !changedByAnnotation.Contains(idx.ObservationId));
         }
 
         // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).

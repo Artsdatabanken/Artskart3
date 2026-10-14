@@ -41,4 +41,10 @@ public interface IObservationFilter
     int[]? ObservationIds { get; }
 
     bool? WithImages { get; }
+
+    /// <summary>
+    /// Taggen AnnotatedChanges, ikke HasAnnotations-kolonnen. Kolonnen tar også med
+    /// observasjoner som har en annotering uten at noe ble endret.
+    /// </summary>
+    bool? ChangedByAnnotation { get; }
 }

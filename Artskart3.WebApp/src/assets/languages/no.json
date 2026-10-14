@@ -294,7 +294,11 @@
     "image": "Bilde",
     "imageAll": "Alle (standard)",
     "imageWith": "Med bilde",
-    "imageWithout": "Uten bilde"
+    "imageWithout": "Uten bilde",
+    "annotation": "Annotering",
+    "annotationAll": "Alle (standard)",
+    "annotationChanged": "Funn endret av annotering",
+    "annotationNotChanged": "Funn ikke endret av annotering"
   },
   "mapToolbar": {
     "layersAriaLabel": "Lag",

@@ -386,12 +386,13 @@ describe('FilterStateService', () => {
   });
 
   describe('clearOtherFindProperties', () => {
-    it('should reset projects, datasets, catalog number and the image filter', () => {
+    it('should reset projects, datasets, catalog number and the image and annotation filters', () => {
       service.addProject({ id: 14842, name: 'Kartlegging' });
       service.addDataset({ id: 26435, name: 'Aqua Kompetanse AS' });
       service.setCatalogNumber('104168');
       service.setCatalogObservationIds([8368071]);
       service.setImageFilter('withImage');
+      service.setAnnotationFilter('changed');
 
       service.clearOtherFindProperties();
 
@@ -400,6 +401,7 @@ describe('FilterStateService', () => {
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
       expect(service.imageFilter()).toBe('all');
+      expect(service.annotationFilter()).toBe('all');
     });
   });
 

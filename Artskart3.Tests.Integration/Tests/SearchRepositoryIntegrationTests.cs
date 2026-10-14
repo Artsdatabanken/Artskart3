@@ -700,6 +700,56 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
+    /// <summary>
+    /// Annoteringsfilteret slår opp rett i koblingstabellen ObservationTags, som
+    /// in-memory-testene ikke kan bekrefte at oversettes til SQL.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_ChangedByAnnotationFilter_SplitsOnAnnotatedChangesTag()
+    {
+        const int untaggedObservationId = 982000;
+        const string areaFid = "982010";
+        const int areaEntityId = 982010;
+        const int annotatedChangesTagId = 9;
+
+        // ObservationTags har fremmednøkkel til Observation, så den taggede
+        // observasjonen lånes fra testdataene, som i datasettestene over.
+        var taggedObservationId = await _context.Set<Observation>()
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(taggedObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(untaggedObservationId, areaFid);
+        await RemoveSyntheticTagRowAsync(taggedObservationId, annotatedChangesTagId);
+        if (!await _context.Set<Tag>().AnyAsync(t => t.Id == annotatedChangesTagId))
+            _context.Set<Tag>().Add(new Tag { Id = annotatedChangesTagId, Name = "AnnotatedChanges" });
+        SeedArea(areaFid, "Annotering test kommune");
+        SeedIndexRow(taggedObservationId, areaEntityId);
+        SeedIndexRow(untaggedObservationId, areaEntityId);
+        ObservationTags().Add(new Dictionary<string, object>
+        {
+            ["ObservationId"] = taggedObservationId,
+            ["TagId"] = annotatedChangesTagId,
+        });
+        await _context.SaveChangesAsync();
+
+        var changed = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ChangedByAnnotation = true });
+        var notChanged = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto { ChangedByAnnotation = false });
+
+        changed.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        notChanged.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    private DbSet<Dictionary<string, object>> ObservationTags() =>
+        _context.Set<Dictionary<string, object>>("ObservationTag");
+
+    private async Task RemoveSyntheticTagRowAsync(int observationId, int tagId)
+    {
+        ObservationTags().RemoveRange(ObservationTags()
+            .Where(ot => (int)ot["ObservationId"] == observationId && (int)ot["TagId"] == tagId));
+        await _context.SaveChangesAsync();
+    }
+
     private SearchRepository CreateCompleteFilterRepository() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
             new StubAreaHierarchyService(), new StubTaxonHierarchyService());

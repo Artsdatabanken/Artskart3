@@ -12,7 +12,7 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 import { OrganizationService } from '../../services/organization/organization.service';
-import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import { AnnotationFilterOption, FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
@@ -333,6 +333,7 @@ export class SidebarComponent {
   }
 
   readonly imageFilter = this.filterState.imageFilter;
+  readonly annotationFilter = this.filterState.annotationFilter;
 
   // Free text is matched by the Lookup endpoints; the filter only ever gets ids.
   readonly searchProjects: AutocompleteSearch<OrganizationDto> = (term) => this.organizationService.searchProjects(term);
@@ -364,6 +365,13 @@ export class SidebarComponent {
     const target = event.target as HTMLElement & { value: string };
     if (target.value) {
       this.filterState.setImageFilter(target.value as ImageFilterOption);
+    }
+  }
+
+  onAnnotationFilterChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setAnnotationFilter(target.value as AnnotationFilterOption);
     }
   }
 

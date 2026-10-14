@@ -243,29 +243,36 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.setRegistrationStatus(null);
       filterState.setImageFilter('all');
+      filterState.setAnnotationFilter('all');
       expect(component.chips().find((c) => c.id === 'registrationStatus')).toBeUndefined();
       expect(component.chips().find((c) => c.id === 'imageFilter')).toBeUndefined();
+      expect(component.chips().find((c) => c.id === 'annotationFilter')).toBeUndefined();
     });
 
     it('viser chip med filtrets tittel og valgt radioknapp', () => {
       flushLookups();
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
+      filterState.setAnnotationFilter('notChanged');
       const chips = component.chips();
       // Uten lastede oversettelser returnerer instant() nøklene
       expect(chips.find((c) => c.id === 'registrationStatus')!.text).toContain('sidebar.registreringStatus.absent');
       expect(chips.find((c) => c.id === 'imageFilter')!.text).toContain('sidebar.imageWithout');
+      expect(chips.find((c) => c.id === 'annotationFilter')!.text).toContain('sidebar.annotationNotChanged');
     });
 
     it('tilbakestiller til standardvalg når chip lukkes', () => {
       flushLookups();
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
+      filterState.setAnnotationFilter('changed');
       const chips = component.chips();
       chips.find((c) => c.id === 'registrationStatus')!.clear();
       chips.find((c) => c.id === 'imageFilter')!.clear();
+      chips.find((c) => c.id === 'annotationFilter')!.clear();
       expect(filterState.selectedRegistrationStatusId()).toBeNull();
       expect(filterState.imageFilter()).toBe('all');
+      expect(filterState.annotationFilter()).toBe('all');
     });
   });
 

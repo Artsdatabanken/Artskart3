@@ -331,6 +331,26 @@ public class ObservationQueryBuilderTests
     }
 
     // ---------------------------------------------------------------------
+    // Annoteringsfilter
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_ChangedByAnnotation_SplitsOnAnnotatedChangesTag(bool changedByAnnotation, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservationsWithTags(context,
+            (CreateObservation(1), [(int)TagEnum.AnnotatedChanges]),
+            (CreateObservation(2), [(int)TagEnum.Absent]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ChangedByAnnotation = changedByAnnotation });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
     // Paritet mot søket
     // ---------------------------------------------------------------------
 
@@ -406,6 +426,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.ObservationIds)] = f => f.ObservationIds = [999],
         // Observasjonen har ingen mediefiler.
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
     };
 
     private static List<Observation> Apply(

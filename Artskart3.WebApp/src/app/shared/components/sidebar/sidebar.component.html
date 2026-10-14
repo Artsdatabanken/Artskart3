@@ -387,6 +387,18 @@
           <adb-radio value="withImage">{{ 'sidebar.imageWith' | translate }}</adb-radio>
           <adb-radio value="withoutImage">{{ 'sidebar.imageWithout' | translate }}</adb-radio>
         </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="annotationFilter"
+          [attr.label]="'sidebar.annotation' | translate"
+          [attr.value]="annotationFilter()"
+          (change)="onAnnotationFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
+          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
+          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+        </adb-radio-group>
       </div>
     </adb-accordion-item>
   </adb-accordion>

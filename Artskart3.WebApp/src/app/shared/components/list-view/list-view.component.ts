@@ -89,6 +89,7 @@ export class ListViewComponent {
     this.filterState.selectedProjectIds();
     this.filterState.catalogObservationIds();
     this.filterState.imageFilter();
+    this.filterState.annotationFilter();
     this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {

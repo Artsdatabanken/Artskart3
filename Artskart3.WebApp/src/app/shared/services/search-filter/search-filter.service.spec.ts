@@ -75,6 +75,7 @@ describe('SearchFilterService', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
+    filterState.setAnnotationFilter('changed');
 
     const filter = service.observationFilter();
 
@@ -92,6 +93,7 @@ describe('SearchFilterService', () => {
       projectOrgIds: [9],
       observationIds: [10],
       withImages: true,
+      changedByAnnotation: true,
       period: { from: 1990, to: 2000, months: [6] },
     };
 
@@ -167,6 +169,7 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
+    filterState.setAnnotationFilter('notChanged');
     const saved = service.observationFilter();
 
     filterState.clearAll();
@@ -210,6 +213,7 @@ describe('SearchFilterService.applyFilter', () => {
       projectOrgIds: [8],
       observationIds: [9],
       withImages: true,
+      changedByAnnotation: true,
     };
 
     await service.applyFilter(sample);

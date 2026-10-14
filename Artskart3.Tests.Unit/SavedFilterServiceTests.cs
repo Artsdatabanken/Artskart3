@@ -225,6 +225,7 @@ public class SavedFilterServiceTests
               "ProjectOrgIds": [13],
               "ObservationIds": [10],
               "WithImages": true,
+              "ChangedByAnnotation": true,
               "PageNumber": null,
               "ResultsPerPage": null,
               "IsPaginated": false
@@ -270,6 +271,7 @@ public class SavedFilterServiceTests
         ProjectOrgIds = [13],
         ObservationIds = [10],
         WithImages = true,
+        ChangedByAnnotation = true,
     };
 
     private static IEnumerable<string> UnsetProperties(object dto, string prefix = "")
