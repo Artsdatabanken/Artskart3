@@ -9,7 +9,7 @@ export interface MapLayerDto {
   attribution?: string | null;
   minScaleDenominator?: number | null;
   maxScaleDenominator?: number | null;
-  useSingleImage?: boolean;
-  retryAfterSeconds?: number;
-  opacity?: number;
+  useSingleImage: boolean;
+  retryAfterSeconds: number;
+  opacity: number;
 }

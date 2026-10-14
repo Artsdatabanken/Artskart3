@@ -1,11 +1,7 @@
-using Artskart3.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Artskart3.Infrastructure.Migrations;
 
-[DbContext(typeof(ArtskartDbContext))]
-[Migration("20261012130000_SeedMaritimeMapLayer")]
 public partial class SeedMaritimeMapLayer : Migration
 {
     private static readonly DateTime SeededAt = new(2026, 10, 12);
