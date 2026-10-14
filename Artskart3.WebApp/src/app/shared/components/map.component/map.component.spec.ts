@@ -130,7 +130,7 @@ describe('MapComponent', () => {
     component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
 
     component.onMapToolbarMenuItemChange({
-      layer: { id: 1, name, type: 'WMS', url: 'https://example.test/wms', opacity },
+      layer: { id: 1, name, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity },
       visible: true,
     });
 
@@ -150,6 +150,8 @@ describe('MapComponent', () => {
         minScaleDenominator: 50_000,
         maxScaleDenominator: 2_000_000,
         useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
       },
       visible: true,
     });
@@ -167,7 +169,7 @@ describe('MapComponent', () => {
     try {
       component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
       component.onMapToolbarMenuItemChange({
-        layer: { id: 5, name: 'Unavailable WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30 },
+        layer: { id: 5, name: 'Unavailable WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
         visible: true,
       });
 
@@ -202,6 +204,8 @@ describe('MapComponent', () => {
         url: 'https://wms.geonorge.no/skwms1/wms.nmg?',
         layers: 'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
         useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
       },
       visible: true,
     });
