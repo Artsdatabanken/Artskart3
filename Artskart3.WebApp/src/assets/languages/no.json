@@ -251,6 +251,8 @@
     },
     "taxonGroups": "Artsgrupper",
     "taxonTree": "Artstre",
+    "includeDescendantTaxa": "Underliggende taksa",
+    "excludesDescendantTaxa": "Ekskluderer underliggende taksa",
     "scientificNames": "Vitenskapelige navn",
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",

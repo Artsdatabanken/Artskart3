@@ -130,6 +130,24 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Select(x => x.Id).Should().NotContain(_locationTwo.Id);
     }
 
+    /// <summary>
+    /// Uten underliggende taksa matches observasjonens eget TaxonId, ikke hierarkitabellen.
+    /// Alle testobservasjonene er bestemt til TestTaxonExactId.
+    /// </summary>
+    [Fact]
+    public async Task GetLocationsAsync_WithoutDescendantTaxa_MatchesObservationTaxonId()
+    {
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false,
+        });
+
+        result.Should().Contain(model => model.Id == _locationOne.Id && model.ObservationCount == 3);
+        result.Should().Contain(model => model.Id == _locationTwo.Id && model.ObservationCount == 2);
+        result.Should().Contain(model => model.Id == _locationThree.Id && model.ObservationCount == 1);
+    }
+
     [Fact]
     public async Task GetLocationsAsync_FiltersByCategory()
     {
@@ -565,6 +583,44 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
 
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    /// <summary>
+    /// Uten underliggende taksa slås observasjonens eget takson opp i Observation,
+    /// siden indekstabellen ikke har en kolonne for det.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_WithoutDescendantTaxa_CountsOnlyObservationsOfThatTaxon()
+    {
+        const int indexOnlyObservationId = 981800;
+        const string areaFid = "981810";
+        const int areaEntityId = 981810;
+
+        var observationId = await _context.Set<Observation>()
+            .Where(o => o.TaxonId == TestTaxonExactId)
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        await RemoveSyntheticRowsAsync(indexOnlyObservationId, areaFid);
+        SeedArea(areaFid, "Uten underliggende taksa kommune");
+        SeedIndexRow(observationId, areaEntityId);
+        SeedIndexRow(indexOnlyObservationId, areaEntityId);
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false,
+        });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonStartsId],
+            IncludeDescendantTaxa = false,
+        });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
     }
 
     [Fact]

@@ -468,6 +468,17 @@ describe('SidebarComponent', () => {
     });
   });
 
+  it('bryteren for underliggende taksa oppdaterer filteret', () => {
+    component.onTaxonTreeToggle();
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[0];
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+
+    expect(filterState.includeDescendantTaxa()).toBe(false);
+  });
+
   describe('vitenskapelige navn i artstreet', () => {
     const storageKey = 'artskart.taxonTree.showScientificNames';
 
@@ -487,7 +498,7 @@ describe('SidebarComponent', () => {
       component.onTaxonTreeToggle();
       fixture.detectChanges();
 
-      const toggle = fixture.nativeElement.querySelector('.taxon-tree-options adb-switch');
+      const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[1];
       toggle.checked = true;
       toggle.dispatchEvent(new Event('change'));
 

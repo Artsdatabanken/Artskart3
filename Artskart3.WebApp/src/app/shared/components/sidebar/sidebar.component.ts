@@ -256,6 +256,12 @@ export class SidebarComponent {
     this.taxonTreeOpened.set(true);
   }
 
+  readonly includeDescendantTaxa = this.filterState.includeDescendantTaxa;
+
+  onIncludeDescendantTaxaChange(event: Event): void {
+    this.filterState.setIncludeDescendantTaxa((event.target as HTMLInputElement).checked);
+  }
+
   readonly showScientificNames = signal(this.readShowScientificNames());
 
   onShowScientificNamesChange(event: Event): void {

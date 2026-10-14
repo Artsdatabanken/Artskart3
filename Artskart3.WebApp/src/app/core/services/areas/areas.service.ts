@@ -286,6 +286,7 @@ export interface LocationSearchFilter {
   registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   taxonIds?: number[];
+  includeDescendantTaxa?: boolean;
   countyIds?: string[];
   municipalityIds?: string[];
   restrictedAreaIds?: string[];
@@ -489,6 +490,7 @@ export class AreasService {
       if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.taxonIds?.length) body['taxonIds'] = filter.taxonIds;
+      if (filter.includeDescendantTaxa === false) body['includeDescendantTaxa'] = false;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;

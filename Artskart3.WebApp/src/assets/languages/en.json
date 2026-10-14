@@ -251,6 +251,8 @@
     },
     "taxonGroups": "Species Groups",
     "taxonTree": "Taxonomy Tree",
+    "includeDescendantTaxa": "Lower taxa",
+    "excludesDescendantTaxa": "Excludes lower taxa",
     "scientificNames": "Scientific names",
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",

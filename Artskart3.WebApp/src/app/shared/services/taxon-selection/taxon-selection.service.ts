@@ -16,6 +16,8 @@ export type TaxonCheckboxState = 'checked' | 'indeterminate' | 'unchecked';
  *   erstattes med søsknene langs stien ned til noden.
  * - En forelder blir aldri checked eller valgt bare fordi alle barna er valgt. Forelderen har
  *   egne observasjoner (bestemt bare til forelderens nivå) som barna ikke dekker.
+ * - Uten underliggende taksa er hver node uavhengig: ingen arvet checked, og å velge en
+ *   forelder fjerner ikke valgte etterkommere.
  *
  * Treet mater inn forfedrekjeder og søskenlister for alt som rendres; det som ikke er
  * rendret (f.eks. taxa valgt via artsøk) hentes fra GET /api/Lookup/TaxonAncestry.
@@ -108,14 +110,15 @@ export class TaxonSelectionService {
   }
 
   checkboxState(nodeId: number, ancestorIds: number[]): TaxonCheckboxState {
-    if (this.isSelected(nodeId) || this.isInheritedSelected(ancestorIds)) return 'checked';
+    if (this.isSelected(nodeId)) return 'checked';
+    if (this.filterState.includeDescendantTaxa() && this.isInheritedSelected(ancestorIds)) return 'checked';
     if (this.isIndeterminate(nodeId)) return 'indeterminate';
     return 'unchecked';
   }
 
   /** Sjekker inn en node: legger den til og fjerner overflødige etterkommere. */
   select(taxonId: number): void {
-    const knownDescendants = this.knownDescendantsOf(taxonId);
+    const knownDescendants = this.filterState.includeDescendantTaxa() ? this.knownDescendantsOf(taxonId) : new Set<number>();
     const ids = this.filterState
       .selectedTaxonIds()
       .filter((id) => !knownDescendants.has(id) && id !== taxonId);
