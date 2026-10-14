@@ -251,6 +251,7 @@
     },
     "taxonGroups": "Artsgrupper",
     "taxonTree": "Artstre",
+    "scientificNames": "Vitenskapelige navn",
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
