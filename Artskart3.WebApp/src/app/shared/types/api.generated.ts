@@ -1844,10 +1844,8 @@ export interface components {
             registrationStatusId?: null | number;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
-            /** Format: int32 */
-            datasetOrgId?: null | number;
-            /** Format: int32 */
-            projectOrgId?: null | number;
+            datasetOrgIds?: null | number[];
+            projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
             readonly hasActiveFilters?: boolean;
@@ -2025,10 +2023,8 @@ export interface components {
             registrationStatusId?: null | number;
             coordinatePrecision?: components["schemas"]["CoordinatePrecisionDto"];
             period?: components["schemas"]["PeriodDto"];
-            /** Format: int32 */
-            datasetOrgId?: null | number;
-            /** Format: int32 */
-            projectOrgId?: null | number;
+            datasetOrgIds?: null | number[];
+            projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
         };
@@ -2036,6 +2032,8 @@ export interface components {
             /** Format: int32 */
             id?: number;
             name?: string;
+            /** Format: int32 */
+            observationCount?: null | number;
         };
         PagedObservationResponseDto: {
             items?: null | components["schemas"]["ObservationDto"][];

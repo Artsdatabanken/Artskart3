@@ -181,77 +181,9 @@ adb-checkbox::part(control) {
   min-width: 0;
 }
 
-.search-input-wrapper {
-  position: relative;
-}
-
-.other-properties-search {
-  display: block;
-  width: 100%;
+/* adb-search's default input width is also its minimum, and would overflow the narrow columns. */
+.other-properties-label app-autocomplete {
   --adb-search-width: 100%;
-}
-
-.project-name-suggestions {
-  position: absolute;
-  top: calc(100% + var(--adb-spacing-2xsm));
-  left: 0;
-  right: 0;
-  z-index: 20;
-  max-height: 12rem;
-  overflow-y: auto;
-  margin: var(--adb-spacing-2xsm) 0 0;
-  padding: var(--adb-spacing-2xsm) 0;
-  list-style: none;
-  background-color: var(--adb-surface-base-primary);
-  color: var(--adb-text-accent-primary);
-  border: 2px solid var(--adb-color-neutrals-sand-100);
-  border-radius: var(--adb-border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-:host-context([data-theme='dark']) .project-name-suggestions {
-  border-color: var(--adb-color-neutrals-ocean-80);
-}
-
-.project-name-suggestion {
-  display: block;
-  width: 100%;
-  padding: var(--adb-spacing-2xsm) var(--adb-spacing-xsm);
-  border: none;
-  background: none;
-  color: inherit;
-  font-size: var(--adb-font-size-4);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.project-name-empty,
-.dataset-name-empty {
-  display: flex;
-  align-items: center;
-  gap: var(--adb-spacing-2xsm);
-  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
-  background: var(--adb-surface-base-primary);
-  border: 1px solid var(--adb-border-base-primary);
-  border-radius: var(--adb-border-radius);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
-  color: var(--adb-text-base-secondary);
-  font-size: var(--adb-font-size-4);
-  font-family: var(--font-family-secondary);
-  font-weight: var(--adb-font-weight-primary);
-  line-height: 1.5;
-}
-
-.empty-search-icon {
-  color: var(--adb-text-base-secondary);
-  flex-shrink: 0;
-}
-
-.project-name-suggestion:hover,
-.project-name-suggestion:focus {
-  background-color: var(--adb-background-secondary);
-  outline: none;
 }
 
 .other-properties-image-filter {
@@ -273,10 +205,10 @@ adb-checkbox::part(control) {
   padding-inline-start: var(--adb-spacing-3xsm);
 }
 
-/* Antall observasjoner bak et katalognummer. Vises bare når nummeret peker på
-   flere enn én observasjon — da er valget ikke entydig, og brukeren bør se det. */
+/* Antall observasjoner bak et forslag. For katalognummer vises det bare når
+   nummeret peker på flere enn én observasjon — da er valget ikke entydig.
+   Mellomrommet foran står i teksten, så et langt navn kan brytes før tallet. */
 .suggestion-count {
-  margin-left: var(--adb-spacing-2xsm);
   color: var(--adb-text-base-secondary);
   font-size: var(--adb-font-size-2);
 }

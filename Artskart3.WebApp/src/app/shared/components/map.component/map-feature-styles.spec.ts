@@ -8,11 +8,11 @@ import { MapFeatureStyles, MapFeatureState, MapMarkerKind } from './map-feature-
 
 function tokenStyles(): CSSStyleDeclaration {
   const styles = document.createElement('div').style;
-  styles.setProperty('--adb-surface-accent-primary', '#005A71');
-  styles.setProperty('--adb-surface-accent-hover', '#004557');
-  styles.setProperty('--adb-border-base-subtle', '#D2DDE0');
-  styles.setProperty('--adb-border-base-strong', '#768083');
-  styles.setProperty('--adb-border-brand-4', '#F8AE00');
+  styles.setProperty('--adb-color-brand-freshwater-blue-90', '#005A71');
+  styles.setProperty('--adb-color-brand-freshwater-blue-100', '#004557');
+  styles.setProperty('--adb-color-neutrals-ocean-10', '#D2DDE0');
+  styles.setProperty('--adb-color-neutrals-ocean-50', '#768083');
+  styles.setProperty('--adb-color-brand-sun-70', '#F8AE00');
   return styles;
 }
 
@@ -174,14 +174,14 @@ describe('MapFeatureStyles', () => {
 
   it('reads the supplied computed tokens rather than hardcoded colors', () => {
     const tokens = tokenStyles();
-    tokens.setProperty('--adb-surface-accent-primary', 'rgb(10, 20, 30)');
+    tokens.setProperty('--adb-color-brand-freshwater-blue-90', 'rgb(10, 20, 30)');
     const custom = new MapFeatureStyles(tokens);
     expect(custom.polygon('default')[0].getFill()?.getColor()).toEqual([10, 20, 30, 0.06]);
   });
 
   it.each(['', 'var(--unresolved)', 'not-a-color'])('rejects a missing or invalid token: %s', (value) => {
     const tokens = tokenStyles();
-    tokens.setProperty('--adb-surface-accent-primary', value);
-    expect(() => new MapFeatureStyles(tokens)).toThrow(/map color token: --adb-surface-accent-primary/);
+    tokens.setProperty('--adb-color-brand-freshwater-blue-90', value);
+    expect(() => new MapFeatureStyles(tokens)).toThrow(/map color token: --adb-color-brand-freshwater-blue-90/);
   });
 });

@@ -25,14 +25,14 @@ export class OrganizationService {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.endpoint, { params: { search } });
   }
 
-  /** Datasett (OrganizationTypeId = 2). Treffet gir datasetOrgId. */
+  /** Datasett (OrganizationTypeId = 2). Treffet legges til i datasetOrgIds. */
   searchDatasets(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.datasetsEndpoint, {
       params: { search },
     });
   }
 
-  /** Prosjekt (OrganizationTypeId = 3). Treffet gir projectOrgId. */
+  /** Prosjekt (OrganizationTypeId = 3). Treffet legges til i projectOrgIds. */
   searchProjects(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.projectsEndpoint, {
       params: { search },

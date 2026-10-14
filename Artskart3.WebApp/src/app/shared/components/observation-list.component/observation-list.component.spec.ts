@@ -4,6 +4,8 @@ import { ObservationListComponent } from './observation-list.component';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import { buildObservationTree, ObservationGrouping, registrationStatus } from './observation-list.model';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
+import { By } from '@angular/platform-browser';
+import { ObservationTreeComponent } from '../observation-tree/observation-tree.component';
 
 const record = (id: number, overrides: Partial<ObservationListInfoDto> = {}): ObservationListInfoDto => ({
   id,
@@ -46,6 +48,22 @@ describe('Observation grouping', () => {
     expect(result[0].children[0].children).toHaveLength(2);
     expect(result[0].children[0].children[0].children.map((node) => node.id.split('/').at(-1))).toEqual(['4', '3']);
     expect(registrationStatus(record(1, { registrationType: ['Other'] }))).toBe('found');
+  });
+
+  it('summarises not recovered and absent registrations on groups that have them', () => {
+    const labels: Record<string, string> = { 'observationList.notRecovered': 'Ikke gjenfunnet', 'observationList.absent': 'Ikke funnet' };
+    const summaries = (records: ObservationListInfoDto[]) =>
+      buildObservationTree(records, 'taxonGroup', 'no', (key) => labels[key] ?? key, String).map((group) => group.statusSummary);
+    expect(
+      summaries([
+        record(1),
+        record(2, { registrationType: ['Absent'] }),
+        record(3, { registrationType: ['NotRecovered'] }),
+        record(4, { registrationType: ['NotRecovered'] }),
+        record(5, { taxonGroupId: 2, taxonGroupName: 'Mose' }),
+      ]),
+    ).toEqual(['Ikke gjenfunnet (2), ikke funnet (1)', undefined]);
+    expect(summaries([record(1, { registrationType: ['Absent'] })])).toEqual(['Ikke funnet (1)']);
   });
 
   it('keeps equal-name localities separate', () => {
@@ -162,6 +180,23 @@ describe('ObservationList', () => {
     expect(selected.map((item) => item.getAttribute('value'))).toEqual(['redList']);
   });
 
+  it('opens the first section of each group when a fetched list appears', async () => {
+    fixture.componentRef.setInput('requestState', 'loading');
+    await fixture.whenStable();
+    fixture.componentRef.setInput('selection', { key: 2, kind: 'point', locationIds: [5], geometryLabel: 'UTM33 1, 2' });
+    fixture.componentRef.setInput('observationList', [
+      record(1, { registrationType: ['Absent'] }),
+      record(2, { registrationType: ['NotRecovered'] }),
+      record(3, { taxonGroupId: 2, taxonGroupName: 'Mose' }),
+      record(4, { taxonGroupId: 2, taxonGroupName: 'Mose', registrationType: ['Absent'] }),
+    ]);
+    fixture.componentRef.setInput('requestState', 'ready');
+    await fixture.whenStable();
+    const tree = fixture.debugElement.query(By.directive(ObservationTreeComponent)).componentInstance as ObservationTreeComponent;
+    expect([...tree.expandedNodeIds()]).toEqual(['taxonGroup/1/notRecovered', 'taxonGroup/2/found']);
+    expect(fixture.nativeElement.querySelectorAll('.group-summary')).toHaveLength(2);
+  });
+
   it('only exposes unambiguous header metadata', () => {
     fixture.componentRef.setInput('observationList', [record(1, { countyName: 'Trøndelag' }), record(2)]);
     expect(component.location()?.areas).toBe('');
@@ -180,6 +215,13 @@ describe('ObservationList', () => {
     component.retry.subscribe(retry);
     fixture.nativeElement.querySelector('button.retry').click();
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('emits dismiss from the close button', () => {
+    const dismiss = vi.fn();
+    component.dismiss.subscribe(dismiss);
+    fixture.nativeElement.querySelector('.title-row adb-minimal-button').click();
+    expect(dismiss).toHaveBeenCalledOnce();
   });
 
   it('updates dates when language changes', async () => {

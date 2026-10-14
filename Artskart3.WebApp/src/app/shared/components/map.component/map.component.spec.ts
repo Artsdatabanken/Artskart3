@@ -215,20 +215,20 @@ describe('MapComponent', () => {
   });
 
   describe('linked feature styling', () => {
-    const location = (id: number) => new Feature({ id, geometry: new Point([id, id]), observationCount: 2 });
+    const location = (id: number, observationCount = 2) => new Feature({ id, geometry: new Point([id, id]), observationCount });
     const polygon = (id: number) => new Feature({ id, geometry: new Polygon([[[0, 0], [10, 0], [10, 10], [0, 0]]]) });
-    const cluster = (...ids: number[]) => new Feature({ geometry: new Point([0, 0]), features: ids.map(location) });
+    const cluster = (...ids: number[]) => new Feature({ geometry: new Point([0, 0]), features: ids.map((id) => location(id)) });
     let layers: Map<string, LayerDef>;
     let redraw: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       const tokens = document.createElement('div').style;
       for (const [token, value] of [
-        ['--adb-surface-accent-primary', '#005A71'],
-        ['--adb-surface-accent-hover', '#004557'],
-        ['--adb-border-base-subtle', '#D2DDE0'],
-        ['--adb-border-base-strong', '#768083'],
-        ['--adb-border-brand-4', '#F8AE00'],
+        ['--adb-color-brand-freshwater-blue-90', '#005A71'],
+        ['--adb-color-brand-freshwater-blue-100', '#004557'],
+        ['--adb-color-neutrals-ocean-10', '#D2DDE0'],
+        ['--adb-color-neutrals-ocean-50', '#768083'],
+        ['--adb-color-brand-sun-70', '#F8AE00'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
@@ -334,6 +334,8 @@ describe('MapComponent', () => {
       const styles = component['featureStyles']!;
       expect(render('area-markers-locations', location(1))).toBe(styles.marker('location', 'selected'));
       expect(render('area-markers-locations', cluster(1), true)).toBe(styles.marker('cluster', 'selected', '2'));
+      const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [location(1, 1)] });
+      expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected'));
       const grouped = render('area-markers-locations', cluster(1, 2), true);
       expect(grouped[1].getText()?.getText()).toBe('4');
       expect(render('location-polygons', polygon(1))).toBe(styles.polygon('selected'));
@@ -534,6 +536,23 @@ describe('MapComponent', () => {
       expect(component.observationRequestState()).toBe('ready');
       expect(component.observationList()).toEqual([{ id: 4 }]);
       expect(request).toHaveBeenLastCalledWith([3], expect.anything());
+    });
+
+    it('opens a lone observation directly and closes the whole panel with its details', async () => {
+      const service = TestBed.inject(ObservationService);
+      vi.spyOn(service, 'getObservationByLocation').mockReturnValue(of([{ id: 7 }]));
+      vi.spyOn(service, 'getDetail').mockReturnValue(of({ id: 7 }));
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      await fixture.whenStable();
+      const panel = component.observationPanel()!;
+      expect(panel.selectedId()).toBe(7);
+      expect(fixture.nativeElement.querySelector('app-observation-details')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.back-to-list')).toBeNull();
+      panel.dismiss();
+      await fixture.whenStable();
+      expect(component.showObservationList()).toBe(false);
+      expect(component.observationSelection()).toBeNull();
     });
 
     it('dismisses and cancels the selection when search filters change', async () => {

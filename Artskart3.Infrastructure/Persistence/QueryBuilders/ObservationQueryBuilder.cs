@@ -93,17 +93,17 @@ public static class ObservationQueryBuilder
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter)
     {
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(o => o.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(o => o.DatasetOrgId.HasValue && datasetOrgIds.Contains(o.DatasetOrgId.Value));
         }
 
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(o => context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == o.Id && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == o.Id && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         if (filter.ObservationIds?.Any() == true)
