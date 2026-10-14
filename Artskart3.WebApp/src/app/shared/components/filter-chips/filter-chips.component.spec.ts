@@ -204,32 +204,37 @@ describe('FilterChipsComponent', () => {
       expect(filterState.selectedTaxonIds().length).toBe(0);
     });
 
-    it('viser chip for prosjekt med navn og fjerner både navn og id', () => {
+    it('viser én chip per prosjekt, og lukking fjerner bare det prosjektet', () => {
       flushLookups();
-      filterState.setProjectName('Artsprosjektet');
-      filterState.setProjectOrgId(42);
-      const chip = component.chips().find((c) => c.id === 'project');
-      expect(chip!.text).toContain('Artsprosjektet');
-      chip!.clear();
-      expect(filterState.projectOrgId()).toBeNull();
-      expect(filterState.projectName()).toBe('');
+      filterState.addProject({ id: 42, name: 'Artsprosjektet' });
+      filterState.addProject({ id: 43, name: 'Kartlegging' });
+      const projectChips = component.chips().filter((c) => c.id.startsWith('project:'));
+      expect(projectChips.map((c) => c.text)).toEqual(['sidebar.project: Artsprosjektet', 'sidebar.project: Kartlegging']);
+      projectChips[0].clear();
+      expect(filterState.selectedProjects()).toEqual([{ id: 43, name: 'Kartlegging' }]);
     });
 
-    it('viser ingen prosjektchip når id mangler (tekst uten valgt treff)', () => {
+    it('viser én chip per datasett, og lukking fjerner bare det datasettet', () => {
       flushLookups();
-      filterState.setProjectName('Ufullstendig tekst');
-      expect(component.chips().find((c) => c.id === 'project')).toBeUndefined();
+      filterState.addDataset({ id: 7, name: 'Datasett X' });
+      filterState.addDataset({ id: 8, name: 'Datasett Y' });
+      const datasetChips = component.chips().filter((c) => c.id.startsWith('dataset:'));
+      expect(datasetChips.map((c) => c.text)).toEqual(['sidebar.dataset: Datasett X', 'sidebar.dataset: Datasett Y']);
+      datasetChips[1].clear();
+      expect(filterState.selectedDatasets()).toEqual([{ id: 7, name: 'Datasett X' }]);
     });
 
-    it('viser chip for datasett og katalognummer', () => {
+    it('viser ID-en før navnet er slått opp, så filteret aldri er usynlig', () => {
       flushLookups();
-      filterState.setDatasetName('Datasett X');
-      filterState.setDatasetOrgId(7);
+      filterState.addProject({ id: 42, name: '' });
+      expect(component.chips().find((c) => c.id === 'project:42')!.text).toBe('sidebar.project: #42');
+    });
+
+    it('viser chip for katalognummer', () => {
+      flushLookups();
       filterState.setCatalogNumber('ABC-123');
       filterState.setCatalogObservationIds([1, 2]);
-      const chips = component.chips();
-      expect(chips.find((c) => c.id === 'dataset')!.text).toContain('Datasett X');
-      expect(chips.find((c) => c.id === 'catalogNumber')!.text).toContain('ABC-123');
+      expect(component.chips().find((c) => c.id === 'catalogNumber')!.text).toContain('ABC-123');
     });
   });
 
@@ -304,8 +309,7 @@ describe('FilterChipsComponent', () => {
   describe('trunkering og tilgjengelighet', () => {
     it('har full tekst i title-attributtet', () => {
       flushLookups();
-      filterState.setProjectName('Et prosjekt med et veldig langt navn som ikke får plass');
-      filterState.setProjectOrgId(42);
+      filterState.addProject({ id: 42, name: 'Et prosjekt med et veldig langt navn som ikke får plass' });
       fixture.detectChanges();
       const el: HTMLElement = fixture.nativeElement;
       const chip = el.querySelector('.filter-chip');

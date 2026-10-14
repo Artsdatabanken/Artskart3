@@ -28,9 +28,9 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public PeriodDto? Period { get; set; }
 
-    public int? DatasetOrgId { get; set; }
+    public int[]? DatasetOrgIds { get; set; }
 
-    public int? ProjectOrgId { get; set; }
+    public int[]? ProjectOrgIds { get; set; }
 
     public int[]? ObservationIds { get; set; }
 
@@ -55,8 +55,8 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        DatasetOrgId.HasValue ||
-        ProjectOrgId.HasValue ||
+        DatasetOrgIds?.Length > 0 ||
+        ProjectOrgIds?.Length > 0 ||
         ObservationIds?.Length > 0 ||
         WithImages != null;
 
@@ -79,8 +79,8 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        DatasetOrgId.HasValue ||
-        ProjectOrgId.HasValue ||
+        DatasetOrgIds?.Length > 0 ||
+        ProjectOrgIds?.Length > 0 ||
         ObservationIds?.Length > 0 ||
         WithImages != null;
 
