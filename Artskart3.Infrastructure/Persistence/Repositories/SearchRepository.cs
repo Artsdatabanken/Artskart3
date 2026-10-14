@@ -377,7 +377,12 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
         }
 
-        if (filter.TaxonIds?.Any() == true)
+        if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            query = query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+        else if (filter.TaxonIds?.Any() == true)
         {
             // Hierarkisk filtrering via ObservationTaxonHierarchy — inkluderer alle etterkommere
             IQueryable<int>? combinedQuery = null;
@@ -811,10 +816,18 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => !idx.HasMediaFiles);
         }
 
-        // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
-        // Høyere rangnivå (Class+) konverteres til nærmeste denormaliserte nivå via minne-oppslag.
-        if (filter.TaxonIds?.Any() == true)
+        if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
         {
+            // Uten underliggende taksa: indekstabellen har ingen kolonne for observasjonens
+            // eget takson, så det slås opp i Observation.
+            var taxonIds = filter.TaxonIds;
+            query = query.Where(idx => _context.Set<Observation>()
+                .Any(o => o.Id == idx.ObservationId && taxonIds.Contains(o.TaxonId)));
+        }
+        else if (filter.TaxonIds?.Any() == true)
+        {
+            // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
+            // Høyere rangnivå (Class+) konverteres til nærmeste denormaliserte nivå via minne-oppslag.
             query = ApplyTaxonFilterToEntityIndex(query, filter.TaxonIds);
         }
 

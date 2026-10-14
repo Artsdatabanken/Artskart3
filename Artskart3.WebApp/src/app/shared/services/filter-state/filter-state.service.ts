@@ -34,6 +34,9 @@ export class FilterStateService {
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
   readonly selectedTaxonIds = signal<number[]>([]);
+  readonly includeDescendantTaxa = signal(true);
+  // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
+  readonly excludesDescendantTaxa = computed(() => !this.includeDescendantTaxa() && this.selectedTaxonIds().length > 0);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
@@ -210,6 +213,10 @@ export class FilterStateService {
     this.selectedTaxonIds.set([]);
   }
 
+  setIncludeDescendantTaxa(value: boolean): void {
+    this.includeDescendantTaxa.set(value);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
@@ -312,6 +319,7 @@ export class FilterStateService {
     this.clearCoordinatePrecision();
     this.clearPeriod();
     this.clearTaxons();
+    this.setIncludeDescendantTaxa(true);
     this.clearOtherFindProperties();
   }
 }
