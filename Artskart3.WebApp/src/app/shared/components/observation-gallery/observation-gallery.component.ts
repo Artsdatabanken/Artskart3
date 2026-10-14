@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, linkedSignal } from '@angular/core';
+import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, inject, input, linkedSignal } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationMediaDto } from '@shared/types/api.types';
 import { LoggingService } from '@shared/logging.service';
@@ -7,6 +7,7 @@ import { ViewerImage, webUrl } from '../image-viewer/image-source';
 
 @Component({
   imports: [TranslateModule, ImageViewerComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-gallery',
   styleUrl: './observation-gallery.component.css',
   templateUrl: './observation-gallery.component.html',

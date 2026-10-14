@@ -38,6 +38,8 @@ public static class ObservationFilterValidator
             (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
             (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
             (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
+            (nameof(filter.DatasetOrgIds), filter.DatasetOrgIds?.Length),
+            (nameof(filter.ProjectOrgIds), filter.ProjectOrgIds?.Length),
         ];
 
         foreach (var (name, length) in arrays)

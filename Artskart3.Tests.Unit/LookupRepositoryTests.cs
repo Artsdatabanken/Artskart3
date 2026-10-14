@@ -194,6 +194,29 @@ public class LookupRepositoryTests
         (await sut.GetOrganizationByIdAsync(2)).Should().BeNull();
     }
 
+    /// <summary>
+    /// Tellingen oppdateres ikke av denne løsningen, så en organisasjon uten telling
+    /// kan ha observasjoner likevel. Den skal fortsatt kunne søkes opp.
+    /// </summary>
+    [Fact]
+    public async Task SearchOrganizationsByTypeAsync_ReturnsCountsAndKeepsOrganizationsWithoutOne()
+    {
+        var context = CreateContext();
+        context.Organizations.AddRange(
+            new Organization { Id = 1, Name = "Kartlegging Nord", OrganizationTypeId = 3, ObservationCount = 1234 },
+            new Organization { Id = 2, Name = "Kartlegging Tom", OrganizationTypeId = 3, ObservationCount = null },
+            new Organization { Id = 3, Name = "Kartlegging Datasett", OrganizationTypeId = 2, ObservationCount = 5 });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.SearchOrganizationsByTypeAsync("kartlegging", 3, 10);
+
+        result.Should().BeEquivalentTo([
+            new { Id = 1, Name = "Kartlegging Nord", ObservationCount = (int?)1234 },
+            new { Id = 2, Name = "Kartlegging Tom", ObservationCount = (int?)null },
+        ]);
+    }
+
     private static Taxon CreateTaxon(int id, TaxonGroup group) => new()
     {
         Id = id,

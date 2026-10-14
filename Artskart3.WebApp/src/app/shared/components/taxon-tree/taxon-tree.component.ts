@@ -86,7 +86,7 @@ export class TaxonTreeComponent implements OnInit {
       action =
         this.checkboxState(id) === 'checked'
           ? this.taxonSelection.deselect(id, this.ancestorIds())
-          : Promise.resolve(this.taxonSelection.select(id, this.ancestorIds()));
+          : Promise.resolve(this.taxonSelection.select(id));
     } catch (err) {
       this.logger.error('Klarte ikke oppdatere taksonvalg', 'TaxonTreeComponent', err);
       return Promise.resolve();
