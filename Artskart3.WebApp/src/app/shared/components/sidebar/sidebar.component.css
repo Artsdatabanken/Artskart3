@@ -186,23 +186,27 @@ adb-checkbox::part(control) {
   --adb-search-width: 100%;
 }
 
-.other-properties-image-filter {
-  display: flex;
-  flex-direction: column;
-  gap: var(--adb-spacing-2xsm);
+.sidebar-radio-group {
+  --adb-radio-group-gap: var(--adb-spacing-2xsm);
 }
 
-.other-properties-image-heading {
+.sidebar-radio-group::part(label) {
   font-size: var(--adb-font-size-4);
   font-weight: 600;
+  line-height: var(--adb-font-line-height);
+  margin-bottom: var(--adb-spacing-2xsm);
 }
 
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--adb-spacing-2xsm);
-  margin-top: var(--adb-spacing-2xsm);
+/* Spaced like the h6.area-section-heading sections around it. */
+.registration-status-filter {
+  padding-top: var(--adb-spacing-sm);
   padding-inline-start: var(--adb-spacing-3xsm);
+}
+
+.registration-status-filter::part(label) {
+  line-height: 1.2;
+  padding-bottom: var(--adb-spacing-3xsm);
+  margin-bottom: var(--adb-spacing-md);
 }
 
 /* Antall observasjoner bak et forslag. For katalognummer vises det bare når

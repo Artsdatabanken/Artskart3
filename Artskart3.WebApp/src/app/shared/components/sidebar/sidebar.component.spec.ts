@@ -263,6 +263,30 @@ describe('SidebarComponent', () => {
     });
   });
 
+  describe('registration status filtering', () => {
+    const changeEvent = (value: string) => ({ target: { value } }) as unknown as Event;
+
+    it('selects «Alle» when no registration status is set', () => {
+      expect(component.registrationStatusValue()).toBe('all');
+    });
+
+    it('reflects the selected registration status', () => {
+      filterState.setRegistrationStatus(2);
+      expect(component.registrationStatusValue()).toBe('2');
+    });
+
+    it('sets the registration status from the selected radio', () => {
+      component.onRegistrationStatusChange(changeEvent('3'));
+      expect(filterState.selectedRegistrationStatusId()).toBe(3);
+    });
+
+    it('clears the registration status when «Alle» is selected', () => {
+      filterState.setRegistrationStatus(1);
+      component.onRegistrationStatusChange(changeEvent('all'));
+      expect(filterState.selectedRegistrationStatusId()).toBeNull();
+    });
+  });
+
   describe('period filtering', () => {
     it('should render period accordion', async () => {
       await flushAll();

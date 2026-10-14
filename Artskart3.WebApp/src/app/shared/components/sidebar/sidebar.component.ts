@@ -28,6 +28,13 @@ import type { components } from '../../types/api.generated';
 type OrganizationDto = components['schemas']['OrganizationDto'];
 type CatalogNumberMatchDto = components['schemas']['CatalogNumberMatchDto'];
 
+// adb-radio-group can't select an empty value, so "Alle" (id null) needs a value of its own.
+const ALL_REGISTRATION_STATUSES = 'all';
+
+function toRegistrationStatusValue(id: number | null): string {
+  return id === null ? ALL_REGISTRATION_STATUSES : String(id);
+}
+
 @Component({
   selector: 'app-sidebar',
   imports: [
@@ -65,7 +72,11 @@ export class SidebarComponent {
   );
   protected readonly translate = inject(TranslateService);
 
-  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS;
+  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS.map((option) => ({
+    ...option,
+    value: toRegistrationStatusValue(option.id),
+  }));
+  readonly registrationStatusValue = computed(() => toRegistrationStatusValue(this.filterState.selectedRegistrationStatusId()));
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -207,12 +218,11 @@ export class SidebarComponent {
     this.filterState.toggleBasisOfRecord(id);
   }
 
-  isRegistrationStatusSelected(id: number | null): boolean {
-    return this.filterState.selectedRegistrationStatusId() === id;
-  }
-
-  onRegistrationStatusChange(id: number | null): void {
-    this.filterState.setRegistrationStatus(id);
+  onRegistrationStatusChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setRegistrationStatus(target.value === ALL_REGISTRATION_STATUSES ? null : Number(target.value));
+    }
   }
 
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
