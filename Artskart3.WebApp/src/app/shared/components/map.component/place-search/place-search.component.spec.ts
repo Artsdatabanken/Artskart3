@@ -1,48 +1,48 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateModule } from '@ngx-translate/core';
-import { of, throwError, timer, map } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlaceSearchResult } from '../../../types/place-search.types';
-import { PlaceSearchService } from '../../../services/place-search/place-search.service';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { PlaceSearchComponent } from './place-search.component';
 
 describe('PlaceSearchComponent', () => {
   let fixture: ComponentFixture<PlaceSearchComponent>;
   let component: PlaceSearchComponent;
-  let searchService: PlaceSearchService;
+  let search: ReturnType<typeof vi.fn<(query: string, signal: AbortSignal) => Promise<PlaceSearchResult[]>>>;
 
   const places: PlaceSearchResult[] = [
     {
       id: 'alta-fjord-kvaenangen',
+      placeId: '10001',
       name: 'Alta',
-      placeType: 'Fjord',
+      language: 'Norsk',
+      type: 'Fjord',
       municipalities: ['Kvænangen'],
       counties: ['Troms'],
-      coordinates: [768586.78, 7781425.05],
-      coordinateSystem: 'EPSG:25833',
-      zoomLevel: 1,
+      coordinates: { lat: 70, lon: 22.05 },
+      zoomLevel: 8.5,
     },
     {
       id: 'alta-city',
+      placeId: '10002',
       name: 'Alta',
-      placeType: 'By',
+      language: 'Norsk',
+      type: 'By',
       municipalities: ['Alta'],
       counties: ['Finnmark'],
-      coordinates: [815288.9, 7783951.43],
-      coordinateSystem: 'EPSG:25833',
-      zoomLevel: 2,
+      coordinates: { lat: 69.97, lon: 23.27 },
+      zoomLevel: 11,
     },
   ];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PlaceSearchComponent, TranslateModule.forRoot()],
-      providers: [PlaceSearchService],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PlaceSearchComponent);
     component = fixture.componentInstance;
-    searchService = TestBed.inject(PlaceSearchService);
+    search = vi.fn<(query: string, signal: AbortSignal) => Promise<PlaceSearchResult[]>>().mockResolvedValue(places);
+    fixture.componentRef.setInput('search', search);
     fixture.detectChanges();
   });
 
@@ -52,7 +52,6 @@ describe('PlaceSearchComponent', () => {
 
   it('shows matching results with disambiguating location and type', async () => {
     vi.useFakeTimers();
-    vi.spyOn(searchService, 'searchPlaces').mockReturnValue(of(places));
 
     component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'Alta' } }));
     await vi.advanceTimersByTimeAsync(250);
@@ -60,13 +59,12 @@ describe('PlaceSearchComponent', () => {
 
     expect(component.showResults()).toBe(true);
     expect(fixture.nativeElement.querySelectorAll('[role="option"]')).toHaveLength(2);
-    expect(fixture.nativeElement.textContent).toContain('Kvænangen, Troms');
+    expect(fixture.nativeElement.textContent).toContain('Norsk · Kvænangen, Troms');
     expect(fixture.nativeElement.textContent).toContain('Fjord');
   });
 
-  it('loads mock suggestions from the adb-search input event', async () => {
+  it('loads suggestions from the adb-search input event', async () => {
     vi.useFakeTimers();
-    const search = vi.spyOn(searchService, 'searchPlaces').mockReturnValue(of(places));
     const searchElement = fixture.nativeElement.querySelector('adb-search');
 
     searchElement.dispatchEvent(
@@ -79,13 +77,12 @@ describe('PlaceSearchComponent', () => {
     await vi.advanceTimersByTimeAsync(250);
     fixture.detectChanges();
 
-    expect(search).toHaveBeenCalledWith('Alta');
+    expect(search).toHaveBeenCalledWith('Alta', expect.any(AbortSignal));
     expect(fixture.nativeElement.querySelectorAll('[role="option"]')).toHaveLength(2);
   });
 
   it('runs the pending query immediately when the search button is pressed', async () => {
     vi.useFakeTimers();
-    const search = vi.spyOn(searchService, 'searchPlaces').mockReturnValue(of(places));
     const searchElement = fixture.nativeElement.querySelector('adb-search');
 
     searchElement.dispatchEvent(
@@ -100,13 +97,13 @@ describe('PlaceSearchComponent', () => {
     await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
 
-    expect(search).toHaveBeenCalledWith('Alta');
+    expect(search).toHaveBeenCalledWith('Alta', expect.any(AbortSignal));
     expect(fixture.nativeElement.querySelectorAll('[role="option"]')).toHaveLength(2);
   });
 
   it('shows the no-results state for an empty response', async () => {
     vi.useFakeTimers();
-    vi.spyOn(searchService, 'searchPlaces').mockReturnValue(of([]));
+    search.mockResolvedValue([]);
 
     component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'Unknown' } }));
     await vi.advanceTimersByTimeAsync(250);
@@ -117,7 +114,7 @@ describe('PlaceSearchComponent', () => {
 
   it('shows the error state when the search fails', async () => {
     vi.useFakeTimers();
-    vi.spyOn(searchService, 'searchPlaces').mockReturnValue(throwError(() => new Error('offline')));
+    search.mockRejectedValue(new Error('offline'));
 
     component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'Alta' } }));
     await vi.advanceTimersByTimeAsync(250);
@@ -128,19 +125,25 @@ describe('PlaceSearchComponent', () => {
 
   it('cancels a pending search when the field is cleared', async () => {
     vi.useFakeTimers();
-    const search = vi.spyOn(searchService, 'searchPlaces').mockReturnValue(timer(100).pipe(map(() => places)));
+    let requestSignal: AbortSignal | undefined;
+    search.mockImplementation((_query, signal) => {
+      requestSignal = signal;
+      return new Promise<PlaceSearchResult[]>((resolve) => {
+        signal.addEventListener('abort', () => resolve([]), { once: true });
+      });
+    });
 
     component.onSearchInput(new CustomEvent('adb-input', { detail: { value: 'Alta' } }));
     await vi.advanceTimersByTimeAsync(250);
     component.onSearchClear();
-    await vi.advanceTimersByTimeAsync(200);
 
-    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledOnce();
+    expect(requestSignal?.aborted).toBe(true);
     expect(component.results()).toEqual([]);
     expect(component.showResults()).toBe(false);
   });
 
-  it('emits the selected place and clears the search state', () => {
+  it('emits the selected place, keeps its name, and closes the suggestions', () => {
     const selected: PlaceSearchResult[] = [];
     component.placeSelected.subscribe((place) => selected.push(place));
     component.results.set(places);
@@ -151,7 +154,7 @@ describe('PlaceSearchComponent', () => {
 
     expect(selected).toEqual([places[0]]);
     expect(component.results()).toEqual([]);
-    expect(component.searchTerm()).toBe('');
+    expect(component.searchTerm()).toBe('Alta');
     expect(component.showResults()).toBe(false);
   });
 });

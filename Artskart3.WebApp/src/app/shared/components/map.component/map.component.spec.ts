@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
 
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
@@ -118,6 +119,45 @@ describe('MapComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('delegates place searches to the map component API', async () => {
+    const place: PlaceSearchResult = {
+      id: 'alta-name-no',
+      placeId: '10002',
+      name: 'Alta',
+      language: 'Norsk',
+      type: 'By',
+      municipalities: ['Alta'],
+      counties: ['Finnmark'],
+      coordinates: { lat: 69.97, lon: 23.27 },
+      zoomLevel: 11,
+    };
+    const searchPlaces = vi.fn().mockResolvedValue([place]);
+    const signal = new AbortController().signal;
+    component.map = { searchPlaces } as unknown as NbicMapComponent;
+
+    await expect(component.searchPlaces('Alta', signal)).resolves.toEqual([place]);
+    expect(searchPlaces).toHaveBeenCalledWith('Alta', { signal, limit: 10 });
+  });
+
+  it('emits the selected place for the caller to handle', () => {
+    const place: PlaceSearchResult = {
+      id: 'alta-name-no',
+      placeId: '10002',
+      name: 'Alta',
+      language: 'Norsk',
+      type: 'By',
+      municipalities: ['Alta'],
+      counties: ['Finnmark'],
+      coordinates: { lat: 69.97, lon: 23.27 },
+      zoomLevel: 11,
+    };
+    const emit = vi.spyOn(component.placeSelectedAction, 'emit');
+
+    component.onPlaceSelected(place);
+
+    expect(emit).toHaveBeenCalledWith(place);
   });
 
   describe('linked feature styling', () => {

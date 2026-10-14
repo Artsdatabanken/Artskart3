@@ -61,7 +61,7 @@ import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
 import { PlaceSearchComponent } from './place-search/place-search.component';
-import { PlaceSearchResult } from '../../types/place-search.types';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { environment } from '../../../../environments/environment';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
@@ -82,6 +82,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private activeObservationPoint: ObservationPointDto | null = null;
   private observationFilterInitialized = false;
   private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
+
+  readonly searchPlaces = (query: string, signal: AbortSignal): Promise<PlaceSearchResult[]> =>
+    this.map ? this.map.searchPlaces(query, { signal, limit: 10 }) : Promise.resolve([]);
 
   onPlaceSelected(place: PlaceSearchResult): void {
     this.placeSelectedAction.emit(place);

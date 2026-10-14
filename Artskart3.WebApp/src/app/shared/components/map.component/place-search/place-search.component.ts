@@ -1,9 +1,8 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, inject, output, signal, viewChild } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule } from '@ngx-translate/core';
-import { Subject, catchError, distinctUntilChanged, finalize, map, of, switchMap, timer } from 'rxjs';
-import { PlaceSearchResult } from '../../../types/place-search.types';
-import { PlaceSearchService } from '../../../services/place-search/place-search.service';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
+import { Subject, catchError, defer, distinctUntilChanged, finalize, from, map, of, switchMap, timer } from 'rxjs';
 
 type SearchState =
   | { kind: 'clear' }
@@ -21,11 +20,11 @@ type SearchState =
   },
 })
 export class PlaceSearchComponent {
-  private readonly searchService = inject(PlaceSearchService);
   private readonly searchField = viewChild<ElementRef<HTMLElement>>('searchField');
   private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly searchInput$ = new Subject<{ term: string; immediate: boolean }>();
 
+  readonly search = input.required<(query: string, signal: AbortSignal) => Promise<PlaceSearchResult[]>>();
   readonly placeSelected = output<PlaceSearchResult>();
   readonly results = signal<PlaceSearchResult[]>([]);
   readonly showResults = signal(false);
@@ -46,7 +45,7 @@ export class PlaceSearchComponent {
               this.isLoading.set(true);
               this.showNoResults.set(false);
               this.hasError.set(false);
-              return this.searchService.searchPlaces(term).pipe(
+              return this.searchWithAbort(term).pipe(
                 map((results): SearchState => ({ kind: 'results', results })),
                 catchError(() => of<SearchState>({ kind: 'error' })),
                 finalize(() => this.isLoading.set(false)),
@@ -146,12 +145,29 @@ export class PlaceSearchComponent {
 
   onPlaceSelect(place: PlaceSearchResult): void {
     this.placeSelected.emit(place);
-    this.onSearchClear();
+    this.searchTerm.set(place.name);
+    this.searchInput$.next({ term: '', immediate: true });
+    this.results.set([]);
+    this.showResults.set(false);
+    this.showNoResults.set(false);
+    this.hasError.set(false);
+    this.isLoading.set(false);
+    this.highlightedIndex.set(-1);
+    const searchElement = this.searchField()?.nativeElement.querySelector('adb-search') as (HTMLElement & { value: string }) | null;
+    if (searchElement) searchElement.value = place.name;
     this.focusSearchInput();
   }
 
   getLocationLabel(place: PlaceSearchResult): string {
-    return [...place.municipalities, ...place.counties].join(', ');
+    const area = [...place.municipalities, ...place.counties].join(', ');
+    return [place.language, area].filter(Boolean).join(' · ');
+  }
+
+  private searchWithAbort(term: string) {
+    return defer(() => {
+      const controller = new AbortController();
+      return from(this.search()(term, controller.signal)).pipe(finalize(() => controller.abort()));
+    });
   }
 
   private moveHighlight(update: (index: number) => number): void {
