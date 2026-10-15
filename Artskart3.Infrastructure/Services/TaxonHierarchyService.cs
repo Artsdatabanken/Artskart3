@@ -174,49 +174,14 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
     {
         EnsureInitialized();
 
-        var result = new List<TaxonAncestryDto>();
-        foreach (var taxonId in taxonIds.Distinct())
-        {
-            var parentIds = BuildParentIdChain(taxonId);
-
-            // Synlige barn for hvert nivå i kjeden, inkludert taxonet selv — lar frontend
-            // avgjøre full dekning uten at treet er ekspandert ned til nivået.
-            var levels = new List<TaxonAncestryLevelDto>(parentIds.Count + 1);
-            foreach (var levelId in parentIds.Append(taxonId))
-            {
-                levels.Add(new TaxonAncestryLevelDto
-                {
-                    ParentId = levelId,
-                    ChildIds = GetVisibleChildIds(levelId)
-                });
-            }
-
-            result.Add(new TaxonAncestryDto
+        return taxonIds
+            .Distinct()
+            .Select(taxonId => new TaxonAncestryDto
             {
                 Id = taxonId,
-                ParentIds = parentIds,
-                Levels = levels
-            });
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Synlige barn av en forelder, filtrert likt som GetChildren.
-    /// </summary>
-    private List<int> GetVisibleChildIds(int parentId)
-    {
-        if (!_childrenByParent.TryGetValue(parentId, out var childIds)) return [];
-
-        var result = new List<int>(childIds.Count);
-        foreach (var childId in childIds)
-        {
-            if (_taxons.TryGetValue(childId, out var taxon) && IsVisible(taxon))
-                result.Add(childId);
-        }
-
-        return result;
+                ParentIds = BuildParentIdChain(taxonId)
+            })
+            .ToList();
     }
 
     /// <summary>

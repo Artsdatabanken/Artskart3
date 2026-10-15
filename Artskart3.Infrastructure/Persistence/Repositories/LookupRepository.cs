@@ -149,6 +149,10 @@ public class LookupRepository : ILookupRepository
     /// Organization har 25 943 rader, så delstrengsøk er gratis her. Det er kun
     /// filterspørringen mot 61M/192M rader som ikke tåler strengsammenligning —
     /// derfor returnerer denne en ID som frontend sender videre som filter.
+    ///
+    /// ObservationCount er forhåndsberegnet ved import, og null uten observasjoner.
+    /// Treff uten telling tas likevel med: ingenting her oppdaterer tellingen, så en
+    /// organisasjon som er kommet til etterpå, ville ellers ikke vært søkbar.
     /// </summary>
     public async Task<IEnumerable<OrganizationDto>> SearchOrganizationsByTypeAsync(
         string name, int organizationTypeId, int maxCount, CancellationToken cancellationToken = default)
@@ -171,7 +175,8 @@ public class LookupRepository : ILookupRepository
                 .Select(o => new OrganizationDto
                 {
                     Id = o.Id,
-                    Name = o.Name
+                    Name = o.Name,
+                    ObservationCount = o.ObservationCount
                 })
                 .ToListAsync(cancellationToken);
         }
@@ -232,7 +237,7 @@ public class LookupRepository : ILookupRepository
                 return Enumerable.Empty<CatalogNumberMatchDto>();
             }
 
-            // Serverside minstelengde. Debouncing og MinProjectNameSearchLength i
+            // Serverside minstelengde. Debouncing og minstelengden i
             // frontend gjelder bare nettleseren; endepunktet kan kalles direkte.
             if (trimmed.Length < SearchConstants.MinCatalogNumberSearchLength)
             {

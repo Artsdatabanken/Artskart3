@@ -66,6 +66,9 @@
       }
       @if (node.kind === 'group') {
         <span class="group-detail">{{ 'observationList.registrations' | translate: { number: node.count } }}</span>
+        @if (node.statusSummary) {
+          <span class="group-detail group-summary">{{ node.statusSummary }}</span>
+        }
         @if (node.coordinatePrecision !== undefined) {
           <span class="group-detail precision">{{
             'observationList.coordinatePrecision'

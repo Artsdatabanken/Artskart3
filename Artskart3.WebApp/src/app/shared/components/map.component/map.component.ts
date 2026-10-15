@@ -44,7 +44,12 @@ import { transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
-import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  FilterStateService,
+  imageFilterToWithImages,
+  sensitiveFilterToSensitive,
+} from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
@@ -159,10 +164,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
-      const datasetOrgId = this.filterState.datasetOrgId();
-      const projectOrgId = this.filterState.projectOrgId();
+      const datasetOrgIds = this.filterState.selectedDatasetIds();
+      const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
       return {
@@ -177,10 +184,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         coordinatePrecisionTo,
         periodFrom,
         periodTo,
-        datasetOrgId: datasetOrgId ?? undefined,
-        projectOrgId: projectOrgId ?? undefined,
+        datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
+        projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages,
+        changedByAnnotation,
+        sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },
@@ -328,6 +337,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .subscribe((observations) => {
         this.observationList.set(observations);
         this.observationRequestState.set('ready');
+        const [onlyObservation] = observations;
+        if (observations.length === 1 && onlyObservation.id) this.observationPanel()?.open(onlyObservation.id);
       });
   }
 
@@ -669,8 +680,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private locationFeatureState(feature: FeatureLike): MapFeatureState {
     const ids = this.locationIdsForFeature(feature);
-    if (ids.some((id) => this.selectedLocationIds().has(id))) return 'selected';
-    return ids.some((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+    if (!ids.length) return 'default';
+    // A cluster that also holds unselected locations would suggest its whole count is selected.
+    if (ids.every((id) => this.selectedLocationIds().has(id))) return 'selected';
+    return ids.every((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
   }
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
@@ -817,6 +830,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         const value = Number(member.get('observationCount'));
         return sum + (Number.isFinite(value) ? value : 1);
       }, 0) || members.length || 1;
+      if (members.length === 1 && total === 1) return styles.marker('location', this.locationFeatureState(feature));
+
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
       return styles.marker('cluster', this.locationFeatureState(feature), label);

@@ -14,6 +14,7 @@
     (retry)="retryObservations()"
     (activePoint)="highlightObservation($event)"
     (detailsOpened)="detailsOpened.emit()"
+    (closed)="closeObservationList(false)"
   />
   <app-loading-indicator [active]="isLoadingAreaData()" [label]="'mapToolbar.loadingObservationsLabel' | translate"></app-loading-indicator>
 </div>

@@ -40,8 +40,13 @@
   font-weight: 400;
 }
 
-.precision {
+.precision,
+.group-summary {
   color: var(--adb-text-base-secondary);
+}
+
+.group-summary {
+  font-style: italic;
 }
 
 .label {
@@ -117,4 +122,3 @@
   border-color: var(--adb-color-special-100);
   color: var(--adb-color-special-110);
 }
-

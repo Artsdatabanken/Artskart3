@@ -167,7 +167,12 @@
     "precision": "Precision",
     "taxonGroup": "Taxon group",
     "riskCategory": "Risk category",
-    "noResults": "No observations found"
+    "noResults": "The selected filter has no observations"
+  },
+  "autocomplete": {
+    "resultCount": "Results: {{count}}",
+    "noResults": "No results",
+    "noResultsFor": "No results for “{{searchTerm}}”."
   },
   "sidebar": {
     "categories": "Red List- and Alien Species Categories",
@@ -249,14 +254,12 @@
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
     "chipPeriod": "Year: {{from}}-{{to}}",
-    "noSearchResults": "No results",
-    "noSearchResultsFor": "No results for “{{searchTerm}}”.",
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
-    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in datasets for \"{{searchTerm}}\"",
+    "noSearchResultsCatalogNumber": "No results in ids or catalog numbers for \"{{searchTerm}}\"",
     "searchResults": "Search results",
-    "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
       "Kingdom": "Kingdom",
       "Subkingdom": "Subkingdom",
@@ -291,7 +294,16 @@
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",
-    "imageWithout": "Without image"
+    "imageWithout": "Without image",
+    "annotation": "Annotation",
+    "annotationAll": "All (default)",
+    "annotationChanged": "Changed by annotation",
+    "annotationNotChanged": "Not changed by annotation",
+    "sensitive": "Sensitive finds",
+    "sensitiveAll": "All (default)",
+    "sensitiveOnly": "Sensitive finds",
+    "sensitiveNot": "Non-sensitive finds",
+    "sensitivity": "Find sensitivity"
   },
   "mapSearch": {
     "placeholder": "Find a place",

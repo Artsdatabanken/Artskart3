@@ -85,10 +85,12 @@ export class ListViewComponent {
     this.filterState.coordinatePrecisionTo();
     this.filterState.periodFrom();
     this.filterState.periodTo();
-    this.filterState.datasetOrgId();
-    this.filterState.projectOrgId();
+    this.filterState.selectedDatasetIds();
+    this.filterState.selectedProjectIds();
     this.filterState.catalogObservationIds();
     this.filterState.imageFilter();
+    this.filterState.annotationFilter();
+    this.filterState.sensitiveFilter();
     this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {

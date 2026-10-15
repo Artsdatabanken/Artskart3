@@ -24,6 +24,7 @@ export class ObservationPanelComponent {
   readonly retry = output<void>();
   readonly activePoint = output<ObservationPointDto | null>();
   readonly detailsOpened = output<void>();
+  readonly closed = output<void>();
   readonly list = viewChild(ObservationListComponent);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly router = inject(Router);
@@ -40,6 +41,9 @@ export class ObservationPanelComponent {
   private readonly activeContext = signal<string | null>(null);
   readonly rawId = signal<string | null>(null);
   readonly detailsOpen = computed(() => this.rawId() !== null);
+  readonly singleObservation = computed(
+    () => this.selection() !== null && this.requestState() === 'ready' && this.observations().length === 1,
+  );
   readonly selectedId = computed(() => {
     const value = this.rawId();
     return value && /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647 ? Number(value) : null;
@@ -72,6 +76,7 @@ export class ObservationPanelComponent {
           this.navigationError.set(false);
           if (raw === null) {
             if (closing) this.restoreFocus();
+            if (closing && this.singleObservation()) this.closed.emit();
             return of({ state: 'loading' as const, detail: null });
           }
           this.detailsOpened.emit();
@@ -122,11 +127,19 @@ export class ObservationPanelComponent {
     this.dismissRequest.next();
     this.detail.set(null);
     this.activePoint.emit(null);
+    const detailsOpen = this.rawId() !== null;
     if (invalidate) {
       this.activeContext.set(null);
       this.returnFocus = null;
+      // The parent is replacing the selection, so the URL change must not count as the user closing it.
+      this.rawId.set(null);
     }
-    if (this.rawId() !== null) this.navigate(null, true, null);
+    if (detailsOpen) this.navigate(null, true, null);
+  }
+
+  closeList(): void {
+    this.closed.emit();
+    this.restoreFocus(null);
   }
 
   retryDetails(): void {
@@ -154,8 +167,7 @@ export class ObservationPanelComponent {
     this.state.set('error');
   }
 
-  private restoreFocus(): void {
-    const target = this.returnFocus;
+  private restoreFocus(target = this.returnFocus): void {
     afterNextRender(
       () => {
         if (target?.isConnected) target.focus({ preventScroll: true });
