@@ -244,9 +244,11 @@ describe('FilterChipsComponent', () => {
       filterState.setRegistrationStatus(null);
       filterState.setImageFilter('all');
       filterState.setAnnotationFilter('all');
+      filterState.setSensitiveFilter('all');
       expect(component.chips().find((c) => c.id === 'registrationStatus')).toBeUndefined();
       expect(component.chips().find((c) => c.id === 'imageFilter')).toBeUndefined();
       expect(component.chips().find((c) => c.id === 'annotationFilter')).toBeUndefined();
+      expect(component.chips().find((c) => c.id === 'sensitiveFilter')).toBeUndefined();
     });
 
     it('viser chip med filtrets tittel og valgt radioknapp', () => {
@@ -254,11 +256,13 @@ describe('FilterChipsComponent', () => {
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
       filterState.setAnnotationFilter('notChanged');
+      filterState.setSensitiveFilter('sensitive');
       const chips = component.chips();
       // Uten lastede oversettelser returnerer instant() nøklene
       expect(chips.find((c) => c.id === 'registrationStatus')!.text).toContain('sidebar.registreringStatus.absent');
       expect(chips.find((c) => c.id === 'imageFilter')!.text).toContain('sidebar.imageWithout');
       expect(chips.find((c) => c.id === 'annotationFilter')!.text).toContain('sidebar.annotationNotChanged');
+      expect(chips.find((c) => c.id === 'sensitiveFilter')!.text).toBe('sidebar.sensitivity: sidebar.sensitiveOnly');
     });
 
     it('tilbakestiller til standardvalg når chip lukkes', () => {
@@ -266,13 +270,16 @@ describe('FilterChipsComponent', () => {
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
       filterState.setAnnotationFilter('changed');
+      filterState.setSensitiveFilter('notSensitive');
       const chips = component.chips();
       chips.find((c) => c.id === 'registrationStatus')!.clear();
       chips.find((c) => c.id === 'imageFilter')!.clear();
       chips.find((c) => c.id === 'annotationFilter')!.clear();
+      chips.find((c) => c.id === 'sensitiveFilter')!.clear();
       expect(filterState.selectedRegistrationStatusId()).toBeNull();
       expect(filterState.imageFilter()).toBe('all');
       expect(filterState.annotationFilter()).toBe('all');
+      expect(filterState.sensitiveFilter()).toBe('all');
     });
   });
 

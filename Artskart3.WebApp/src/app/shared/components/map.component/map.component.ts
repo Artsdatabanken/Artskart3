@@ -48,6 +48,7 @@ import {
   annotationFilterToChangedByAnnotation,
   FilterStateService,
   imageFilterToWithImages,
+  sensitiveFilterToSensitive,
 } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
@@ -159,6 +160,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
       return {
@@ -178,6 +180,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages,
         changedByAnnotation,
+        sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },

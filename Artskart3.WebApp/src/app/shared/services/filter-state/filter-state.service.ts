@@ -2,6 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 
 export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
 export type AnnotationFilterOption = 'all' | 'changed' | 'notChanged';
+export type SensitiveFilterOption = 'all' | 'sensitive' | 'notSensitive';
 
 /** A filter value picked by searching. The name is only for display; the id is what gets sent. */
 export interface NamedId {
@@ -33,6 +34,18 @@ export function changedByAnnotationToAnnotationFilter(changedByAnnotation: boole
   return 'all';
 }
 
+export function sensitiveFilterToSensitive(option: SensitiveFilterOption): boolean | undefined {
+  if (option === 'sensitive') return true;
+  if (option === 'notSensitive') return false;
+  return undefined;
+}
+
+export function sensitiveToSensitiveFilter(sensitive: boolean | null | undefined): SensitiveFilterOption {
+  if (sensitive === true) return 'sensitive';
+  if (sensitive === false) return 'notSensitive';
+  return 'all';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -61,6 +74,7 @@ export class FilterStateService {
   readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
   readonly annotationFilter = signal<AnnotationFilterOption>('all');
+  readonly sensitiveFilter = signal<SensitiveFilterOption>('all');
   readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
@@ -311,6 +325,10 @@ export class FilterStateService {
     this.annotationFilter.set(value);
   }
 
+  setSensitiveFilter(value: SensitiveFilterOption): void {
+    this.sensitiveFilter.set(value);
+  }
+
   clearOtherFindProperties(): void {
     this.selectedProjects.set([]);
     this.selectedDatasets.set([]);
@@ -318,6 +336,7 @@ export class FilterStateService {
     this.catalogObservationIds.set([]);
     this.imageFilter.set('all');
     this.annotationFilter.set('all');
+    this.sensitiveFilter.set('all');
   }
 
   clearAll(): void {

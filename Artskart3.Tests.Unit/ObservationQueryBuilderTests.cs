@@ -351,6 +351,26 @@ public class ObservationQueryBuilderTests
     }
 
     // ---------------------------------------------------------------------
+    // Sensitive funn
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_Sensitive_SplitsOnSensitiveTag(bool sensitive, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservationsWithTags(context,
+            (CreateObservation(1), [(int)TagEnum.Sensitive]),
+            (CreateObservation(2), [(int)TagEnum.AnnotatedChanges]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { Sensitive = sensitive });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
     // Paritet mot søket
     // ---------------------------------------------------------------------
 
@@ -428,6 +448,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
     };
 
     private static List<Observation> Apply(

@@ -7,6 +7,8 @@ import {
   FilterStateService,
   imageFilterToWithImages,
   sameIds,
+  sensitiveFilterToSensitive,
+  sensitiveToSensitiveFilter,
   withImagesToImageFilter,
 } from '../filter-state/filter-state.service';
 import { OrganizationService } from '../organization/organization.service';
@@ -55,6 +57,7 @@ export class SearchFilterService {
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
@@ -73,6 +76,7 @@ export class SearchFilterService {
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
         changedByAnnotation,
+        sensitive,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
@@ -115,6 +119,7 @@ export class SearchFilterService {
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
     state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
+    state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
 
     this.resolveDisplayNames(filter);
   }

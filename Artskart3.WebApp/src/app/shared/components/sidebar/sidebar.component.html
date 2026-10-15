@@ -390,6 +390,18 @@
 
         <adb-radio-group
           class="sidebar-radio-group"
+          name="sensitiveFilter"
+          [attr.label]="'sidebar.sensitive' | translate"
+          [attr.value]="sensitiveFilter()"
+          (change)="onSensitiveFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.sensitiveAll' | translate }}</adb-radio>
+          <adb-radio value="sensitive">{{ 'sidebar.sensitiveOnly' | translate }}</adb-radio>
+          <adb-radio value="notSensitive">{{ 'sidebar.sensitiveNot' | translate }}</adb-radio>
+        </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
           name="annotationFilter"
           [attr.label]="'sidebar.annotation' | translate"
           [attr.value]="annotationFilter()"

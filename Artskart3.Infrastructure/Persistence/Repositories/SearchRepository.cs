@@ -514,6 +514,13 @@ public class SearchRepository : ISearchRepository
                 : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges));
         }
 
+        if (filter.Sensitive.HasValue)
+        {
+            query = filter.Sensitive.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive));
+        }
+
         if (filter.Period?.Months?.Any() == true)
         {
             var months = filter.Period.Months;
@@ -818,18 +825,14 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => !idx.HasMediaFiles);
         }
 
-        // Semi-join rett mot koblingstabellen, ikke via Observation.Tags: veien
-        // gjennom Observation brukte ~10x så mye CPU på fylkesnivå. Bare ~133k
-        // observasjoner har taggen, og IX_TagIdObsId gjør oppslaget til et seek,
-        // så en denormalisert kolonne er ikke verdt en ny backfill.
         if (filter.ChangedByAnnotation.HasValue)
         {
-            var changedByAnnotation = _context.Set<Dictionary<string, object>>("ObservationTag")
-                .Where(ot => (int)ot["TagId"] == (int)TagEnum.AnnotatedChanges)
-                .Select(ot => (int)ot["ObservationId"]);
-            query = filter.ChangedByAnnotation.Value
-                ? query.Where(idx => changedByAnnotation.Contains(idx.ObservationId))
-                : query.Where(idx => !changedByAnnotation.Contains(idx.ObservationId));
+            query = FilterOnTag(query, TagEnum.AnnotatedChanges, filter.ChangedByAnnotation.Value);
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = FilterOnTag(query, TagEnum.Sensitive, filter.Sensitive.Value);
         }
 
         // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
@@ -933,6 +936,26 @@ public class SearchRepository : ISearchRepository
     /// Alle er områdemarkører på samme nivå og filtreres via Fid-matching.
     /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
     /// </summary>
+
+    /// <summary>
+    /// Semi-join rett mot koblingstabellen, ikke via Observation.Tags: veien gjennom
+    /// Observation brukte ~10x så mye CPU på fylkesnivå. Taggene som filtreres er
+    /// sjeldne (~133k annoterte, ~2k sensitive), og IX_TagIdObsId gjør oppslaget til
+    /// et seek, så en denormalisert kolonne er ikke verdt en ny backfill.
+    /// Taggen sendes som konstant: med parameter gjenbrukte SQL Server planen fra
+    /// den lille Sensitive-taggen på AnnotatedChanges, og tellingen tok 4-5 s.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> FilterOnTag(
+        IQueryable<ObservationEntityIndex> query, TagEnum tag, bool hasTag)
+    {
+        var tagId = (int)tag;
+        var observationTags = _context.Set<Dictionary<string, object>>("ObservationTag");
+        return hasTag
+            ? query.Where(idx => observationTags
+                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId))
+            : query.Where(idx => !observationTags
+                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId));
+    }
 
     /// <summary>
     /// Konverterer TaxonIds til filtrering på nærmeste denormaliserte rangnivå.

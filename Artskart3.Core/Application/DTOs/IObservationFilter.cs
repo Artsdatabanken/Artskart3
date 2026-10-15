@@ -47,4 +47,9 @@ public interface IObservationFilter
     /// observasjoner som har en annotering uten at noe ble endret.
     /// </summary>
     bool? ChangedByAnnotation { get; }
+
+    /// <summary>
+    /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.
+    /// </summary>
+    bool? Sensitive { get; }
 }

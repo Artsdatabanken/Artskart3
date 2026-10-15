@@ -76,6 +76,7 @@ describe('SearchFilterService', () => {
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
     filterState.setAnnotationFilter('changed');
+    filterState.setSensitiveFilter('sensitive');
 
     const filter = service.observationFilter();
 
@@ -94,6 +95,7 @@ describe('SearchFilterService', () => {
       observationIds: [10],
       withImages: true,
       changedByAnnotation: true,
+      sensitive: true,
       period: { from: 1990, to: 2000, months: [6] },
     };
 
@@ -170,6 +172,7 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
     filterState.setAnnotationFilter('notChanged');
+    filterState.setSensitiveFilter('notSensitive');
     const saved = service.observationFilter();
 
     filterState.clearAll();
@@ -214,6 +217,7 @@ describe('SearchFilterService.applyFilter', () => {
       observationIds: [9],
       withImages: true,
       changedByAnnotation: true,
+      sensitive: false,
     };
 
     await service.applyFilter(sample);

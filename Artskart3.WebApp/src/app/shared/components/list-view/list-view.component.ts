@@ -90,6 +90,7 @@ export class ListViewComponent {
     this.filterState.catalogObservationIds();
     this.filterState.imageFilter();
     this.filterState.annotationFilter();
+    this.filterState.sensitiveFilter();
     this.filterState.selectedMonths();
     untracked(() => {
       if (this.pageNumber() !== 1) {
