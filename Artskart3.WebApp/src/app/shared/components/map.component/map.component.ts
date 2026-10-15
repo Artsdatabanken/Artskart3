@@ -44,7 +44,12 @@ import { transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
-import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  FilterStateService,
+  imageFilterToWithImages,
+  sensitiveFilterToSensitive,
+} from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
@@ -154,6 +159,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
       return {
@@ -172,6 +179,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages,
+        changedByAnnotation,
+        sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },

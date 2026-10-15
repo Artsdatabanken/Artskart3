@@ -161,6 +161,20 @@ public static class ObservationQueryBuilder
                 : query.Where(o => !o.MediaFiles.Any());
         }
 
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = filter.ChangedByAnnotation.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges));
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = filter.Sensitive.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive));
+        }
+
         return query;
     }
 

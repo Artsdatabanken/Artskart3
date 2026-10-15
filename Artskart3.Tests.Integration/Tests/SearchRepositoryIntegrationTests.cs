@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -698,6 +699,64 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
 
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    // Tagfiltrene slår opp rett i koblingstabellen ObservationTags, som
+    // in-memory-testene ikke kan bekrefte at oversettes til SQL.
+
+    [Fact]
+    public Task GetAreaCountsAsync_ChangedByAnnotationFilter_SplitsOnAnnotatedChangesTag() =>
+        AssertAreaCountsSplitOnTagAsync(982000, TagEnum.AnnotatedChanges,
+            hasTag => new LocationSearchFilterDto { ChangedByAnnotation = hasTag });
+
+    [Fact]
+    public Task GetAreaCountsAsync_SensitiveFilter_SplitsOnSensitiveTag() =>
+        AssertAreaCountsSplitOnTagAsync(983000, TagEnum.Sensitive,
+            hasTag => new LocationSearchFilterDto { Sensitive = hasTag });
+
+    private async Task AssertAreaCountsSplitOnTagAsync(
+        int untaggedObservationId, TagEnum tag, Func<bool, LocationSearchFilterDto> filterOnTag)
+    {
+        var areaEntityId = untaggedObservationId + 10;
+        var areaFid = areaEntityId.ToString();
+        var tagId = (int)tag;
+
+        // ObservationTags har fremmednøkkel til Observation, så den taggede
+        // observasjonen lånes fra testdataene, som i datasettestene over.
+        var taggedObservationId = await _context.Set<Observation>()
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(taggedObservationId, areaFid);
+        await RemoveSyntheticRowsAsync(untaggedObservationId, areaFid);
+        await RemoveSyntheticTagRowAsync(taggedObservationId, tagId);
+        if (!await _context.Set<Tag>().AnyAsync(t => t.Id == tagId))
+            _context.Set<Tag>().Add(new Tag { Id = tagId, Name = tag.ToString() });
+        SeedArea(areaFid, $"{tag} test kommune");
+        SeedIndexRow(taggedObservationId, areaEntityId);
+        SeedIndexRow(untaggedObservationId, areaEntityId);
+        ObservationTags().Add(new Dictionary<string, object>
+        {
+            ["ObservationId"] = taggedObservationId,
+            ["TagId"] = tagId,
+        });
+        await _context.SaveChangesAsync();
+
+        var withTag = await repository.GetAreaCountsAsync(2, filterOnTag(true));
+        var withoutTag = await repository.GetAreaCountsAsync(2, filterOnTag(false));
+
+        withTag.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        withoutTag.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+    }
+
+    private DbSet<Dictionary<string, object>> ObservationTags() =>
+        _context.Set<Dictionary<string, object>>("ObservationTag");
+
+    private async Task RemoveSyntheticTagRowAsync(int observationId, int tagId)
+    {
+        ObservationTags().RemoveRange(ObservationTags()
+            .Where(ot => (int)ot["ObservationId"] == observationId && (int)ot["TagId"] == tagId));
+        await _context.SaveChangesAsync();
     }
 
     private SearchRepository CreateCompleteFilterRepository() =>

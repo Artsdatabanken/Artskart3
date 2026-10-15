@@ -1,7 +1,16 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AreaService } from '../area/area.service';
-import { FilterStateService, imageFilterToWithImages, sameIds, withImagesToImageFilter } from '../filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  changedByAnnotationToAnnotationFilter,
+  FilterStateService,
+  imageFilterToWithImages,
+  sameIds,
+  sensitiveFilterToSensitive,
+  sensitiveToSensitiveFilter,
+  withImagesToImageFilter,
+} from '../filter-state/filter-state.service';
 import { OrganizationService } from '../organization/organization.service';
 import { ObservationSearchFilter } from '../../types/api.types';
 
@@ -47,6 +56,8 @@ export class SearchFilterService {
       const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
@@ -64,6 +75,8 @@ export class SearchFilterService {
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
+        changedByAnnotation,
+        sensitive,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
@@ -105,6 +118,8 @@ export class SearchFilterService {
     state.selectedProjects.set((filter.projectOrgIds ?? []).map((id) => ({ id, name: '' })));
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
+    state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
+    state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
 
     this.resolveDisplayNames(filter);
   }

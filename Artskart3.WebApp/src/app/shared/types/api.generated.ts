@@ -1848,6 +1848,8 @@ export interface components {
             projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
+            changedByAnnotation?: null | boolean;
+            sensitive?: null | boolean;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -2022,6 +2024,8 @@ export interface components {
             projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
+            changedByAnnotation?: null | boolean;
+            sensitive?: null | boolean;
         };
         OrganizationDto: {
             /** Format: int32 */

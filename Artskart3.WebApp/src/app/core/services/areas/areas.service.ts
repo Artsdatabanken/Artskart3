@@ -299,6 +299,8 @@ export interface LocationSearchFilter {
   projectOrgIds?: number[];
   observationIds?: number[] | null;
   withImages?: boolean | null;
+  changedByAnnotation?: boolean | null;
+  sensitive?: boolean | null;
   periodMonths?: number[] | null;
 }
 
@@ -486,6 +488,8 @@ export class AreasService {
       if (filter.projectOrgIds?.length) body['projectOrgIds'] = filter.projectOrgIds;
       if (filter.observationIds?.length) body['observationIds'] = filter.observationIds;
       if (filter.withImages != null) body['withImages'] = filter.withImages;
+      if (filter.changedByAnnotation != null) body['changedByAnnotation'] = filter.changedByAnnotation;
+      if (filter.sensitive != null) body['sensitive'] = filter.sensitive;
     }
 
     if (extent) {
