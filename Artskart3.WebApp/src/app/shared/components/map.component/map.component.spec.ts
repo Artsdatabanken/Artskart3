@@ -244,8 +244,8 @@ describe('MapComponent', () => {
     it('wires singleton, cluster, polygon, and detail-highlight styles without changing labels or pickability', () => {
       select([1]);
       const styles = component['featureStyles']!;
-      expect(render('area-markers-locations', location(1))).toBe(styles.marker('location', 'default'));
-      expect(render('location-highlights', location(1))).toBe(styles.marker('location', 'selected'));
+      expect(render('area-markers-locations', location(1))).toBe(styles.marker('unclusteredLocation', 'default'));
+      expect(render('location-highlights', location(1))).toBe(styles.marker('unclusteredLocation', 'selected'));
       expect(render('area-markers-locations', cluster(1), true)).toBe(styles.marker('cluster', 'selected', '2'));
       const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [location(1, 1)] });
       expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected'));

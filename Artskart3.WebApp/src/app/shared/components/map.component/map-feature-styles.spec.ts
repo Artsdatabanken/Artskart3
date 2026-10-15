@@ -55,6 +55,7 @@ describe('MapFeatureStyles', () => {
 
   it.each([
     ['location', 8, undefined],
+    ['unclusteredLocation', 6.4, undefined],
     ['cluster', 17, '600 10px "Chivo", sans-serif'],
     ['area', 20, '600 10px "Chivo", sans-serif'],
     ['observation', 11, undefined],
@@ -78,7 +79,7 @@ describe('MapFeatureStyles', () => {
   });
 
   it.each([1, 2])('draws exterior marker rings at pixel ratio %s without enlarging hit targets', (pixelRatio) => {
-    for (const kind of ['location', 'cluster', 'area', 'observation'] satisfies MapMarkerKind[]) {
+    for (const kind of ['location', 'unclusteredLocation', 'cluster', 'area', 'observation'] satisfies MapMarkerKind[]) {
       for (const [state, width, color] of [
         ['hover', 4, 'rgba(118,128,131,1)'],
         ['selected', 5, 'rgba(248,174,0,1)'],

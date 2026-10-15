@@ -4,11 +4,12 @@ import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import type { RenderFunction } from 'ol/style/Style';
 
 export type MapFeatureState = 'default' | 'hover' | 'selected';
-export type MapMarkerKind = 'location' | 'cluster' | 'area' | 'observation';
+export type MapMarkerKind = 'location' | 'unclusteredLocation' | 'cluster' | 'area' | 'observation';
 
 const BORDER_WIDTH = 1.5;
 const MARKERS = {
   location: { radius: 8, font: undefined },
+  unclusteredLocation: { radius: 6.4, font: undefined },
   cluster: { radius: 17, font: '600 10px "Chivo", sans-serif' },
   area: { radius: 20, font: '600 10px "Chivo", sans-serif' },
   observation: { radius: 11, font: undefined },

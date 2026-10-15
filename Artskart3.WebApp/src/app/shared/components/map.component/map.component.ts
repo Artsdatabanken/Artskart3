@@ -795,7 +795,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: {
         type: 'raw',
-        options: { instance: (feature: FeatureLike) => styles.marker('location', this.locationFeatureState(feature)) },
+        options: { instance: (feature: FeatureLike) => styles.marker('unclusteredLocation', this.locationFeatureState(feature)) },
       },
     });
 
@@ -833,7 +833,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 100,
       zIndexPinned: true,
-      style: { type: 'raw', options: { instance: () => styles.marker('location', 'default') } },
+      style: { type: 'raw', options: { instance: () => styles.marker('unclusteredLocation', 'default') } },
       cluster: {
         enabled: this.clusteringEnabled(),
         distance: 60,
