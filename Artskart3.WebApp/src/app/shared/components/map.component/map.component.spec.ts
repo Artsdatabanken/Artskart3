@@ -141,7 +141,7 @@ describe('MapComponent', () => {
     expect(searchPlaces).toHaveBeenCalledWith('Alta', { signal, limit: 10 });
   });
 
-  it('emits the selected place for the caller to handle', () => {
+  it('transforms a selected WGS84 place to the map projection and applies its zoom', () => {
     const place: PlaceSearchResult = {
       id: 'alta-name-no',
       placeId: '10002',
@@ -153,11 +153,17 @@ describe('MapComponent', () => {
       coordinates: { lat: 69.97, lon: 23.27 },
       zoomLevel: 11,
     };
-    const emit = vi.spyOn(component.placeSelectedAction, 'emit');
+    const center: [number, number] = [815288.9, 7783951.43];
+    const transformCoordsFrom = vi.fn().mockReturnValue(center);
+    const setCenter = vi.fn();
+    const setZoom = vi.fn();
+    component.map = { transformCoordsFrom, setCenter, setZoom } as unknown as NbicMapComponent;
 
     component.onPlaceSelected(place);
 
-    expect(emit).toHaveBeenCalledWith(place);
+    expect(transformCoordsFrom).toHaveBeenCalledWith([23.27, 69.97], 'EPSG:4326', MAP_CONFIG.projection);
+    expect(setCenter).toHaveBeenCalledWith(center);
+    expect(setZoom).toHaveBeenCalledWith(place.zoomLevel);
   });
 
   describe('linked feature styling', () => {

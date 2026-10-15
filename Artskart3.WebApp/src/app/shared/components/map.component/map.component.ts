@@ -75,7 +75,6 @@ import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
-  readonly placeSelectedAction = output<PlaceSearchResult>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
   readonly placeSearchEnabled = environment.environmentName !== 'beta';
@@ -87,7 +86,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map ? this.map.searchPlaces(query, { signal, limit: 10 }) : Promise.resolve([]);
 
   onPlaceSelected(place: PlaceSearchResult): void {
-    this.placeSelectedAction.emit(place);
+    const center = this.map.transformCoordsFrom([place.coordinates.lon, place.coordinates.lat], 'EPSG:4326', MAP_CONFIG.projection);
+    this.zoomToCentroid(center, place.zoomLevel);
   }
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';
