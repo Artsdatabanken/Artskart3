@@ -415,8 +415,8 @@ function New-PerfFixtures {
     # ikke rangere paa selektivitet. Foerste og siste treff i et bredt soek gir
     # to stabile, men vilkaarlige verdier.
     foreach ($org in @(
-        @{ Name = 'datasett'; Path = '/api/Lookup/Datasets?search=a&maxCount=50'; Field = 'datasetOrgId' },
-        @{ Name = 'prosjekt'; Path = '/api/Lookup/Projects?search=a&maxCount=50'; Field = 'projectOrgId' })) {
+        @{ Name = 'datasett'; Path = '/api/Lookup/Datasets?search=a&maxCount=50'; Field = 'datasetOrgIds' },
+        @{ Name = 'prosjekt'; Path = '/api/Lookup/Projects?search=a&maxCount=50'; Field = 'projectOrgIds' })) {
 
         try { $hits = @(Invoke-PerfApi -Path $org.Path) }
         catch { Write-Warning "Kunne ikke hente $($org.Path): $($_.Exception.Message)"; continue }
@@ -426,11 +426,11 @@ function New-PerfFixtures {
 
         $tiers = [System.Collections.Generic.List[object]]::new()
         $tiers.Add((New-PerfTier -Key "$($org.Name):tung" -Role 'tung' `
-            -Label $hits[0].name -Filter @{ $($org.Field) = [int]$hits[0].id }))
+            -Label $hits[0].name -Filter @{ $($org.Field) = @([int]$hits[0].id) }))
 
         if ($hits.Count -gt 1) {
             $tiers.Add((New-PerfTier -Key "$($org.Name):lett" -Role 'lett' `
-                -Label $hits[-1].name -Filter @{ $($org.Field) = [int]$hits[-1].id }))
+                -Label $hits[-1].name -Filter @{ $($org.Field) = @([int]$hits[-1].id) }))
         }
 
         $d = New-PerfDimension -Name $org.Name -Tiers $tiers
@@ -467,6 +467,21 @@ function New-PerfFixtures {
     $dimensions.Add((New-PerfDimension -Name 'bilder' -Tiers @(
         New-PerfTier -Key 'bilder:lett' -Role 'lett' -Label 'med bilder'  -Filter @{ withImages = $true }
         New-PerfTier -Key 'bilder:tung' -Role 'tung' -Label 'uten bilder' -Filter @{ withImages = $false }
+    )))
+
+    # Tagfiltrene. Rollene foelger selektivitet som ellers: den merkede
+    # halvdelen er 'lett' (133k annoterte, 2k sensitive av 61M), negasjonen
+    # 'tung'. Men det er den LETTE som var treg foer de filtrerte indeksene -
+    # TOP 10 sortert paa dato maatte skanne 1,5 hhv. 6,3 millioner rader foer
+    # ti treff hadde samlet seg. Begge retninger maales derfor.
+    $dimensions.Add((New-PerfDimension -Name 'annotering' -Tiers @(
+        New-PerfTier -Key 'annotering:lett' -Role 'lett' -Label 'endret av annotering'       -Filter @{ changedByAnnotation = $true }
+        New-PerfTier -Key 'annotering:tung' -Role 'tung' -Label 'ikke endret av annotering'  -Filter @{ changedByAnnotation = $false }
+    )))
+
+    $dimensions.Add((New-PerfDimension -Name 'sensitivitet' -Tiers @(
+        New-PerfTier -Key 'sensitivitet:lett' -Role 'lett' -Label 'sensitive funn'      -Filter @{ sensitive = $true }
+        New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }
     )))
 
     $dimensions.Add((New-PerfDimension -Name 'periode' -Tiers @(

@@ -109,18 +109,26 @@ public class AreaCountCacheDimensionsTests
         // Egenskaper som ikke påvirker antallet i det hele tatt.
         string[] ikkeFilter = ["Epsg", "MaxResults", "Envelope", "HasActiveFilters", "HasObservationAttributeFilters"];
 
-        // Katalognummer er det eneste observasjonsfilteret bufferen ikke dekker.
-        // ObservationIds er en vilkårlig liste uten endelig vokabular å bøtte på, og
-        // trenger det ikke — id-ene er allerede slått opp, så filteret er et seek.
-        string[] bevisstUtenfor = ["ObservationIds"];
+        // Filtre bufferen ikke dekker. Hver av dem MÅ ha en eksplisitt fall-through i
+        // AreaCountCacheService, LocationCountCacheService og PolygonLocationStore —
+        // bufferne velger bøtter ved å ramse opp kjente dimensjoner, så et filter som
+        // ikke er en dimensjon blir aldri konsultert, og svaret blir raskt og for høyt.
+        //
+        // Katalognummer: ObservationIds er en vilkårlig liste uten endelig vokabular å
+        // bøtte på, og trenger det ikke — id-ene er allerede slått opp, så filteret er
+        // et seek.
+        //
+        // Annotering og sensitivitet: begge er tagger, og kolonnene finnes foreløpig
+        // bare på Observation, ikke på ObservationEntityIndex som bufferen bygges fra.
+        string[] bevisstUtenfor = ["ObservationIds", "ChangedByAnnotation", "Sensitive"];
 
         // Fire av disse hører til samme dimensjon: Geografi. Semi-joinen ORer kommune,
         // fylke, Svalbard, verneområde og havområde sammen, så de ER ett filter.
         string[] dekketAvDimensjon =
         [
             "WithImages", "RegistrationStatusId", "BehaviorIds", "BasisOfRecordIds", "CategoryIds",
-            "OrganizationIds", "TaxonGroupIds", "TaxonIds", "DatasetOrgId", "Period",
-            "CoordinatePrecision", "ProjectOrgId",
+            "OrganizationIds", "TaxonGroupIds", "TaxonIds", "DatasetOrgIds", "Period",
+            "CoordinatePrecision", "ProjectOrgIds",
             "MunicipalityIds", "CountyIds", "OceanAreaIds", "RestrictedAreaIds",
         ];
 

@@ -124,6 +124,11 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     {
         if (!IsReady) return null;
 
+        // Annotering og sensitivitet er tagger, og bufferen er bygget fra
+        // ObservationEntityIndex, som ikke har dem. Databasestien som før — å
+        // se bort fra filteret ville gitt for mange polygoner med for høye tall.
+        if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue) return null;
+
         var p = BuildPredicate(filter);
 
         // Et filter som ikke kan treffe noe. Tomt, aldri ufiltrert.
@@ -233,7 +238,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         // svarer tomt for samme filter. Samme mønster som HarBilderSatt.
         public bool RegStatusSatt { get; init; }
         public byte RegStatus { get; init; }
-        public int Datasett { get; init; }           // Ingen = ikke satt
+        public HashSet<int>? Datasett { get; init; }
         public bool HarBilderSatt { get; init; }
         public bool HarBilder { get; init; }
 
@@ -277,7 +282,11 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
         if (p.RegStatusSatt && _regStatus[i] != p.RegStatus) return false;
 
-        if (p.Datasett != Ingen && _datasett[i] != p.Datasett) return false;
+        if (p.Datasett is { } ds)
+        {
+            var v = _datasett[i];
+            if (v == Ingen || !ds.Contains(v)) return false;
+        }
 
         if (p.HarBilderSatt && _harBilder[i] != p.HarBilder) return false;
 
@@ -406,13 +415,19 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         }
 
         bool[]? proj = null;
-        if (f.ProjectOrgId is { } prosjektId)
+        if (f.ProjectOrgIds?.Length > 0)
         {
+            // Union over de valgte prosjektene, som geografiblokka over: flere
+            // prosjekter er ett ELLER, ikke ett OG.
             proj = new bool[_projBucketAntall];
-            if (_projBucketsForMedlem.TryGetValue(prosjektId, out var buckets))
+            var noenProsjekt = false;
+            foreach (var prosjektId in f.ProjectOrgIds.Distinct())
+            {
+                if (!_projBucketsForMedlem.TryGetValue(prosjektId, out var buckets)) continue;
                 foreach (var b in buckets) proj[b] = true;
-            else
-                tomt = true;
+                noenProsjekt = true;
+            }
+            if (!noenProsjekt) tomt = true;
         }
 
         return new Predikat
@@ -427,7 +442,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             Maaneder = maaneder,
             RegStatusSatt = f.RegistrationStatusId.HasValue,
             RegStatus = f.RegistrationStatusId is { } rs and >= 0 and <= 255 ? (byte)rs : (byte)0,
-            Datasett = f.DatasetOrgId ?? Ingen,
+            Datasett = f.DatasetOrgIds?.Length > 0 ? f.DatasetOrgIds.ToHashSet() : null,
             HarBilderSatt = f.WithImages.HasValue,
             HarBilder = f.WithImages ?? false,
             KoordFra = f.CoordinatePrecision?.From ?? Ingen,

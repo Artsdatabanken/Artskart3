@@ -42,9 +42,25 @@ public class ObservationQueryBuilderTests
             CreateObservation(3, datasetOrgId: null));
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgId = 100 });
+        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgIds = [100] });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithDatasetOrgIds_ReturnsObservationsInAnyOfThem()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, datasetOrgId: 100),
+            CreateObservation(2, datasetOrgId: 200),
+            CreateObservation(3, datasetOrgId: 300),
+            CreateObservation(4, datasetOrgId: null));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { DatasetOrgIds = [100, 300] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 3]);
     }
 
     [Fact]
@@ -69,7 +85,7 @@ public class ObservationQueryBuilderTests
             new ObservationProject { ObservationId = 2, ProjectOrgId = 600 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgIds = [500] });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
     }
@@ -91,9 +107,26 @@ public class ObservationQueryBuilderTests
             new ObservationProject { ObservationId = 1, ProjectOrgId = 502 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgIds = [500] });
 
         result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithProjectOrgIds_ReturnsObservationsInAnyOfThemOnce()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context, CreateObservation(1), CreateObservation(2), CreateObservation(3));
+        context.Set<ObservationProject>().AddRange(
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 500 },
+            new ObservationProject { ObservationId = 1, ProjectOrgId = 501 },
+            new ObservationProject { ObservationId = 2, ProjectOrgId = 501 },
+            new ObservationProject { ObservationId = 3, ProjectOrgId = 600 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgIds = [500, 501] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]).And.OnlyHaveUniqueItems();
     }
 
     [Fact]
@@ -104,7 +137,7 @@ public class ObservationQueryBuilderTests
         context.Set<ObservationProject>().Add(new ObservationProject { ObservationId = 1, ProjectOrgId = 500 });
         context.SaveChanges();
 
-        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgId = 500 });
+        var result = Apply(context, new ObservationSearchFilterDto { ProjectOrgIds = [500] });
 
         result.Select(o => o.Id).Should().BeEquivalentTo([1]);
     }
@@ -124,7 +157,7 @@ public class ObservationQueryBuilderTests
 
         var result = Apply(context, new ObservationSearchFilterDto
         {
-            DatasetOrgId = 100,
+            DatasetOrgIds = [100],
             ObservationIds = [2]
         });
 
@@ -305,6 +338,63 @@ public class ObservationQueryBuilderTests
     }
 
     // ---------------------------------------------------------------------
+    // Annoteringsfilter
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_ChangedByAnnotation_SplitsOnDenormalisedColumn(bool changedByAnnotation, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var annotert = CreateObservation(1);
+        var ikkeAnnotert = CreateObservation(2);
+
+        // ChangedByAnnotation er denormalisert fra taggen AnnotatedChanges;
+        // filteret leser kolonnen, ikke Tags.Any(). Taggen legges fortsatt inn,
+        // slik at testen beskriver kilden og kolonnen sammen — går de fra
+        // hverandre i produksjonskoden, er det det denne testen skal avsløre.
+        annotert.ChangedByAnnotation = true;
+
+        SeedObservationsWithTags(context,
+            (annotert, [(int)TagEnum.AnnotatedChanges]),
+            (ikkeAnnotert, [(int)TagEnum.Absent]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ChangedByAnnotation = changedByAnnotation });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Sensitive funn
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_Sensitive_SplitsOnDenormalisedColumn(bool sensitive, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var sensitiv = CreateObservation(1);
+        var ikkeSensitiv = CreateObservation(2);
+
+        // Som annoteringsfilteret over: Sensitive er denormalisert fra taggen,
+        // og filteret leser kolonnen. Begge legges inn.
+        sensitiv.Sensitive = true;
+        ikkeSensitiv.ChangedByAnnotation = true;
+
+        SeedObservationsWithTags(context,
+            (sensitiv, [(int)TagEnum.Sensitive]),
+            (ikkeSensitiv, [(int)TagEnum.AnnotatedChanges]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { Sensitive = sensitive });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
     // Paritet mot søket
     // ---------------------------------------------------------------------
 
@@ -375,11 +465,15 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.RegistrationStatusId)] = f => f.RegistrationStatusId = 2,
         [nameof(IObservationFilter.CoordinatePrecision)] = f => f.CoordinatePrecision = new CoordinatePrecisionDto { From = 99_999 },
         [nameof(IObservationFilter.Period)] = f => f.Period = new PeriodDto { From = 2999 },
-        [nameof(IObservationFilter.DatasetOrgId)] = f => f.DatasetOrgId = 999,
-        [nameof(IObservationFilter.ProjectOrgId)] = f => f.ProjectOrgId = 999,
+        [nameof(IObservationFilter.DatasetOrgIds)] = f => f.DatasetOrgIds = [999],
+        [nameof(IObservationFilter.ProjectOrgIds)] = f => f.ProjectOrgIds = [999],
         [nameof(IObservationFilter.ObservationIds)] = f => f.ObservationIds = [999],
         // Observasjonen har ingen mediefiler.
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
     };
 
     /// <summary>

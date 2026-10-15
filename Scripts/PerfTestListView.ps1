@@ -499,8 +499,8 @@ Add-Case 'Periode (aarsspenn)'                   @{ period = @{ from = 2020; to 
 Add-Case 'Periode (maaneder)'                    @{ period = @{ months = @(6, 7, 8) } }             'Enkeltfilter'
 Add-Case 'Koordinatpresisjon'                    @{ coordinatePrecision = @{ from = 1; to = 100 } } 'Enkeltfilter'
 
-if ($datasetOrg)   { Add-Case "Datasett ($($datasetOrg.name))" @{ datasetOrgId  = $datasetOrg.id } 'Enkeltfilter' }
-if ($projectOrg)   { Add-Case "Prosjekt ($($projectOrg.name))" @{ projectOrgId  = $projectOrg.id } 'Enkeltfilter' }
+if ($datasetOrg)   { Add-Case "Datasett ($($datasetOrg.name))" @{ datasetOrgIds = @($datasetOrg.id) } 'Enkeltfilter' }
+if ($projectOrg)   { Add-Case "Prosjekt ($($projectOrg.name))" @{ projectOrgIds = @($projectOrg.id) } 'Enkeltfilter' }
 if ($catalogMatch) { Add-Case "Katalognummer ($($catalogMatch.catalogNumber))" @{ observationIds = @($catalogMatch.observationIds) } 'Enkeltfilter' }
 
 # --- Paginering ------------------------------------------------------------

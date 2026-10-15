@@ -5,5 +5,6 @@ using Microsoft.EntityFrameworkCore;
 public interface IArtsKartDbContext
 {
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
+    DbSet<TEntity> Set<TEntity>(string name) where TEntity : class;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -26,6 +26,7 @@ export class ObservationListComponent {
   readonly selection = input.required<ObservationSelection>();
   readonly requestState = input<ObservationRequestState>('ready');
   readonly retry = output<void>();
+  readonly dismiss = output<void>();
   readonly observationActivated = output<number>();
   readonly filters: ObservationGrouping[] = ['taxonGroup', 'location', 'redList', 'alienSpecies'];
   readonly currentFilter = signal<ObservationGrouping>('taxonGroup');

@@ -326,6 +326,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Format).HasMaxLength(100);
             entity.Property(e => e.Version).HasMaxLength(20);
             entity.Property(e => e.Attribution).HasMaxLength(1000);
+            entity.Property(e => e.SortOrder).HasDefaultValue(100);
         });
 
         modelBuilder.Entity<Filter>(entity =>
@@ -634,6 +635,39 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .IsDescending(false, true, true)
                 .HasFilter("[RegistrationStatusId] IN (2, 3)")
                 .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            // FILTRERTE INDEKSER PÅ ANNOTERING OG SENSITIVITET
+            //
+            // Samme klasse problem som RegistrationStatusRare over, og samme
+            // løsning. Begge filtrene er tagger, og den SELEKTIVE halvdelen er
+            // den trege: listevisningen sorterer på DateTimeCollected og tar
+            // TOP 10, så arbeidet er hvor langt ned i datoindeksen den må gå før
+            // ti treff har samlet seg — med et nøkkeloppslag og en probe mot
+            // ObservationTags på hver eneste rad underveis.
+            //
+            // Målt på 61M rader, rader som må skannes for side 1:
+            //   AnnotatedChanges  133 357 rader, nyeste 2025-11-02   1 504 153
+            //   Sensitive           2 194 rader, nyeste 2025-07-01   6 338 836
+            //
+            // Negasjonen er rask uten indeks (19 ms på datoindeksen) og trenger
+            // ingen: nesten alle rader treffer, så TOP 10 stopper med én gang.
+            // Derfor filtrerte indekser — de dekker bare de merkede radene.
+            //
+            // MERK: filtrerte indekser krever SET QUOTED_IDENTIFIER ON ved BÅDE
+            // lesing og skriving. .NET SqlClient har den på; sqlcmd har den av,
+            // og en måling derfra vil se ut som om indeksen ikke brukes.
+            entity.Property(e => e.ChangedByAnnotation).HasDefaultValue(false);
+            entity.Property(e => e.Sensitive).HasDefaultValue(false);
+
+            entity.HasIndex(e => new { e.ChangedByAnnotation, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_ChangedByAnnotation")
+                .IsDescending(false, true, true)
+                .HasFilter("[ChangedByAnnotation] = 1");
+
+            entity.HasIndex(e => new { e.Sensitive, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_Sensitive")
+                .IsDescending(false, true, true)
+                .HasFilter("[Sensitive] = 1");
 
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender

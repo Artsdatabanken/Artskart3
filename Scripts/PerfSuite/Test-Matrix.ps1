@@ -82,8 +82,8 @@ $dims = @(
     (New-FakeDimension 'fylke'        'countyIds'         -AsString),
     (New-FakeDimension 'verneomraade' 'restrictedAreaIds' -AsString),
     (New-FakeDimension 'havomraade'   'oceanAreaIds'      -AsString),
-    (New-FakeDimension 'datasett'     'datasetOrgId'),
-    (New-FakeDimension 'prosjekt'     'projectOrgId'),
+    (New-FakeDimension 'datasett'     'datasetOrgIds'),
+    (New-FakeDimension 'prosjekt'     'projectOrgIds'),
     (New-PerfDimension -Name 'kommune' -Tiers @(
         New-PerfTier -Key 'kommune:tung'  -Role 'tung'  -Label 'Oslo'        -Filter @{ municipalityIds = @('0301') }
         New-PerfTier -Key 'kommune:lett'  -Role 'lett'  -Label 'Utsira'      -Filter @{ municipalityIds = @('1151') }
@@ -99,6 +99,14 @@ $dims = @(
     (New-PerfDimension -Name 'bilder' -Tiers @(
         New-PerfTier -Key 'bilder:lett' -Role 'lett' -Label 'med bilder'  -Filter @{ withImages = $true }
         New-PerfTier -Key 'bilder:tung' -Role 'tung' -Label 'uten bilder' -Filter @{ withImages = $false }
+    )),
+    (New-PerfDimension -Name 'annotering' -Tiers @(
+        New-PerfTier -Key 'annotering:lett' -Role 'lett' -Label 'endret av annotering'      -Filter @{ changedByAnnotation = $true }
+        New-PerfTier -Key 'annotering:tung' -Role 'tung' -Label 'ikke endret av annotering' -Filter @{ changedByAnnotation = $false }
+    )),
+    (New-PerfDimension -Name 'sensitivitet' -Tiers @(
+        New-PerfTier -Key 'sensitivitet:lett' -Role 'lett' -Label 'sensitive funn'      -Filter @{ sensitive = $true }
+        New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }
     )),
     (New-PerfDimension -Name 'periode' -Tiers @(
         New-PerfTier -Key 'periode:tung' -Role 'tung' -Label '1970-2026' -Filter @{ period = @{ from = 1970; to = 2026 } }

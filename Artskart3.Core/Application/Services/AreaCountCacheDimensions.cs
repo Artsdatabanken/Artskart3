@@ -148,9 +148,7 @@ public static class AreaCountCacheDimensions
         new(8, "Takson", CacheDimensionKind.SingleValue, "OrderTaxonId", SelectTaxonOrders),
 
         new(9, "Datasett", CacheDimensionKind.SingleValue, "DatasetOrgId",
-            c => c.Filter.DatasetOrgId is { } datasetOrgId
-                ? DimensionSelection.Of(new BucketSet([datasetOrgId]))
-                : DimensionSelection.Inactive),
+            c => Set(c.Filter.DatasetOrgIds)),
 
         // Bøtta er år * 100 + måned. Årsintervallet blir et rekkeviddeoppslag på
         // klyngeindeksen, månedsutvalget et restledd på modulo 100.
@@ -165,9 +163,7 @@ public static class AreaCountCacheDimensions
         new(12, "Geografi", CacheDimensionKind.MultiValue, "EntityTypeId IN (1,2,3,4,6)", SelectGeography),
 
         new(13, "Prosjekt", CacheDimensionKind.MultiValue, "ObservationProject.ProjectOrgId",
-            c => c.Filter.ProjectOrgId is { } projectOrgId
-                ? DimensionSelection.Of(new BucketSet([projectOrgId]))
-                : DimensionSelection.Inactive),
+            c => Set(c.Filter.ProjectOrgIds)),
     ];
 
     /// <summary>

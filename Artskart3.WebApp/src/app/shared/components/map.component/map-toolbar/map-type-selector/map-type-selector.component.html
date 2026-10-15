@@ -1,6 +1,6 @@
 <div class="map-toolbar-menu-container">
   <adb-icon-button
-    variant="secondary"
+    [attr.variant]="isOpen ? 'primary' : 'secondary'"
     (click)="toggleMapTypes()"
     [attr.aria-label]="getToggleButtonAriaLabel()"
     [attr.aria-pressed]="isOpen"

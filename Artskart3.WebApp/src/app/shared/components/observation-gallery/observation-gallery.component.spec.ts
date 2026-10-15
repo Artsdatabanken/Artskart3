@@ -25,6 +25,26 @@ describe('ObservationGallery', () => {
     expect(component.source(image)).toBe(image.origin);
   });
 
+  it('opens the viewer from the enlarge button only, not from the image', async () => {
+    await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
+    const fixture = TestBed.createComponent(ObservationGalleryComponent);
+    const image = { id: 7, origin: 'https://example.org/photo.jpg' };
+    fixture.componentRef.setInput('observationId', 42);
+    fixture.componentRef.setInput('images', [image]);
+    await fixture.whenStable();
+    const element: HTMLElement = fixture.nativeElement;
+    const viewer = element.querySelector<HTMLDialogElement>('app-image-viewer dialog')!;
+
+    element.querySelector<HTMLElement>('.photo img')!.click();
+    await fixture.whenStable();
+    expect(viewer.open).toBe(false);
+
+    element.querySelector<HTMLElement>('adb-icon-button.enlarge')!.click();
+    await fixture.whenStable();
+    expect(viewer.open).toBe(true);
+    expect(viewer.querySelector('img')?.getAttribute('src')).toBe(image.origin);
+  });
+
   it('rejects unsafe origins rather than binding them to images', () => {
     expect(webUrl('javascript:alert(1)')).toBeNull();
     expect(webUrl('file:///image')).toBeNull();

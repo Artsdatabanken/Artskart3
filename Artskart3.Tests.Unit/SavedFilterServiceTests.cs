@@ -221,10 +221,12 @@ public class SavedFilterServiceTests
               "RegistrationStatusId": 1,
               "CoordinatePrecision": { "From": 10, "To": 100 },
               "Period": { "From": 2000, "To": 2020, "Months": [5, 6] },
-              "DatasetOrgId": 8,
-              "ProjectOrgId": 9,
+              "DatasetOrgIds": [11, 12],
+              "ProjectOrgIds": [13],
               "ObservationIds": [10],
               "WithImages": true,
+              "ChangedByAnnotation": true,
+              "Sensitive": true,
               "PageNumber": null,
               "ResultsPerPage": null,
               "IsPaginated": false
@@ -266,10 +268,12 @@ public class SavedFilterServiceTests
         RegistrationStatusId = 1,
         CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 },
         Period = new PeriodDto { From = 2000, To = 2020, Months = [5, 6] },
-        DatasetOrgId = 8,
-        ProjectOrgId = 9,
+        DatasetOrgIds = [11, 12],
+        ProjectOrgIds = [13],
         ObservationIds = [10],
         WithImages = true,
+        ChangedByAnnotation = true,
+        Sensitive = true,
     };
 
     private static IEnumerable<string> UnsetProperties(object dto, string prefix = "")

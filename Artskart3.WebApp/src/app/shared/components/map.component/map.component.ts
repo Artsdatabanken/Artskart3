@@ -44,7 +44,12 @@ import { transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
-import { FilterStateService, imageFilterToWithImages } from '../../services/filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  FilterStateService,
+  imageFilterToWithImages,
+  sensitiveFilterToSensitive,
+} from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { ArtskartFullscreenControl } from './controls/fullscreen.control';
@@ -60,6 +65,7 @@ import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
 @Component({
@@ -84,6 +90,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private readonly mapOverlayLoadKeys: EventsKey[] = [];
+  private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
@@ -147,10 +155,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const coordinatePrecisionTo = this.filterState.coordinatePrecisionTo();
       const periodFrom = this.filterState.periodFrom();
       const periodTo = this.filterState.periodTo();
-      const datasetOrgId = this.filterState.datasetOrgId();
-      const projectOrgId = this.filterState.projectOrgId();
+      const datasetOrgIds = this.filterState.selectedDatasetIds();
+      const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
       return {
@@ -165,10 +175,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         coordinatePrecisionTo,
         periodFrom,
         periodTo,
-        datasetOrgId: datasetOrgId ?? undefined,
-        projectOrgId: projectOrgId ?? undefined,
+        datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
+        projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages,
+        changedByAnnotation,
+        sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
     },
@@ -316,6 +328,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .subscribe((observations) => {
         this.observationList.set(observations);
         this.observationRequestState.set('ready');
+        const [onlyObservation] = observations;
+        if (observations.length === 1 && onlyObservation.id) this.observationPanel()?.open(onlyObservation.id);
       });
   }
 
@@ -657,8 +671,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private locationFeatureState(feature: FeatureLike): MapFeatureState {
     const ids = this.locationIdsForFeature(feature);
-    if (ids.some((id) => this.selectedLocationIds().has(id))) return 'selected';
-    return ids.some((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+    if (!ids.length) return 'default';
+    // A cluster that also holds unselected locations would suggest its whole count is selected.
+    if (ids.every((id) => this.selectedLocationIds().has(id))) return 'selected';
+    return ids.every((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
   }
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
@@ -805,6 +821,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         const value = Number(member.get('observationCount'));
         return sum + (Number.isFinite(value) ? value : 1);
       }, 0) || members.length || 1;
+      if (members.length === 1 && total === 1) return styles.marker('location', this.locationFeatureState(feature));
+
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
       return styles.marker('cluster', this.locationFeatureState(feature), label);
@@ -1409,6 +1427,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const existing = this.mapOverlayLayers.get(layer.id);
     if (existing) {
       existing.setVisible(visible);
+      if (visible) existing.getSource()?.refresh();
+      else this.mapLayerService.setLayerFailed(layer.id, false);
       return;
     }
     if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
@@ -1424,6 +1444,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         attributions: layer.attribution ?? undefined,
       }),
     });
+    const source = overlay.getSource()!;
+    this.mapOverlayLoadKeys.push(
+      source.on('tileloaderror', () => {
+        if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+      }),
+    );
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
   }
@@ -1444,6 +1470,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.geolocationControl?.dispose();
     this.geometryCacheByApiZoom.clear();
     this.countsCache.clear();
+    unByKey(this.mapOverlayLoadKeys);
+    this.mapOverlayLoadKeys.length = 0;
+    for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.map?.destroy?.();
   }

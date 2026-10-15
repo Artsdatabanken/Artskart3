@@ -98,6 +98,15 @@ public partial class Observation : BaseEntity
 
     public bool HasAnnotations { get; set; }
 
+    /// <summary>
+    /// Denormalisert fra taggen AnnotatedChanges. Ikke det samme som
+    /// <see cref="HasAnnotations"/>, som også teller annoteringer uten endring.
+    /// </summary>
+    public bool ChangedByAnnotation { get; set; }
+
+    /// <summary>Denormalisert fra taggen Sensitive.</summary>
+    public bool Sensitive { get; set; }
+
     public int? ObservationQualityTypeId { get; set; }
 
     public virtual BasisOfRecord BasisOfRecord { get; set; } = null!;

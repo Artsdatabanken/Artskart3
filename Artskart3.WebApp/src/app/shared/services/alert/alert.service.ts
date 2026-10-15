@@ -40,7 +40,7 @@ export class AlertService {
   /** The currently visible alerts (max 3). Remaining are queued. */
   readonly visibleAlerts = computed(() => this.items().slice(0, MAX_VISIBLE));
 
-  show(message: string, variant: AlertVariant, options?: AlertOptions): void {
+  show(message: string, variant: AlertVariant, options?: AlertOptions): number {
     const autoDismissMs = options?.autoDismissMs ?? DEFAULT_AUTO_DISMISS_MS;
     const id = this.nextId++;
 
@@ -60,14 +60,15 @@ export class AlertService {
       const timer = setTimeout(() => this.dismiss(id), autoDismissMs);
       this.timers.set(id, timer);
     }
+    return id;
   }
 
   showError(message: string, options?: AlertOptions): void {
     this.show(message, 'danger', options);
   }
 
-  showWarning(message: string, options?: AlertOptions): void {
-    this.show(message, 'warning', options);
+  showWarning(message: string, options?: AlertOptions): number {
+    return this.show(message, 'warning', options);
   }
 
   showSuccess(message: string, options?: AlertOptions): void {

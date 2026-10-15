@@ -96,17 +96,17 @@ public static class ObservationQueryBuilder
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter)
     {
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(o => o.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(o => o.DatasetOrgId.HasValue && datasetOrgIds.Contains(o.DatasetOrgId.Value));
         }
 
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(o => context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == o.Id && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == o.Id && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         if (filter.ObservationIds?.Any() == true)
@@ -163,6 +163,25 @@ public static class ObservationQueryBuilder
         {
             var withImages = filter.WithImages.Value;
             query = query.Where(o => o.HasMediaFiles == withImages);
+        }
+
+        // Annotering og sensitivitet — denormaliserte kolonner i stedet for
+        // Tags.Any(). Den SELEKTIVE halvdelen var den trege: listevisningen
+        // sorterer på dato og tar TOP 10, så semi-joinen måtte probe
+        // ObservationTags for hver rad nedover datoindeksen til ti treff hadde
+        // samlet seg — 1,5 millioner rader for annotering, 6,3 for sensitivitet.
+        // De filtrerte indeksene i AddObservationAnnotationAndSensitiveColumns
+        // betjener kolonnene; negasjonen går som før på datoindeksen.
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            var changedByAnnotation = filter.ChangedByAnnotation.Value;
+            query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            var sensitive = filter.Sensitive.Value;
+            query = query.Where(o => o.Sensitive == sensitive);
         }
 
         return query;

@@ -165,6 +165,12 @@ public class LocationCountCacheService : ILocationCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return (false, null, null);
 
+        // Annotering og sensitivitet er tagger, og kolonnene finnes bare på
+        // Observation — ikke på ObservationEntityIndex som bufferen bygges fra.
+        // Uten denne ville bufferen aldri konsultert dem og svart for høyt.
+        if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue)
+            return (false, null, null);
+
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
         var active = new List<(CacheDimension Dimension, BucketSelection Buckets)>();
 

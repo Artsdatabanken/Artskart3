@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AreaType = Artskart3.Core.Domain.Enums.AreaType;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -457,10 +458,12 @@ public class SearchRepository : ISearchRepository
         public int? RegistrationStatusId => inner.RegistrationStatusId;
         public CoordinatePrecisionDto? CoordinatePrecision => inner.CoordinatePrecision;
         public PeriodDto? Period => inner.Period;
-        public int? DatasetOrgId => inner.DatasetOrgId;
-        public int? ProjectOrgId => inner.ProjectOrgId;
+        public int[]? DatasetOrgIds => inner.DatasetOrgIds;
+        public int[]? ProjectOrgIds => inner.ProjectOrgIds;
         public int[]? ObservationIds => inner.ObservationIds;
         public bool? WithImages => inner.WithImages;
+        public bool? ChangedByAnnotation => inner.ChangedByAnnotation;
+        public bool? Sensitive => inner.Sensitive;
     }
 
     /// <summary>
@@ -954,25 +957,41 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => idx.MonthCollected.HasValue && months.Contains(idx.MonthCollected.Value));
         }
 
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(idx => idx.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(idx => idx.DatasetOrgId.HasValue && datasetOrgIds.Contains(idx.DatasetOrgId.Value));
         }
 
         // Prosjekt er ikke denormalisert — datasett er ikke 1:1, så koblingen må
         // være en egen tabell. Semi-join, som i områdetellingene.
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(idx => _context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == idx.ObservationId && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == idx.ObservationId && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         if (filter.ObservationIds?.Any() == true)
         {
             var observationIds = filter.ObservationIds;
             query = query.Where(idx => observationIds.Contains(idx.ObservationId));
+        }
+
+        // Annotering og sensitivitet. Semi-join mot koblingstabellen, ikke de
+        // denormaliserte kolonnene: de ligger på Observation, og denne stien
+        // drives av ObservationEntityIndex, som ikke har dem.
+        //
+        // Uten disse to ville filtrene blitt stille droppet på områdestien, og
+        // lista vist alle observasjoner som om ingen tagg var valgt.
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = FilterOnTag(query, TagEnum.AnnotatedChanges, filter.ChangedByAnnotation.Value);
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = FilterOnTag(query, TagEnum.Sensitive, filter.Sensitive.Value);
         }
 
         return query;
@@ -1043,6 +1062,7 @@ public class SearchRepository : ISearchRepository
             TaxonGroupName = o.Taxon.TaxonGroup.Name,
             LocationId = o.LocationId,
             Locality = o.Location != null ? o.Location.Locality : null,
+            CoordinatePrecision = o.Location != null ? o.Location.CoordinatePrecision : null,
             CategoryId = o.CategoryId,
             CategoryName = o.Category != null ? o.Category.Name : string.Empty,
             CategoryCode = o.Category != null ? o.Category.Code : null,
@@ -1459,19 +1479,19 @@ public class SearchRepository : ISearchRepository
 
         // Prosjekt/datasett — semi-join mot ObservationProject. Egen tabell fordi
         // datasett ikke er 1:1: 745 066 observasjoner har flere enn ett.
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(o => _context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == o.Id && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == o.Id && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         // Samling — denormalisert kolonne. Frontend sender ID fra typeahead, så
         // strengsammenligningen mot CollectionCode er borte.
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(o => o.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(o => o.DatasetOrgId.HasValue && datasetOrgIds.Contains(o.DatasetOrgId.Value));
         }
 
         // Katalognummer løses opp til ObservationId-er av oppslagsendepunktet.
@@ -1489,6 +1509,25 @@ public class SearchRepository : ISearchRepository
         {
             var withImages = filter.WithImages.Value;
             query = query.Where(o => o.HasMediaFiles == withImages);
+        }
+
+        // Annotering og sensitivitet — denormaliserte kolonner i stedet for
+        // Tags.Any(). Den SELEKTIVE halvdelen var den trege: listevisningen
+        // sorterer på dato og tar TOP 10, så semi-joinen måtte probe
+        // ObservationTags for hver rad nedover datoindeksen til ti treff hadde
+        // samlet seg — 1,5 millioner rader for annotering, 6,3 for sensitivitet.
+        // De filtrerte indeksene i AddObservationAnnotationAndSensitiveColumns
+        // betjener kolonnene; negasjonen går som før på datoindeksen.
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            var changedByAnnotation = filter.ChangedByAnnotation.Value;
+            query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            var sensitive = filter.Sensitive.Value;
+            query = query.Where(o => o.Sensitive == sensitive);
         }
 
         if (filter.Period?.Months?.Any() == true)
@@ -1990,6 +2029,16 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => !idx.HasMediaFiles);
         }
 
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = FilterOnTag(query, TagEnum.AnnotatedChanges, filter.ChangedByAnnotation.Value);
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = FilterOnTag(query, TagEnum.Sensitive, filter.Sensitive.Value);
+        }
+
         // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
         // Høyere rangnivå (Class+) konverteres til nærmeste denormaliserte nivå via minne-oppslag.
         if (filter.TaxonIds?.Any() == true)
@@ -2010,10 +2059,10 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => idx.InstitutionOrgId.HasValue && orgIds.Contains(idx.InstitutionOrgId.Value));
         }
 
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(idx => idx.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(idx => idx.DatasetOrgId.HasValue && datasetOrgIds.Contains(idx.DatasetOrgId.Value));
         }
 
         if (filter.BehaviorIds?.Any() == true)
@@ -2040,11 +2089,11 @@ public class SearchRepository : ISearchRepository
         // Prosjekt/datasett — semi-join mot ObservationProject (14,5M smale rader).
         // Ikke en kolonne: 745 066 observasjoner har flere enn ett datasett, og en
         // enkelt kolonne ville stille droppet tilknytningen for dem.
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(idx => _context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == idx.ObservationId && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == idx.ObservationId && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         // Katalognummer er allerede løst opp til ObservationId-er av
@@ -2134,6 +2183,34 @@ public class SearchRepository : ISearchRepository
     /// Alle er områdemarkører på samme nivå og filtreres via Fid-matching.
     /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
     /// </summary>
+
+    /// <summary>
+    /// Semi-join rett mot koblingstabellen, ikke via Observation.Tags: veien gjennom
+    /// Observation brukte ~10x så mye CPU på fylkesnivå. Taggene som filtreres er
+    /// sjeldne (~133k annoterte, ~2k sensitive), og IX_TagIdObsId gjør oppslaget til
+    /// et seek.
+    ///
+    /// Observation har denormaliserte kolonner for begge taggene, men
+    /// ObservationEntityIndex har dem ikke — så stiene som drives av indekstabellen
+    /// bruker denne. Her er den rask nok: tellingene er ikke sortert og
+    /// TOP-begrenset slik listevisningen er, og det var nettopp den kombinasjonen
+    /// som gjorde semi-joinen dyr der. Målt 205 ms for AreaCounts og 389 ms for
+    /// LocationCount.
+    ///
+    /// Taggen sendes som konstant: med parameter gjenbrukte SQL Server planen fra
+    /// den lille Sensitive-taggen på AnnotatedChanges, og tellingen tok 4-5 s.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> FilterOnTag(
+        IQueryable<ObservationEntityIndex> query, TagEnum tag, bool hasTag)
+    {
+        var tagId = (int)tag;
+        var observationTags = _context.Set<Dictionary<string, object>>("ObservationTag");
+        return hasTag
+            ? query.Where(idx => observationTags
+                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId))
+            : query.Where(idx => !observationTags
+                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId));
+    }
 
     /// <summary>
     /// Konverterer TaxonIds til filtrering på nærmeste denormaliserte rangnivå.

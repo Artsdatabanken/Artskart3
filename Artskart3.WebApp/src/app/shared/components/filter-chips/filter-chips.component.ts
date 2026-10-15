@@ -156,23 +156,20 @@ export class FilterChipsComponent {
       chips.push(countChip('institutions', 'sidebar.institutions', institutions.length, () => this.filterState.clearInstitutions()));
     }
 
-    const projectName = this.filterState.projectName();
-    if (this.filterState.projectOrgId() !== null && projectName) {
+    // Until a saved filter's names have been looked up, the chip shows the id.
+    for (const project of this.filterState.selectedProjects()) {
       chips.push(
-        namedChip('project', 'sidebar.project', projectName, () => {
-          this.filterState.setProjectName('');
-          this.filterState.setProjectOrgId(null);
-        }),
+        namedChip(`project:${project.id}`, 'sidebar.project', project.name || `#${project.id}`, () =>
+          this.filterState.removeProject(project.id),
+        ),
       );
     }
 
-    const datasetName = this.filterState.datasetName();
-    if (this.filterState.datasetOrgId() !== null && datasetName) {
+    for (const dataset of this.filterState.selectedDatasets()) {
       chips.push(
-        namedChip('dataset', 'sidebar.dataset', datasetName, () => {
-          this.filterState.setDatasetName('');
-          this.filterState.setDatasetOrgId(null);
-        }),
+        namedChip(`dataset:${dataset.id}`, 'sidebar.dataset', dataset.name || `#${dataset.id}`, () =>
+          this.filterState.removeDataset(dataset.id),
+        ),
       );
     }
 
@@ -190,6 +187,18 @@ export class FilterChipsComponent {
     if (imageFilter !== 'all') {
       const valueKey = imageFilter === 'withImage' ? 'sidebar.imageWith' : 'sidebar.imageWithout';
       chips.push(namedChip('imageFilter', 'sidebar.image', t(valueKey), () => this.filterState.setImageFilter('all')));
+    }
+
+    const sensitiveFilter = this.filterState.sensitiveFilter();
+    if (sensitiveFilter !== 'all') {
+      const valueKey = sensitiveFilter === 'sensitive' ? 'sidebar.sensitiveOnly' : 'sidebar.sensitiveNot';
+      chips.push(namedChip('sensitiveFilter', 'sidebar.sensitivity', t(valueKey), () => this.filterState.setSensitiveFilter('all')));
+    }
+
+    const annotationFilter = this.filterState.annotationFilter();
+    if (annotationFilter !== 'all') {
+      const valueKey = annotationFilter === 'changed' ? 'sidebar.annotationChanged' : 'sidebar.annotationNotChanged';
+      chips.push(namedChip('annotationFilter', 'sidebar.annotation', t(valueKey), () => this.filterState.setAnnotationFilter('all')));
     }
 
     return chips;

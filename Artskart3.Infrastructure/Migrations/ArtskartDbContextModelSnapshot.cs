@@ -1080,6 +1080,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(100);
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1339,6 +1344,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("ChangedByAnnotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("CoordinatePrecisionInMeters")
                         .HasColumnType("int");
 
@@ -1431,6 +1441,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("tinyint")
                         .HasDefaultValue((byte)1);
 
+                    b.Property<bool>("Sensitive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("TaxonGroupId")
                         .HasColumnType("int");
 
@@ -1455,12 +1470,22 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex("ObservationQualityTypeId");
 
+                    b.HasIndex("ChangedByAnnotation", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_ChangedByAnnotation")
+                        .HasFilter("[ChangedByAnnotation] = 1");
+
                     b.HasIndex("RegistrationStatusId", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
                         .HasDatabaseName("IX_Observation_RegistrationStatusRare")
                         .HasFilter("[RegistrationStatusId] IN (2, 3)");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("RegistrationStatusId", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
+
+                    b.HasIndex("Sensitive", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_Sensitive")
+                        .HasFilter("[Sensitive] = 1");
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
 

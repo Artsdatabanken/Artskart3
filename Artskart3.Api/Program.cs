@@ -16,7 +16,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using RobotsTxt;
 
 // Stiene responskomprimering slås på for. Svarene her er store, svært
 // komprimerbare og offentlige: observasjonsdata, områdegeometri og kartlag — ingen
@@ -26,14 +25,6 @@ using RobotsTxt;
 string[] CompressedPaths = ["/api/Search", "/api/observations", "/api/MapLayer", "/api/Lookup"];
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddStaticRobotsTxt(options =>
-{
-    // TODO: Allow crawlers in Production after launch
-    // For now, block all crawlers to prevent indexing before official launch
-    options.DenyAll();
-    return options;
-});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -450,26 +441,28 @@ return;
 
 void AddRobotsConfiguration(ConfigurationManager configuration, WebApplication webApplication)
 {
-    // startup config
-    var allowRobotsInProduction = Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);
+    // After the beta, set Application:AllowRobotsInProduction=true on the production app only, not in appsettings.json.
+    var allowIndexing = !webApplication.Environment.IsDevelopment()
+        && !webApplication.Environment.IsEnvironment("Test")
+        && Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);
 
-    // Configure the HTTP request pipeline.
     webApplication.Use(async (context, next) =>
     {
         if (context.Request.Path == "/robots.txt")
         {
             context.Response.ContentType = "text/plain";
 
-            if (webApplication.Environment.IsDevelopment() || webApplication.Environment.IsEnvironment("Test") || !allowRobotsInProduction)
-            {
-                await context.Response.WriteAsync("User-agent: *\nDisallow: /\n");
-            }
-            else
-            {
-                await context.Response.WriteAsync("User-agent: *\nAllow: /\nCrawl-delay: 1\n");
-            }
+            // Pages must stay crawlable, otherwise crawlers never see the noindex header.
+            await context.Response.WriteAsync(allowIndexing
+                ? "User-agent: *\nAllow: /\nCrawl-delay: 1\n"
+                : "User-agent: *\nDisallow: /api/\n");
 
             return;
+        }
+
+        if (!allowIndexing)
+        {
+            context.Response.Headers["X-Robots-Tag"] = "noindex";
         }
 
         await next();

@@ -138,12 +138,20 @@ public class ObservationEndpointTests : IAsyncLifetime
         var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
         var expected = await context.Observations.Where(o => o.LocationId == 953202)
             .OrderByDescending(o => o.DateTimeCollected).ThenByDescending(o => o.Id)
-            .Select(o => new { o.Id, o.TaxonId, o.DateTimeCollected, Code = o.Category != null ? o.Category.Code : null })
+            .Select(o => new
+            {
+                o.Id,
+                o.TaxonId,
+                o.DateTimeCollected,
+                Code = o.Category != null ? o.Category.Code : null,
+                o.Location!.CoordinatePrecision,
+            })
             .ToListAsync();
         var observations = JsonSerializer.Deserialize<List<ObservationListInfoDto>>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
         observations.Select(o => o.Id).Should().Equal(expected.Select(o => o.Id));
         observations.Select(o => o.CategoryCode).Should().Equal(expected.Select(o => o.Code));
         observations.Select(o => o.TaxonId).Should().Equal(expected.Select(o => o.TaxonId));
         observations.Select(o => o.DateTimeCollected).Should().Equal(expected.Select(o => o.DateTimeCollected));
+        observations.Select(o => o.CoordinatePrecision).Should().Equal(expected.Select(o => o.CoordinatePrecision));
     }
 }

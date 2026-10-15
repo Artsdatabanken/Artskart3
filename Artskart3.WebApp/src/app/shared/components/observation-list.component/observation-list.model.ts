@@ -22,9 +22,11 @@ export interface ObservationTreeNode {
   readonly kind: 'group' | 'status' | 'species' | 'observation';
   readonly label: string;
   readonly count: number;
+  readonly coordinatePrecision?: number;
   readonly scientific: boolean;
   readonly badges: readonly CategoryBadge[];
   readonly status?: RegistrationStatus;
+  readonly statusSummary?: string;
   readonly children: readonly ObservationTreeNode[];
   readonly observationId?: number;
 }
@@ -59,7 +61,8 @@ export function buildObservationTree(
   formatDate: (value: string | null | undefined) => string,
 ): ObservationTreeNode[] {
   const t = (key: string) => translate(`observationList.${key}`);
-  const collator = new Intl.Collator(language === 'no' ? 'nb-NO' : 'en-GB');
+  const locale = language === 'no' ? 'nb-NO' : 'en-GB';
+  const collator = new Intl.Collator(locale);
   const categoryLabel = (code: string) => t(`categories.${code}`);
   const categoryRank = (code: string) => CATEGORY_ORDER.indexOf(code);
   const badges = (records: readonly ObservationListInfoDto[]): CategoryBadge[] =>
@@ -104,12 +107,17 @@ export function buildObservationTree(
       const id = `${mode}/${key}`;
       const first = records[0];
       const statuses = groupBy(records, registrationStatus);
+      const statusSummary = STATUS_ORDER.filter((status) => status !== 'found' && statuses.has(status))
+        .map((status, index) => `${index ? t(status).toLocaleLowerCase(locale) : t(status)} (${statuses.get(status)!.length})`)
+        .join(', ');
       return {
         id,
         kind: 'group',
         label: topLabel(key, first),
         count: records.length,
+        coordinatePrecision: mode === 'location' ? (first.coordinatePrecision ?? undefined) : undefined,
         scientific: false,
+        statusSummary: statusSummary || undefined,
         badges:
           (mode === 'redList' || mode === 'alienSpecies') && CATEGORY_ORDER.includes(key) ? [{ code: key, label: categoryLabel(key) }] : [],
         children: STATUS_ORDER.filter((status) => statuses.has(status)).map((status) => {

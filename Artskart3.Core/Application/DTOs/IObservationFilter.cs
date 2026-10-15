@@ -22,12 +22,12 @@ public interface IObservationFilter
     /// <summary>
     /// Datasett — Organization med OrganizationTypeId = 2. Velges i typeahead.
     /// </summary>
-    int? DatasetOrgId { get; }
+    int[]? DatasetOrgIds { get; }
 
     /// <summary>
     /// Prosjekt — Organization med OrganizationTypeId = 3. Velges i typeahead.
     /// </summary>
-    int? ProjectOrgId { get; }
+    int[]? ProjectOrgIds { get; }
 
     /// <summary>
     /// Observasjoner valgt direkte, i praksis fra katalognummer-typeaheaden.
@@ -41,4 +41,15 @@ public interface IObservationFilter
     int[]? ObservationIds { get; }
 
     bool? WithImages { get; }
+
+    /// <summary>
+    /// Taggen AnnotatedChanges, ikke HasAnnotations-kolonnen. Kolonnen tar også med
+    /// observasjoner som har en annotering uten at noe ble endret.
+    /// </summary>
+    bool? ChangedByAnnotation { get; }
+
+    /// <summary>
+    /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.
+    /// </summary>
+    bool? Sensitive { get; }
 }

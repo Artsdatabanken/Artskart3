@@ -76,7 +76,13 @@
     "switchToDarkModeAriaLabel": "Switch to dark mode",
     "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
     "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
-    "cookieSettings": "Cookie settings"
+    "cookieSettings": "Cookie settings",
+    "environment": {
+      "beta": "Beta",
+      "test": "Test",
+      "staging": "Staging",
+      "local": "Local"
+    }
   },
   "navigation": {
     "menuItem1": "Menu Item 1",
@@ -161,7 +167,12 @@
     "precision": "Precision",
     "taxonGroup": "Taxon group",
     "riskCategory": "Risk category",
-    "noResults": "No observations found"
+    "noResults": "The selected filter has no observations"
+  },
+  "autocomplete": {
+    "resultCount": "Results: {{count}}",
+    "noResults": "No results",
+    "noResultsFor": "No results for “{{searchTerm}}”."
   },
   "sidebar": {
     "categories": "Red List- and Alien Species Categories",
@@ -243,14 +254,12 @@
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
     "chipPeriod": "Year: {{from}}-{{to}}",
-    "noSearchResults": "No results",
-    "noSearchResultsFor": "No results for “{{searchTerm}}”.",
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
-    "noSearchResultsDataset": "No results in collections for \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "No results in datasets for \"{{searchTerm}}\"",
+    "noSearchResultsCatalogNumber": "No results in ids or catalog numbers for \"{{searchTerm}}\"",
     "searchResults": "Search results",
-    "searchResultsAnnouncement": "Results: {{count}}",
     "rank": {
       "Kingdom": "Kingdom",
       "Subkingdom": "Subkingdom",
@@ -285,12 +294,23 @@
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",
-    "imageWithout": "Without image"
+    "imageWithout": "Without image",
+    "annotation": "Annotation",
+    "annotationAll": "All (default)",
+    "annotationChanged": "Changed by annotation",
+    "annotationNotChanged": "Not changed by annotation",
+    "sensitive": "Sensitive finds",
+    "sensitiveAll": "All (default)",
+    "sensitiveOnly": "Sensitive finds",
+    "sensitiveNot": "Non-sensitive finds",
+    "sensitivity": "Find sensitivity"
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",
     "layersHeading": "Map layers",
     "noLayers": "No map layers available",
+    "layerLoadError": "The map layer could not be loaded",
+    "layersLoadError": "One or more selected map layers could not be loaded",
     "filterAriaLabel": "Settings",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "My location",
@@ -312,7 +332,8 @@
       "admGrenser": "Administrative boundaries",
       "vern": "Protected areas",
       "bioseksjoner": "Bioclimatic sections",
-      "biosoner": "Bioclimatic zones"
+      "biosoner": "Bioclimatic zones",
+      "eiendomskart": "Property"
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
@@ -432,6 +453,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registrations",
+    "coordinatePrecision": "Coordinate precision: {{precision}}",
     "title": "Observations",
     "taxonGroup": "Group by taxon group",
     "location": "Group by locality",
@@ -446,7 +468,7 @@
     "unknownCategory": "Unknown category",
     "unknownTaxonGroup": "Unknown taxon group",
     "unknownSpecies": "Unknown species",
-    "unknownLocality": "Unknown locality",
+    "unknownLocality": "Unnamed locality",
     "unknownDate": "Unknown date",
     "unknownCollector": "Unknown observer",
     "loading": "Loading observations …",
@@ -493,7 +515,7 @@
     "cancel": "Cancel",
     "saved": "The filter \"{{name}}\" was saved.",
     "saveFailed": "Could not save the filter.",
-    "useDefault": "Use default filter",
+    "useDefault": "Activate default filter",
     "notFound": "The saved filter could not be found. It may have been deleted.",
     "activateFailed": "Could not activate the saved filter.",
     "date": "Date",

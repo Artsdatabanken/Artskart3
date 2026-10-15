@@ -76,7 +76,13 @@
     "switchToDarkModeAriaLabel": "Bytt til mørkt tema",
     "artsdatabankenLinkAriaLabel": "Lenke til Artsdatabanken hjemmeside",
     "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
-    "cookieSettings": "Informasjonskapsler"
+    "cookieSettings": "Informasjonskapsler",
+    "environment": {
+      "beta": "Beta",
+      "test": "Test",
+      "staging": "Staging",
+      "local": "Lokal"
+    }
   },
   "navigation": {
     "menuItem1": "Menypunkt 1",
@@ -161,7 +167,12 @@
     "precision": "Presisjon",
     "taxonGroup": "Artsgruppe",
     "riskCategory": "Risikokategori",
-    "noResults": "Ingen observasjoner funnet"
+    "noResults": "Valgt filter har ingen registreringer"
+  },
+  "autocomplete": {
+    "resultCount": "Treff: {{count}}",
+    "noResults": "Ingen treff",
+    "noResultsFor": "Ingen treff på “{{searchTerm}}”."
   },
   "sidebar": {
     "categories": "Rødliste- og fremmedartskategorier",
@@ -243,14 +254,12 @@
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
-    "noSearchResults": "Ingen treff",
-    "noSearchResultsFor": "Ingen treff på “{{searchTerm}}”.",
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
-    "noSearchResultsDataset": "Ingen treff i samlinger på \"{{searchTerm}}\"",
+    "noSearchResultsDataset": "Ingen treff i datasett på \"{{searchTerm}}\"",
+    "noSearchResultsCatalogNumber": "Ingen treff i id-er eller katalognumre på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
-    "searchResultsAnnouncement": "Treff: {{count}}",
     "rank": {
       "Kingdom": "Rike",
       "Subkingdom": "Underrike",
@@ -285,12 +294,23 @@
     "image": "Bilde",
     "imageAll": "Alle (standard)",
     "imageWith": "Med bilde",
-    "imageWithout": "Uten bilde"
+    "imageWithout": "Uten bilde",
+    "annotation": "Annotering",
+    "annotationAll": "Alle (standard)",
+    "annotationChanged": "Funn endret av annotering",
+    "annotationNotChanged": "Funn ikke endret av annotering",
+    "sensitive": "Sensitive funn",
+    "sensitiveAll": "Alle (standard)",
+    "sensitiveOnly": "Sensitive funn",
+    "sensitiveNot": "Ikke sensitive funn",
+    "sensitivity": "Funnsensitivitet"
   },
   "mapToolbar": {
     "layersAriaLabel": "Lag",
     "layersHeading": "Kartlag",
     "noLayers": "Ingen kartlag tilgjengelig",
+    "layerLoadError": "Kartlaget kunne ikke lastes",
+    "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
     "filterAriaLabel": "Innstillinger",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "Min posisjon",
@@ -312,7 +332,8 @@
       "admGrenser": "Administrative grenser",
       "vern": "Verneområder",
       "bioseksjoner": "Bioklimatiske seksjoner",
-      "biosoner": "Bioklimatiske soner"
+      "biosoner": "Bioklimatiske soner",
+      "eiendomskart": "Eiendom"
     },
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },
@@ -432,6 +453,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registreringer",
+    "coordinatePrecision": "Koordinatpresisjon: {{precision}}",
     "title": "Funnliste",
     "taxonGroup": "Grupper på artsgruppe",
     "location": "Grupper på lokalitet",
@@ -446,7 +468,7 @@
     "unknownCategory": "Ukjent kategori",
     "unknownTaxonGroup": "Ukjent artsgruppe",
     "unknownSpecies": "Ukjent art",
-    "unknownLocality": "Ukjent lokalitet",
+    "unknownLocality": "Ikke navngitt lokalitet",
     "unknownDate": "Ukjent dato",
     "unknownCollector": "Ukjent observatør",
     "loading": "Henter registreringer …",
@@ -493,7 +515,7 @@
     "cancel": "Avbryt",
     "saved": "Filteret «{{name}}» er lagret.",
     "saveFailed": "Kunne ikke lagre filteret.",
-    "useDefault": "Bruk standardfilter",
+    "useDefault": "Aktiver standardfilter",
     "notFound": "Fant ikke det lagrede filteret. Det kan være slettet.",
     "activateFailed": "Kunne ikke aktivere det lagrede filteret.",
     "date": "Dato",

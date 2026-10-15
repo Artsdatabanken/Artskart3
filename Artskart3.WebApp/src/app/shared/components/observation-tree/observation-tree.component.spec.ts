@@ -10,11 +10,7 @@ describe('ObservationTreeComponent', () => {
   let component: ObservationTreeComponent;
   let fixture: ComponentFixture<ObservationTreeComponent>;
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ObservationTreeComponent, TranslateModule.forRoot()],
-    }).compileComponents();
-
+  const create = async (openFirstSection = false) => {
     fixture = TestBed.createComponent(ObservationTreeComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput(
@@ -30,7 +26,15 @@ describe('ObservationTreeComponent', () => {
         () => '2024',
       ),
     );
+    fixture.componentRef.setInput('openFirstSection', openFirstSection);
     await fixture.whenStable();
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ObservationTreeComponent, TranslateModule.forRoot()],
+    }).compileComponents();
+    await create();
   });
 
   it('should create', () => {
@@ -48,6 +52,27 @@ describe('ObservationTreeComponent', () => {
     expect(rows()[0].getAttribute('aria-expanded')).toBe('true');
     expect(rows()[1].getAttribute('aria-expanded')).toBe('false');
     expect(rows().filter((row) => row.tabIndex === 0)).toHaveLength(1);
+  });
+
+  it('shows the coordinate precision under locality headings that have one', async () => {
+    expect(fixture.nativeElement.querySelector('.precision')).toBeNull();
+    fixture.componentRef.setInput(
+      'nodes',
+      buildObservationTree(
+        [
+          { id: 1, taxonId: 1, displayName: 'Lav', locationId: 5, locality: 'Åsen', coordinatePrecision: 100 },
+          { id: 2, taxonId: 1, displayName: 'Lav', locationId: 6, locality: 'Bø', coordinatePrecision: null },
+        ],
+        'location',
+        'no',
+        (key) => key,
+        () => '2024',
+      ),
+    );
+    await fixture.whenStable();
+    const precision: HTMLElement[] = [...fixture.nativeElement.querySelectorAll('.precision')];
+    expect(precision).toHaveLength(1);
+    expect(precision[0].closest('[role="treeitem"]')?.textContent).toContain('Åsen');
   });
 
   it('pins headings open for clicks and keyboard collapse', async () => {
@@ -146,6 +171,26 @@ describe('ObservationTreeComponent', () => {
     await fixture.whenStable();
     expect(rows()).toHaveLength(5);
     expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('opens the first section of each group while keeping species collapsed', async () => {
+    await create(true);
+    expect(rows()).toHaveLength(6);
+    expect(rows()[1].getAttribute('aria-expanded')).toBe('true');
+    expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps user changes to the default sections until a reset', async () => {
+    await create(true);
+    rows()[1].click();
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(5);
+    fixture.componentRef.setInput('nodes', structuredClone(component.nodes()));
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(5);
+    fixture.componentRef.setInput('resetKey', 'another-selection');
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(6);
   });
 
   it('navigates across groups with arrow keys and Home/End', async () => {

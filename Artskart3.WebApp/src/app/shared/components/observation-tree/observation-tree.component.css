@@ -34,10 +34,19 @@
 .group-heading .label {
   font-size: var(--adb-font-size-4);
 }
-.group-count {
+.group-detail {
   flex-basis: 100%;
   font-size: var(--adb-font-size-3);
   font-weight: 400;
+}
+
+.precision,
+.group-summary {
+  color: var(--adb-text-base-secondary);
+}
+
+.group-summary {
+  font-style: italic;
 }
 
 .label {
@@ -113,4 +122,3 @@
   border-color: var(--adb-color-special-100);
   color: var(--adb-color-special-110);
 }
-

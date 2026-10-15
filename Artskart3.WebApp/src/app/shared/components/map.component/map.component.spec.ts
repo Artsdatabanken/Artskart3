@@ -121,20 +121,20 @@ describe('MapComponent', () => {
   });
 
   describe('linked feature styling', () => {
-    const location = (id: number) => new Feature({ id, geometry: new Point([id, id]), observationCount: 2 });
+    const location = (id: number, observationCount = 2) => new Feature({ id, geometry: new Point([id, id]), observationCount });
     const polygon = (id: number) => new Feature({ id, geometry: new Polygon([[[0, 0], [10, 0], [10, 10], [0, 0]]]) });
-    const cluster = (...ids: number[]) => new Feature({ geometry: new Point([0, 0]), features: ids.map(location) });
+    const cluster = (...ids: number[]) => new Feature({ geometry: new Point([0, 0]), features: ids.map((id) => location(id)) });
     let layers: Map<string, LayerDef>;
     let redraw: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       const tokens = document.createElement('div').style;
       for (const [token, value] of [
-        ['--adb-surface-accent-primary', '#005A71'],
-        ['--adb-surface-accent-hover', '#004557'],
-        ['--adb-border-base-subtle', '#D2DDE0'],
-        ['--adb-border-base-strong', '#768083'],
-        ['--adb-border-brand-4', '#F8AE00'],
+        ['--adb-color-brand-freshwater-blue-90', '#005A71'],
+        ['--adb-color-brand-freshwater-blue-100', '#004557'],
+        ['--adb-color-neutrals-ocean-10', '#D2DDE0'],
+        ['--adb-color-neutrals-ocean-50', '#768083'],
+        ['--adb-color-brand-sun-70', '#F8AE00'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
@@ -183,11 +183,11 @@ describe('MapComponent', () => {
       return result;
     }
 
-    it('links polygon hover to its containing cluster without highlighting unrelated member polygons', () => {
+    it('hovers a cluster only when all its members are hovered', () => {
       hover([{ feature: polygon(1), layerId: 'location-polygons' }]);
       expect(component['locationFeatureState'](polygon(1))).toBe('hover');
       expect(component['locationFeatureState'](location(1))).toBe('hover');
-      expect(component['locationFeatureState'](cluster(1, 2))).toBe('hover');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('default');
       expect(component['locationFeatureState'](polygon(2))).toBe('default');
       hover([{ feature: cluster(1, 2), layerId: 'area-markers-locations' }]);
       expect(component['locationFeatureState'](polygon(1))).toBe('hover');
@@ -223,16 +223,18 @@ describe('MapComponent', () => {
       expect(render('area-markers-counties', area)).toBe(component['featureStyles']!.marker('area', 'default', '12 k'));
     });
 
-    it('makes selection win over hover and highlights any cluster member without selecting other polygons', () => {
+    it('makes selection win over hover and selects a cluster only when all its members are selected', () => {
       hover([{ feature: cluster(1, 2), layerId: 'area-markers-locations' }]);
       select([1]);
       expect(component['locationFeatureState'](location(1))).toBe('selected');
       expect(component['locationFeatureState'](polygon(1))).toBe('selected');
-      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('hover');
       expect(component['locationFeatureState'](polygon(2))).toBe('hover');
       component['clearMarkerHover']();
       expect(component['locationFeatureState'](polygon(2))).toBe('default');
       expect(component.observationSelection()?.locationIds).toEqual([1]);
+      select([1, 2]);
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
     });
 
     it('wires singleton, cluster, polygon, and detail-highlight styles without changing labels or pickability', () => {
@@ -240,8 +242,10 @@ describe('MapComponent', () => {
       const styles = component['featureStyles']!;
       expect(render('area-markers-locations', location(1))).toBe(styles.marker('location', 'selected'));
       expect(render('area-markers-locations', cluster(1), true)).toBe(styles.marker('cluster', 'selected', '2'));
+      const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [location(1, 1)] });
+      expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected'));
       const grouped = render('area-markers-locations', cluster(1, 2), true);
-      expect(grouped[1].getText()?.getText()).toBe('4');
+      expect(grouped.at(-1)?.getText()?.getText()).toBe('4');
       expect(render('location-polygons', polygon(1))).toBe(styles.polygon('selected'));
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
       expect(layers.get('observation-details-highlight')?.pickable).toBe(false);
@@ -272,12 +276,12 @@ describe('MapComponent', () => {
       hover([{ feature: location(3), layerId: 'area-markers-locations' }]);
       component['applyGeoJsonToLayer'](ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection","features":[]}');
       expect(component['locationFeatureState'](location(3))).toBe('default');
-      expect(component['locationFeatureState'](cluster(1, 3))).toBe('selected');
-      expect(component['locationFeatureState'](cluster(2, 4))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
+      expect(component['locationFeatureState'](cluster(1, 3))).toBe('default');
       expect(component['locationFeatureState'](polygon(1))).toBe('selected');
       select([3]);
       expect(component['locationFeatureState'](polygon(1))).toBe('default');
-      expect(component['locationFeatureState'](cluster(1, 3))).toBe('selected');
+      expect(component['locationFeatureState'](location(3))).toBe('selected');
     });
 
     it('redraws on selection changes without refetching data and skips unchanged hover state', async () => {
@@ -440,6 +444,44 @@ describe('MapComponent', () => {
       expect(component.observationRequestState()).toBe('ready');
       expect(component.observationList()).toEqual([{ id: 4 }]);
       expect(request).toHaveBeenLastCalledWith([3], expect.anything());
+    });
+
+    it('opens a lone observation directly and closes the whole panel with its details', async () => {
+      const service = TestBed.inject(ObservationService);
+      vi.spyOn(service, 'getObservationByLocation').mockReturnValue(of([{ id: 7 }]));
+      vi.spyOn(service, 'getDetail').mockReturnValue(of({ id: 7 }));
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      await fixture.whenStable();
+      const panel = component.observationPanel()!;
+      expect(panel.selectedId()).toBe(7);
+      expect(fixture.nativeElement.querySelector('app-observation-details')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.back-to-list')).toBeNull();
+      panel.dismiss();
+      await fixture.whenStable();
+      expect(component.showObservationList()).toBe(false);
+      expect(component.observationSelection()).toBeNull();
+    });
+
+    it('replaces open lone-observation details with the next clicked location', async () => {
+      const service = TestBed.inject(ObservationService);
+      const pending = new Subject<ObservationListInfoDto[]>();
+      vi.spyOn(service, 'getObservationByLocation').mockReturnValueOnce(of([{ id: 7 }])).mockReturnValueOnce(pending);
+      vi.spyOn(service, 'getDetail').mockImplementation((id: number) => of({ id }));
+      access().setupObservationRequests();
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      await fixture.whenStable();
+      const panel = component.observationPanel()!;
+      expect(panel.selectedId()).toBe(7);
+      click([{ layerId: 'area-markers-locations', feature: point(2) }]);
+      await fixture.whenStable();
+      expect(panel.rawId()).toBeNull();
+      expect(component.showObservationList()).toBe(true);
+      expect(component.observationSelection()?.locationIds).toEqual([2]);
+      expect(pending.observed).toBe(true);
+      pending.next([{ id: 8 }]);
+      await fixture.whenStable();
+      expect(panel.selectedId()).toBe(8);
     });
 
     it('dismisses and cancels the selection when search filters change', async () => {
