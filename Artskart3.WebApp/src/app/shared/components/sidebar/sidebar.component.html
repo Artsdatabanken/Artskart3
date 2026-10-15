@@ -39,7 +39,19 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
       @if (taxonTreeOpened()) {
-        <app-taxon-tree />
+        <div class="taxon-tree-options">
+          <adb-switch
+            size="sm"
+            [attr.checked]="includeDescendantTaxa() ? '' : null"
+            (change)="onIncludeDescendantTaxaChange($event)"
+          >
+            {{ 'sidebar.includeDescendantTaxa' | translate }}
+          </adb-switch>
+          <adb-switch size="sm" [attr.checked]="showScientificNames() ? '' : null" (change)="onShowScientificNamesChange($event)">
+            {{ 'sidebar.scientificNames' | translate }}
+          </adb-switch>
+        </div>
+        <app-taxon-tree [showScientificNames]="showScientificNames()" />
       }
     </adb-accordion-item>
   </adb-accordion>

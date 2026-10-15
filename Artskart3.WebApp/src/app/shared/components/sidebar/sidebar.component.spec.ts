@@ -443,6 +443,45 @@ describe('SidebarComponent', () => {
       expect(filterState.catalogObservationIds()).toEqual([101]);
     });
   });
+
+  it('bryteren for underliggende taksa oppdaterer filteret', () => {
+    component.onTaxonTreeToggle();
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[0];
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+
+    expect(filterState.includeDescendantTaxa()).toBe(false);
+  });
+
+  describe('vitenskapelige navn i artstreet', () => {
+    const storageKey = 'artskart.taxonTree.showScientificNames';
+
+    afterEach(() => localStorage.removeItem(storageKey));
+
+    it('er av som standard', () => {
+      expect(component.showScientificNames()).toBe(false);
+    });
+
+    it('henter lagret valg fra localStorage', () => {
+      localStorage.setItem(storageKey, 'true');
+      const restored = TestBed.createComponent(SidebarComponent).componentInstance;
+      expect(restored.showScientificNames()).toBe(true);
+    });
+
+    it('oppdaterer og lagrer valget når bryteren endres', () => {
+      component.onTaxonTreeToggle();
+      fixture.detectChanges();
+
+      const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[1];
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change'));
+
+      expect(component.showScientificNames()).toBe(true);
+      expect(localStorage.getItem(storageKey)).toBe('true');
+    });
+  });
 });
 
 describe('SidebarComponent – lagrede filtre', () => {

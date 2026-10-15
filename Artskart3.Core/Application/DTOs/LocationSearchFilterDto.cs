@@ -6,6 +6,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public int[]? TaxonIds { get; set; }
 
+    public bool IncludeDescendantTaxa { get; set; } = true;
+
     public int[]? CategoryIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }

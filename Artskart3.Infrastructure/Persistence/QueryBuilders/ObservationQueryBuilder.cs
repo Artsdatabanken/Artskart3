@@ -38,6 +38,12 @@ public static class ObservationQueryBuilder
         if (filter.TaxonIds?.Any() != true)
             return query;
 
+        if (!filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            return query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+
         IQueryable<int>? combinedQuery = null;
         foreach (var taxonId in filter.TaxonIds)
         {

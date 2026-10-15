@@ -164,6 +164,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
+        includeDescendantTaxa: this.filterState.excludesDescendantTaxa() ? false : undefined,
         coordinatePrecisionFrom,
         coordinatePrecisionTo,
         periodFrom,
