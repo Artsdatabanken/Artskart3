@@ -294,7 +294,16 @@
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",
-    "imageWithout": "Without image"
+    "imageWithout": "Without image",
+    "annotation": "Annotation",
+    "annotationAll": "All (default)",
+    "annotationChanged": "Changed by annotation",
+    "annotationNotChanged": "Not changed by annotation",
+    "sensitive": "Sensitive finds",
+    "sensitiveAll": "All (default)",
+    "sensitiveOnly": "Sensitive finds",
+    "sensitiveNot": "Non-sensitive finds",
+    "sensitivity": "Find sensitivity"
   },
   "mapToolbar": {
     "layersAriaLabel": "Layers",

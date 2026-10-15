@@ -264,19 +264,22 @@
         }
       }
 
-      <h6 class="area-section-heading">{{ 'sidebar.registrering' | translate }}</h6>
-      <div class="radio-group">
+      <adb-radio-group
+        class="sidebar-radio-group registration-status-filter"
+        name="registrationStatus"
+        [attr.label]="'sidebar.registrering' | translate"
+        [attr.value]="registrationStatusValue()"
+        (change)="onRegistrationStatusChange($event)"
+      >
         @for (option of registreringOptions; track option.id) {
           <adb-radio
-            name="registrationStatus"
-            [attr.checked]="isRegistrationStatusSelected(option.id) ? '' : null"
+            [attr.value]="option.value"
             [attr.description]="option.descriptionKey ? (option.descriptionKey | translate) : null"
-            (change)="onRegistrationStatusChange(option.id)"
           >
             {{ option.labelKey | translate }}
           </adb-radio>
         }
-      </div>
+      </adb-radio-group>
     </adb-accordion-item>
   </adb-accordion>
 
@@ -373,20 +376,41 @@
           </div>
         </div>
 
-        <div class="other-properties-image-filter">
-          <span class="other-properties-image-heading">{{ 'sidebar.image' | translate }}</span>
-          <adb-radio-group name="imageFilter" [attr.value]="imageFilter()" (change)="onImageFilterChange($event)">
-            <adb-radio value="all" [attr.checked]="imageFilter() === 'all' ? '' : null">
-              {{ 'sidebar.imageAll' | translate }}
-            </adb-radio>
-            <adb-radio value="withImage" [attr.checked]="imageFilter() === 'withImage' ? '' : null">
-              {{ 'sidebar.imageWith' | translate }}
-            </adb-radio>
-            <adb-radio value="withoutImage" [attr.checked]="imageFilter() === 'withoutImage' ? '' : null">
-              {{ 'sidebar.imageWithout' | translate }}
-            </adb-radio>
-          </adb-radio-group>
-        </div>
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="imageFilter"
+          [attr.label]="'sidebar.image' | translate"
+          [attr.value]="imageFilter()"
+          (change)="onImageFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.imageAll' | translate }}</adb-radio>
+          <adb-radio value="withImage">{{ 'sidebar.imageWith' | translate }}</adb-radio>
+          <adb-radio value="withoutImage">{{ 'sidebar.imageWithout' | translate }}</adb-radio>
+        </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="sensitiveFilter"
+          [attr.label]="'sidebar.sensitive' | translate"
+          [attr.value]="sensitiveFilter()"
+          (change)="onSensitiveFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.sensitiveAll' | translate }}</adb-radio>
+          <adb-radio value="sensitive">{{ 'sidebar.sensitiveOnly' | translate }}</adb-radio>
+          <adb-radio value="notSensitive">{{ 'sidebar.sensitiveNot' | translate }}</adb-radio>
+        </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="annotationFilter"
+          [attr.label]="'sidebar.annotation' | translate"
+          [attr.value]="annotationFilter()"
+          (change)="onAnnotationFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
+          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
+          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+        </adb-radio-group>
       </div>
     </adb-accordion-item>
   </adb-accordion>

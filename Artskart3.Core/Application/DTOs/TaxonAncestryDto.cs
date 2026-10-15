@@ -14,25 +14,4 @@ public class TaxonAncestryDto
     /// Tom for rotnoder og ukjente taxonId-er.
     /// </summary>
     public List<int> ParentIds { get; set; } = [];
-
-    /// <summary>
-    /// Synlige barn per nivå i kjeden (alle forgjengere samt taxonet selv).
-    /// Lar frontend avgjøre om en forgjenger er fullt dekket av utvalget uten
-    /// at treet er ekspandert ned til nivået.
-    /// </summary>
-    public List<TaxonAncestryLevelDto> Levels { get; set; } = [];
-}
-
-/// <summary>
-/// Synlige barn av én node i en foreldrekjede.
-/// </summary>
-public class TaxonAncestryLevelDto
-{
-    public int ParentId { get; set; }
-
-    /// <summary>
-    /// Barn filtrert på samme måte som TaxonTree (kun taxoner med observasjoner
-    /// eller som finnes i landet).
-    /// </summary>
-    public List<int> ChildIds { get; set; } = [];
 }

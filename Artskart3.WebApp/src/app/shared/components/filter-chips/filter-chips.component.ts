@@ -189,6 +189,18 @@ export class FilterChipsComponent {
       chips.push(namedChip('imageFilter', 'sidebar.image', t(valueKey), () => this.filterState.setImageFilter('all')));
     }
 
+    const sensitiveFilter = this.filterState.sensitiveFilter();
+    if (sensitiveFilter !== 'all') {
+      const valueKey = sensitiveFilter === 'sensitive' ? 'sidebar.sensitiveOnly' : 'sidebar.sensitiveNot';
+      chips.push(namedChip('sensitiveFilter', 'sidebar.sensitivity', t(valueKey), () => this.filterState.setSensitiveFilter('all')));
+    }
+
+    const annotationFilter = this.filterState.annotationFilter();
+    if (annotationFilter !== 'all') {
+      const valueKey = annotationFilter === 'changed' ? 'sidebar.annotationChanged' : 'sidebar.annotationNotChanged';
+      chips.push(namedChip('annotationFilter', 'sidebar.annotation', t(valueKey), () => this.filterState.setAnnotationFilter('all')));
+    }
+
     return chips;
   });
 

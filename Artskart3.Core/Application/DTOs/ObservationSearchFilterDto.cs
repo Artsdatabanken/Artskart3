@@ -35,4 +35,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public int[]? ObservationIds { get; set; }
 
     public bool? WithImages { get; set; }
+
+    public bool? ChangedByAnnotation { get; set; }
+
+    public bool? Sensitive { get; set; }
 }

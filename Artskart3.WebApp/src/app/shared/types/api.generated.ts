@@ -1848,6 +1848,8 @@ export interface components {
             projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
+            changedByAnnotation?: null | boolean;
+            sensitive?: null | boolean;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -2022,6 +2024,8 @@ export interface components {
             projectOrgIds?: null | number[];
             observationIds?: null | number[];
             withImages?: null | boolean;
+            changedByAnnotation?: null | boolean;
+            sensitive?: null | boolean;
         };
         OrganizationDto: {
             /** Format: int32 */
@@ -2094,12 +2098,6 @@ export interface components {
             /** Format: int32 */
             id?: number;
             parentIds?: number[];
-            levels?: components["schemas"]["TaxonAncestryLevelDto"][];
-        };
-        TaxonAncestryLevelDto: {
-            /** Format: int32 */
-            parentId?: number;
-            childIds?: number[];
         };
         TaxonDto: {
             /** Format: int32 */
