@@ -308,10 +308,7 @@
   "mapSearch": {
     "placeholder": "Finn sted",
     "resultsLabel": "Stedssøkeresultater",
-    "resultsAnnouncement": "Stedssøkeresultater: {{count}}",
-    "noResults": "Ingen steder funnet for \"{{query}}\".",
-    "loading": "Søker etter steder...",
-    "error": "Stedssøket mislyktes. Prøv igjen."
+    "noResultsFor": "Ingen treff på sted “{{searchTerm}}”."
   },
   "mapToolbar": {
     "layersAriaLabel": "Lag",

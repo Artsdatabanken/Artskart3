@@ -35,6 +35,7 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
+import type { AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { Feature, ImageTile } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
@@ -66,8 +67,7 @@ import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
 import { PlaceSearchComponent } from './place-search/place-search.component';
-import { PlaceSearchResult } from '../../types/place-search.types';
-import { environment } from '../../../../environments/environment';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
@@ -80,16 +80,40 @@ import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
-  readonly placeSelectedAction = output<PlaceSearchResult>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
-  readonly placeSearchEnabled = environment.environmentName !== 'beta';
   private activeObservationPoint: ObservationPointDto | null = null;
   private observationFilterInitialized = false;
   private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
 
-  onPlaceSelected(place: PlaceSearchResult): void {
-    this.placeSelectedAction.emit(place);
+  readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
+    new Observable<PlaceSearchResult[]>((subscriber) => {
+      const map = this.map;
+      if (!map) {
+        subscriber.next([]);
+        subscriber.complete();
+        return;
+      }
+
+      const controller = new AbortController();
+      void map.searchPlaces(term, { signal: controller.signal }).then(
+        (places) => {
+          if (subscriber.closed) return;
+          subscriber.next(places);
+          subscriber.complete();
+        },
+        (error: unknown) => {
+          if (!subscriber.closed) subscriber.error(error);
+        },
+      );
+      return () => controller.abort();
+    });
+
+  goToPlace(place: PlaceSearchResult): void {
+    const { lon, lat } = place.coordinates;
+    const center = this.map.transformCoordsFrom([lon, lat], 'EPSG:4326', MAP_CONFIG.projection);
+    this.map.setCenter(center);
+    this.map.setZoom(place.zoomLevel);
   }
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';

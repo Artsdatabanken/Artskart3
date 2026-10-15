@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
 
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
@@ -118,6 +119,50 @@ describe('MapComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('aborts a map place search when the autocomplete unsubscribes', () => {
+    let requestSignal: AbortSignal | undefined;
+    const searchPlaces = vi.fn(
+      (_term: string, options: { signal?: AbortSignal }) =>
+        new Promise<PlaceSearchResult[]>((resolve) => {
+          requestSignal = options.signal;
+          options.signal?.addEventListener('abort', () => resolve([]), { once: true });
+        }),
+    );
+    component.map = { searchPlaces } as unknown as NbicMapComponent;
+
+    const subscription = component.searchPlaces('Alta').subscribe();
+    expect(searchPlaces).toHaveBeenCalledWith('Alta', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+
+    subscription.unsubscribe();
+
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+  it('transforms the selected WGS84 place and centers/zooms the map', () => {
+    const place: PlaceSearchResult = {
+      id: 'alta-name-no',
+      placeId: '10002',
+      name: 'Alta',
+      language: 'Norsk',
+      type: 'By',
+      municipalities: ['Alta'],
+      counties: ['Finnmark'],
+      coordinates: { lat: 69.97, lon: 23.27 },
+      zoomLevel: 11,
+    };
+    const center: [number, number] = [815288.9, 7783951.43];
+    const transformCoordsFrom = vi.fn().mockReturnValue(center);
+    const setCenter = vi.fn();
+    const setZoom = vi.fn();
+    component.map = { transformCoordsFrom, setCenter, setZoom } as unknown as NbicMapComponent;
+
+    component.goToPlace(place);
+
+    expect(transformCoordsFrom).toHaveBeenCalledWith([23.27, 69.97], 'EPSG:4326', MAP_CONFIG.projection);
+    expect(setCenter).toHaveBeenCalledWith(center);
+    expect(setZoom).toHaveBeenCalledWith(place.zoomLevel);
   });
 
   describe('linked feature styling', () => {
