@@ -3,6 +3,9 @@
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
+  @if (placeSearchEnabled) {
+    <app-place-search [search]="searchPlaces" (placeSelected)="onPlaceSelected($event)"></app-place-search>
+  }
   <div #mapEl class="map"></div>
   <app-observation-panel
     [observations]="observationList()"

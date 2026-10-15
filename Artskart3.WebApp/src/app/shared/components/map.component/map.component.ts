@@ -60,23 +60,35 @@ import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS';
+import { PlaceSearchComponent } from './place-search/place-search.component';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
+import { environment } from '../../../../environments/environment';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
 @Component({
   selector: 'app-map',
-  imports: [CommonModule, MapToolbarComponent, ObservationPanelComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, PlaceSearchComponent, ObservationPanelComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
+  readonly placeSelectedAction = output<PlaceSearchResult>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
+  readonly placeSearchEnabled = environment.environmentName !== 'beta';
   private activeObservationPoint: ObservationPointDto | null = null;
   private observationFilterInitialized = false;
   private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
+
+  readonly searchPlaces = (query: string, signal: AbortSignal): Promise<PlaceSearchResult[]> =>
+    this.map ? this.map.searchPlaces(query, { signal, limit: 10 }) : Promise.resolve([]);
+
+  onPlaceSelected(place: PlaceSearchResult): void {
+    this.placeSelectedAction.emit(place);
+  }
 
   private readonly MAP_TYPE_PREFIX = 'map-type:';
   private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
