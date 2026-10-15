@@ -11,8 +11,10 @@ public static class SearchConstants
 
     // Location search constants
     public const int DefaultMaxLocations = 100000;
-    public const int MaxLocationResults = 100000;
+    public const int MaxLocationResults = 500000;
     public const int MinLocationResults = 1;
+    // Lavere enn MaxLocationResults fordi tellingen kjøres ved hver filterendring.
+    public const int MaxLocationCount = 100000;
 
     // Polygon search constants (geometry is expensive to transfer and render)
     public const int DefaultMaxPolygons = 2000;

@@ -1,15 +1,17 @@
 import { asArray, asString, type Color } from 'ol/color';
 import type { Coordinate } from 'ol/coordinate';
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
+import type { FlatStyle } from 'ol/style/flat';
 import type { RenderFunction } from 'ol/style/Style';
 
 export type MapFeatureState = 'default' | 'hover' | 'selected';
 export type MapMarkerKind = 'location' | 'unclusteredLocation' | 'cluster' | 'area' | 'observation';
 
 const BORDER_WIDTH = 1.5;
+export const UNCLUSTERED_LOCATION_RADIUS = 6.4;
 const MARKERS = {
   location: { radius: 8, font: undefined },
-  unclusteredLocation: { radius: 6.4, font: undefined },
+  unclusteredLocation: { radius: UNCLUSTERED_LOCATION_RADIUS, font: undefined },
   cluster: { radius: 17, font: '600 10px "Chivo", sans-serif' },
   area: { radius: 20, font: '600 10px "Chivo", sans-serif' },
   observation: { radius: 11, font: undefined },
@@ -128,6 +130,16 @@ export class MapFeatureStyles {
     );
     this.markers.set(key, styles);
     return styles;
+  }
+
+  /** The default location marker for WebGL layers, which draw hover and selected states on canvas overlays. */
+  webglLocationMarker(): FlatStyle {
+    return {
+      'circle-radius': UNCLUSTERED_LOCATION_RADIUS,
+      'circle-fill-color': this.palette.primary,
+      'circle-stroke-color': this.palette.border,
+      'circle-stroke-width': BORDER_WIDTH,
+    };
   }
 
   polygon(): Style[] {

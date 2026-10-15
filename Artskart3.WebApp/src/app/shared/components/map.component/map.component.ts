@@ -38,6 +38,7 @@ import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { Feature, ImageTile } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
+import type { Coordinate } from 'ol/coordinate';
 import Point from 'ol/geom/Point';
 import WKT from 'ol/format/WKT';
 import { getTransform, transform } from 'ol/proj';
@@ -64,12 +65,13 @@ import { ObservationRequestState, ObservationSelection } from '../observation-li
 import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
-import VectorLayer from 'ol/layer/Vector';
+import Layer from 'ol/layer/Layer';
+import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
-import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
+import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState } from './map-feature-styles';
 
 @Component({
   selector: 'app-map',
@@ -94,6 +96,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
   private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
+  private readonly HIT_TOLERANCE_PX = 5;
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapLayerService = inject(MapLayerService);
@@ -268,18 +271,39 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   protected readonly clusteringEnabled = signal(true);
   private readonly locationsAtAllZooms = computed(() => this.directClusterMode() || !this.clusteringEnabled());
 
-  // nbic-map-component can't toggle clustering on an existing layer, so the layer is recreated and refetched.
+  private webglLocationsLayer?: WebGLVectorLayer<VectorSource<Feature>>;
+  private locationsLayerGeneration = 0;
+
   private readonly _onClusteringChange = effect(() => {
     this.clusteringEnabled();
-    untracked(() => {
-      if (!this.mapReady || !this.map || !this.featureStyles) return;
-      this.map.removeLayer(this.LOCATIONS_LAYER_ID);
-      this.addLocationsLayer(this.featureStyles);
-      this.lastLocationsCoverage = null;
-      this.redrawLocationStyles();
-      this.rebuildAllLayers();
-    });
+    untracked(() => void this.replaceLocationsLayer());
   });
+
+  // Clustering can't be toggled on an existing layer, so the layer is replaced and refetched.
+  // The WebGL renderer is loaded on demand to keep it out of the initial bundle.
+  private async replaceLocationsLayer(): Promise<void> {
+    if (!this.mapReady || !this.map) return;
+    const generation = ++this.locationsLayerGeneration;
+    const webgl = this.clusteringEnabled() ? null : await import('ol/layer/WebGLVector');
+    const styles = this.featureStyles;
+    if (generation !== this.locationsLayerGeneration || !this.mapReady || !styles) return;
+
+    this.disposeWebglLocationsLayer();
+    this.map.removeLayer(this.LOCATIONS_LAYER_ID);
+    if (webgl) {
+      this.webglLocationsLayer = new webgl.default({
+        source: new VectorSource<Feature>(),
+        style: styles.webglLocationMarker(),
+        disableHitDetection: true,
+      });
+      this.map.adoptLayer(this.LOCATIONS_LAYER_ID, this.webglLocationsLayer, { zIndex: 100, pickable: false });
+    } else {
+      this.addClusteredLocationsLayer(styles);
+    }
+    this.lastLocationsCoverage = null;
+    this.redrawLocationStyles();
+    this.rebuildAllLayers();
+  }
 
   private locationCountPending = false;
 
@@ -622,6 +646,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   /** One hit-test per pointer move: the topmost marker is hovered, the cursor prefers zoom-in. */
   private hitTestPixel(olMap: OlMap, pixel: Pixel): { cursor: string; locationIds: number[]; areaKey: string | null } {
+    // The WebGL points sit above every canvas layer, so a hit there is the topmost hit.
+    if (this.webglLocationsSource()) {
+      const [closestPoint] = this.webglLocationHits(olMap.getCoordinateFromPixel(pixel), olMap.getView().getResolution());
+      if (closestPoint) return { cursor: 'pointer', locationIds: this.locationIdsForFeature(closestPoint), areaKey: null };
+    }
+
     let hovered = false;
     let locationIds: number[] = [];
     let areaKey: string | null = null;
@@ -645,7 +675,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (isLocation) pointerHit = true;
         return undefined;
       },
-      { hitTolerance: 5, layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) },
+      {
+        hitTolerance: this.HIT_TOLERANCE_PX,
+        layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) && layer !== this.webglLocationsLayer,
+      },
     );
     return { cursor: zoomCursor ?? (pointerHit ? 'pointer' : ''), locationIds, areaKey };
   }
@@ -711,9 +744,38 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     target.addFeatures(features);
   }
 
+  private webglLocationsSource(): VectorSource<Feature> | null {
+    return this.webglLocationsLayer?.getSource() ?? null;
+  }
+
+  /**
+   * Hit-tests WebGL location points against their source, closest first. WebGL picking ignores
+   * hitTolerance and returns only the topmost feature, so it is disabled on that layer.
+   */
+  private webglLocationHits(coordinate: Coordinate | null, resolution: number | undefined): Feature[] {
+    const source = this.webglLocationsSource();
+    if (!source || !coordinate || !resolution) return [];
+    const radius = (UNCLUSTERED_LOCATION_RADIUS + this.HIT_TOLERANCE_PX) * resolution;
+    const [x, y] = coordinate;
+    const squaredDistance = (feature: Feature) => {
+      const [featureX, featureY] = (feature.getGeometry() as Point).getCoordinates();
+      return (featureX - x) ** 2 + (featureY - y) ** 2;
+    };
+    return source
+      .getFeaturesInExtent([x - radius, y - radius, x + radius, y + radius])
+      .filter((feature) => squaredDistance(feature) <= radius ** 2)
+      .sort((a, b) => squaredDistance(a) - squaredDistance(b));
+  }
+
+  // nbic doesn't dispose removed layers, and a WebGL layer keeps its GL context until disposed.
+  private disposeWebglLocationsLayer(): void {
+    this.webglLocationsLayer?.dispose();
+    this.webglLocationsLayer = undefined;
+  }
+
   private vectorSourceOf(layerId: string): VectorSource<Feature> | null {
     const layer = this.map.getLayerById(layerId);
-    const source: unknown = layer instanceof VectorLayer ? layer.getSource() : null;
+    const source: unknown = layer instanceof Layer ? layer.getSource() : null;
     return source instanceof VectorSource ? (source as VectorSource<Feature>) : null;
   }
 
@@ -784,7 +846,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndex: 60,
     });
 
-    this.addLocationsLayer(styles);
+    if (this.clusteringEnabled()) this.addClusteredLocationsLayer(styles);
+    else void this.replaceLocationsLayer();
 
     this.map.addLayer({
       id: this.LOCATION_HIGHLIGHTS_LAYER_ID,
@@ -823,7 +886,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private addLocationsLayer(styles: MapFeatureStyles): void {
+  private addClusteredLocationsLayer(styles: MapFeatureStyles): void {
     // Synlighet styres manuelt i rebuildWithExtent (ikke minZoom) slik at
     // direkte klustermodus og avslått klynging kan vise laget på alle zoomnivåer.
     this.map.addLayer({
@@ -835,7 +898,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: { type: 'raw', options: { instance: () => styles.marker('unclusteredLocation', 'default') } },
       cluster: {
-        enabled: this.clusteringEnabled(),
+        enabled: true,
         distance: 60,
         keepSingleAsCluster: true,
         countField: 'observationCount',
@@ -1051,8 +1114,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private handleLocationClick(payload: MapEventPayload<typeof MapEvents.PointerClick>): void {
-    const features = payload.features as PointerClickFeature[];
-    if (!features) {
+    const pointHits = this.webglLocationsSource()
+      ? this.webglLocationHits(payload.clickCoordinate, this.zoomControl?.getMap()?.getView().getResolution())
+      : [];
+    const features: Pick<PointerClickFeature, 'feature' | 'layerId'>[] = [
+      ...pointHits.map((feature) => ({ feature, layerId: this.LOCATIONS_LAYER_ID })),
+      ...((payload.features as PointerClickFeature[] | null) ?? []),
+    ];
+    if (!features.length) {
       this.closeObservationList();
       return;
     }
@@ -1546,6 +1615,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.mapOverlayLoadKeys.length = 0;
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
+    this.disposeWebglLocationsLayer();
     this.map?.destroy?.();
   }
 

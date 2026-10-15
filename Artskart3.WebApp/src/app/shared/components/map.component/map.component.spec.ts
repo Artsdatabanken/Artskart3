@@ -20,6 +20,8 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import VectorLayer from 'ol/layer/Vector';
+import WebGLVectorLayer from 'ol/layer/WebGLVector';
+import type BaseLayer from 'ol/layer/Base';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import { transform } from 'ol/proj';
@@ -277,6 +279,7 @@ describe('MapComponent', () => {
         ...component.map,
         getLayerById: (id: string) => olLayers.get(id) ?? null,
         removeLayer: vi.fn(),
+        adoptLayer: vi.fn(),
       } as unknown as NbicMapComponent;
       component['clusteringEnabled'].set(false);
       const locationsRedraw = vi.spyOn(olLayers.get('area-markers-locations')!, 'changed');
@@ -1250,25 +1253,78 @@ describe('MapComponent', () => {
         expect(locationsFetched.length).toBe(1);
       });
 
-      it('should recreate the locations layer without clustering and rebuild', () => {
+      it('should swap in a WebGL locations layer without clustering and dispose it when clustering returns', async () => {
         const layers = new Map<string, LayerDef>();
-        const removeLayer = vi.fn((id: string) => layers.delete(id));
+        const adopted: { layer: BaseLayer | null } = { layer: null };
+        const adoptLayer = vi.fn((_id: string, layer: BaseLayer) => { adopted.layer = layer; });
         component.map = {
           addLayer: (definition: LayerDef) => { layers.set(definition.id, definition); },
-          removeLayer,
-          getLayerById: () => null,
+          adoptLayer,
+          removeLayer: vi.fn(() => { adopted.layer = null; }),
+          getLayerById: (id: string) => (id === 'area-markers-locations' ? adopted.layer : null),
         } as unknown as NbicMapComponent;
-        component['featureStyles'] = {} as MapFeatureStyles;
+        component['featureStyles'] = { webglLocationMarker: () => ({ 'circle-radius': 8 }) } as unknown as MapFeatureStyles;
         component['mapReady'] = true;
         const rebuild = vi.spyOn(component as unknown as { rebuildAllLayers(): void }, 'rebuildAllLayers').mockImplementation(() => undefined);
 
         component['clusteringEnabled'].set(false);
         TestBed.tick();
 
-        expect(removeLayer).toHaveBeenCalledWith('area-markers-locations');
-        expect(layers.get('area-markers-locations')?.cluster?.enabled).toBe(false);
+        await vi.waitFor(() => expect(adoptLayer).toHaveBeenCalled());
+        expect(adoptLayer).toHaveBeenCalledWith('area-markers-locations', expect.any(WebGLVectorLayer), { zIndex: 100, pickable: false });
         expect(rebuild).toHaveBeenCalled();
+
+        const dispose = vi.spyOn(adopted.layer!, 'dispose');
+        component['clusteringEnabled'].set(true);
+        TestBed.tick();
+
+        expect(dispose).toHaveBeenCalled();
+        expect(layers.get('area-markers-locations')?.cluster?.enabled).toBe(true);
       });
+    });
+  });
+
+  describe('WebGL location hit-testing', () => {
+    const near = (id: number, x: number) => {
+      const feature = new Feature({ id, geometry: new Point([x, 0]) });
+      feature.setId(id);
+      return feature;
+    };
+
+    beforeEach(() => {
+      const layer = new WebGLVectorLayer({ source: new VectorSource({ features: [near(1, 10), near(2, 3), near(3, 14)] }), style: {} });
+      component.map = { getLayerById: (id: string) => (id === 'area-markers-locations' ? layer : null) } as unknown as NbicMapComponent;
+      component['webglLocationsLayer'] = layer;
+    });
+
+    it('hovers the closest point within the marker radius plus tolerance and skips the WebGL layer in canvas hit-testing', () => {
+      const layerFilters: ((layer: unknown) => boolean)[] = [];
+      const olMap = {
+        getCoordinateFromPixel: () => [0, 0],
+        getView: () => ({ getResolution: () => 1 }),
+        forEachFeatureAtPixel: (_pixel: unknown, _callback: unknown, options: { layerFilter: (layer: unknown) => boolean }) => {
+          layerFilters.push(options.layerFilter);
+          return undefined;
+        },
+      };
+
+      const hit = component['hitTestPixel'](olMap as unknown as OlMap, [0, 0]);
+      expect(hit).toEqual({ cursor: 'pointer', locationIds: [2], areaKey: null });
+
+      olMap.getCoordinateFromPixel = () => [100, 0];
+      expect(component['hitTestPixel'](olMap as unknown as OlMap, [0, 0]).cursor).toBe('');
+      expect(layerFilters[0](component.map.getLayerById('area-markers-locations'))).toBe(false);
+    });
+
+    it('opens every point under a click, ignoring points outside the tolerance', () => {
+      component['zoomControl'] = {
+        getMap: () => ({ getView: () => ({ getResolution: () => 1, getProjection: () => MAP_CONFIG.projection }) }),
+      } as unknown as ArtskartZoomControl;
+      vi.spyOn(TestBed.inject(ObservationService), 'getObservationByLocation').mockReturnValue(of([]));
+
+      (component as unknown as { handleLocationClick: (payload: unknown) => void }).handleLocationClick({ features: null, clickCoordinate: [0, 0] });
+
+      expect(component.observationSelection()?.locationIds).toEqual([2, 1]);
     });
   });
 

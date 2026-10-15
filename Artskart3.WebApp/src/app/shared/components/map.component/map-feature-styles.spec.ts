@@ -102,6 +102,15 @@ describe('MapFeatureStyles', () => {
     }
   });
 
+  it('describes the default location marker as a WebGL flat style', () => {
+    expect(styles.webglLocationMarker()).toEqual({
+      'circle-radius': 6.4,
+      'circle-fill-color': [0, 90, 113, 1],
+      'circle-stroke-color': [210, 221, 224, 1],
+      'circle-stroke-width': 1.5,
+    });
+  });
+
   it('keeps the base polygon fill at 6% with a visible border', () => {
     const [base, ...rest] = styles.polygon();
     expect(base.getFill()?.getColor()).toEqual([0, 90, 113, 0.06]);
