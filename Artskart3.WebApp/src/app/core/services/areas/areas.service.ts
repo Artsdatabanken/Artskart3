@@ -304,6 +304,14 @@ export interface LocationSearchFilter {
   periodMonths?: number[] | null;
 }
 
+/** Coordinates in EPSG:4326. */
+export interface LocationPoint {
+  id: number;
+  longitude: number;
+  latitude: number;
+  observationCount: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -350,26 +358,25 @@ export class AreasService {
   }
 
   /**
-   * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
-   * for `updateGeoJSONLayer`, sammen med antall lokasjoner. Interaktive markører styles av kartlaget.
+   * Henter lokasjonspunkter fra API (kompakt format).
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
    * @param maxResults Maks antall lokasjoner, de med flest observasjoner først. API-ets standard brukes når den ikke er satt.
    */
-  getLocationsAsGeoJson(
+  getLocations(
     extent?: [number, number, number, number],
     filter?: LocationSearchFilter,
     maxResults?: number,
-  ): Observable<{ geojson: string; count: number }> {
+  ): Observable<LocationPoint[]> {
     const body = this.buildFilterBody(filter, extent);
     if (maxResults != null) body['maxResults'] = maxResults;
 
     return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<{ locations: unknown[] }>(responseText, AreasService.SERVICE_NAME);
-        const features = this.mapCompactLocationsToGeoJson(parsed);
-        this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
-        return { geojson: JSON.stringify({ type: 'FeatureCollection', features }), count: features.length };
+        const points = this.parseCompactLocations(parsed);
+        this.loggerService.info(`Retrieved ${points.length} locations`, AreasService.SERVICE_NAME);
+        return points;
       }),
     );
   }
@@ -507,33 +514,21 @@ export class AreasService {
   }
 
   /**
-   * Mapper kompakt lokasjon-respons [id, lon, lat, count] til GeoJSON-features.
+   * Leser kompakt lokasjon-respons [id, lon, lat, count].
    */
-  private mapCompactLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
+  private parseCompactLocations(response: unknown): LocationPoint[] {
     if (typeof response !== 'object' || response === null) return [];
     const locations = (response as { locations?: unknown[] }).locations;
     if (!Array.isArray(locations)) return [];
 
-    const features: AreaMarkerFeature[] = [];
+    const points: LocationPoint[] = [];
     for (const loc of locations) {
       if (!Array.isArray(loc) || loc.length < 4) continue;
-      const [id, lon, lat, count] = loc as [number, number, number, number];
-      if (isNaN(lon) || isNaN(lat)) continue;
-
-      features.push({
-        type: 'Feature',
-        id,
-        geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: {
-          id,
-          name: `Location ${id}`,
-          observationCount: count,
-          observationCountDisplay: count ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
-          isPolygon: false,
-        },
-      });
+      const [id, longitude, latitude, observationCount] = loc as [number, number, number, number];
+      if (isNaN(longitude) || isNaN(latitude)) continue;
+      points.push({ id, longitude, latitude, observationCount });
     }
-    return features;
+    return points;
   }
 
   /**

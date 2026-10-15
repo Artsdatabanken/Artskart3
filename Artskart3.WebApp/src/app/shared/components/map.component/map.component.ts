@@ -25,7 +25,7 @@ import {
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
-import { AreasService, LocationSearchFilter } from '@core/services/areas/areas.service';
+import { AreasService, LocationPoint, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { LocationCountResult } from '@shared/types/api.types';
 import { AreaMarkerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
@@ -40,7 +40,7 @@ import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import Point from 'ol/geom/Point';
 import WKT from 'ol/format/WKT';
-import { transform } from 'ol/proj';
+import { getTransform, transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
@@ -66,6 +66,7 @@ import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
+import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
@@ -1221,11 +1222,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           const generation = this.fetchGeneration;
           const maxResults = this.clusteringEnabled() ? undefined : ZoomConfig.UNCLUSTERED_MAX_LOCATIONS;
           this.loadFetchStart();
-          const locations$ = this.areasService.getLocationsAsGeoJson(extent, filter, maxResults).pipe(
-            tap(({ geojson, count }) => {
+          const locations$ = this.areasService.getLocations(extent, filter, maxResults).pipe(
+            tap((points) => {
               if (generation === this.fetchGeneration) {
-                this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson);
-                const complete = maxResults == null || count < maxResults;
+                this.applyLocationPoints(points);
+                const complete = maxResults == null || points.length < maxResults;
                 this.lastLocationsCoverage = { filterKey: JSON.stringify(filter), extent, complete };
               }
             }),
@@ -1455,18 +1456,28 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return;
 
     this.clearMarkerHover();
-    const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
-    const layerId = isLocationPoints
-      ? this.LOCATIONS_LAYER_ID
-      : apiZoomLevel >= ApiZoomLevel.Municipalities
-        ? this.MUNICIPALITIES_LAYER_ID
-        : this.COUNTIES_LAYER_ID;
+    const layerId = apiZoomLevel >= ApiZoomLevel.Municipalities ? this.MUNICIPALITIES_LAYER_ID : this.COUNTIES_LAYER_ID;
+    this.map.updateGeoJSONLayer(layerId, geojson, { mode: 'replace' });
+  }
 
-    this.map.updateGeoJSONLayer(layerId, geojson, {
-      mode: 'replace',
-      ...(isLocationPoints && { dataProjection: 'EPSG:4326' }),
+  // Bypasses updateGeoJSONLayer: serializing and reparsing tens of thousands of points as GeoJSON is slow.
+  private applyLocationPoints(points: LocationPoint[]): void {
+    if (!this.map || !this.mapVisible) return;
+
+    this.clearMarkerHover();
+    const source = this.vectorSourceOf(this.LOCATIONS_LAYER_ID);
+    const pointSource = source instanceof Cluster ? source.getSource() : source;
+    if (!pointSource) return;
+
+    const toView = getTransform('EPSG:4326', this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection);
+    const features = points.map(({ id, longitude, latitude, observationCount }) => {
+      const feature = new Feature({ geometry: new Point(toView([longitude, latitude])), id, observationCount });
+      feature.setId(id);
+      return feature;
     });
-    if (isLocationPoints) this.refreshLocationHighlights();
+    pointSource.clear(true);
+    pointSource.addFeatures(features);
+    this.refreshLocationHighlights();
   }
 
   onIconClick(iconName: string): void {

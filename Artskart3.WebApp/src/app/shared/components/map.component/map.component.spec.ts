@@ -21,6 +21,8 @@ import Polygon from 'ol/geom/Polygon';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
+import Cluster from 'ol/source/Cluster';
+import { transform } from 'ol/proj';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -316,7 +318,7 @@ describe('MapComponent', () => {
     it('styles replacement features and regrouped clusters by current IDs, not object identity', () => {
       select([1, 2]);
       hover([{ feature: location(3), layerId: 'area-markers-locations' }]);
-      component['applyGeoJsonToLayer'](ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection","features":[]}');
+      component['applyLocationPoints']([]);
       expect(component['locationFeatureState'](location(3))).toBe('default');
       expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
       expect(component['locationFeatureState'](cluster(1, 3))).toBe('default');
@@ -569,22 +571,31 @@ describe('MapComponent', () => {
       );
     });
 
-    it('should route to locations layer with EPSG:4326 projection for LocationPoints zoom level', () => {
-      applyGeoJsonToLayer(component, ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection"}');
-
-      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
-        'area-markers-locations',
-        '{"type":"FeatureCollection"}',
-        { mode: 'replace', dataProjection: 'EPSG:4326' },
-      );
-    });
-
     it('should not call updateGeoJSONLayer when map is not set', () => {
       component.map = undefined as unknown as NbicMapComponent;
 
       applyGeoJsonToLayer(component, ApiZoomLevel.Counties, '{}');
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('applyLocationPoints', () => {
+    it.each([false, true])('replaces location features in the view projection (clustered: %s)', (clustered) => {
+      const points = new VectorSource<Feature>({ features: [new Feature({ id: 99, geometry: new Point([0, 0]) })] });
+      const layer = new VectorLayer({ source: clustered ? new Cluster({ source: points }) : points });
+      component.map = { getLayerById: (id: string) => (id === 'area-markers-locations' ? layer : null) } as unknown as NbicMapComponent;
+
+      component['applyLocationPoints']([{ id: 42, longitude: 10, latitude: 60, observationCount: 7 }]);
+
+      const [feature, ...rest] = points.getFeatures();
+      expect(rest).toHaveLength(0);
+      expect(feature.getId()).toBe(42);
+      expect(feature.get('id')).toBe(42);
+      expect(feature.get('observationCount')).toBe(7);
+      const [longitude, latitude] = transform((feature.getGeometry() as Point).getCoordinates(), MAP_CONFIG.projection, 'EPSG:4326');
+      expect(longitude).toBeCloseTo(10);
+      expect(latitude).toBeCloseTo(60);
     });
   });
 
@@ -620,8 +631,6 @@ describe('MapComponent', () => {
 
     it('should continue processing after a service error', () => {
       vi.useFakeTimers();
-      const geojson = '{"type":"FeatureCollection","features":[]}';
-
       const testExtent: [number, number, number, number] = [0, 0, 1000000, 1000000];
 
       // First call fails (counts fetch with no cached geometries → falls back to getAreaMarkers)
@@ -635,16 +644,17 @@ describe('MapComponent', () => {
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
 
       // Second call succeeds — pipeline should still be alive
-      vi.spyOn(areasService, 'getLocationsAsGeoJson').mockReturnValueOnce(of({ geojson, count: 0 }));
+      const locations = new VectorSource<Feature>();
+      component.map = {
+        updateGeoJSONLayer: updateGeoJSONLayerSpy,
+        getLayerById: (id: string) => (id === 'area-markers-locations' ? new VectorLayer({ source: locations }) : null),
+      } as unknown as NbicMapComponent;
+      vi.spyOn(areasService, 'getLocations').mockReturnValueOnce(of([{ id: 1, longitude: 10, latitude: 60, observationCount: 1 }]));
 
       locationsFetch$.next({ extent: testExtent, filter: {} });
       vi.advanceTimersByTime(300);
 
-      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
-        'area-markers-locations',
-        geojson,
-        { mode: 'replace', dataProjection: 'EPSG:4326' },
-      );
+      expect(locations.getFeatures()).toHaveLength(1);
 
       vi.useRealTimers();
     });
@@ -1001,14 +1011,13 @@ describe('MapComponent', () => {
       vi.useFakeTimers();
       try {
         const areasService = TestBed.inject(AreasService);
-        const getLocations = vi
-          .spyOn(areasService, 'getLocationsAsGeoJson')
-          .mockReturnValue(of({ geojson: '{"type":"FeatureCollection","features":[]}', count: 0 }));
+        const getLocations = vi.spyOn(areasService, 'getLocations').mockReturnValue(of([]));
         vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
         component.map = {
           updateGeoJSONLayer: vi.fn(),
           getCamera: () => ({ zoom: 12 }),
           setLayerVisibility: vi.fn(),
+          getLayerById: () => null,
         } as unknown as NbicMapComponent;
         const priv = accessPrivate(component);
         priv.setupLocationsFetchPipeline();
@@ -1040,13 +1049,15 @@ describe('MapComponent', () => {
       vi.useFakeTimers();
       try {
         const areasService = TestBed.inject(AreasService);
-        const getLocations = vi.spyOn(areasService, 'getLocationsAsGeoJson');
-        const respondWith = (count: number) => getLocations.mockReturnValueOnce(of({ geojson: '{"type":"FeatureCollection","features":[]}', count }));
+        const getLocations = vi.spyOn(areasService, 'getLocations');
+        const respondWith = (count: number) =>
+          getLocations.mockReturnValueOnce(of(Array.from({ length: count }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1 }))));
         vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
         component.map = {
           updateGeoJSONLayer: vi.fn(),
           getCamera: () => ({ zoom: 6 }),
           setLayerVisibility: vi.fn(),
+          getLayerById: () => null,
         } as unknown as NbicMapComponent;
         component['clusteringEnabled'].set(false);
         const priv = accessPrivate(component);
