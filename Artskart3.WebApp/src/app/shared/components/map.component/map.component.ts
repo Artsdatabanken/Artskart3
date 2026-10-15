@@ -64,6 +64,8 @@ import { ObservationRequestState, ObservationSelection } from '../observation-li
 import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
 import TileWMS from 'ol/source/TileWMS';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapFeatureStyles, MapFeatureState } from './map-feature-styles';
@@ -88,6 +90,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
   private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
   private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
+  private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
+  private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
   private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
@@ -258,6 +262,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly directClusterMode = computed(() => {
     const result = this.locationCountResult();
     return result != null && !result.truncated && result.count <= ZoomConfig.DIRECT_CLUSTER_MAX_LOCATIONS;
+  });
+
+  protected readonly clusteringEnabled = signal(true);
+  private readonly locationsAtAllZooms = computed(() => this.directClusterMode() || !this.clusteringEnabled());
+
+  // nbic-map-component can't toggle clustering on an existing layer, so the layer is recreated and refetched.
+  private readonly _onClusteringChange = effect(() => {
+    this.clusteringEnabled();
+    untracked(() => {
+      if (!this.mapReady || !this.map || !this.featureStyles) return;
+      this.map.removeLayer(this.LOCATIONS_LAYER_ID);
+      this.addLocationsLayer(this.featureStyles);
+      this.lastLocationsCoverage = null;
+      this.redrawLocationStyles();
+      this.rebuildAllLayers();
+    });
   });
 
   private locationCountPending = false;
@@ -583,8 +603,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.clearMarkerHover();
         return;
       }
-      this.updateMarkerHover(olMap, evt.pixel);
-      const cursor = this.resolveCursorAtPixel(olMap, evt.pixel);
+      const { cursor, locationIds, areaKey } = this.hitTestPixel(olMap, evt.pixel);
+      this.setMarkerHover(locationIds, areaKey);
       const target = olMap.getTargetElement();
       if (cursor) {
         target.style.cursor = cursor;
@@ -599,26 +619,34 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.markerViewport.addEventListener('pointerleave', this.clearMarkerHover);
   }
 
-  private updateMarkerHover(olMap: OlMap, pixel: Pixel): void {
-    let areaKey: string | null = null;
+  /** One hit-test per pointer move: the topmost marker is hovered, the cursor prefers zoom-in. */
+  private hitTestPixel(olMap: OlMap, pixel: Pixel): { cursor: string; locationIds: number[]; areaKey: string | null } {
+    let hovered = false;
     let locationIds: number[] = [];
-    olMap.forEachFeatureAtPixel(
+    let areaKey: string | null = null;
+    let pointerHit = false;
+    const zoomCursor = olMap.forEachFeatureAtPixel(
       pixel,
-      (feature, layer) => {
-        const layerId: unknown = layer?.get('id');
-        if (layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID) {
-          locationIds = this.locationIdsForFeature(feature);
-          return true;
+      (feature, layer): string | undefined => {
+        const layerId = layer?.get('id') as string | undefined;
+        const isLocation = layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID;
+        const isAreaMarker = !isLocation && feature.get('centroid') != null;
+        if (!hovered && (isLocation || isAreaMarker)) {
+          hovered = true;
+          if (isLocation) locationIds = this.locationIdsForFeature(feature);
+          else if (layerId) areaKey = this.areaMarkerKey(layerId, feature);
         }
-        if (typeof layerId === 'string' && feature.getGeometry()?.getType() === 'Point' && feature.get('centroid')) {
-          areaKey = this.areaMarkerKey(layerId, feature);
-          return true;
+        if (isAreaMarker) return 'zoom-in';
+        if (layerId === this.LOCATIONS_LAYER_ID) {
+          const members = feature.get('features') as Feature<Point>[] | undefined;
+          if ((members?.length ?? 1) > ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS && !this.isAtMaxZoom()) return 'zoom-in';
         }
+        if (isLocation) pointerHit = true;
         return undefined;
       },
       { hitTolerance: 5, layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) },
     );
-    this.setMarkerHover(locationIds, areaKey);
+    return { cursor: zoomCursor ?? (pointerHit ? 'pointer' : ''), locationIds, areaKey };
   }
 
   private isInteractiveLayer(id: unknown): boolean {
@@ -659,8 +687,33 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private redrawLocationStyles(): void {
     if (!this.mapReady || !this.featureStyles) return;
-    this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
-    this.map.getLayerById(this.LOCATION_POLYGONS_LAYER_ID)?.changed();
+    // Clusters are few enough to restyle in place. Single points and polygons are highlighted
+    // on overlay layers, so a hover or selection doesn't redraw every feature.
+    if (this.clusteringEnabled()) this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
+    this.refreshLocationHighlights();
+  }
+
+  private refreshLocationHighlights(): void {
+    if (!this.mapReady) return;
+    const ids = [...new Set([...this.hoveredLocationIds, ...this.selectedLocationIds()])];
+    const pointsLayerId = this.clusteringEnabled() ? null : this.LOCATIONS_LAYER_ID;
+    this.fillHighlightLayer(this.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
+    this.fillHighlightLayer(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, this.LOCATION_POLYGONS_LAYER_ID, ids);
+  }
+
+  private fillHighlightLayer(highlightLayerId: string, sourceLayerId: string | null, ids: number[]): void {
+    const target = this.vectorSourceOf(highlightLayerId);
+    if (!target) return;
+    const source = sourceLayerId ? this.vectorSourceOf(sourceLayerId) : null;
+    const features = source ? ids.map((id) => source.getFeatureById(id)).filter((feature) => feature instanceof Feature) : [];
+    target.clear(true);
+    target.addFeatures(features);
+  }
+
+  private vectorSourceOf(layerId: string): VectorSource<Feature> | null {
+    const layer = this.map.getLayerById(layerId);
+    const source: unknown = layer instanceof VectorLayer ? layer.getSource() : null;
+    return source instanceof VectorSource ? (source as VectorSource<Feature>) : null;
   }
 
   private locationIdsForFeature(feature: FeatureLike): number[] {
@@ -670,6 +723,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private locationFeatureState(feature: FeatureLike): MapFeatureState {
+    if (!this.hoveredLocationIds.size && !this.selectedLocationIds().size) return 'default';
     const ids = this.locationIdsForFeature(feature);
     if (!ids.length) return 'default';
     // A cluster that also holds unselected locations would suggest its whole count is selected.
@@ -679,39 +733,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
     return `${layerId}/${feature.get('fid') ?? feature.get('id')}`;
-  }
-
-  private resolveCursorAtPixel(olMap: OlMap, pixel: Pixel): string {
-    let pointerHit = false;
-    const zoomCursor = olMap.forEachFeatureAtPixel(
-      pixel,
-      (feature, layer): string | undefined => {
-        const layerId = layer?.get('id') as string | undefined;
-        if (layerId === this.LOCATIONS_LAYER_ID) {
-          const members = feature?.get('features') as Feature<Point>[] | undefined;
-          if ((members?.length ?? 1) > ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS && !this.isAtMaxZoom()) {
-            return 'zoom-in';
-          }
-          pointerHit = true;
-          return undefined;
-        }
-        if (layerId === this.LOCATION_POLYGONS_LAYER_ID) {
-          pointerHit = true;
-          return undefined;
-        }
-
-        if (feature?.get('centroid') != null) return 'zoom-in';
-        return undefined;
-      },
-      {
-        hitTolerance: 5,
-        layerFilter: (layer) => {
-          const id = layer?.get('id') as string | undefined;
-          return this.isInteractiveLayer(id);
-        },
-      },
-    );
-    return zoomCursor ?? (pointerHit ? 'pointer' : '');
   }
 
   private markerCursorKey?: EventsKey;
@@ -762,28 +783,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndex: 60,
     });
 
-    // Synlighet styres manuelt i rebuildWithExtent (ikke minZoom) slik at
-    // direkte klustermodus kan vise laget på alle zoomnivåer.
+    this.addLocationsLayer(styles);
+
     this.map.addLayer({
-      id: this.LOCATIONS_LAYER_ID,
+      id: this.LOCATION_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
-      pickable: true,
-      zIndex: 100,
+      pickable: false,
+      zIndex: 105,
       zIndexPinned: true,
       style: {
         type: 'raw',
         options: { instance: (feature: FeatureLike) => styles.marker('location', this.locationFeatureState(feature)) },
-      },
-      cluster: {
-        enabled: true,
-        distance: 60,
-        keepSingleAsCluster: true,
-        countField: 'observationCount',
-        style: {
-          type: 'raw',
-          options: { instance: this.createLocationClusterStyleFn(styles) },
-        },
       },
     });
 
@@ -794,7 +805,44 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 90,
       zIndexPinned: true,
-      style: { type: 'raw', options: { instance: (feature: FeatureLike) => styles.polygon(this.locationFeatureState(feature)) } },
+      style: { type: 'raw', options: { instance: () => styles.polygon() } },
+    });
+
+    this.map.addLayer({
+      id: this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
+      kind: 'vector',
+      source: { type: 'memory' },
+      pickable: false,
+      zIndex: 95,
+      zIndexPinned: true,
+      style: {
+        type: 'raw',
+        options: { instance: (feature: FeatureLike) => styles.polygonHighlight(this.locationFeatureState(feature)) },
+      },
+    });
+  }
+
+  private addLocationsLayer(styles: MapFeatureStyles): void {
+    // Synlighet styres manuelt i rebuildWithExtent (ikke minZoom) slik at
+    // direkte klustermodus og avslått klynging kan vise laget på alle zoomnivåer.
+    this.map.addLayer({
+      id: this.LOCATIONS_LAYER_ID,
+      kind: 'vector',
+      source: { type: 'memory' },
+      pickable: true,
+      zIndex: 100,
+      zIndexPinned: true,
+      style: { type: 'raw', options: { instance: () => styles.marker('location', 'default') } },
+      cluster: {
+        enabled: this.clusteringEnabled(),
+        distance: 60,
+        keepSingleAsCluster: true,
+        countField: 'observationCount',
+        style: {
+          type: 'raw',
+          options: { instance: this.createLocationClusterStyleFn(styles) },
+        },
+      },
     });
   }
 
@@ -854,7 +902,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       // Location points are not cached locally — defer fetching them until the map is visible.
       // Zoom is independent of container size and safe to read.
       const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
-      const needsLocations = this.directClusterMode() || ZoomConfig.getApiZoomLevel(olZoom) === ApiZoomLevel.LocationPoints;
+      const needsLocations = this.locationsAtAllZooms() || ZoomConfig.getApiZoomLevel(olZoom) === ApiZoomLevel.LocationPoints;
       if (!needsLocations && this.lastValidExtent) {
         this.rebuildWithExtent(filter, this.lastValidExtent);
       }
@@ -918,21 +966,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.fetchGeneration++;
     const olZoom = this.map.getCamera().zoom ?? ZoomConfig.DEFAULT_ZOOM_LEVEL;
     const apiZoomLevel = ZoomConfig.getApiZoomLevel(olZoom);
-    const direct = this.directClusterMode();
-    const showLocations = direct || apiZoomLevel === ApiZoomLevel.LocationPoints;
+    const locationsAtAllZooms = this.locationsAtAllZooms();
+    const showLocations = locationsAtAllZooms || apiZoomLevel === ApiZoomLevel.LocationPoints;
 
     // Lagene har ingen minZoom — synlighet styres her. Fylke-/kommunelagene
     // har egne zoomterskler som begrenser dem når de er satt synlige.
     this.map.setLayerVisibility(this.LOCATIONS_LAYER_ID, showLocations);
     this.map.setLayerVisibility(this.LOCATION_POLYGONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.COUNTIES_LAYER_ID, !direct);
-    this.map.setLayerVisibility(this.MUNICIPALITIES_LAYER_ID, !direct);
+    this.map.setLayerVisibility(this.COUNTIES_LAYER_ID, !locationsAtAllZooms);
+    this.map.setLayerVisibility(this.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
 
     // Oppdater overlay
     this.updateSelectedAreaOverlays();
 
     if (showLocations) {
-      if (!direct || !this.locationCountPending) {
+      // A pending recount can switch direct cluster mode off, which only matters while clustering is on.
+      const awaitingRecount = this.clusteringEnabled() && this.directClusterMode() && this.locationCountPending;
+      if (!awaitingRecount) {
         this.fetchLocationsIfNeeded(extent, filter);
       }
       return;
@@ -1169,12 +1219,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         debounceTime(300),
         switchMap(({ extent, filter }) => {
           const generation = this.fetchGeneration;
+          const maxResults = this.clusteringEnabled() ? undefined : ZoomConfig.UNCLUSTERED_MAX_LOCATIONS;
           this.loadFetchStart();
-          const locations$ = this.areasService.getLocationsAsGeoJsonString(extent, filter).pipe(
-            tap((geojson) => {
+          const locations$ = this.areasService.getLocationsAsGeoJson(extent, filter, maxResults).pipe(
+            tap(({ geojson, count }) => {
               if (generation === this.fetchGeneration) {
                 this.applyGeoJsonToLayer(ApiZoomLevel.LocationPoints, geojson);
-                this.lastLocationsCoverage = { filterKey: JSON.stringify(filter), extent };
+                const complete = maxResults == null || count < maxResults;
+                this.lastLocationsCoverage = { filterKey: JSON.stringify(filter), extent, complete };
               }
             }),
             catchError((err: unknown) => {
@@ -1190,6 +1242,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
               if (this.mapVisible && generation === this.fetchGeneration) {
                 this.clearMarkerHover();
                 this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+                this.refreshLocationHighlights();
               }
             }),
             catchError((err: unknown) => {
@@ -1208,7 +1261,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private locationsFetch$ = new Subject<{ extent: [number, number, number, number]; filter: LocationSearchFilter }>();
 
-  private lastLocationsCoverage: { filterKey: string; extent: [number, number, number, number] } | null = null;
+  private lastLocationsCoverage: { filterKey: string; extent: [number, number, number, number]; complete: boolean } | null = null;
 
   private emitLocationsFetch(extent: [number, number, number, number], filter: LocationSearchFilter): void {
     this.locationsFetch$.next({ extent, filter });
@@ -1216,8 +1269,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private fetchLocationsIfNeeded(extent: [number, number, number, number], filter: LocationSearchFilter): void {
     const coverage = this.lastLocationsCoverage;
+    // A capped result for a larger extent can be missing locations inside a smaller one.
     if (
-      coverage &&
+      coverage?.complete &&
       coverage.filterKey === JSON.stringify(filter) &&
       extent[0] >= coverage.extent[0] &&
       extent[1] >= coverage.extent[1] &&
@@ -1412,6 +1466,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       mode: 'replace',
       ...(isLocationPoints && { dataProjection: 'EPSG:4326' }),
     });
+    if (isLocationPoints) this.refreshLocationHighlights();
   }
 
   onIconClick(iconName: string): void {

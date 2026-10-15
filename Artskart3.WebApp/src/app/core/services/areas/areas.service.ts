@@ -351,19 +351,25 @@ export class AreasService {
 
   /**
    * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
-   * for `updateGeoJSONLayer`. Interaktive markører styles av kartlaget.
+   * for `updateGeoJSONLayer`, sammen med antall lokasjoner. Interaktive markører styles av kartlaget.
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
+   * @param maxResults Maks antall lokasjoner, de med flest observasjoner først. API-ets standard brukes når den ikke er satt.
    */
-  getLocationsAsGeoJsonString(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+  getLocationsAsGeoJson(
+    extent?: [number, number, number, number],
+    filter?: LocationSearchFilter,
+    maxResults?: number,
+  ): Observable<{ geojson: string; count: number }> {
     const body = this.buildFilterBody(filter, extent);
+    if (maxResults != null) body['maxResults'] = maxResults;
 
     return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<{ locations: unknown[] }>(responseText, AreasService.SERVICE_NAME);
         const features = this.mapCompactLocationsToGeoJson(parsed);
         this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
-        return JSON.stringify({ type: 'FeatureCollection', features });
+        return { geojson: JSON.stringify({ type: 'FeatureCollection', features }), count: features.length };
       }),
     );
   }

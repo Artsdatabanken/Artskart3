@@ -101,14 +101,22 @@ describe('MapFeatureStyles', () => {
     }
   });
 
+  it('keeps the base polygon fill at 6% with a visible border', () => {
+    const [base, ...rest] = styles.polygon();
+    expect(base.getFill()?.getColor()).toEqual([0, 90, 113, 0.06]);
+    expect(base.getStroke()?.getColor()).toEqual([0, 90, 113, 1]);
+    expect(base.getStroke()?.getWidth()).toBe(1.5);
+    expect(rest).toHaveLength(0);
+  });
+
   it.each(['default', 'hover', 'selected'] satisfies MapFeatureState[])(
-    'keeps polygon fill at 6%% with a visible border in %s state',
+    'leaves the fill to the base polygon and keeps a visible border in the %s highlight',
     (state) => {
-      const layers = styles.polygon(state);
-      const base = layers[layers.length - 1];
-      expect(base.getFill()?.getColor()).toEqual(state === 'hover' ? [0, 69, 87, 0.06] : [0, 90, 113, 0.06]);
-      expect(base.getStroke()?.getColor()).toEqual(state === 'selected' ? [210, 221, 224, 1] : [0, 90, 113, 1]);
-      expect(base.getStroke()?.getWidth()).toBe(1.5);
+      const layers = styles.polygonHighlight(state);
+      const border = layers[layers.length - 1];
+      expect(border.getFill()).toBeNull();
+      expect(border.getStroke()?.getColor()).toEqual(state === 'selected' ? [210, 221, 224, 1] : [0, 90, 113, 1]);
+      expect(border.getStroke()?.getWidth()).toBe(1.5);
       expect(layers).toHaveLength(state === 'default' ? 1 : 2);
     },
   );
@@ -140,7 +148,7 @@ describe('MapFeatureStyles', () => {
         ['hover', 4],
         ['selected', 5],
       ] as const) {
-        const [ring, base] = styles.polygon(state);
+        const [ring, base] = styles.polygonHighlight(state);
         const { context, state: renderState } = canvasState(geometry, pixelRatio);
         ring.getRenderer()!(geometry.getCoordinates(), renderState);
         const parts = geometry instanceof MultiPolygon ? 2 : 1;
@@ -167,7 +175,7 @@ describe('MapFeatureStyles', () => {
     expect(styles.marker('cluster', 'selected', '12 k')).not.toBe(marker);
     expect(styles.marker('area', 'hover', '12 k')).not.toBe(marker);
     expect(styles.marker('cluster', 'hover', '12 thousand')).not.toBe(marker);
-    expect(styles.polygon('hover')).toBe(styles.polygon('hover'));
+    expect(styles.polygonHighlight('hover')).toBe(styles.polygonHighlight('hover'));
     styles.clearMarkerCache();
     expect(styles.marker('cluster', 'hover', '12 k')).not.toBe(marker);
   });
@@ -176,7 +184,7 @@ describe('MapFeatureStyles', () => {
     const tokens = tokenStyles();
     tokens.setProperty('--adb-color-brand-freshwater-blue-90', 'rgb(10, 20, 30)');
     const custom = new MapFeatureStyles(tokens);
-    expect(custom.polygon('default')[0].getFill()?.getColor()).toEqual([10, 20, 30, 0.06]);
+    expect(custom.polygon()[0].getFill()?.getColor()).toEqual([10, 20, 30, 0.06]);
   });
 
   it.each(['', 'var(--unresolved)', 'not-a-color'])('rejects a missing or invalid token: %s', (value) => {
