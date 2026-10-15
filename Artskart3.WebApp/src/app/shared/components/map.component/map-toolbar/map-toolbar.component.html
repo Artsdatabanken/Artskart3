@@ -11,5 +11,10 @@
       (mapLayersOpenChange)="onMapLayersOpenChange($event)"
       (mapLayerVisibilityChange)="onMapToolbarMenuItemChange($event)"
     ></app-map-layers>
+    <app-map-settings
+      [isOpen]="openMenu() === 'mapSettings'"
+      [(clusteringEnabled)]="clusteringEnabled"
+      (mapSettingsOpenChange)="onMapSettingsOpenChange($event)"
+    ></app-map-settings>
   </div>
 </div>

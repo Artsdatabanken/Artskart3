@@ -15,6 +15,10 @@ export class ZoomConfig {
   static readonly CLUSTER_CLICK_MAX_LOCATIONS = 15;
   /** Zoom step used when a cluster's members all share the same point. */
   static readonly CLUSTER_CLICK_ZOOM_STEP = 2;
+  /** Share of the view's width and height added on each side of a locations fetch, so small pans reuse the result. */
+  static readonly LOCATIONS_FETCH_MARGIN = 0.25;
+  /** Max locations fetched with clustering off, since every point is drawn individually. */
+  static readonly UNCLUSTERED_MAX_LOCATIONS = 50000;
 
   static getApiZoomLevel(openLayerZoom: number): number {
     if (openLayerZoom >= 11) {

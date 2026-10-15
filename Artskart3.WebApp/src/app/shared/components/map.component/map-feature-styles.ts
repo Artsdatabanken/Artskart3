@@ -4,11 +4,12 @@ import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import type { RenderFunction } from 'ol/style/Style';
 
 export type MapFeatureState = 'default' | 'hover' | 'selected';
-export type MapMarkerKind = 'location' | 'cluster' | 'area' | 'observation';
+export type MapMarkerKind = 'location' | 'unclusteredLocation' | 'cluster' | 'area' | 'observation';
 
 const BORDER_WIDTH = 1.5;
 const MARKERS = {
   location: { radius: 8, font: undefined },
+  unclusteredLocation: { radius: 6.4, font: undefined },
   cluster: { radius: 17, font: '600 10px "Chivo", sans-serif' },
   area: { radius: 20, font: '600 10px "Chivo", sans-serif' },
   observation: { radius: 11, font: undefined },
@@ -83,7 +84,8 @@ function circleRingRenderer(radius: number, color: Color, width: number): Render
 export class MapFeatureStyles {
   private readonly palette: MapPalette;
   private readonly markers = new Map<string, Style[]>();
-  private readonly polygons = new Map<MapFeatureState, Style[]>();
+  private basePolygon?: Style[];
+  private readonly polygonHighlights = new Map<MapFeatureState, Style[]>();
 
   constructor(styles: CSSStyleDeclaration) {
     this.palette = {
@@ -128,12 +130,23 @@ export class MapFeatureStyles {
     return styles;
   }
 
-  polygon(state: MapFeatureState): Style[] {
-    const cached = this.polygons.get(state);
+  polygon(): Style[] {
+    const [r, g, b] = this.palette.primary;
+    this.basePolygon ??= [
+      new Style({
+        fill: new Fill({ color: [r, g, b, 0.06] }),
+        stroke: new Stroke({ color: this.palette.primary, width: BORDER_WIDTH }),
+      }),
+    ];
+    return this.basePolygon;
+  }
+
+  /** Drawn over the base polygon, which supplies the fill. */
+  polygonHighlight(state: MapFeatureState): Style[] {
+    const cached = this.polygonHighlights.get(state);
     if (cached) return cached;
 
     const ring = this.ring(state);
-    const fill = this.fill(state);
     const styles: Style[] = [];
     if (ring) {
       styles.push(
@@ -144,16 +157,15 @@ export class MapFeatureStyles {
         }),
       );
     }
-    // A higher style z-index draws the base border after the custom renderer,
-    // covering the inner 0.75px of its outward stroke without tinting the fill.
+    // A higher style z-index draws the border after the custom renderer,
+    // covering the inner 0.75px of its outward stroke.
     styles.push(
       new Style({
         zIndex: 1,
-        fill: new Fill({ color: [fill[0], fill[1], fill[2], 0.06] }),
         stroke: new Stroke({ color: state === 'selected' ? this.palette.border : this.palette.primary, width: BORDER_WIDTH }),
       }),
     );
-    this.polygons.set(state, styles);
+    this.polygonHighlights.set(state, styles);
     return styles;
   }
 

@@ -20,16 +20,17 @@ describe('AreasService map styling metadata', () => {
     service = TestBed.inject(AreasService);
   });
 
-  it('preserves location IDs, coordinates, and counts without overriding layer styles', async () => {
-    postJson.mockReturnValue(of(JSON.stringify({ locations: [[42, 10, 60, 1234]] })));
-    const collection = JSON.parse(await firstValueFrom(service.getLocationsAsGeoJsonString())) as { features: AreaMarkerFeature[] };
-    const [feature] = collection.features;
-    expect(feature.id).toBe(42);
-    expect(feature.geometry).toEqual({ type: 'Point', coordinates: [10, 60] });
-    expect(feature.properties.id).toBe(42);
-    expect(feature.properties.observationCount).toBe(1234);
-    expect(feature.properties.observationCountDisplay).toBeTruthy();
-    expect(feature.properties['nbic:style']).toBeUndefined();
+  it('reads compact locations into IDs, coordinates, and counts and skips malformed rows', async () => {
+    postJson.mockReturnValue(of(JSON.stringify({ locations: [[42, 10, 60, 1234], [43, 'x', 60, 1], [44, 10]] })));
+    expect(await firstValueFrom(service.getLocations())).toEqual([{ id: 42, longitude: 10, latitude: 60, observationCount: 1234 }]);
+  });
+
+  it('sends maxResults for locations only when given', async () => {
+    postJson.mockReturnValue(of(JSON.stringify({ locations: [] })));
+    await firstValueFrom(service.getLocations(undefined, undefined, 20000));
+    await firstValueFrom(service.getLocations());
+    expect(postJson.mock.calls[0][1]).toEqual({ maxResults: 20000 });
+    expect(postJson.mock.calls[1][1]).toEqual({});
   });
 
   it('preserves polygon identity and geometry without overriding layer styles', async () => {
