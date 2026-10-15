@@ -1224,8 +1224,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.loadFetchStart();
           const locations$ = this.areasService.getLocations(extent, filter, maxResults).pipe(
             tap((points) => {
-              if (generation === this.fetchGeneration) {
-                this.applyLocationPoints(points);
+              if (generation === this.fetchGeneration && this.applyLocationPoints(points)) {
                 const complete = maxResults == null || points.length < maxResults;
                 this.lastLocationsCoverage = { filterKey: JSON.stringify(filter), extent, complete };
               }
@@ -1281,7 +1280,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     ) {
       return;
     }
-    this.emitLocationsFetch(extent, filter);
+    // A capped result would only spread the same number of points over a larger area.
+    const margin = coverage && !coverage.complete ? 0 : ZoomConfig.LOCATIONS_FETCH_MARGIN;
+    const [minX, minY, maxX, maxY] = extent;
+    const dx = (maxX - minX) * margin;
+    const dy = (maxY - minY) * margin;
+    this.emitLocationsFetch([minX - dx, minY - dy, maxX + dx, maxY + dy], filter);
   }
 
   private setupLocationCountPipeline(): void {
@@ -1461,13 +1465,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   // Bypasses updateGeoJSONLayer: serializing and reparsing tens of thousands of points as GeoJSON is slow.
-  private applyLocationPoints(points: LocationPoint[]): void {
-    if (!this.map || !this.mapVisible) return;
+  /** Returns false when the points weren't drawn, so the fetch must not count as loaded. */
+  private applyLocationPoints(points: LocationPoint[]): boolean {
+    if (!this.map || !this.mapVisible) return false;
 
     this.clearMarkerHover();
     const source = this.vectorSourceOf(this.LOCATIONS_LAYER_ID);
     const pointSource = source instanceof Cluster ? source.getSource() : source;
-    if (!pointSource) return;
+    if (!pointSource) return false;
 
     const toView = getTransform('EPSG:4326', this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection);
     const features = points.map(({ id, longitude, latitude, observationCount }) => {
@@ -1478,6 +1483,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     pointSource.clear(true);
     pointSource.addFeatures(features);
     this.refreshLocationHighlights();
+    return true;
   }
 
   onIconClick(iconName: string): void {

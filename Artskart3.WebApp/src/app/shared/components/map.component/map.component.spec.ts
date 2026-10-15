@@ -1005,39 +1005,46 @@ describe('MapComponent', () => {
       c as unknown as {
         rebuildWithExtent: (filter: Record<string, unknown>, extent: [number, number, number, number]) => void;
         setupLocationsFetchPipeline: () => void;
+        applyLocationPoints: () => boolean;
       };
 
-    it('should not refetch locations when panning within the already fetched extent', () => {
+    const setupFetching = (zoom: number) => {
+      const areasService = TestBed.inject(AreasService);
+      vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
+      component.map = {
+        updateGeoJSONLayer: vi.fn(),
+        getCamera: () => ({ zoom }),
+        setLayerVisibility: vi.fn(),
+        getLayerById: () => null,
+      } as unknown as NbicMapComponent;
+      const priv = accessPrivate(component);
+      priv.setupLocationsFetchPipeline();
+      return { priv, getLocations: vi.spyOn(areasService, 'getLocations') };
+    };
+
+    it('should fetch the view plus a margin and refetch only outside it or when the filter changes', () => {
       vi.useFakeTimers();
       try {
-        const areasService = TestBed.inject(AreasService);
-        const getLocations = vi.spyOn(areasService, 'getLocations').mockReturnValue(of([]));
-        vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
-        component.map = {
-          updateGeoJSONLayer: vi.fn(),
-          getCamera: () => ({ zoom: 12 }),
-          setLayerVisibility: vi.fn(),
-          getLayerById: () => null,
-        } as unknown as NbicMapComponent;
-        const priv = accessPrivate(component);
-        priv.setupLocationsFetchPipeline();
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
 
         priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
         vi.advanceTimersByTime(300);
-        expect(getLocations).toHaveBeenCalledTimes(1);
+        expect(getLocations).toHaveBeenLastCalledWith([-250, -250, 1250, 1250], {}, undefined);
 
-        // Pan innenfor det hentede utsnittet — ingen ny henting
-        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
+        // Pan innenfor margen — ingen ny henting
+        priv.rebuildWithExtent({}, [-200, 0, 800, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(1);
 
-        // Utsnittet stikker utenfor — ny henting
-        priv.rebuildWithExtent({}, [-50, 0, 1000, 1000]);
+        // Utsnittet stikker utenfor margen — ny henting
+        priv.rebuildWithExtent({}, [-300, 0, 700, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(2);
 
         // Samme utsnitt med endret filter — ny henting
-        priv.rebuildWithExtent({ taxonIds: [1] }, [0, 0, 1000, 1000]);
+        priv.rebuildWithExtent({ taxonIds: [1] }, [-300, 0, 700, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(3);
       } finally {
@@ -1045,35 +1052,46 @@ describe('MapComponent', () => {
       }
     });
 
-    it('should cap locations when clustering is off and refetch within the extent only after a capped result', () => {
+    it('should cap locations when clustering is off and refetch without margin after a capped result', () => {
       vi.useFakeTimers();
       try {
-        const areasService = TestBed.inject(AreasService);
-        const getLocations = vi.spyOn(areasService, 'getLocations');
+        const { priv, getLocations } = setupFetching(6);
         const respondWith = (count: number) =>
           getLocations.mockReturnValueOnce(of(Array.from({ length: count }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1 }))));
-        vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
-        component.map = {
-          updateGeoJSONLayer: vi.fn(),
-          getCamera: () => ({ zoom: 6 }),
-          setLayerVisibility: vi.fn(),
-          getLayerById: () => null,
-        } as unknown as NbicMapComponent;
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
         component['clusteringEnabled'].set(false);
-        const priv = accessPrivate(component);
-        priv.setupLocationsFetchPipeline();
 
         respondWith(ZoomConfig.UNCLUSTERED_MAX_LOCATIONS);
         priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
         vi.advanceTimersByTime(300);
-        expect(getLocations).toHaveBeenLastCalledWith([0, 0, 1000, 1000], {}, ZoomConfig.UNCLUSTERED_MAX_LOCATIONS);
+        expect(getLocations).toHaveBeenLastCalledWith([-250, -250, 1250, 1250], {}, ZoomConfig.UNCLUSTERED_MAX_LOCATIONS);
 
         respondWith(ZoomConfig.UNCLUSTERED_MAX_LOCATIONS - 1);
         priv.rebuildWithExtent({}, [100, 100, 900, 900]);
         vi.advanceTimersByTime(300);
-        expect(getLocations).toHaveBeenCalledTimes(2);
+        expect(getLocations).toHaveBeenLastCalledWith([100, 100, 900, 900], {}, ZoomConfig.UNCLUSTERED_MAX_LOCATIONS);
 
         priv.rebuildWithExtent({}, [200, 200, 800, 800]);
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should refetch after a response that arrived while the map was hidden', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        component['mapVisible'] = false;
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenCalledTimes(1);
+
+        component['mapVisible'] = true;
+        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(2);
       } finally {
