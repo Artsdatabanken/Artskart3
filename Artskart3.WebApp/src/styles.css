@@ -43,8 +43,10 @@
   color: var(--adb-text-base-primary);
 }
 
-#Coi-Renew {
-  display: none !important;
+@media (max-width: 768px) {
+  #Coi-Renew {
+    display: none !important;
+  }
 }
 
 /* ============================================================================
