@@ -46,7 +46,6 @@
 }
 
 .place-type {
-  flex: 0 0 auto;
   padding: var(--adb-spacing-3xsm) var(--adb-spacing-xsm);
   border: 1px solid var(--adb-border-base-primary);
   border-radius: var(--adb-border-radius-sm);
