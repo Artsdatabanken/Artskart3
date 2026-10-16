@@ -20,6 +20,9 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import VectorLayer from 'ol/layer/Vector';
+import ImageLayer from 'ol/layer/Image';
+import ImageWMS from 'ol/source/ImageWMS';
+import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -118,6 +121,101 @@ describe('MapComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it.each([
+    ['Climate areas', 0.5],
+    ['Property', 1],
+  ])('uses configured opacity for %s', (name, opacity) => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: { id: 1, name, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity },
+      visible: true,
+    });
+
+    expect(component['mapOverlayLayers'].get(1)?.getOpacity()).toBe(opacity);
+  });
+
+  it('uses configured WMS scale bounds and single-image mode', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 4,
+        name: 'Property boundaries',
+        type: 'WMS',
+        url: 'https://example.test/wms',
+        layers: 'boundary,parcel_id',
+        minScaleDenominator: 50_000,
+        maxScaleDenominator: 2_000_000,
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(4);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getMinResolution()).toBeCloseTo(14);
+    expect(overlay?.getMaxResolution()).toBeCloseTo(560);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe('boundary,parcel_id');
+  });
+
+  it('backs off WMS image retries using the configured delay', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: { id: 5, name: 'Unavailable WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
+        visible: true,
+      });
+
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const imageElement = document.createElement('img');
+      const imageWrapper = { getImage: () => imageElement } as unknown as ImageWrapper;
+      const loadImage = source.getImageLoadFunction();
+
+      loadImage(imageWrapper, 'https://example.test/wms?request=first');
+      expect(imageElement.src).toBe('https://example.test/wms?request=first');
+      imageElement.onerror?.(new Event('error'));
+
+      loadImage(imageWrapper, 'https://example.test/wms?request=retry');
+      expect(imageElement.src).toMatch(/^data:image\/gif;base64,/);
+
+      vi.advanceTimersByTime(30_000);
+      loadImage(imageWrapper, 'https://example.test/wms?request=after-cooldown');
+      expect(imageElement.src).toBe('https://example.test/wms?request=after-cooldown');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders all maritime sublayers in one WMS image request rather than tiled requests', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 6,
+        name: 'MaritimeGrenser',
+        type: 'WMS',
+        url: 'https://wms.geonorge.no/skwms1/wms.nmg?',
+        layers: 'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(6);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe(
+      'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+    );
   });
 
   describe('linked feature styling', () => {
