@@ -305,6 +305,11 @@
     "sensitiveNot": "Non-sensitive finds",
     "sensitivity": "Find sensitivity"
   },
+  "mapSearch": {
+    "placeholder": "Find a place",
+    "resultsLabel": "Place search results",
+    "noResultsFor": "No matches for place “{{searchTerm}}”."
+  },
   "mapToolbar": {
     "layersAriaLabel": "Layers",
     "layersHeading": "Map layers",

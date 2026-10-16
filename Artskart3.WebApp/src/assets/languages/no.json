@@ -305,6 +305,11 @@
     "sensitiveNot": "Ikke sensitive funn",
     "sensitivity": "Funnsensitivitet"
   },
+  "mapSearch": {
+    "placeholder": "Finn sted",
+    "resultsLabel": "Stedssøkeresultater",
+    "noResultsFor": "Ingen treff på sted “{{searchTerm}}”."
+  },
   "mapToolbar": {
     "layersAriaLabel": "Lag",
     "layersHeading": "Kartlag",

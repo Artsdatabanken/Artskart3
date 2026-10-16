@@ -50,7 +50,7 @@
     "@artsdatabanken/components": "^2.2.0",
     "@artsdatabanken/icons": "^2.0.1",
     "@artsdatabanken/tokens": "^2.1.0",
-    "@artsdatabanken/nbic-map-component": "0.3.0",
+    "@artsdatabanken/nbic-map-component": "0.3.1",
     "@microsoft/applicationinsights-angularplugin-js": "^15.3.8",
     "@microsoft/applicationinsights-web": "^3.3.11",
     "@ngx-translate/core": "^17.0.0",
