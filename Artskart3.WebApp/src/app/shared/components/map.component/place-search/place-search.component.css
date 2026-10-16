@@ -1,10 +1,19 @@
 :host {
   position: absolute;
-  inset-block-start: 16px;
+  inset-block-start: var(--adb-spacing-md);
   inset-inline-start: 50%;
   z-index: 120;
-  width: min(420px, calc(100vw - 32px));
+  width: min(26.25rem, calc(100vw - 2 * var(--adb-spacing-md)));
   transform: translateX(-50%);
+}
+
+@media (max-width: 768px) {
+  :host {
+    inset-inline-start: var(--adb-spacing-md);
+    inset-inline-end: calc(var(--adb-spacing-md) + var(--adb-spacing-2xl));
+    width: min(26.25rem, calc(100vw - 2 * var(--adb-spacing-md) - var(--adb-spacing-2xl)));
+    transform: none;
+  }
 }
 
 .search-field {
