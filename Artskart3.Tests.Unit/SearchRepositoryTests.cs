@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
+using NetTopologySuite.IO;
 
 namespace Artskart3.Tests.Unit;
 
@@ -627,6 +628,29 @@ public class SearchRepositoryTests
         var request = new ObservationListInfoRequestDto { Ids = [5000], Filter = new ObservationSearchFilterDto { TaxonGroupIds = [8]} };
         var result = (await sut.GetObservationListInfo(request)).ToList();
         result.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetLocationPolygonsAsync_SkipsGridSquares_ExceptSensitiveMaskingSquares()
+    {
+        await using var context = CreateInMemoryContext();
+        var wktReader = new WKTReader();
+        const string Square = "POLYGON ((0 0, 4000 0, 4000 4000, 0 4000, 0 0))";
+
+        var gridSquare = CreateLocation(1, "Rute");
+        gridSquare.Geometry = wktReader.Read(Square);
+        var sensitiveSquare = CreateLocation(2, "Locality data withheld");
+        sensitiveSquare.LookupId = "1_2000_2000_4_sensitiv";
+        sensitiveSquare.Geometry = wktReader.Read(Square);
+        var irregularPolygon = CreateLocation(3, "Myr");
+        irregularPolygon.Geometry = wktReader.Read("POLYGON ((0 0, 4000 0, 4000 2000, 2000 4000, 0 4000, 0 0))");
+        SeedLocations(context, gridSquare, sensitiveSquare, irregularPolygon);
+        SeedObservations(context, CreateObservation(1, 1), CreateObservation(2, 2), CreateObservation(3, 3));
+        await context.SaveChangesAsync();
+
+        var result = await CreateRepository(context).GetLocationPolygonsAsync();
+
+        result.Select(p => p.LocationId).Should().BeEquivalentTo([2, 3]);
     }
 
     private static ArtskartDbContext CreateInMemoryContext()
