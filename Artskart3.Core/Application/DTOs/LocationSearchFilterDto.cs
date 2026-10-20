@@ -98,7 +98,7 @@ public class LocationSearchFilterDto : IObservationFilter
     public int? Epsg { get; set; }
 
     /// <summary>
-    /// Maximum number of locations to return (default: 100000, max: 100000)
+    /// Maximum number of locations to return (default: 100000, max: 200000)
     /// </summary>
     public int MaxResults { get; set; } = 100000;
 

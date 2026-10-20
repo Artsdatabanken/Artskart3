@@ -2,6 +2,7 @@ using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -111,7 +112,7 @@ public class SearchControllerTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(100001)]
+    [InlineData(SearchConstants.MaxLocationResults + 1)]
     [InlineData(-1)]
     public async Task GetObservationLocations_WithInvalidMaxResults_Returns400(int maxResults)
     {
