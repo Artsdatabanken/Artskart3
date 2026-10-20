@@ -336,7 +336,7 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationResults.
+    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationCount.
     /// Samme gruppering som GetLocationsAsync, men uten koordinat-join — brukes av
     /// frontend til å velge mellom områdelag og direkte lokasjonsklustering.
     /// </summary>
@@ -354,13 +354,13 @@ public class SearchRepository : ISearchRepository
                 .Where(o => o.LocationId != null)
                 .GroupBy(o => o.LocationId!.Value)
                 .Select(g => g.Key)
-                .Take(SearchConstants.MaxLocationResults + 1)
+                .Take(SearchConstants.MaxLocationCount + 1)
                 .ToListAsync(cancellationToken);
 
-            var truncated = locationIds.Count > SearchConstants.MaxLocationResults;
+            var truncated = locationIds.Count > SearchConstants.MaxLocationCount;
             return new LocationCountDto
             {
-                Count = truncated ? SearchConstants.MaxLocationResults : locationIds.Count,
+                Count = truncated ? SearchConstants.MaxLocationCount : locationIds.Count,
                 Truncated = truncated,
             };
         }

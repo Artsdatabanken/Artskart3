@@ -1,6 +1,7 @@
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
@@ -375,7 +376,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 });
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = SearchConstants.MaxLocationResults + 1 });
 
         result.Should().HaveCount(1000);
     }

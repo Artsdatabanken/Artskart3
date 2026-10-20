@@ -1,0 +1,44 @@
+adb-switch {
+  margin-inline-start: var(--adb-spacing-xsm);
+}
+
+.clustering-setting {
+  position: relative;
+}
+
+.clustering-locked-tooltip {
+  position: absolute;
+  inset-inline-end: calc(100% + var(--adb-spacing-xsm) + var(--adb-spacing-md));
+  top: 50%;
+  transform: translateY(-50%);
+  width: max-content;
+  max-width: 24rem;
+  padding: var(--adb-spacing-xsm) var(--adb-spacing-sm);
+  border-radius: var(--adb-border-radius-sm);
+  background: var(--adb-surface-base-invert);
+  color: var(--adb-text-base-invert);
+  font-size: var(--adb-font-size-small);
+}
+
+.clustering-locked-tooltip::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-inline-start-color: var(--adb-surface-base-invert);
+}
+
+@media (max-width: 768px) {
+  .clustering-locked-tooltip {
+    position: static;
+    transform: none;
+    width: auto;
+    margin-block-start: var(--adb-spacing-xsm);
+  }
+
+  .clustering-locked-tooltip::after {
+    display: none;
+  }
+}

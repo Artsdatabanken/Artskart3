@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Artskart3.Core.Constants;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
 
@@ -141,19 +142,18 @@ public class SearchEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("1").And.Contain("100000"); // Min and Max values
+        json.Should().Contain("1").And.Contain(SearchConstants.MaxLocationResults.ToString()); // Min and Max values
     }
 
     [Fact]
     public async Task GetObservationLocations_WithMaxResultsTooHigh_Returns400()
     {
-        // MaxLocationResults = 100000, so 100001 exceeds the limit
-        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = 100001 });
+        var response = await _client.PostAsJsonAsync("/api/Search/Locations", new { maxResults = SearchConstants.MaxLocationResults + 1 });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var json = await response.Content.ReadAsStringAsync();
         json.Should().Contain("error");
-        json.Should().Contain("between").And.Contain("1").And.Contain("100000");
+        json.Should().Contain("between").And.Contain("1").And.Contain(SearchConstants.MaxLocationResults.ToString());
     }
 
     [Fact]

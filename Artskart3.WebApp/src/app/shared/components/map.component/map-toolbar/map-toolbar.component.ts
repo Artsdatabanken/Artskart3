@@ -1,12 +1,13 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, output, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input, model, output, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
-import { MapToolbarMenu, MapToolbarMenuItemChange } from './map-toolbar.constants';
+import { ClusteringLock, MapToolbarMenu, MapToolbarMenuItemChange } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
 import { MapLayersComponent } from './map-layers/map-layers.component';
+import { MapSettingsComponent } from './map-settings/map-settings.component';
 
 @Component({
   selector: 'app-map-toolbar',
-  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent],
+  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent, MapSettingsComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
@@ -14,6 +15,8 @@ import { MapLayersComponent } from './map-layers/map-layers.component';
 export class MapToolbarComponent {
   readonly iconClick = output<string>();
   readonly mapToolbarMenuItemChange = output<MapToolbarMenuItemChange>();
+  readonly clusteringEnabled = model(true);
+  readonly clusteringLock = input<ClusteringLock | null>(null);
 
   protected readonly openMenu = signal<MapToolbarMenu | null>(null);
 
@@ -31,6 +34,10 @@ export class MapToolbarComponent {
 
   onMapLayersOpenChange(isOpen: boolean): void {
     this.setMenuState('mapLayers', isOpen);
+  }
+
+  onMapSettingsOpenChange(isOpen: boolean): void {
+    this.setMenuState('mapSettings', isOpen);
   }
 
   onMapToolbarMenuItemChange(event: MapToolbarMenuItemChange): void {
