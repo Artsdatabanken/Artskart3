@@ -1832,6 +1832,7 @@ export interface components {
         LocationSearchFilterDto: {
             taxonGroupIds?: null | number[];
             taxonIds?: null | number[];
+            includeDescendantTaxa?: boolean;
             categoryIds?: null | number[];
             basisOfRecordIds?: null | number[];
             organizationIds?: null | number[];
@@ -2008,6 +2009,7 @@ export interface components {
             readonly isPaginated?: boolean;
             taxonGroupIds?: null | number[];
             taxonIds?: null | number[];
+            includeDescendantTaxa?: boolean;
             categoryIds?: null | number[];
             organizationIds?: null | number[];
             municipalityIds?: null | string[];
