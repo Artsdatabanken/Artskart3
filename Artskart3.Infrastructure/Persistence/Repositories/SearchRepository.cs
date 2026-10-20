@@ -22,6 +22,11 @@ public class SearchRepository : ISearchRepository
 {
     private const string SqlWildcard = "%";
 
+    /// <summary>
+    /// Importen gir maskeringsruta til sensitive funn en LookupId med dette suffikset.
+    /// </summary>
+    private const string SensitiveLocationLookupIdSuffix = "_sensitiv";
+
     private readonly IArtsKartDbContext _context;
     private readonly ILogger<SearchRepository> _logger;
     private readonly PaginationOptions _paginationOptions;
@@ -1165,7 +1170,9 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
-    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort.
+    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort,
+    /// unntatt maskeringsruter for sensitive funn: der er ruta selve posisjonen, og midtpunktet
+    /// alene ville sett ut som en eksakt posisjon.
     /// </summary>
     public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
@@ -1186,7 +1193,13 @@ public class SearchRepository : ISearchRepository
             var locations = await _context.Set<Location>()
                 .AsNoTracking()
                 .Where(l => locationIds.Contains(l.Id) && l.Geometry != null && (l.Geometry.GeometryType == "Polygon" || l.Geometry.GeometryType == "MultiPolygon"))
-                .Select(l => new { l.Id, l.Locality, l.Geometry })
+                .Select(l => new
+                {
+                    l.Id,
+                    l.Locality,
+                    l.Geometry,
+                    IsSensitive = l.LookupId != null && l.LookupId.EndsWith(SensitiveLocationLookupIdSuffix)
+                })
                 .ToListAsync(cancellationToken);
 
             if (locations.Count == 0) return [];
@@ -1199,7 +1212,7 @@ public class SearchRepository : ISearchRepository
             {
                 var geo = location.Geometry!;
                 var wkt = geo.AsText();
-                if (IsRectangularPolygon(wkt)) continue;
+                if (IsRectangularPolygon(wkt) && !location.IsSensitive) continue;
 
                 // Skip polygons whose bounding box doesn't intersect the visible map extent
                 if (filter.Envelope != null)
