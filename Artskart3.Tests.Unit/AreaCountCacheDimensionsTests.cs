@@ -118,8 +118,10 @@ public class AreaCountCacheDimensionsTests
         // bøtte på, og trenger det ikke — id-ene er allerede slått opp, så filteret er
         // et seek.
         //
-        // Annotering og sensitivitet: begge er tagger, og kolonnene finnes foreløpig
-        // bare på Observation, ikke på ObservationEntityIndex som bufferen bygges fra.
+        // Annotering og sensitivitet: kolonnene finnes både på Observation og på
+        // ObservationEntityIndex, men de er ikke dimensjoner i bufferen — #dim-listene
+        // i byggeskriptene har dem ikke. Blir de dimensjoner, flyttes de ned i
+        // dekketAvDimensjon og vaktene i de tre tjenestene kan fjernes.
         string[] bevisstUtenfor = ["ObservationIds", "ChangedByAnnotation", "Sensitive"];
 
         // Fire av disse hører til samme dimensjon: Geografi. Semi-joinen ORer kommune,

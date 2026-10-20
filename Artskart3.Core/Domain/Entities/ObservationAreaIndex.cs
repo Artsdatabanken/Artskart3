@@ -65,4 +65,18 @@ public class ObservationEntityIndex
     public int? InstitutionOrgId { get; set; }
     public int? DatasetOrgId { get; set; }
     public byte? BehaviorId { get; set; }
+
+    /// <summary>
+    /// Denormalisert fra taggen AnnotatedChanges, som kolonnen med samme navn på
+    /// Observation. Her for at områdetellingene skal slippe semi-joinen mot
+    /// ObservationTags: den kostet 759-1000 ms på negasjonen, der alt annet
+    /// columnstore-filter ligger under 10 ms.
+    ///
+    /// Som de andre lavselektive filterkolonnene: ingen rowstore-indeks, den
+    /// betjenes av IX_OEI_Columnstore.
+    /// </summary>
+    public bool ChangedByAnnotation { get; set; }
+
+    /// <summary>Denormalisert fra taggen Sensitive. Se <see cref="ChangedByAnnotation"/>.</summary>
+    public bool Sensitive { get; set; }
 }

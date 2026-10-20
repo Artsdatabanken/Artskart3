@@ -124,8 +124,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     {
         if (!IsReady) return null;
 
-        // Annotering og sensitivitet er tagger, og bufferen er bygget fra
-        // ObservationEntityIndex, som ikke har dem. Databasestien som før — å
+        // Annotering og sensitivitet er ikke dimensjoner i bufferen, selv om
+        // kolonnene finnes på ObservationEntityIndex. Databasestien som før — å
         // se bort fra filteret ville gitt for mange polygoner med for høye tall.
         if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue) return null;
 

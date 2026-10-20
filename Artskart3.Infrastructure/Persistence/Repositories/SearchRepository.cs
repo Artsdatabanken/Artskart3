@@ -15,7 +15,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AreaType = Artskart3.Core.Domain.Enums.AreaType;
-using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
@@ -978,20 +977,19 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => observationIds.Contains(idx.ObservationId));
         }
 
-        // Annotering og sensitivitet. Semi-join mot koblingstabellen, ikke de
-        // denormaliserte kolonnene: de ligger på Observation, og denne stien
-        // drives av ObservationEntityIndex, som ikke har dem.
-        //
+        // Annotering og sensitivitet — denormaliserte kolonner, som på Observation.
         // Uten disse to ville filtrene blitt stille droppet på områdestien, og
         // lista vist alle observasjoner som om ingen tagg var valgt.
         if (filter.ChangedByAnnotation.HasValue)
         {
-            query = FilterOnTag(query, TagEnum.AnnotatedChanges, filter.ChangedByAnnotation.Value);
+            var changedByAnnotation = filter.ChangedByAnnotation.Value;
+            query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
 
         if (filter.Sensitive.HasValue)
         {
-            query = FilterOnTag(query, TagEnum.Sensitive, filter.Sensitive.Value);
+            var sensitive = filter.Sensitive.Value;
+            query = query.Where(idx => idx.Sensitive == sensitive);
         }
 
         return query;
@@ -2029,14 +2027,19 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => !idx.HasMediaFiles);
         }
 
+        // Annotering og sensitivitet — denormaliserte kolonner i columnstore.
+        // Semi-joinen mot ObservationTags kostet 759-1000 ms på negasjonen;
+        // kolonnene skannes med resten av filteret i batch mode.
         if (filter.ChangedByAnnotation.HasValue)
         {
-            query = FilterOnTag(query, TagEnum.AnnotatedChanges, filter.ChangedByAnnotation.Value);
+            var changedByAnnotation = filter.ChangedByAnnotation.Value;
+            query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
 
         if (filter.Sensitive.HasValue)
         {
-            query = FilterOnTag(query, TagEnum.Sensitive, filter.Sensitive.Value);
+            var sensitive = filter.Sensitive.Value;
+            query = query.Where(idx => idx.Sensitive == sensitive);
         }
 
         // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
@@ -2183,34 +2186,6 @@ public class SearchRepository : ISearchRepository
     /// Alle er områdemarkører på samme nivå og filtreres via Fid-matching.
     /// Bruker AreaHierarchyService for å slå opp forelder-fylke fra kommune-Fid.
     /// </summary>
-
-    /// <summary>
-    /// Semi-join rett mot koblingstabellen, ikke via Observation.Tags: veien gjennom
-    /// Observation brukte ~10x så mye CPU på fylkesnivå. Taggene som filtreres er
-    /// sjeldne (~133k annoterte, ~2k sensitive), og IX_TagIdObsId gjør oppslaget til
-    /// et seek.
-    ///
-    /// Observation har denormaliserte kolonner for begge taggene, men
-    /// ObservationEntityIndex har dem ikke — så stiene som drives av indekstabellen
-    /// bruker denne. Her er den rask nok: tellingene er ikke sortert og
-    /// TOP-begrenset slik listevisningen er, og det var nettopp den kombinasjonen
-    /// som gjorde semi-joinen dyr der. Målt 205 ms for AreaCounts og 389 ms for
-    /// LocationCount.
-    ///
-    /// Taggen sendes som konstant: med parameter gjenbrukte SQL Server planen fra
-    /// den lille Sensitive-taggen på AnnotatedChanges, og tellingen tok 4-5 s.
-    /// </summary>
-    private IQueryable<ObservationEntityIndex> FilterOnTag(
-        IQueryable<ObservationEntityIndex> query, TagEnum tag, bool hasTag)
-    {
-        var tagId = (int)tag;
-        var observationTags = _context.Set<Dictionary<string, object>>("ObservationTag");
-        return hasTag
-            ? query.Where(idx => observationTags
-                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId))
-            : query.Where(idx => !observationTags
-                .Any(ot => (int)ot["TagId"] == EF.Constant(tagId) && (int)ot["ObservationId"] == idx.ObservationId));
-    }
 
     /// <summary>
     /// Konverterer TaxonIds til filtrering på nærmeste denormaliserte rangnivå.

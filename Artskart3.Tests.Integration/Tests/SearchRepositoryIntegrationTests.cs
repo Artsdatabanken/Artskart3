@@ -751,8 +751,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
-    // Tagfiltrene slår opp rett i koblingstabellen ObservationTags, som
-    // in-memory-testene ikke kan bekrefte at oversettes til SQL.
+    // Tagfiltrene leser denormaliserte kolonner på ObservationEntityIndex, ikke
+    // koblingstabellen. Testene setter BEGGE: taggen beskriver kilden, kolonnen er
+    // det spørringen faktisk filtrerer på. Går de fra hverandre i
+    // produksjonskoden — en backfill som ikke dekker alt — er det det disse skal
+    // avsløre. Samme mønster som bildetesten i ObservationQueryBuilderTests.
 
     [Fact]
     public Task GetAreaCountsAsync_ChangedByAnnotationFilter_SplitsOnAnnotatedChangesTag() =>
@@ -783,7 +786,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         if (!await _context.Set<Tag>().AnyAsync(t => t.Id == tagId))
             _context.Set<Tag>().Add(new Tag { Id = tagId, Name = tag.ToString() });
         SeedArea(areaFid, $"{tag} test kommune");
-        SeedIndexRow(taggedObservationId, areaEntityId);
+        SeedIndexRow(taggedObservationId, areaEntityId,
+            changedByAnnotation: tag == TagEnum.AnnotatedChanges,
+            sensitive: tag == TagEnum.Sensitive);
         SeedIndexRow(untaggedObservationId, areaEntityId);
         ObservationTags().Add(new Dictionary<string, object>
         {
@@ -834,7 +839,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         int areaEntityId,
         int? institutionOrgId = null,
         int? datasetOrgId = null,
-        byte? behaviorId = null) =>
+        byte? behaviorId = null,
+        bool changedByAnnotation = false,
+        bool sensitive = false) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
             ObservationId = observationId,
@@ -846,6 +853,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             InstitutionOrgId = institutionOrgId,
             DatasetOrgId = datasetOrgId,
             BehaviorId = behaviorId,
+            ChangedByAnnotation = changedByAnnotation,
+            Sensitive = sensitive,
         });
 
     /// <summary>

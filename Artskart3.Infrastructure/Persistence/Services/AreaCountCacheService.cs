@@ -73,9 +73,14 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return null;
 
-        // Annotering og sensitivitet er tagger, og kolonnene finnes bare på
-        // Observation — ikke på ObservationEntityIndex som bufferen bygges fra.
-        // Uten denne ville bufferen aldri konsultert dem og svart for høyt.
+        // Annotering og sensitivitet er ikke dimensjoner i bufferen. Kolonnene
+        // finnes på ObservationEntityIndex, men bufferen bygges fra #dim-listene
+        // i byggeskriptene, og der er de ikke med. Uten denne vakta ville
+        // bufferen aldri konsultert dem og svart for høyt.
+        //
+        // Skal de inn, må AreaCountCacheDimensions, SchemaVersion og #dim-listene
+        // i BuildAreaCountCache.sql og BuildLocationCountCache.sql endres i takt,
+        // og begge bufferne bygges på nytt.
         if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue)
             return null;
 

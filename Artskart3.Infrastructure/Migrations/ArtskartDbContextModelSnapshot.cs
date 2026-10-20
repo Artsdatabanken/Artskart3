@@ -1668,6 +1668,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("ChangedByAnnotation")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("CoordinatePrecisionInMeters")
                         .HasColumnType("int");
 
@@ -1700,6 +1703,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<byte>("RegistrationStatusId")
                         .HasColumnType("tinyint");
+
+                    b.Property<bool>("Sensitive")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("SpeciesTaxonId")
                         .HasColumnType("int");

@@ -1170,6 +1170,11 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Det samme gjelder CompleteFilter-kolonnene InstitutionOrgId,
             // DatasetOrgId og BehaviorId: alle tre er lavselektive og betjenes av
             // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
+            //
+            // ChangedByAnnotation og Sensitive følger samme regel. Merk at de er
+            // selektive på Observation — der har de hver sin filtrerte indeks — men
+            // her er spørringen en aggregering over hele området, ikke et TOP-10
+            // oppslag, og da er det skannehastigheten som teller. Columnstore.
         });
 
         // -------------------------------------------------------------------
