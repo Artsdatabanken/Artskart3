@@ -1,0 +1,58 @@
+trigger:
+  branches:
+    include:
+      - AK3ToContainerApps
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dockerHubNamespace: "artsdatabanken"
+  env: "test"
+
+steps:
+  - bash: |
+      if [ -z "$DOCKER_HUB_NAMESPACE" ]; then
+        echo "##vso[task.logissue type=error]Set the pipeline variable dockerHubNamespace to your Docker Hub user or organization."
+        exit 1
+      fi
+    displayName: Validate Docker Hub configuration
+    env:
+      DOCKER_HUB_NAMESPACE: $(dockerHubNamespace)
+
+  - task: Docker@2
+    displayName: Build and push web image
+    inputs:
+      command: buildAndPush
+      containerRegistry: DockerHub
+      repository: $(dockerHubNamespace)/artskart3
+      Dockerfile: $(Build.SourcesDirectory)/Artskart3.WebApp/Dockerfile
+      buildContext: $(Build.SourcesDirectory)
+      tags: |
+        web-$(Build.BuildId)
+        web-$(env)
+
+  - task: Docker@2
+    displayName: Build and push API image
+    inputs:
+      command: buildAndPush
+      containerRegistry: DockerHub
+      repository: $(dockerHubNamespace)/artskart3
+      Dockerfile: $(Build.SourcesDirectory)/Artskart3.Api/Dockerfile
+      buildContext: $(Build.SourcesDirectory)
+      tags: |
+        api-$(Build.BuildId)
+        api-$(env)
+
+  - task: Docker@2
+    displayName: Build and push workers image
+    inputs:
+      command: buildAndPush
+      containerRegistry: DockerHub
+      repository: $(dockerHubNamespace)/artskart3
+      Dockerfile: $(Build.SourcesDirectory)/Artskart3.Workers/Dockerfile
+      buildContext: $(Build.SourcesDirectory)
+      tags: |
+        workers-$(Build.BuildId)
+        workers-$(env)
