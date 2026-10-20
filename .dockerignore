@@ -1,0 +1,38 @@
+# Byggkonteksten sendes i sin helhet til containermotoren. Uten denne fila blir den
+# flere gigabyte, og bygget tregt og upålitelig.
+#
+# MERK: Scripts/ må være med. Artskart3.Infrastructure bygger inn
+# Scripts/BackfillAll.sql som embedded resource, og bygget feiler uten den.
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/TestResults/
+BenchmarkDotNet.Artifacts/
+PerfTestResults/
+
+.git/
+.github/
+.vs/
+.idea/
+.vscode/
+**/*.user
+**/*.suo
+
+# Hemmeligheter skal aldri bakes inn i et image. De kommer fra Key Vault eller
+# miljøvariabler.
+**/.env
+**/.env.*
+!**/.env.example
+**/appsettings.*.Local.json
+**/*.pfx
+**/*.pem
+**/*.p12
+**/*.key
+
+# Dokumentasjon og lokale notater trengs ikke i bygget.
+*.md
+**/*.md
+!Artskart3.WebApp/best-practices.md

@@ -26,7 +26,7 @@ public class HealthCheckExtensionsTests
     public void AddCustomHealthChecks_WithDbConnectionString_RegistersDatabaseHealthCheck()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
@@ -48,35 +48,10 @@ public class HealthCheckExtensionsTests
     }
 
     [Fact]
-    public void AddCustomHealthChecks_WithKeyVaultUrl_RegistersKeyVaultHealthCheck()
-    {
-        var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["KeyVault:Url"] = "https://test.vault.azure.net" });
-
-        services.AddCustomHealthChecks(config, CreateLogger());
-
-        var options = services.BuildServiceProvider()
-            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
-        options.Value.Registrations.Should().ContainSingle(r => r.Name == "Key Vault");
-    }
-
-    [Fact]
-    public void AddCustomHealthChecks_WithoutKeyVaultUrl_DoesNotRegisterKeyVaultHealthCheck()
-    {
-        var services = new ServiceCollection().AddLogging();
-
-        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
-
-        var options = services.BuildServiceProvider()
-            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
-        options.Value.Registrations.Should().NotContain(r => r.Name == "Key Vault");
-    }
-
-    [Fact]
     public void AddCustomHealthChecks_DatabaseCheck_HasExpectedTags()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
@@ -87,59 +62,83 @@ public class HealthCheckExtensionsTests
     }
 
     [Fact]
-    public void AddCustomHealthChecks_KeyVaultCheck_HasExpectedTags()
+    public void AddCustomHealthChecks_DatabaseCheck_IsTaggedForReadiness()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["KeyVault:Url"] = "https://test.vault.azure.net" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
         var options = services.BuildServiceProvider()
             .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
-        var kvCheck = options.Value.Registrations.Single(r => r.Name == "Key Vault");
-        kvCheck.Tags.Should().Contain("dependencies").And.Contain("security");
+        var dbCheck = options.Value.Registrations.Single(r => r.Name == "Database");
+        dbCheck.Tags.Should().Contain(HealthCheckExtensions.ReadyTag);
     }
 
     // -----------------------------------------------------------------------
-    // Key Vault helsesjekk — utførelse
+    // Databasesjekken — utførelse
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task KeyVaultHealthCheck_WithValidUrl_ReturnsHealthy()
+    public async Task DatabaseHealthCheck_WhenServerUnreachable_ReturnsUnhealthy()
     {
-        var sp = BuildServiceProviderWithKeyVault("https://test.vault.azure.net");
-        var report = await sp.GetRequiredService<HealthCheckService>()
-            .CheckHealthAsync(r => r.Name == "Key Vault");
-
-        report.Entries["Key Vault"].Status.Should().Be(HealthStatus.Healthy);
-    }
-
-    [Fact]
-    public async Task KeyVaultHealthCheck_WithInvalidUrl_ReturnsUnhealthy()
-    {
-        var sp = BuildServiceProviderWithKeyVault("not-a-valid-url");
-        var report = await sp.GetRequiredService<HealthCheckService>()
-            .CheckHealthAsync(r => r.Name == "Key Vault");
-
-        report.Entries["Key Vault"].Status.Should().Be(HealthStatus.Unhealthy);
-    }
-
-    [Fact]
-    public async Task KeyVaultHealthCheck_WithWhitespaceUrl_ReturnsUnhealthy()
-    {
-        var sp = BuildServiceProviderWithKeyVault("   ");
-        var report = await sp.GetRequiredService<HealthCheckService>()
-            .CheckHealthAsync(r => r.Name == "Key Vault");
-
-        report.Entries["Key Vault"].Status.Should().Be(HealthStatus.Unhealthy);
-    }
-
-    private static ServiceProvider BuildServiceProviderWithKeyVault(string url)
-    {
+        // Port 9 (discard) har ingen lytter, så tilkoblingen avvises umiddelbart.
+        // Connect Timeout holder testen rask hvis noe likevel svarer tregt.
         var services = new ServiceCollection().AddLogging();
-        services.AddCustomHealthChecks(BuildConfig(new() { ["KeyVault:Url"] = url }), CreateLogger());
-        return services.BuildServiceProvider();
+        services.AddCustomHealthChecks(
+            BuildConfig(new()
+            {
+                ["ConnectionStrings:ArtskartIndex"] =
+                    "Server=127.0.0.1,9;Database=x;User Id=a;Password=b;TrustServerCertificate=True;Connect Timeout=1"
+            }),
+            CreateLogger());
+
+        var report = await services.BuildServiceProvider()
+            .GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync(r => r.Name == "Database");
+
+        report.Entries["Database"].Status.Should().Be(HealthStatus.Unhealthy);
     }
+
+    // -----------------------------------------------------------------------
+    // CreateProbeOptions — hvilke sjekker hvert endepunkt kjører
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void CreateProbeOptions_WithoutPredicate_RunsAllChecks()
+    {
+        var options = HealthCheckExtensions.CreateProbeOptions(allowCachingResponses: false);
+
+        options.Predicate.Should().BeNull();
+    }
+
+    [Fact]
+    public void CreateProbeOptions_LivenessPredicate_ExcludesEveryCheck()
+    {
+        var options = HealthCheckExtensions.CreateProbeOptions(false, _ => false);
+
+        options.Predicate!(Registration("Database", HealthCheckExtensions.ReadyTag)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void CreateProbeOptions_ReadyPredicate_SelectsOnlyReadyTaggedChecks()
+    {
+        var options = HealthCheckExtensions.CreateProbeOptions(
+            false, check => check.Tags.Contains(HealthCheckExtensions.ReadyTag));
+
+        options.Predicate!(Registration("Database", HealthCheckExtensions.ReadyTag)).Should().BeTrue();
+        options.Predicate!(Registration("Annet", "dependencies")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void CreateProbeOptions_PassesCachingFlagThrough()
+    {
+        HealthCheckExtensions.CreateProbeOptions(true).AllowCachingResponses.Should().BeTrue();
+        HealthCheckExtensions.CreateProbeOptions(false).AllowCachingResponses.Should().BeFalse();
+    }
+
+    private static HealthCheckRegistration Registration(string name, params string[] tags) =>
+        new(name, Mock.Of<IHealthCheck>(), HealthStatus.Unhealthy, tags);
 
     // -----------------------------------------------------------------------
     // WriteJsonResponse

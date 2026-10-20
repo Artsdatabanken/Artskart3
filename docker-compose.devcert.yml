@@ -1,0 +1,23 @@
+# Bruker ASP.NET sitt utviklersertifikat i web-containeren, slik at nettleseren ikke
+# klager. Sertifikatet er det samme Visual Studio-oppsettet bruker, og er allerede
+# klarert på maskinen av `dotnet dev-certs https --trust`.
+#
+#   podman compose -f docker-compose.yml -f docker-compose.devcert.yml up -d web
+#
+# Egen fil fordi stien er maskinspesifikk og bare finnes på Windows. Hovedfila skal
+# virke for alle, også for drift på Linux, og der lager containeren et selvsignert
+# sertifikat selv.
+#
+# Filene legges der av prestart-scriptet i Artskart3.WebApp/package.json. Mangler de,
+# kjør `npm start` i Artskart3.WebApp en gang, eller
+# `dotnet dev-certs https --export-path ...`.
+#
+# Mappa monteres read-only, og nginx leser bare filene. Ingenting skrives tilbake.
+
+services:
+  web:
+    environment:
+      TLS_CERT_FILE: /etc/nginx/certs/artskart3.webapp.pem
+      TLS_KEY_FILE: /etc/nginx/certs/artskart3.webapp.key
+    volumes:
+      - ${APPDATA}/ASP.NET/https:/etc/nginx/certs:ro

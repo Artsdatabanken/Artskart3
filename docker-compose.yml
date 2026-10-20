@@ -1,0 +1,116 @@
+# Lokal kjøring av Artskart3 i containere. Fungerer med podman og docker.
+#
+#   cp .env.example .env     # fyll inn DB_CONNECTION_STRING
+#   podman compose up --build
+#
+# Databasen kjører som tjeneste på maskinen din, ikke i en container. Det er med
+# vilje: SQL Server skal heller ikke kjøre i Container Apps, så en containerisert
+# base ville ikke sagt noe om det vi skal verifisere.
+#
+# Web-containeren er eneste offentlige inngang, akkurat som i Azure. Den serverer
+# frontend og videresender API-stiene til api. Bruk 8080 til alt - det er den veien
+# en bruker går. API-et er også publisert direkte på 8081, men bare for
+# feilsøking; i Azure har det ingen ekstern ingress.
+#
+# Frontend:         https://localhost:8443  (bruk denne - innlogging krever https)
+#                   http://localhost:8080   (virker, men ikke til pålogging)
+# Helsesjekk API:   http://localhost:8080/hc/ready
+# Swagger:          http://localhost:8080/swagger
+# nginx liveness:   http://localhost:8080/healthz
+# API direkte:      http://localhost:8081
+# Workers:          http://localhost:8082/health
+# Hangfire:         http://localhost:8082/hangfire
+#
+# Miljøet er Development, fordi det er betingelsen Program.cs bruker for å IKKE
+# hente konfigurasjon fra Key Vault. Alle verdier kommer fra miljøvariabler under.
+#
+# Migrasjoner kjøres IKKE herfra. Basen din har skjemaet allerede, og denne fila
+# skal ikke skrive til den. Trenger du migrasjoner, kjør dem som beskrevet i README.
+
+name: artskart3
+
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azuritedata:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Artskart3.WebApp/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+      # Samme port som Angular dev-serveren bruker i Visual Studio-oppsettet
+      # (SpaProxyServerUrl). Returadressen https://localhost:49219/signin-oidc er
+      # allerede registrert hos identitetsleverandøren, så pålogging kan testes
+      # uten å registrere noe nytt. Krever at ng serve ikke kjører samtidig.
+      - "49219:8443"
+    environment:
+      # Bare opphav, ingen sti. I Azure settes denne til API-ets interne adresse.
+      API_ORIGIN: http://api:8080
+      # TLS lokalt, fordi identitetsleverandøren krever https-returadresser.
+      # Containeren lager et selvsignert sertifikat ved oppstart hvis ingenting er
+      # montert på /etc/nginx/certs. I Azure skal denne være 0 - der terminerer
+      # gateway/ingress TLS.
+      TLS_ENABLED: "1"
+    depends_on:
+      api:
+        condition: service_started
+
+  api:
+    build:
+      context: .
+      dockerfile: Artskart3.Api/Dockerfile
+    ports:
+      # Kun for feilsøking. I Azure er API-et internt.
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ArtskartIndex: ${DB_CONNECTION_STRING}
+      # Migrasjonene eies ikke av oppstarten. Viktig her: basen på vertsmaskinen
+      # kan være av produksjonsstørrelse, og en backfill ved oppstart tar timer.
+      Database__AutoMigrate: "false"
+      # appsettings.Development.json peker på en relativ sti som bare finnes i
+      # utviklingsoppsettet. I imaget ligger fila ved siden av binærene.
+      JsonDb__NotificationsPath: Data/JsonDb/notifications.json
+      CsvExport__BlobStorage__ConnectionString: ${AZURITE_CONNECTION_STRING}
+      # Nøkkelringen til Data Protection legges i Azurite lokalt, slik at oppsettet
+      # er det samme som i Azure - der settes DataProtection__BlobUri i stedet, med
+      # managed identity.
+      DataProtection__BlobConnectionString: ${AZURITE_CONNECTION_STRING}
+      # Navnet på headeren som bærer det opprinnelige vertsnavnet. Standard er
+      # X-Original-Host, som Application Gateway sender i dag. Treffer trafikken en
+      # ingress direkte, settes denne til X-Forwarded-Host:
+      # ForwardedHeaders__OriginalHostHeaderName: X-Forwarded-Host
+      Auth__Authority: ${AUTH_AUTHORITY}
+      Auth__ClientId: ${AUTH_CLIENT_ID}
+      Auth__ClientSecret: ${AUTH_CLIENT_SECRET}
+
+  workers:
+    build:
+      context: .
+      dockerfile: Artskart3.Workers/Dockerfile
+    ports:
+      - "8082:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ArtskartIndex: ${DB_CONNECTION_STRING}
+      ConnectionStrings__ArtskartIndex_Worker: ${DB_CONNECTION_STRING};Application Name=Artskart3Worker
+      CsvExport__BlobStorage__ConnectionString: ${AZURITE_CONNECTION_STRING}
+    depends_on:
+      azurite:
+        condition: service_started
+
+volumes:
+  azuritedata:

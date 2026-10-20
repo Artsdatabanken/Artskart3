@@ -1,0 +1,102 @@
+# Serverer Angular-bygget og videresender API-stiene til API-containeren.
+#
+# Hele poenget med at denne containeren er eneste offentlige inngang: Duende BFF
+# holder en cookie mot API-et, og den er SameSite=Lax. Ligger frontend på et annet
+# vertsnavn enn API-et, sendes cookien ikke med, og innloggingen er død. Her er alt
+# samme opphav, og det problemet finnes ikke.
+#
+# ${API_ORIGIN} må være bare opphav, uten sti - proxy_pass med sti-del er ulovlig
+# i en regex-location.
+
+# Nameserverne fra /etc/resolv.conf, satt av imagets entrypoint. Kreves for at
+# proxy_pass med variabel skal kunne slå opp API-et per forespørsel.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+resolver_timeout 5s;
+
+# Proto fra leddet foran, hvis det satte en. Overstyrer vi med $scheme, tror API-et
+# at trafikken er http, og bygger http-returadresser ved pålogging.
+map $http_x_forwarded_proto $fwd_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+# Opprinnelig vertsnavn. Satte leddet foran en, bruker vi den. Ellers er vertsnavnet
+# klienten brukte mot oss det riktige - vi ER den offentlige inngangen.
+map $http_x_original_host $fwd_host {
+    default $http_x_original_host;
+    ''      $http_host;
+}
+
+server {
+    # Portene settes av 25-tls.sh: alltid http, og i tillegg https når
+    # TLS_ENABLED=1. Ligger utenfor denne fila slik at stilista under bare finnes
+    # i en utgave.
+    include /etc/nginx/listen/*.conf;
+
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Byggesteget har lagt ferdige .gz-filer ved siden av originalene.
+    gzip_static on;
+
+    # Reserve for alt som ikke er forkomprimert. Svar som allerede har
+    # Content-Encoding - for eksempel de API-et har komprimert selv - røres ikke.
+    gzip on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types text/plain text/css application/javascript application/json
+               application/geo+json image/svg+xml;
+
+    # Egen sjekk for plattformens liveness-probe. Sier bare at nginx lever; den
+    # skal ikke avhenge av API-et.
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # API-stiene først. Regex-locations matches i rekkefølge, og asset-regelen
+    # under ville ellers stjålet en API-sti som tilfeldigvis endte på .js.
+    location ~ ^/(api|bff|signin-oidc|signout-callback-oidc|signout-oidc|swagger|hc|robots\.txt)(/|$) {
+        # Adressen må ligge i en variabel. Skriver man den rett i proxy_pass,
+        # slår nginx den opp en gang ved oppstart og bruker den IP-en resten av
+        # prosessens levetid. Byttes API-containeren ut - en ny revisjon i
+        # Container Apps, en restart lokalt - svarer web-containeren 502 til nginx
+        # selv blir restartet. Med variabel slås navnet opp per forespørsel.
+        set $api_origin ${API_ORIGIN};
+        proxy_pass $api_origin;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Original-Host $fwd_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $fwd_proto;
+
+        # AreaMarkers svarer med flere MB. Uten dette bufrer nginx hele svaret til
+        # disk før klienten får noe.
+        proxy_buffering off;
+
+        # Noen kartspørringer er tunge. Kortere timeout her enn plattformens egen
+        # ville bare flyttet feilen hit.
+        proxy_read_timeout 300s;
+        client_max_body_size 20m;
+    }
+
+    # Hashede filnavn kan caches for alltid.
+    location ~* \.(?:js|css|woff2?|ttf|eot|png|jpe?g|svg|gif|ico|webp|avif|json)$ {
+        add_header Cache-Control "public, immutable, max-age=31536000";
+        try_files $uri =404;
+    }
+
+    # index.html må aldri caches, ellers peker den på gamle hashede filer etter
+    # en utrulling.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

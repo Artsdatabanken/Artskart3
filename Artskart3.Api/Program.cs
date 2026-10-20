@@ -39,10 +39,17 @@ try
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
 
+    // Navnet på vertsnavn-headeren er konfigurerbart fordi det avhenger av hva som
+    // står foran appen. Endres det, er rettingen en miljøvariabel og ikke en ny
+    // utrulling. Se ForwardedHeadersSettings for hva som går galt ved feil navn.
+    var forwardedHeadersSettings = builder.Configuration
+        .GetSection(ForwardedHeadersSettings.SectionName)
+        .Get<ForwardedHeadersSettings>() ?? new ForwardedHeadersSettings();
+
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-        options.ForwardedHostHeaderName = "X-Original-Host";
+        options.ForwardedHostHeaderName = forwardedHeadersSettings.OriginalHostHeaderName;
         options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
@@ -181,6 +188,8 @@ try
         })
         .AddSessionCleanupBackgroundProcess();
 
+    builder.Services.AddConfiguredDataProtection(builder.Configuration, logger);
+
     builder.Services.AddAuthorization();
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
     {
@@ -218,6 +227,12 @@ try
     logger.LogInformation("Services configured successfully");
 
     var app = builder.Build();
+
+    // Hvilket navn som brukes er verdt å ha i loggen: kommer appen opp bak et annet
+    // ledd enn forventet, er dette det første stedet å se. At headeren faktisk kom
+    // fram ser man i forespørselsloggen — Host viser da det offentlige vertsnavnet.
+    logger.LogInformation("Forwarded host header: {HeaderName}",
+        forwardedHeadersSettings.OriginalHostHeaderName);
 
     app.UseForwardedHeaders();
 
@@ -306,14 +321,21 @@ try
         logger.LogInformation("Production environment - Swagger UI disabled for security");
     }
 
-    var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-    {
-        ResponseWriter = HealthCheckExtensions.WriteJsonResponse,
-        AllowCachingResponses = !app.Environment.IsDevelopment()
-    };
+    var allowCachingHealthResponses = !app.Environment.IsDevelopment();
 
-    app.MapHealthChecks("/hc", healthCheckOptions);
-    logger.LogInformation("Health check endpoint mapped to '/hc'");
+    // Tre endepunkter, fordi en containerplattform bruker liveness og readiness til
+    // helt ulike ting. Liveness avgjør om containeren skal restartes, og sjekker
+    // derfor ingen avhengigheter: er databasen nede, hjelper det ingen å drepe
+    // appen om og om igjen. Readiness avgjør om den skal få trafikk, og sjekker
+    // databasen. /hc kjører alt og beholdes som før for eksisterende overvåking.
+    app.MapHealthChecks("/hc",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses));
+    app.MapHealthChecks("/hc/live",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses, _ => false));
+    app.MapHealthChecks("/hc/ready",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses,
+            check => check.Tags.Contains(HealthCheckExtensions.ReadyTag)));
+    logger.LogInformation("Health check endpoints mapped: '/hc', '/hc/live', '/hc/ready'");
 
     app.UseBff();
     app.UseAuthorization();
