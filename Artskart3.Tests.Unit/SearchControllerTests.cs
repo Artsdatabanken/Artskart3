@@ -4,6 +4,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
+using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -143,7 +144,8 @@ public class SearchControllerTests
     {
         var locations = new List<LocationModel>
         {
-            new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 }
+            new() { Id = 1, Latitude = 59.9, Longitude = 10.7, ObservationCount = 3 },
+            new() { Id = 2, Latitude = 60.1, Longitude = 10.8, ObservationCount = 1, RegistrationStatus = RegistrationStatus.Absent }
         };
         _serviceMock
             .Setup(s => s.GetLocationsAsync(It.IsAny<LocationSearchFilterDto>(), It.IsAny<CancellationToken>()))
@@ -157,6 +159,7 @@ public class SearchControllerTests
         var body = await new StreamReader(_sut.HttpContext.Response.Body).ReadToEndAsync();
         body.Should().Contain("\"locations\"");
         body.Should().Contain("\"epsg\"");
+        body.Should().Contain("[1,10.7,59.9,3,1]").And.Contain("[2,10.8,60.1,1,2]");
     }
 
     [Fact]

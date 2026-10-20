@@ -1,8 +1,10 @@
 import { asArray, asString, type Color } from 'ol/color';
 import type { Coordinate } from 'ol/coordinate';
-import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
-import type { FlatStyle } from 'ol/style/flat';
+import type { FeatureLike } from 'ol/Feature';
+import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style';
+import type { FlatStyle, Rule } from 'ol/style/flat';
 import type { RenderFunction } from 'ol/style/Style';
+import type { RegistrationStatus } from '@shared/helpers/registration-status/registration-status';
 
 export type MapFeatureState = 'default' | 'hover' | 'selected';
 export type MapMarkerKind = 'location' | 'unclusteredLocation' | 'cluster' | 'area' | 'observation';
@@ -23,7 +25,12 @@ const COLOR_TOKENS = {
   border: '--adb-color-neutrals-ocean-10',
   hoverRing: '--adb-color-neutrals-ocean-50',
   selectedRing: '--adb-color-brand-sun-70',
+  negativeBorder: '--adb-color-special-100',
+  negativeGlyph: '--adb-color-special-110',
 } as const;
+
+// Rasterized larger than drawn, so icons stay sharp on high-DPI screens.
+const ICON_RASTER_SCALE = 4;
 
 type MapPalette = Record<keyof typeof COLOR_TOKENS, Color>;
 
@@ -83,6 +90,16 @@ function circleRingRenderer(radius: number, color: Color, width: number): Render
   };
 }
 
+export function registrationStatusOf(feature: FeatureLike): RegistrationStatus {
+  const status: unknown = feature.get('registrationStatus');
+  return status === 'absent' || status === 'notRecovered' ? status : 'found';
+}
+
+/** Width and height of a circle marker, including its border. */
+function markerSize(radius: number): number {
+  return 2 * radius + BORDER_WIDTH;
+}
+
 export class MapFeatureStyles {
   private readonly palette: MapPalette;
   private readonly markers = new Map<string, Style[]>();
@@ -96,11 +113,13 @@ export class MapFeatureStyles {
       border: readColor(styles, COLOR_TOKENS.border),
       hoverRing: readColor(styles, COLOR_TOKENS.hoverRing),
       selectedRing: readColor(styles, COLOR_TOKENS.selectedRing),
+      negativeBorder: readColor(styles, COLOR_TOKENS.negativeBorder),
+      negativeGlyph: readColor(styles, COLOR_TOKENS.negativeGlyph),
     };
   }
 
-  marker(kind: MapMarkerKind, state: MapFeatureState, label = ''): Style[] {
-    const key = `${kind}/${state}/${label}`;
+  marker(kind: MapMarkerKind, state: MapFeatureState, label = '', status: RegistrationStatus = 'found'): Style[] {
+    const key = `${kind}/${state}/${label}/${status}`;
     const cached = this.markers.get(key);
     if (cached) return cached;
 
@@ -120,11 +139,14 @@ export class MapFeatureStyles {
     styles.push(
       new Style({
         zIndex: 1,
-        image: new CircleStyle({
-          radius,
-          fill: new Fill({ color: this.fill(state) }),
-          stroke: new Stroke({ color: this.palette.border, width: BORDER_WIDTH }),
-        }),
+        image:
+          status === 'found'
+            ? new CircleStyle({
+                radius,
+                fill: new Fill({ color: this.fill(state) }),
+                stroke: new Stroke({ color: this.palette.border, width: BORDER_WIDTH }),
+              })
+            : new Icon({ src: this.negativeMarkerSrc(radius, status), scale: 1 / ICON_RASTER_SCALE }),
         text: font ? new Text({ text: label, font, fill: new Fill({ color: 'white' }) }) : undefined,
       }),
     );
@@ -132,14 +154,23 @@ export class MapFeatureStyles {
     return styles;
   }
 
-  /** The default location marker for WebGL layers, which draw hover and selected states on canvas overlays. */
-  webglLocationMarker(): FlatStyle {
-    return {
+  /**
+   * The default location markers for WebGL layers, which draw hover and selected states on canvas overlays.
+   * Not found locations are drawn last, on top of found ones.
+   */
+  webglLocationMarker(): Rule[] {
+    const found: FlatStyle = {
       'circle-radius': UNCLUSTERED_LOCATION_RADIUS,
       'circle-fill-color': this.palette.primary,
       'circle-stroke-color': this.palette.border,
       'circle-stroke-width': BORDER_WIDTH,
     };
+    const size = markerSize(UNCLUSTERED_LOCATION_RADIUS);
+    const negative = (status: Exclude<RegistrationStatus, 'found'>): Rule => ({
+      filter: ['==', ['get', 'registrationStatus'], status],
+      style: { 'icon-src': this.negativeMarkerSrc(UNCLUSTERED_LOCATION_RADIUS, status), 'icon-width': size, 'icon-height': size },
+    });
+    return [{ filter: ['==', ['get', 'registrationStatus'], 'found'], style: found }, negative('notRecovered'), negative('absent')];
   }
 
   polygon(): Style[] {
@@ -183,6 +214,21 @@ export class MapFeatureStyles {
 
   clearMarkerCache(): void {
     this.markers.clear();
+  }
+
+  /** The summary box marker for not found records: a red-ringed circle with a minus or an X. */
+  private negativeMarkerSrc(radius: number, status: Exclude<RegistrationStatus, 'found'>): string {
+    const size = markerSize(radius);
+    const center = size / 2;
+    const arm = radius * 0.45;
+    const [start, end] = [center - arm, center + arm];
+    const glyph = status === 'absent' ? `M${start} ${start}L${end} ${end}M${start} ${end}L${end} ${start}` : `M${start} ${center}H${end}`;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size * ICON_RASTER_SCALE}" height="${size * ICON_RASTER_SCALE}" viewBox="0 0 ${size} ${size}">` +
+      `<circle cx="${center}" cy="${center}" r="${radius}" fill="${asString(this.palette.border)}" stroke="${asString(this.palette.negativeBorder)}" stroke-width="${BORDER_WIDTH}"/>` +
+      `<path d="${glyph}" stroke="${asString(this.palette.negativeGlyph)}" stroke-width="${BORDER_WIDTH}"/>` +
+      `</svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
   private fill(state: MapFeatureState): Color {

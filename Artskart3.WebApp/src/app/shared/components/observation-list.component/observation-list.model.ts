@@ -1,8 +1,8 @@
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
+import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 
 export type ObservationGrouping = 'taxonGroup' | 'location' | 'redList' | 'alienSpecies';
-export type RegistrationStatus = 'found' | 'notRecovered' | 'absent';
 export type ObservationRequestState = 'loading' | 'ready' | 'error';
 
 export interface ObservationSelection {
@@ -42,8 +42,7 @@ const CATEGORY_TYPES = { redList: 1, alienSpecies: 2 } as const;
 type TranslateLabel = (key: string) => string;
 
 export function registrationStatus(observation: ObservationListInfoDto): RegistrationStatus {
-  if (observation.registrationType?.includes('Absent')) return 'absent';
-  return observation.registrationType?.includes('NotRecovered') ? 'notRecovered' : 'found';
+  return registrationStatusFromTags(observation.registrationType);
 }
 
 export function hasUnknownCategory(observation: ObservationListInfoDto): boolean {

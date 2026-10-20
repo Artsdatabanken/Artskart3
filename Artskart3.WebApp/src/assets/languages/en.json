@@ -36,6 +36,7 @@
     "sections": { "observation": "Observation information", "place": "Place and georeference", "dataset": "Dataset" },
     "qualities": { "0": "Not checked", "1": "Good quality", "2": "Quality issue", "3": "Quality issue — hidden by default" },
     "fields": {
+      "registration": "Registration",
       "date": "Observation date",
       "collector": "Observer / collector",
       "basis": "Basis of record",

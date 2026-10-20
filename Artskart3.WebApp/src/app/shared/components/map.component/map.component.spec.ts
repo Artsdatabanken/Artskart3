@@ -140,6 +140,8 @@ describe('MapComponent', () => {
         ['--adb-color-neutrals-ocean-10', '#D2DDE0'],
         ['--adb-color-neutrals-ocean-50', '#768083'],
         ['--adb-color-brand-sun-70', '#F8AE00'],
+        ['--adb-color-special-100', '#F34F39'],
+        ['--adb-color-special-110', '#D61900'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
@@ -260,6 +262,24 @@ describe('MapComponent', () => {
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
       expect(layers.get('observation-details-highlight')?.pickable).toBe(false);
       expect(layers.get('area-markers-locations')?.cluster?.keepSingleAsCluster).toBe(true);
+    });
+
+    it('draws the registration status of single-observation locations and the detail highlight, but not of counted clusters', () => {
+      select([1]);
+      const styles = component['featureStyles']!;
+      const absent = (id: number, observationCount = 1) => {
+        const feature = location(id, observationCount);
+        feature.set('registrationStatus', 'absent');
+        return feature;
+      };
+      expect(render('area-markers-locations', absent(1))).toBe(styles.marker('location', 'selected', '', 'absent'));
+      const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [absent(1)] });
+      expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected', '', 'absent'));
+      const counted = new Feature({ geometry: new Point([0, 0]), features: [absent(1, 3)] });
+      expect(render('area-markers-locations', counted, true)).toBe(styles.marker('cluster', 'selected', '3'));
+      expect(render('location-highlights', absent(1))).toBe(styles.marker('unclusteredLocation', 'selected', '', 'absent'));
+      const highlight = new Feature({ geometry: new Point([0, 0]), registrationStatus: 'notRecovered' });
+      expect(render('observation-details-highlight', highlight)).toBe(styles.marker('observation', 'selected', '', 'notRecovered'));
     });
 
     it('highlights single points and polygons on overlays without redrawing every location when clustering is off', () => {
@@ -394,17 +414,17 @@ describe('MapComponent', () => {
         zoomControl: withView ? { getMap: () => ({ getView: () => view, getSize: () => [1000, 800] }) } : undefined,
       });
 
-      for (const [east, north] of [
-        [353063, 7201367],
-        [400000, 7300000],
-      ]) {
-        component.highlightObservation({ east, north });
+      for (const [east, north, registrationStatus] of [
+        [353063, 7201367, 'found'],
+        [400000, 7300000, 'absent'],
+      ] as const) {
+        component.highlightObservation({ east, north, registrationStatus });
         await fixture.whenStable();
         expect(map.updateGeoJSONLayer).toHaveBeenLastCalledWith(
           'observation-details-highlight',
           JSON.stringify({
             type: 'FeatureCollection',
-            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [east, north] }, properties: {} }],
+            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [east, north] }, properties: { registrationStatus } }],
           }),
           { mode: 'replace', dataProjection: 'EPSG:25833' },
         );
@@ -425,7 +445,7 @@ describe('MapComponent', () => {
     it('waits for a ready, visible map before updating the highlight', () => {
       const updateGeoJSONLayer = vi.fn();
       Object.assign(component, { map: { updateGeoJSONLayer }, mapReady: false, mapVisible: true });
-      const point = { east: 353063, north: 7201367 };
+      const point = { east: 353063, north: 7201367, registrationStatus: 'found' } as const;
       component.highlightObservation(point);
       expect(updateGeoJSONLayer).not.toHaveBeenCalled();
       Object.assign(component, { mapReady: true, mapVisible: false });
@@ -589,13 +609,14 @@ describe('MapComponent', () => {
       const layer = new VectorLayer({ source: clustered ? new Cluster({ source: points }) : points });
       component.map = { getLayerById: (id: string) => (id === 'area-markers-locations' ? layer : null) } as unknown as NbicMapComponent;
 
-      component['applyLocationPoints']([{ id: 42, longitude: 10, latitude: 60, observationCount: 7 }]);
+      component['applyLocationPoints']([{ id: 42, longitude: 10, latitude: 60, observationCount: 7, registrationStatus: 'absent' }]);
 
       const [feature, ...rest] = points.getFeatures();
       expect(rest).toHaveLength(0);
       expect(feature.getId()).toBe(42);
       expect(feature.get('id')).toBe(42);
       expect(feature.get('observationCount')).toBe(7);
+      expect(feature.get('registrationStatus')).toBe('absent');
       const [longitude, latitude] = transform((feature.getGeometry() as Point).getCoordinates(), MAP_CONFIG.projection, 'EPSG:4326');
       expect(longitude).toBeCloseTo(10);
       expect(latitude).toBeCloseTo(60);
@@ -652,7 +673,7 @@ describe('MapComponent', () => {
         updateGeoJSONLayer: updateGeoJSONLayerSpy,
         getLayerById: (id: string) => (id === 'area-markers-locations' ? new VectorLayer({ source: locations }) : null),
       } as unknown as NbicMapComponent;
-      vi.spyOn(areasService, 'getLocations').mockReturnValueOnce(of([{ id: 1, longitude: 10, latitude: 60, observationCount: 1 }]));
+      vi.spyOn(areasService, 'getLocations').mockReturnValueOnce(of([{ id: 1, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' }]));
 
       locationsFetch$.next({ extent: testExtent, filter: {} });
       vi.advanceTimersByTime(300);
@@ -1060,7 +1081,7 @@ describe('MapComponent', () => {
       try {
         const { priv, getLocations } = setupFetching(6);
         const respondWith = (count: number) =>
-          getLocations.mockReturnValueOnce(of(Array.from({ length: count }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1 }))));
+          getLocations.mockReturnValueOnce(of(Array.from({ length: count }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' as const }))));
         vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
         component['clusteringEnabled'].set(false);
 
@@ -1106,7 +1127,7 @@ describe('MapComponent', () => {
       vi.useFakeTimers();
       try {
         const { priv, getLocations } = setupFetching(12);
-        getLocations.mockReturnValueOnce(of(Array.from({ length: ZoomConfig.MAX_LOCATIONS_PER_FETCH }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1 }))));
+        getLocations.mockReturnValueOnce(of(Array.from({ length: ZoomConfig.MAX_LOCATIONS_PER_FETCH }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' as const }))));
         getLocations.mockReturnValue(of([]));
         vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
 

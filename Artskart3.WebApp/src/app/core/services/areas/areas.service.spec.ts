@@ -20,9 +20,16 @@ describe('AreasService map styling metadata', () => {
     service = TestBed.inject(AreasService);
   });
 
-  it('reads compact locations into IDs, coordinates, and counts and skips malformed rows', async () => {
-    postJson.mockReturnValue(of(JSON.stringify({ locations: [[42, 10, 60, 1234], [43, 'x', 60, 1], [44, 10]] })));
-    expect(await firstValueFrom(service.getLocations())).toEqual([{ id: 42, longitude: 10, latitude: 60, observationCount: 1234 }]);
+  it('reads compact locations into IDs, coordinates, counts and registration status and skips malformed rows', async () => {
+    postJson.mockReturnValue(
+      of(JSON.stringify({ locations: [[42, 10, 60, 1234, 1], [45, 11, 61, 2, 2], [46, 12, 62, 3, 3], [47, 13, 63, 4], [43, 'x', 60, 1], [44, 10]] })),
+    );
+    expect(await firstValueFrom(service.getLocations())).toEqual([
+      { id: 42, longitude: 10, latitude: 60, observationCount: 1234, registrationStatus: 'found' },
+      { id: 45, longitude: 11, latitude: 61, observationCount: 2, registrationStatus: 'absent' },
+      { id: 46, longitude: 12, latitude: 62, observationCount: 3, registrationStatus: 'notRecovered' },
+      { id: 47, longitude: 13, latitude: 63, observationCount: 4, registrationStatus: 'found' },
+    ]);
   });
 
   it('sends maxResults for locations only when given', async () => {

@@ -36,6 +36,7 @@
     "sections": { "observation": "Funnopplysninger", "place": "Sted og georeferanse", "dataset": "Datasett" },
     "qualities": { "0": "Ikke kontrollert", "1": "God kvalitet", "2": "Kvalitetsproblem", "3": "Kvalitetsproblem — skjult som standard" },
     "fields": {
+      "registration": "Registrering",
       "date": "Funndato",
       "collector": "Finner/samler",
       "basis": "Funntype",

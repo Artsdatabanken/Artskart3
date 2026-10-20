@@ -3,8 +3,8 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import MultiPolygon from 'ol/geom/MultiPolygon';
 import type { State } from 'ol/render';
-import { Circle as CircleStyle } from 'ol/style';
-import { MapFeatureStyles, MapFeatureState, MapMarkerKind } from './map-feature-styles';
+import { Circle as CircleStyle, Icon } from 'ol/style';
+import { MapFeatureStyles, MapFeatureState, MapMarkerKind, registrationStatusOf } from './map-feature-styles';
 
 function tokenStyles(): CSSStyleDeclaration {
   const styles = document.createElement('div').style;
@@ -13,6 +13,8 @@ function tokenStyles(): CSSStyleDeclaration {
   styles.setProperty('--adb-color-neutrals-ocean-10', '#D2DDE0');
   styles.setProperty('--adb-color-neutrals-ocean-50', '#768083');
   styles.setProperty('--adb-color-brand-sun-70', '#F8AE00');
+  styles.setProperty('--adb-color-special-100', '#F34F39');
+  styles.setProperty('--adb-color-special-110', '#D61900');
   return styles;
 }
 
@@ -102,13 +104,63 @@ describe('MapFeatureStyles', () => {
     }
   });
 
-  it('describes the default location marker as a WebGL flat style', () => {
-    expect(styles.webglLocationMarker()).toEqual({
-      'circle-radius': 6.4,
-      'circle-fill-color': [0, 90, 113, 1],
-      'circle-stroke-color': [210, 221, 224, 1],
-      'circle-stroke-width': 1.5,
+  function decodedSvg(src: string | undefined): string {
+    const prefix = 'data:image/svg+xml;charset=utf-8,';
+    expect(src?.startsWith(prefix)).toBe(true);
+    return decodeURIComponent(src!.slice(prefix.length));
+  }
+
+  it.each([
+    ['notRecovered', /<path d="M\S+ \S+H\S+"/],
+    ['absent', /<path d="M\S+ \S+L\S+ \S+M\S+ \S+L\S+ \S+"/],
+  ] as const)('draws %s location markers like the summary box, at the same size', (status, glyph) => {
+    for (const kind of ['location', 'unclusteredLocation', 'observation'] satisfies MapMarkerKind[]) {
+      for (const state of ['default', 'hover', 'selected'] as const) {
+        const layers = styles.marker(kind, state, '', status);
+        const icon = layers[layers.length - 1].getImage();
+        if (!(icon instanceof Icon)) throw new Error('Expected icon marker');
+        const found = styles.marker(kind, state).at(-1)!.getImage() as CircleStyle;
+        const size = 2 * found.getRadius() + 1.5;
+        const svg = decodedSvg(icon.getSrc());
+        expect(svg).toContain(`width="${size * 4}" height="${size * 4}" viewBox="0 0 ${size} ${size}"`);
+        expect(icon.getScale()).toBe(0.25);
+        expect(svg).toContain(`r="${found.getRadius()}" fill="rgba(210,221,224,1)" stroke="rgba(243,79,57,1)" stroke-width="1.5"`);
+        expect(svg).toMatch(glyph);
+        expect(svg).toContain('stroke="rgba(214,25,0,1)"');
+        expect(layers).toHaveLength(state === 'default' ? 1 : 2);
+      }
+    }
+  });
+
+  it('reads the registration status of a feature and treats anything else as found', () => {
+    expect(registrationStatusOf(new Feature({ registrationStatus: 'absent' }))).toBe('absent');
+    expect(registrationStatusOf(new Feature({ registrationStatus: 'notRecovered' }))).toBe('notRecovered');
+    expect(registrationStatusOf(new Feature({ registrationStatus: 'other' }))).toBe('found');
+    expect(registrationStatusOf(new Feature())).toBe('found');
+  });
+
+  it('describes location markers as WebGL rules, drawing not found locations on top', () => {
+    const [found, notRecovered, absent, ...rest] = styles.webglLocationMarker();
+    expect(rest).toHaveLength(0);
+    expect(found).toEqual({
+      filter: ['==', ['get', 'registrationStatus'], 'found'],
+      style: {
+        'circle-radius': 6.4,
+        'circle-fill-color': [0, 90, 113, 1],
+        'circle-stroke-color': [210, 221, 224, 1],
+        'circle-stroke-width': 1.5,
+      },
     });
+    for (const [rule, status] of [
+      [notRecovered, 'notRecovered'],
+      [absent, 'absent'],
+    ] as const) {
+      const canvasIcon = styles.marker('unclusteredLocation', 'default', '', status)[0].getImage() as Icon;
+      expect(rule).toEqual({
+        filter: ['==', ['get', 'registrationStatus'], status],
+        style: { 'icon-src': canvasIcon.getSrc(), 'icon-width': 14.3, 'icon-height': 14.3 },
+      });
+    }
   });
 
   it('keeps the base polygon fill at 6% with a visible border', () => {
@@ -185,6 +237,7 @@ describe('MapFeatureStyles', () => {
     expect(styles.marker('cluster', 'selected', '12 k')).not.toBe(marker);
     expect(styles.marker('area', 'hover', '12 k')).not.toBe(marker);
     expect(styles.marker('cluster', 'hover', '12 thousand')).not.toBe(marker);
+    expect(styles.marker('cluster', 'hover', '12 k', 'absent')).not.toBe(marker);
     expect(styles.polygonHighlight('hover')).toBe(styles.polygonHighlight('hover'));
     styles.clearMarkerCache();
     expect(styles.marker('cluster', 'hover', '12 k')).not.toBe(marker);

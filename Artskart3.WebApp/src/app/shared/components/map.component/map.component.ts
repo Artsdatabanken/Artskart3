@@ -58,9 +58,9 @@ import { ArtskartFullscreenControl } from './controls/fullscreen.control';
 import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
-import { ObservationPanelComponent } from '../observation-panel/observation-panel.component';
+import { ActiveObservationPoint, ObservationPanelComponent } from '../observation-panel/observation-panel.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
-import { ObservationListInfoDto, ObservationPointDto } from '@shared/types/api.types';
+import { ObservationListInfoDto } from '@shared/types/api.types';
 import { SearchFilterService } from '@shared/services/search-filter/search-filter.service';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapViewService } from '@shared/services/map-view/map-view.service';
@@ -72,7 +72,7 @@ import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
-import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState } from './map-feature-styles';
+import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState, registrationStatusOf } from './map-feature-styles';
 
 @Component({
   selector: 'app-map',
@@ -85,7 +85,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
-  private activeObservationPoint: ObservationPointDto | null = null;
+  private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
   private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
 
@@ -407,7 +407,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.observationList.set([]);
   }
 
-  highlightObservation(point: ObservationPointDto | null): void {
+  highlightObservation(point: ActiveObservationPoint | null): void {
     this.activeObservationPoint = point;
     if (!this.mapReady || !this.mapVisible) return;
     const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
@@ -415,7 +415,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.OBSERVATION_HIGHLIGHT_ID,
       JSON.stringify({
         type: 'FeatureCollection',
-        features: coordinates ? [{ type: 'Feature', geometry: { type: 'Point', coordinates }, properties: {} }] : [],
+        features: coordinates
+          ? [{ type: 'Feature', geometry: { type: 'Point', coordinates }, properties: { registrationStatus: point?.registrationStatus } }]
+          : [],
       }),
       { mode: 'replace', dataProjection: 'EPSG:25833' },
     );
@@ -841,7 +843,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: false,
       zIndex: 110,
       zIndexPinned: true,
-      style: { type: 'raw', options: { instance: () => styles.marker('observation', 'selected') } },
+      style: {
+        type: 'raw',
+        options: { instance: (feature: FeatureLike) => styles.marker('observation', 'selected', '', registrationStatusOf(feature)) },
+      },
     });
     this.map.addLayer({
       id: this.COUNTIES_LAYER_ID,
@@ -896,7 +901,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: {
         type: 'raw',
-        options: { instance: (feature: FeatureLike) => styles.marker('unclusteredLocation', this.locationFeatureState(feature)) },
+        options: {
+          instance: (feature: FeatureLike) =>
+            styles.marker('unclusteredLocation', this.locationFeatureState(feature), '', registrationStatusOf(feature)),
+        },
       },
     });
 
@@ -926,7 +934,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: {
         type: 'raw',
-        options: { instance: (feature: FeatureLike) => styles.marker('location', this.locationFeatureState(feature)) },
+        options: {
+          instance: (feature: FeatureLike) => styles.marker('location', this.locationFeatureState(feature), '', registrationStatusOf(feature)),
+        },
       },
       cluster: {
         enabled: true,
@@ -964,7 +974,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         const value = Number(member.get('observationCount'));
         return sum + (Number.isFinite(value) ? value : 1);
       }, 0) || members.length || 1;
-      if (members.length === 1 && total === 1) return styles.marker('location', this.locationFeatureState(feature));
+      if (members.length === 1 && total === 1) {
+        return styles.marker('location', this.locationFeatureState(feature), '', registrationStatusOf(members[0]));
+      }
 
       const label = AbbreviateNumberHelper.format(total, this.languageService.getLanguage());
 
@@ -1594,8 +1606,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!pointSource) return false;
 
     const toView = getTransform('EPSG:4326', this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection);
-    const features = points.map(({ id, longitude, latitude, observationCount }) => {
-      const feature = new Feature({ geometry: new Point(toView([longitude, latitude])), id, observationCount });
+    const features = points.map(({ id, longitude, latitude, observationCount, registrationStatus }) => {
+      const feature = new Feature({ geometry: new Point(toView([longitude, latitude])), id, observationCount, registrationStatus });
       feature.setId(id);
       return feature;
     });

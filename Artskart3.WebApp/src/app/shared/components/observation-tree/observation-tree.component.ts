@@ -17,10 +17,20 @@ import { Tree, TreeItem, TreeItemGroup } from '@angular/aria/tree';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MeterUnitPipe } from '@shared/pipes/meter-unit.pipe';
 import { ObservationTreeNode } from '../observation-list.component/observation-list.model';
+import { RegistrationMarkerComponent } from '../registration-marker/registration-marker.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 @Component({
-  imports: [Tree, TreeItem, TreeItemGroup, NgTemplateOutlet, TranslateModule, RiskCategoryBadgeComponent, MeterUnitPipe],
+  imports: [
+    Tree,
+    TreeItem,
+    TreeItemGroup,
+    NgTemplateOutlet,
+    TranslateModule,
+    RegistrationMarkerComponent,
+    RiskCategoryBadgeComponent,
+    MeterUnitPipe,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-tree',
   styleUrl: './observation-tree.component.css',
