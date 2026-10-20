@@ -16,6 +16,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationDetailDto } from '@shared/types/api.types';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { LoggingService } from '@shared/logging.service';
+import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
+import { RegistrationMarkerComponent } from '../registration-marker/registration-marker.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ObservationGalleryComponent } from '../observation-gallery/observation-gallery.component';
 import { ImageViewerComponent } from '../image-viewer/image-viewer.component';
@@ -24,8 +26,21 @@ import { ViewerImage } from '../image-viewer/image-source';
 export type DetailState = 'loading' | 'ready' | 'notFound' | 'error';
 type MapView = 'local' | 'overview';
 
+interface DetailRow {
+  label: string;
+  value: string;
+  empty: boolean;
+  status?: RegistrationStatus;
+  note?: string;
+}
+
+const NOT_FOUND_DESCRIPTION_KEYS: Record<Exclude<RegistrationStatus, 'found'>, string> = {
+  absent: 'sidebar.registreringStatus.absentDescription',
+  notRecovered: 'sidebar.registreringStatus.notrefoundDescription',
+};
+
 @Component({
-  imports: [TranslateModule, RiskCategoryBadgeComponent, ObservationGalleryComponent, ImageViewerComponent],
+  imports: [TranslateModule, RegistrationMarkerComponent, RiskCategoryBadgeComponent, ObservationGalleryComponent, ImageViewerComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-details',
   styleUrl: './observation-details.component.css',
@@ -73,7 +88,7 @@ export class ObservationDetailsComponent {
   readonly sections = computed(() => {
     const d = this.detail();
     const language = this.language()?.lang ?? this.translate.getCurrentLang();
-    const row = (label: string, text: unknown, emptyKey = 'notProvided') =>
+    const row = (label: string, text: unknown, emptyKey = 'notProvided'): DetailRow =>
       text == null || text === ''
         ? { label, value: this.translate.instant(`observationDetails.${emptyKey}`), empty: true }
         : { label, value: String(text), empty: false };
@@ -84,10 +99,16 @@ export class ObservationDetailsComponent {
       d?.hasErrors || d?.tags?.some((tag) => ['QualityIssue', 'Blocked'].includes(tag))
         ? this.translate.instant('observationDetails.qualityWarning')
         : '';
+    const status = registrationStatusFromTags(d?.tags);
     return [
       {
         id: 'observation',
         rows: [
+          {
+            ...row('registration', this.translate.instant(`observationList.${status}`)),
+            status,
+            note: status === 'found' ? '' : this.translate.instant(NOT_FOUND_DESCRIPTION_KEYS[status]).toLocaleLowerCase(language),
+          },
           row('date', new LocaleDatePipe().transform(d?.collected, language)),
           row('collector', d?.collector),
           row('basis', this.lookup('basisOfRecordName', d?.basisOfRecord)),

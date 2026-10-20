@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using NetTopologySuite.IO;
+using RegistrationStatus = Artskart3.Core.Domain.Enums.RegistrationStatus;
 
 namespace Artskart3.Tests.Unit;
 
@@ -253,6 +254,75 @@ public class SearchRepositoryTests
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_SetsRegistrationStatusFromAllObservationsAtLocation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Funn og ikke funnet"),
+            CreateLocation(2, "Ikke funnet"),
+            CreateLocation(3, "Ikke funnet og ikke gjenfunnet"),
+            CreateLocation(4, "Begge tagger"),
+            CreateLocation(5, "Annen tagg"));
+
+        var absentTag = CreateTag(5, "Absent");
+        var notRecoveredTag = CreateTag(6, "NotRecovered");
+        var validatedTag = CreateTag(3, "Validated");
+        context.Set<Tag>().AddRange(absentTag, notRecoveredTag, validatedTag);
+
+        Observation Tagged(int id, int locationId, params Tag[] tags)
+        {
+            var observation = CreateObservation(id, locationId);
+            foreach (var tag in tags) observation.Tags.Add(tag);
+            return observation;
+        }
+
+        SeedObservations(context,
+            Tagged(1, 1),
+            Tagged(2, 1, absentTag),
+            Tagged(3, 2, absentTag),
+            Tagged(4, 2, absentTag),
+            Tagged(5, 3, absentTag),
+            Tagged(6, 3, notRecoveredTag),
+            Tagged(7, 4, absentTag, notRecoveredTag),
+            Tagged(8, 5, validatedTag));
+        await context.SaveChangesAsync();
+
+        var result = await sut.GetLocationsAsync(null);
+
+        result.ToDictionary(x => x.Id, x => x.RegistrationStatus).Should().BeEquivalentTo(new Dictionary<int, RegistrationStatus>
+        {
+            [1] = RegistrationStatus.Found,
+            [2] = RegistrationStatus.Absent,
+            [3] = RegistrationStatus.NotRecovered,
+            [4] = RegistrationStatus.NotRecovered,
+            [5] = RegistrationStatus.Found,
+        });
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_RegistrationStatusIgnoresObservationsOutsideFilter()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+
+        var absentTag = CreateTag(5, "Absent");
+        context.Set<Tag>().Add(absentTag);
+
+        var absentObservation = CreateObservation(1, 1, taxonGroupId: 1);
+        absentObservation.Tags.Add(absentTag);
+        SeedObservations(context, absentObservation, CreateObservation(2, 1, taxonGroupId: 2));
+        await context.SaveChangesAsync();
+
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = [1] });
+
+        result.Should().ContainSingle().Which.RegistrationStatus.Should().Be(RegistrationStatus.Absent);
     }
 
     // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.

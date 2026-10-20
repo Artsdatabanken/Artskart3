@@ -15,6 +15,7 @@ import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-
 import { AreaMarkerDto, LocationCountResult } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { RegistrationStatus, registrationStatusFromId } from '@shared/helpers/registration-status/registration-status';
 import { ApiClientService } from '../api-client.service';
 import { LoggingService } from '@shared/logging.service';
 import { ValidationService } from '../validation.service';
@@ -310,6 +311,7 @@ export interface LocationPoint {
   longitude: number;
   latitude: number;
   observationCount: number;
+  registrationStatus: RegistrationStatus;
 }
 
 @Injectable({
@@ -520,7 +522,7 @@ export class AreasService {
   }
 
   /**
-   * Leser kompakt lokasjon-respons [id, lon, lat, count].
+   * Leser kompakt lokasjon-respons [id, lon, lat, count, registrationStatusId].
    */
   private parseCompactLocations(response: unknown): LocationPoint[] {
     if (typeof response !== 'object' || response === null) return [];
@@ -530,9 +532,9 @@ export class AreasService {
     const points: LocationPoint[] = [];
     for (const loc of locations) {
       if (!Array.isArray(loc) || loc.length < 4) continue;
-      const [id, longitude, latitude, observationCount] = loc as [number, number, number, number];
+      const [id, longitude, latitude, observationCount, statusId] = loc as [number, number, number, number, unknown];
       if (isNaN(longitude) || isNaN(latitude)) continue;
-      points.push({ id, longitude, latitude, observationCount });
+      points.push({ id, longitude, latitude, observationCount, registrationStatus: registrationStatusFromId(statusId) });
     }
     return points;
   }

@@ -288,19 +288,26 @@ public class SearchRepository : ISearchRepository
                 ? filter.MaxResults
                 : SearchConstants.DefaultMaxLocations;
 
-            // Gruppér kun på LocationId — koordinatene hentes etter at Take har
-            // begrenset resultatet.
-            //
-            // Har man Latitude/Longitude med i GROUP BY-nøkkelen, må joinen mot Location
-            // skje FØR aggregeringen, altså for alle 60M observasjoner. EF genererer i
-            // tillegg LEFT JOIN (Location er en valgfri navigasjon), og planen ble målt
-            // til 2332 ms / 10 855 ms CPU mot 36 ms / 104 ms CPU for samme spørring med
-            // joinen etter grupperingen. Kostnaden var flat uansett kartutsnitt — også
-            // et tomt utsnitt uten treff brukte ~1,7 s.
-            var aggregated = query
-                .Where(o => o.LocationId != null)
-                .GroupBy(o => o.LocationId!.Value)
-                .Select(g => new { LocationId = g.Key, ObservationCount = g.Count() })
+            var observationTags = _context.Set<Dictionary<string, object>>("ObservationTag");
+            var negativeTags = observationTags
+                .Where(ot => (int)ot["TagId"] == (int)TagEnum.Absent || (int)ot["TagId"] == (int)TagEnum.NotRecovered)
+                .GroupBy(ot => (int)ot["ObservationId"])
+                // NotRecovered har høyest id, så MAX gir ikke gjenfunnet når et funn har begge
+                // taggene, som RegistrationStatusId i BackfillAll.sql.
+                .Select(g => new { ObservationId = g.Key, TagId = g.Max(ot => (int)ot["TagId"]) });
+
+            var aggregated = (
+                    from o in query.Where(o => o.LocationId != null)
+                    join t in negativeTags on o.Id equals t.ObservationId into tags
+                    from t in tags.DefaultIfEmpty()
+                    group (int?)t.TagId by o.LocationId!.Value into g
+                    select new
+                    {
+                        LocationId = g.Key,
+                        ObservationCount = g.Count(),
+                        NegativeCount = g.Count(tagId => tagId != null),
+                        AbsentCount = g.Count(tagId => tagId == (int)TagEnum.Absent)
+                    })
                 .OrderByDescending(x => x.ObservationCount)
                 .Take(maxResults);
 
@@ -313,7 +320,10 @@ public class SearchRepository : ISearchRepository
                         Id = a.LocationId,
                         Latitude = l.Latitude ?? 0,
                         Longitude = l.Longitude ?? 0,
-                        ObservationCount = a.ObservationCount
+                        ObservationCount = a.ObservationCount,
+                        RegistrationStatus = a.NegativeCount < a.ObservationCount ? RegistrationStatus.Found
+                            : a.AbsentCount == a.ObservationCount ? RegistrationStatus.Absent
+                            : RegistrationStatus.NotRecovered
                     })
                 .ToListAsync(cancellationToken);
 
