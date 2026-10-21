@@ -31,7 +31,6 @@
                 "output": "/assets"
               }
             ],
-            "scripts": ["src/cookie-config.js"],
             "styles": ["src/styles.css"],
             "allowedCommonJsDependencies": ["@turf/jsts"]
           },

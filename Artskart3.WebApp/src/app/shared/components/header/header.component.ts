@@ -16,7 +16,7 @@ export interface MenuItem {
 
 interface CookieConsentWindow {
   CookieConsent?: {
-    renew(): void;
+    renew?(): void;
   };
 }
 
@@ -84,7 +84,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   openCookieSettings(): void {
-    this.cookieWindow?.CookieConsent?.renew();
+    this.cookieWindow?.CookieConsent?.renew?.();
     this.onMenuItemClick();
   }
 
