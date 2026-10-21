@@ -8,6 +8,13 @@ public interface IObservationFilter
 {
     int[]? TaxonGroupIds { get; }
     int[]? TaxonIds { get; }
+
+    /// <summary>
+    /// Om TaxonIds også treffer underliggende taksa. Av: bare observasjoner bestemt
+    /// til nøyaktig det valgte taksonet.
+    /// </summary>
+    bool IncludeDescendantTaxa { get; }
+
     int[]? CategoryIds { get; }
     int[]? OrganizationIds { get; }
     string[]? MunicipalityIds { get; }
@@ -41,4 +48,15 @@ public interface IObservationFilter
     int[]? ObservationIds { get; }
 
     bool? WithImages { get; }
+
+    /// <summary>
+    /// Taggen AnnotatedChanges, ikke HasAnnotations-kolonnen. Kolonnen tar også med
+    /// observasjoner som har en annotering uten at noe ble endret.
+    /// </summary>
+    bool? ChangedByAnnotation { get; }
+
+    /// <summary>
+    /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.
+    /// </summary>
+    bool? Sensitive { get; }
 }

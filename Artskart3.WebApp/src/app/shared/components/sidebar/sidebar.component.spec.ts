@@ -263,6 +263,30 @@ describe('SidebarComponent', () => {
     });
   });
 
+  describe('registration status filtering', () => {
+    const changeEvent = (value: string) => ({ target: { value } }) as unknown as Event;
+
+    it('selects «Alle» when no registration status is set', () => {
+      expect(component.registrationStatusValue()).toBe('all');
+    });
+
+    it('reflects the selected registration status', () => {
+      filterState.setRegistrationStatus(2);
+      expect(component.registrationStatusValue()).toBe('2');
+    });
+
+    it('sets the registration status from the selected radio', () => {
+      component.onRegistrationStatusChange(changeEvent('3'));
+      expect(filterState.selectedRegistrationStatusId()).toBe(3);
+    });
+
+    it('clears the registration status when «Alle» is selected', () => {
+      filterState.setRegistrationStatus(1);
+      component.onRegistrationStatusChange(changeEvent('all'));
+      expect(filterState.selectedRegistrationStatusId()).toBeNull();
+    });
+  });
+
   describe('period filtering', () => {
     it('should render period accordion', async () => {
       await flushAll();
@@ -441,6 +465,45 @@ describe('SidebarComponent', () => {
       expect(filterState.selectedProjectIds()).toEqual([14842]);
       expect(filterState.selectedDatasetIds()).toEqual([26435]);
       expect(filterState.catalogObservationIds()).toEqual([101]);
+    });
+  });
+
+  it('bryteren for underliggende taksa oppdaterer filteret', () => {
+    component.onTaxonTreeToggle();
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[0];
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+
+    expect(filterState.includeDescendantTaxa()).toBe(false);
+  });
+
+  describe('vitenskapelige navn i artstreet', () => {
+    const storageKey = 'artskart.taxonTree.showScientificNames';
+
+    afterEach(() => localStorage.removeItem(storageKey));
+
+    it('er av som standard', () => {
+      expect(component.showScientificNames()).toBe(false);
+    });
+
+    it('henter lagret valg fra localStorage', () => {
+      localStorage.setItem(storageKey, 'true');
+      const restored = TestBed.createComponent(SidebarComponent).componentInstance;
+      expect(restored.showScientificNames()).toBe(true);
+    });
+
+    it('oppdaterer og lagrer valget når bryteren endres', () => {
+      component.onTaxonTreeToggle();
+      fixture.detectChanges();
+
+      const toggle = fixture.nativeElement.querySelectorAll('.taxon-tree-options adb-switch')[1];
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change'));
+
+      expect(component.showScientificNames()).toBe(true);
+      expect(localStorage.getItem(storageKey)).toBe('true');
     });
   });
 });

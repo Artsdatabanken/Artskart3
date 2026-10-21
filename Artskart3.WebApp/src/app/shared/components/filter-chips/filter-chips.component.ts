@@ -59,6 +59,11 @@ export class FilterChipsComponent {
       chips.push(countChip('taxons', 'sidebar.species', taxons.length, () => this.filterState.clearTaxons()));
     }
 
+    if (this.filterState.excludesDescendantTaxa()) {
+      const text = t('sidebar.excludesDescendantTaxa');
+      chips.push({ id: 'includeDescendantTaxa', text, label: text, clear: () => this.filterState.setIncludeDescendantTaxa(true) });
+    }
+
     const selectedCategories = this.filterState.selectedCategoryIds();
     if (selectedCategories.length > 0) {
       const typeNameById = this.categoryService.categoryTypeNameById();
@@ -187,6 +192,18 @@ export class FilterChipsComponent {
     if (imageFilter !== 'all') {
       const valueKey = imageFilter === 'withImage' ? 'sidebar.imageWith' : 'sidebar.imageWithout';
       chips.push(namedChip('imageFilter', 'sidebar.image', t(valueKey), () => this.filterState.setImageFilter('all')));
+    }
+
+    const sensitiveFilter = this.filterState.sensitiveFilter();
+    if (sensitiveFilter !== 'all') {
+      const valueKey = sensitiveFilter === 'sensitive' ? 'sidebar.sensitiveOnly' : 'sidebar.sensitiveNot';
+      chips.push(namedChip('sensitiveFilter', 'sidebar.sensitivity', t(valueKey), () => this.filterState.setSensitiveFilter('all')));
+    }
+
+    const annotationFilter = this.filterState.annotationFilter();
+    if (annotationFilter !== 'all') {
+      const valueKey = annotationFilter === 'changed' ? 'sidebar.annotationChanged' : 'sidebar.annotationNotChanged';
+      chips.push(namedChip('annotationFilter', 'sidebar.annotation', t(valueKey), () => this.filterState.setAnnotationFilter('all')));
     }
 
     return chips;

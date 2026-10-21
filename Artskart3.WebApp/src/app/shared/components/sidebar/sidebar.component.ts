@@ -12,7 +12,12 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 import { OrganizationService } from '../../services/organization/organization.service';
-import { FilterStateService, ImageFilterOption } from '../../services/filter-state/filter-state.service';
+import {
+  AnnotationFilterOption,
+  FilterStateService,
+  ImageFilterOption,
+  SensitiveFilterOption,
+} from '../../services/filter-state/filter-state.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
@@ -24,9 +29,19 @@ import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
 import type { components } from '../../types/api.generated';
+import { LoggingService } from '../../logging.service';
 
 type OrganizationDto = components['schemas']['OrganizationDto'];
 type CatalogNumberMatchDto = components['schemas']['CatalogNumberMatchDto'];
+
+// adb-radio-group can't select an empty value, so "Alle" (id null) needs a value of its own.
+const ALL_REGISTRATION_STATUSES = 'all';
+
+function toRegistrationStatusValue(id: number | null): string {
+  return id === null ? ALL_REGISTRATION_STATUSES : String(id);
+}
+
+const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
 
 @Component({
   selector: 'app-sidebar',
@@ -57,6 +72,7 @@ export class SidebarComponent {
   private readonly searchFilter = inject(SearchFilterService);
   private readonly savedFilterService = inject(SavedFilterService);
   protected readonly authService = inject(AuthService);
+  private readonly logger = inject(LoggingService);
 
   readonly saveFilterRequested = output<void>();
 
@@ -65,7 +81,11 @@ export class SidebarComponent {
   );
   protected readonly translate = inject(TranslateService);
 
-  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS;
+  readonly registreringOptions = REGISTRATION_STATUS_OPTIONS.map((option) => ({
+    ...option,
+    value: toRegistrationStatusValue(option.id),
+  }));
+  readonly registrationStatusValue = computed(() => toRegistrationStatusValue(this.filterState.selectedRegistrationStatusId()));
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -207,12 +227,11 @@ export class SidebarComponent {
     this.filterState.toggleBasisOfRecord(id);
   }
 
-  isRegistrationStatusSelected(id: number | null): boolean {
-    return this.filterState.selectedRegistrationStatusId() === id;
-  }
-
-  onRegistrationStatusChange(id: number | null): void {
-    this.filterState.setRegistrationStatus(id);
+  onRegistrationStatusChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setRegistrationStatus(target.value === ALL_REGISTRATION_STATUSES ? null : Number(target.value));
+    }
   }
 
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
@@ -235,6 +254,33 @@ export class SidebarComponent {
 
   onTaxonTreeToggle(): void {
     this.taxonTreeOpened.set(true);
+  }
+
+  readonly includeDescendantTaxa = this.filterState.includeDescendantTaxa;
+
+  onIncludeDescendantTaxaChange(event: Event): void {
+    this.filterState.setIncludeDescendantTaxa((event.target as HTMLInputElement).checked);
+  }
+
+  readonly showScientificNames = signal(this.readShowScientificNames());
+
+  onShowScientificNamesChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.showScientificNames.set(checked);
+    try {
+      localStorage.setItem(SHOW_SCIENTIFIC_NAMES_KEY, String(checked));
+    } catch (e: unknown) {
+      this.logger.warn('Failed to save scientific names preference to localStorage:', 'SidebarComponent', e);
+    }
+  }
+
+  private readShowScientificNames(): boolean {
+    try {
+      return localStorage.getItem(SHOW_SCIENTIFIC_NAMES_KEY) === 'true';
+    } catch (e: unknown) {
+      this.logger.warn('Failed to retrieve scientific names preference from localStorage:', 'SidebarComponent', e);
+      return false;
+    }
   }
 
   readonly coordinatePrecisionFromInput = linkedSignal(() => {
@@ -323,6 +369,8 @@ export class SidebarComponent {
   }
 
   readonly imageFilter = this.filterState.imageFilter;
+  readonly annotationFilter = this.filterState.annotationFilter;
+  readonly sensitiveFilter = this.filterState.sensitiveFilter;
 
   // Free text is matched by the Lookup endpoints; the filter only ever gets ids.
   readonly searchProjects: AutocompleteSearch<OrganizationDto> = (term) => this.organizationService.searchProjects(term);
@@ -354,6 +402,20 @@ export class SidebarComponent {
     const target = event.target as HTMLElement & { value: string };
     if (target.value) {
       this.filterState.setImageFilter(target.value as ImageFilterOption);
+    }
+  }
+
+  onAnnotationFilterChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setAnnotationFilter(target.value as AnnotationFilterOption);
+    }
+  }
+
+  onSensitiveFilterChange(event: Event): void {
+    const target = event.target as HTMLElement & { value: string };
+    if (target.value) {
+      this.filterState.setSensitiveFilter(target.value as SensitiveFilterOption);
     }
   }
 

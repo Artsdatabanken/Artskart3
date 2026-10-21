@@ -1,7 +1,16 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AreaService } from '../area/area.service';
-import { FilterStateService, imageFilterToWithImages, sameIds, withImagesToImageFilter } from '../filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  changedByAnnotationToAnnotationFilter,
+  FilterStateService,
+  imageFilterToWithImages,
+  sameIds,
+  sensitiveFilterToSensitive,
+  sensitiveToSensitiveFilter,
+  withImagesToImageFilter,
+} from '../filter-state/filter-state.service';
 import { OrganizationService } from '../organization/organization.service';
 import { ObservationSearchFilter } from '../../types/api.types';
 
@@ -47,6 +56,8 @@ export class SearchFilterService {
       const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
@@ -56,6 +67,7 @@ export class SearchFilterService {
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
+        includeDescendantTaxa: this.filterState.excludesDescendantTaxa() ? false : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
@@ -64,6 +76,8 @@ export class SearchFilterService {
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
+        changedByAnnotation,
+        sensitive,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
@@ -98,6 +112,7 @@ export class SearchFilterService {
     state.selectedRegistrationStatusId.set(filter.registrationStatusId ?? null);
     state.selectedTaxonGroupIds.set(filter.taxonGroupIds ?? []);
     state.selectedTaxonIds.set(filter.taxonIds ?? []);
+    state.setIncludeDescendantTaxa(filter.includeDescendantTaxa ?? true);
     state.setCoordinatePrecision(filter.coordinatePrecision?.from ?? null, filter.coordinatePrecision?.to ?? null);
     state.setPeriod(filter.period?.from ?? null, filter.period?.to ?? null);
     state.selectedMonths.set(filter.period?.months ?? []);
@@ -105,6 +120,8 @@ export class SearchFilterService {
     state.selectedProjects.set((filter.projectOrgIds ?? []).map((id) => ({ id, name: '' })));
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
+    state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
+    state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
 
     this.resolveDisplayNames(filter);
   }

@@ -38,6 +38,12 @@ public static class ObservationQueryBuilder
         if (filter.TaxonIds?.Any() != true)
             return query;
 
+        if (!filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            return query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+
         IQueryable<int>? combinedQuery = null;
         foreach (var taxonId in filter.TaxonIds)
         {
@@ -159,6 +165,20 @@ public static class ObservationQueryBuilder
             query = filter.WithImages.Value
                 ? query.Where(o => o.MediaFiles.Any())
                 : query.Where(o => !o.MediaFiles.Any());
+        }
+
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = filter.ChangedByAnnotation.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges));
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = filter.Sensitive.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive));
         }
 
         return query;

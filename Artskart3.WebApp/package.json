@@ -47,7 +47,7 @@
     "@angular/forms": "^22.1.4",
     "@angular/platform-browser": "^22.1.4",
     "@angular/router": "^22.1.4",
-    "@artsdatabanken/components": "^2.0.2",
+    "@artsdatabanken/components": "^2.2.0",
     "@artsdatabanken/icons": "^2.0.1",
     "@artsdatabanken/tokens": "^2.1.0",
     "@artsdatabanken/nbic-map-component": "0.3.0",
@@ -56,6 +56,7 @@
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
     "jest-editor-support": "*",
+    "ol": "^10.10.0",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

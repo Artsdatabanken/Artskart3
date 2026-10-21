@@ -216,6 +216,27 @@ public class ObservationQueryBuilderTests
     }
 
     /// <summary>
+    /// Uten underliggende taksa treffer en familie bare observasjoner bestemt til
+    /// selve familien, ikke artene under den.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithoutDescendantTaxa_MatchesOnlyThatTaxon()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context, CreateObservation(1, taxonId: 700), CreateObservation(2, taxonId: 500));
+        SeedHierarchy(context,
+            Hierarchy(1, familyTaxonId: 700),
+            Hierarchy(2, familyTaxonId: 700, speciesTaxonId: 500));
+        context.SaveChanges();
+
+        var result = Apply(context,
+            new ObservationSearchFilterDto { TaxonIds = [700], IncludeDescendantTaxa = false },
+            RanksOf((700, 15)));
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
     /// Flere valgte taxoner er et ELLER seg imellom — brukeren har lagt til to
     /// arter i filteret og forventer begge, ikke skjæringen (som alltid er tom).
     /// </summary>
@@ -331,6 +352,46 @@ public class ObservationQueryBuilderTests
     }
 
     // ---------------------------------------------------------------------
+    // Annoteringsfilter
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_ChangedByAnnotation_SplitsOnAnnotatedChangesTag(bool changedByAnnotation, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservationsWithTags(context,
+            (CreateObservation(1), [(int)TagEnum.AnnotatedChanges]),
+            (CreateObservation(2), [(int)TagEnum.Absent]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { ChangedByAnnotation = changedByAnnotation });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Sensitive funn
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_Sensitive_SplitsOnSensitiveTag(bool sensitive, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservationsWithTags(context,
+            (CreateObservation(1), [(int)TagEnum.Sensitive]),
+            (CreateObservation(2), [(int)TagEnum.AnnotatedChanges]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { Sensitive = sensitive });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
     // Paritet mot søket
     // ---------------------------------------------------------------------
 
@@ -389,6 +450,12 @@ public class ObservationQueryBuilderTests
     {
         [nameof(IObservationFilter.TaxonGroupIds)] = f => f.TaxonGroupIds = [999],
         [nameof(IObservationFilter.TaxonIds)] = f => f.TaxonIds = [501],
+        // Observasjonen ligger under art 500 i hierarkiet, men har selv TaxonId 1.
+        [nameof(IObservationFilter.IncludeDescendantTaxa)] = f =>
+        {
+            f.TaxonIds = [500];
+            f.IncludeDescendantTaxa = false;
+        },
         [nameof(IObservationFilter.CategoryIds)] = f => f.CategoryIds = [999],
         [nameof(IObservationFilter.OrganizationIds)] = f => f.OrganizationIds = [999],
         [nameof(IObservationFilter.MunicipalityIds)] = f => f.MunicipalityIds = ["9999"],
@@ -406,6 +473,10 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.ObservationIds)] = f => f.ObservationIds = [999],
         // Observasjonen har ingen mediefiler.
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
+        // Observasjonen har ingen tagger.
+        [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
     };
 
     private static List<Observation> Apply(
@@ -494,7 +565,7 @@ public class ObservationQueryBuilderTests
         public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];
     }
 
-    private static Observation CreateObservation(int id, int? datasetOrgId = null) =>
+    private static Observation CreateObservation(int id, int? datasetOrgId = null, int taxonId = 1) =>
         new()
         {
             Id = id,
@@ -503,7 +574,7 @@ public class ObservationQueryBuilderTests
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
             BasisOfRecordId = 1,
-            TaxonId = 1,
+            TaxonId = taxonId,
             MatchedScientificNameId = 1,
             TaxonGroupId = 1,
             CategoryId = 1,

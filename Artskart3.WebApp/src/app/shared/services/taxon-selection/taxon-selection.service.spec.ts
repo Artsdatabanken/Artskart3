@@ -70,37 +70,26 @@ describe('TaxonSelectionService', () => {
 
   it('select legger til id og fjerner kjente etterkommere fra utvalget', () => {
     filterState.setTaxons([4, 5]);
-    service.select(2, [1]);
+    service.select(2);
     expect(filterState.selectedTaxonIds()).toEqual([2]);
   });
 
-  it('select kollapser til forelderen når alle dens barn er dekket', () => {
+  it('select erstatter ikke barna med forelderen når alle barna er valgt', () => {
     filterState.setTaxons([4]);
-    service.select(5, [1, 2]);
-    expect(filterState.selectedTaxonIds()).toEqual([2]);
+    service.select(5);
+    expect(filterState.selectedTaxonIds()).toEqual([4, 5]);
+    expect(service.checkboxState(2, [1])).toBe('indeterminate');
   });
 
-  it('select kollapser til øverste fullt dekkede node, rekursivt', () => {
-    // Hierarki: 1 -> {2, 3}; 2 -> {4, 5}; 3 -> {7}
+  it('select av eneste barn velger barnet, ikke forelderen', () => {
+    // F.eks. en art med én underart: underarten dekker ikke observasjonene bestemt til art
     service.registerChildren(3, [node(7)]);
     service.registerAncestry(7, [1, 3]);
 
-    filterState.setTaxons([4]);
-    service.select(5, [1, 2]);
-    expect(filterState.selectedTaxonIds()).toEqual([2]);
-
-    service.select(7, [1, 3]);
-    expect(filterState.selectedTaxonIds()).toEqual([1]);
-  });
-
-  it('select kollapser bare den dekkede grenen når søsken er delvis dekket', () => {
-    service.registerChildren(3, [node(7)]);
-    service.registerAncestry(7, [1, 3]);
-
-    filterState.setTaxons([4]);
-    service.select(7, [1, 3]);
-    // 3s eneste barn er dekket -> 3 i filteret; 2 er delvis dekket -> 4 blir stående
-    expect(filterState.selectedTaxonIds()).toEqual([4, 3]);
+    service.select(7);
+    expect(filterState.selectedTaxonIds()).toEqual([7]);
+    expect(service.checkboxState(7, [1, 3])).toBe('checked');
+    expect(service.checkboxState(3, [1])).toBe('indeterminate');
   });
 
   it('deselect av eksplisitt valgt node fjerner id-en', async () => {
@@ -116,13 +105,14 @@ describe('TaxonSelectionService', () => {
     expect(filterState.selectedTaxonIds()).toEqual([3, 5]);
   });
 
-  it('re-check av materialisert node kollapser tilbake til forgjengeren', async () => {
+  it('re-check av materialisert node legger bare til noden', async () => {
     filterState.setTaxons([1]);
     await service.deselect(4, [1, 2]);
     expect(filterState.selectedTaxonIds()).toEqual([3, 5]);
 
-    service.select(4, [1, 2]);
-    expect(filterState.selectedTaxonIds()).toEqual([1]);
+    service.select(4);
+    expect(filterState.selectedTaxonIds()).toEqual([3, 5, 4]);
+    expect(service.checkboxState(1, [])).toBe('indeterminate');
   });
 
   it('deselect overskriver ikke et samtidig select', async () => {
@@ -130,7 +120,7 @@ describe('TaxonSelectionService', () => {
 
     const deselecting = service.deselect(4, [1, 2]);
     // Brukeren rekker å velge en annen node mens materialiseringen pågår
-    service.select(6, []);
+    service.select(6);
     await deselecting;
 
     expect(filterState.selectedTaxonIds()).toContain(6);
@@ -198,25 +188,18 @@ describe('TaxonSelectionService', () => {
     second.flush([{ id: 43, parentIds: [1] }]);
   });
 
-  it('fulldekt forgjenger vises checked uten at treet er ekspandert', async () => {
-    // 42 er eneste barn av 41; treet har aldri lastet nivået under 41
+  it('forelder til eneste valgte barn fra artsøk er indeterminate, ikke checked', async () => {
+    // 42 er eneste barn av 41
+    service.registerChildren(41, [node(42)]);
     filterState.addTaxon(42);
     TestBed.tick();
 
     const req = httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry');
-    req.flush([{
-      id: 42,
-      parentIds: [1, 41],
-      levels: [
-        { parentId: 1, childIds: [2, 3, 41] },
-        { parentId: 41, childIds: [42] },
-        { parentId: 42, childIds: [] },
-      ],
-    }]);
+    req.flush([{ id: 42, parentIds: [1, 41] }]);
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
 
-    expect(service.checkboxState(41, [1])).toBe('checked');
+    expect(service.checkboxState(41, [1])).toBe('indeterminate');
     expect(service.checkboxState(1, [])).toBe('indeterminate');
   });
 
@@ -240,13 +223,13 @@ describe('TaxonSelectionService', () => {
 
     const first = httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry');
     expect(first.request.params.getAll('taxonIds')!.length).toBe(100);
-    first.flush(first.request.params.getAll('taxonIds')!.map((id) => ({ id: Number(id), parentIds: [], levels: [] })));
+    first.flush(first.request.params.getAll('taxonIds')!.map((id) => ({ id: Number(id), parentIds: [] })));
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
 
     const second = httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry');
     expect(second.request.params.getAll('taxonIds')!.length).toBe(50);
-    second.flush(second.request.params.getAll('taxonIds')!.map((id) => ({ id: Number(id), parentIds: [], levels: [] })));
+    second.flush(second.request.params.getAll('taxonIds')!.map((id) => ({ id: Number(id), parentIds: [] })));
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
 
@@ -277,35 +260,15 @@ describe('TaxonSelectionService', () => {
     httpTesting.expectNone('/api/Lookup/TaxonAncestry');
   });
 
-  it('node er checked når alle barn er dekket av utvalget, rekursivt', () => {
+  it('forelder er indeterminate selv når alle barn på alle nivåer er valgt', () => {
     // Hierarki: 1 -> {2, 3}; 2 -> {4, 5}; 3 -> {7}
     service.registerChildren(3, [node(7)]);
     service.registerAncestry(7, [1, 3]);
 
-    // Kun ett barnebarn valgt — alle nivåer over er indeterminate
-    filterState.setTaxons([4]);
+    filterState.setTaxons([4, 5, 7]);
     expect(service.checkboxState(2, [1])).toBe('indeterminate');
+    expect(service.checkboxState(3, [1])).toBe('indeterminate');
     expect(service.checkboxState(1, [])).toBe('indeterminate');
-
-    // Alle barn av 2 valgt — 2 er checked, men 1 er fortsatt indeterminate
-    filterState.setTaxons([4, 5]);
-    expect(service.checkboxState(2, [1])).toBe('checked');
-    expect(service.checkboxState(1, [])).toBe('indeterminate');
-
-    // Alle barn på alle nivåer valgt — rota er checked
-    filterState.setTaxons([4, 5, 7]);
-    expect(service.checkboxState(3, [1])).toBe('checked');
-    expect(service.checkboxState(1, [])).toBe('checked');
-  });
-
-  it('avhaking av fulldekket node fjerner valgte etterkommere', async () => {
-    service.registerChildren(3, [node(7)]);
-    service.registerAncestry(7, [1, 3]);
-    filterState.setTaxons([4, 5, 7]);
-    expect(service.checkboxState(1, [])).toBe('checked');
-
-    await service.deselect(1, []);
-    expect(filterState.selectedTaxonIds()).toEqual([]);
   });
 
   it('isInheritedSelected er sann kun for valgte forgjengere', () => {
@@ -313,5 +276,26 @@ describe('TaxonSelectionService', () => {
     expect(service.isInheritedSelected([1, 2])).toBe(true);
     expect(service.isInheritedSelected([2])).toBe(false);
     expect(service.isInheritedSelected([])).toBe(false);
+  });
+
+  describe('uten underliggende taksa', () => {
+    beforeEach(() => filterState.setIncludeDescendantTaxa(false));
+
+    it('arver ikke checked fra en valgt forgjenger', () => {
+      filterState.setTaxons([1]);
+      expect(service.checkboxState(1, [])).toBe('checked');
+      expect(service.checkboxState(4, [1, 2])).toBe('unchecked');
+    });
+
+    it('viser fortsatt indeterminate på forgjengere til en valgt node', () => {
+      filterState.setTaxons([4]);
+      expect(service.checkboxState(1, [])).toBe('indeterminate');
+    });
+
+    it('select av en forelder beholder valgte etterkommere', () => {
+      filterState.setTaxons([4, 5]);
+      service.select(2);
+      expect(filterState.selectedTaxonIds()).toEqual([4, 5, 2]);
+    });
   });
 });

@@ -157,9 +157,13 @@ dt {
 dd {
   margin: 0;
 }
-dd.empty {
+dd.empty,
+dd .note {
   font-style: italic;
   color: var(--adb-text-base-secondary);
+}
+.registration-marker {
+  vertical-align: middle;
 }
 .maps {
   display: grid;

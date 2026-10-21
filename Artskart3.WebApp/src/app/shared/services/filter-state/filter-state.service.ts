@@ -1,6 +1,8 @@
 import { Injectable, computed, signal } from '@angular/core';
 
 export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
+export type AnnotationFilterOption = 'all' | 'changed' | 'notChanged';
+export type SensitiveFilterOption = 'all' | 'sensitive' | 'notSensitive';
 
 /** A filter value picked by searching. The name is only for display; the id is what gets sent. */
 export interface NamedId {
@@ -20,6 +22,30 @@ export function withImagesToImageFilter(withImages: boolean | null | undefined):
   return 'all';
 }
 
+export function annotationFilterToChangedByAnnotation(option: AnnotationFilterOption): boolean | undefined {
+  if (option === 'changed') return true;
+  if (option === 'notChanged') return false;
+  return undefined;
+}
+
+export function changedByAnnotationToAnnotationFilter(changedByAnnotation: boolean | null | undefined): AnnotationFilterOption {
+  if (changedByAnnotation === true) return 'changed';
+  if (changedByAnnotation === false) return 'notChanged';
+  return 'all';
+}
+
+export function sensitiveFilterToSensitive(option: SensitiveFilterOption): boolean | undefined {
+  if (option === 'sensitive') return true;
+  if (option === 'notSensitive') return false;
+  return undefined;
+}
+
+export function sensitiveToSensitiveFilter(sensitive: boolean | null | undefined): SensitiveFilterOption {
+  if (sensitive === true) return 'sensitive';
+  if (sensitive === false) return 'notSensitive';
+  return 'all';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -34,6 +60,9 @@ export class FilterStateService {
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
   readonly selectedTaxonIds = signal<number[]>([]);
+  readonly includeDescendantTaxa = signal(true);
+  // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
+  readonly excludesDescendantTaxa = computed(() => !this.includeDescendantTaxa() && this.selectedTaxonIds().length > 0);
   readonly coordinatePrecisionFrom = signal<number | null>(null);
   readonly coordinatePrecisionTo = signal<number | null>(null);
   readonly periodFrom = signal<number | null>(null);
@@ -47,6 +76,8 @@ export class FilterStateService {
   readonly catalogNumber = signal<string>('');
   readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
+  readonly annotationFilter = signal<AnnotationFilterOption>('all');
+  readonly sensitiveFilter = signal<SensitiveFilterOption>('all');
   readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
@@ -210,6 +241,10 @@ export class FilterStateService {
     this.selectedTaxonIds.set([]);
   }
 
+  setIncludeDescendantTaxa(value: boolean): void {
+    this.includeDescendantTaxa.set(value);
+  }
+
   clearAreas(): void {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
@@ -293,12 +328,22 @@ export class FilterStateService {
     this.imageFilter.set(value);
   }
 
+  setAnnotationFilter(value: AnnotationFilterOption): void {
+    this.annotationFilter.set(value);
+  }
+
+  setSensitiveFilter(value: SensitiveFilterOption): void {
+    this.sensitiveFilter.set(value);
+  }
+
   clearOtherFindProperties(): void {
     this.selectedProjects.set([]);
     this.selectedDatasets.set([]);
     this.catalogNumber.set('');
     this.catalogObservationIds.set([]);
     this.imageFilter.set('all');
+    this.annotationFilter.set('all');
+    this.sensitiveFilter.set('all');
   }
 
   clearAll(): void {
@@ -312,6 +357,7 @@ export class FilterStateService {
     this.clearCoordinatePrecision();
     this.clearPeriod();
     this.clearTaxons();
+    this.setIncludeDescendantTaxa(true);
     this.clearOtherFindProperties();
   }
 }

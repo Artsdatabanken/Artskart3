@@ -46,6 +46,15 @@ describe('SearchFilterService', () => {
     expect(service.observationFilter().registrationStatusId).toBe(2);
   });
 
+  it('sender includeDescendantTaxa bare når den er av og det er valgt taksa', () => {
+    filterState.setIncludeDescendantTaxa(false);
+    expect(service.observationFilter().includeDescendantTaxa).toBeUndefined();
+    expect(service.hasActiveFilter()).toBe(false);
+
+    filterState.setTaxons([1]);
+    expect(service.observationFilter().includeDescendantTaxa).toBe(false);
+  });
+
   it('utelater tomme filtre i stedet for å sende tomme lister', () => {
     const filter = service.observationFilter();
 
@@ -67,6 +76,7 @@ describe('SearchFilterService', () => {
     filterState.setRegistrationStatus(2);
     filterState.selectedTaxonGroupIds.set([5]);
     filterState.setTaxons([6]);
+    filterState.setIncludeDescendantTaxa(false);
     filterState.selectedOceanAreaIds.set(['7']);
     filterState.setCoordinatePrecision(10, 20);
     filterState.setPeriod(1990, 2000);
@@ -75,6 +85,8 @@ describe('SearchFilterService', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
+    filterState.setAnnotationFilter('changed');
+    filterState.setSensitiveFilter('sensitive');
 
     const filter = service.observationFilter();
 
@@ -86,12 +98,15 @@ describe('SearchFilterService', () => {
       registrationStatusId: 2,
       taxonGroupIds: [5],
       taxonIds: [6],
+      includeDescendantTaxa: false,
       oceanAreaIds: ['7'],
       coordinatePrecision: { from: 10, to: 20 },
       datasetOrgIds: [8],
       projectOrgIds: [9],
       observationIds: [10],
       withImages: true,
+      changedByAnnotation: true,
+      sensitive: true,
       period: { from: 1990, to: 2000, months: [6] },
     };
 
@@ -159,6 +174,7 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.setRegistrationStatus(2);
     filterState.selectedTaxonGroupIds.set([5]);
     filterState.setTaxons([6]);
+    filterState.setIncludeDescendantTaxa(false);
     filterState.setCoordinatePrecision(10, 200);
     filterState.setPeriod(1980, 2000);
     filterState.toggleMonth(6);
@@ -167,6 +183,8 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
+    filterState.setAnnotationFilter('notChanged');
+    filterState.setSensitiveFilter('notSensitive');
     const saved = service.observationFilter();
 
     filterState.clearAll();
@@ -196,6 +214,7 @@ describe('SearchFilterService.applyFilter', () => {
     const sample: FilterFields = {
       taxonGroupIds: [1],
       taxonIds: [2],
+      includeDescendantTaxa: false,
       categoryIds: [3],
       organizationIds: [4],
       municipalityIds: ['1101'],
@@ -210,6 +229,8 @@ describe('SearchFilterService.applyFilter', () => {
       projectOrgIds: [8],
       observationIds: [9],
       withImages: true,
+      changedByAnnotation: true,
+      sensitive: false,
     };
 
     await service.applyFilter(sample);
