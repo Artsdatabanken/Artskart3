@@ -701,7 +701,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     let hovered = false;
     let locationIds: number[] = [];
-    let areaKey: string | null = null;
+    const areaKey: string | null = null;
     let pointerHit = false;
     const zoomCursor = olMap.forEachFeatureAtPixel(
       pixel,
