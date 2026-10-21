@@ -30,6 +30,15 @@ public class LocationSearchFilterDtoTests
     }
 
     [Fact]
+    public void CadastralUnitIds_KreverDynamiskTelling()
+    {
+        var sut = new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"] };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
+    }
+
+    [Fact]
     public void AlleEgenskaper_KanSettes()
     {
         var sut = new LocationSearchFilterDto

@@ -230,6 +230,16 @@ describe('FilterChipsComponent', () => {
       expect(component.chips().find((c) => c.id === 'project:42')!.text).toBe('sidebar.project: #42');
     });
 
+    it('viser én chip per matrikkelenhet, og lukking fjerner bare den', () => {
+      flushLookups();
+      filterState.addCadastralUnit('1101-1/2');
+      filterState.addCadastralUnit('0301-207/1');
+      const cadastralUnitChips = component.chips().filter((c) => c.id.startsWith('cadastralUnit:'));
+      expect(cadastralUnitChips.map((c) => c.text)).toEqual(['sidebar.cadastralUnit: 1101-1/2', 'sidebar.cadastralUnit: 0301-207/1']);
+      cadastralUnitChips[0].clear();
+      expect(filterState.selectedCadastralUnitIds()).toEqual(['0301-207/1']);
+    });
+
     it('viser chip for katalognummer', () => {
       flushLookups();
       filterState.setCatalogNumber('ABC-123');

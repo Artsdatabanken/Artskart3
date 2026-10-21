@@ -14,16 +14,26 @@ namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 /// </summary>
 public static class ObservationQueryBuilder
 {
-    public static IQueryable<Observation> ApplyFilters(
+    /// <summary>
+    /// Asynkron fordi matrikkelenhetene i filteret slås opp mot Kartverket før
+    /// spørringen bygges.
+    /// </summary>
+    public static async Task<IQueryable<Observation>> ApplyFiltersAsync(
         IArtsKartDbContext context,
         ITaxonHierarchyService taxonHierarchy,
+        ICadastralUnitService cadastralUnits,
         IQueryable<Observation> query,
-        ObservationSearchFilterDto filter)
+        ObservationSearchFilterDto filter,
+        CancellationToken cancellationToken)
     {
+        var cadastralLocationIds = filter.CadastralUnitIds?.Length > 0
+            ? await cadastralUnits.GetLocationIdsAsync(filter.CadastralUnitIds, cancellationToken)
+            : null;
+
         query = ApplyDirectFilters(query, filter);
         query = ApplyTaxonFilter(context, taxonHierarchy, query, filter);
         query = ApplyIdentifierFilters(context, query, filter);
-        query = ApplyAreaFilters(context, query, filter);
+        query = ApplyAreaFilters(context, query, filter, cadastralLocationIds);
         query = ApplyRangeFilters(query, filter);
 
         return query;
@@ -187,35 +197,14 @@ public static class ObservationQueryBuilder
     private static IQueryable<Observation> ApplyAreaFilters(
         IArtsKartDbContext context,
         IQueryable<Observation> query,
-        ObservationSearchFilterDto filter)
+        ObservationSearchFilterDto filter,
+        int[]? cadastralLocationIds)
     {
-        // Område- og organisasjonsfiltre via ObservationEntityIndex-tabellen.
-        // Alle entiteter bruker int EntityId — string-Fid-er konverteres til int før spørring.
+        // Områdefiltre (OR — observasjon i minst ett av områdene). Fylker, kommuner,
+        // verneområder og havområder via ObservationEntityIndex-tabellen, matrikkelenheter
+        // via lokasjonene som ligger innenfor dem.
         // Speiler logikken i SearchRepository slik at CSV-eksporten filtrerer identisk med søk.
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
-
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
-        {
-            var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
-            var countyIds = ConvertFidsToInt(filter.CountyIds);
-            var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
-            var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
-
-            query = query.Where(o => context.Set<ObservationEntityIndex>().Any(idx =>
-                idx.ObservationId == o.Id && (
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                    // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som i
-                    // SearchRepository. Grenen manglet her, så et fylkesvalg på
-                    // Svalbard ga treff på kartet og en tom CSV.
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
-                )));
-        }
+        query = WhereInAreasOrLocations(query, SelectedAreaIndexRows(context, filter), cadastralLocationIds);
 
         // Institusjonsfilteret er flyttet ut av OR-blokken over, til den
         // denormaliserte kolonnen.
@@ -243,6 +232,55 @@ public static class ObservationQueryBuilder
         }
 
         return query;
+    }
+
+    /// <summary>
+    /// Observasjoner som har en av indeksradene eller ligger på en av lokasjonene. Null
+    /// betyr at den delen ikke er med i filteret, og uten noen av dem filtreres ingenting.
+    /// </summary>
+    public static IQueryable<Observation> WhereInAreasOrLocations(
+        IQueryable<Observation> query,
+        IQueryable<ObservationEntityIndex>? areaIndexRows,
+        int[]? locationIds) => (areaIndexRows, locationIds) switch
+        {
+            ({ } rows, { } ids) => query.Where(o =>
+                rows.Any(idx => idx.ObservationId == o.Id) ||
+                (o.LocationId != null && ids.Contains(o.LocationId.Value))),
+            ({ } rows, null) => query.Where(o => rows.Any(idx => idx.ObservationId == o.Id)),
+            (null, { } ids) => query.Where(o => o.LocationId != null && ids.Contains(o.LocationId.Value)),
+            _ => query,
+        };
+
+    /// <summary>
+    /// Indeksradene for fylkene, kommunene, verneområdene og havområdene i filteret,
+    /// eller null når ingen er valgt. Alle entiteter bruker int EntityId — string-Fid-er
+    /// konverteres til int før spørring.
+    /// </summary>
+    private static IQueryable<ObservationEntityIndex>? SelectedAreaIndexRows(
+        IArtsKartDbContext context,
+        ObservationSearchFilterDto filter)
+    {
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+
+        if (!hasMunicipality && !hasCounty && !hasRestricted && !hasOcean) return null;
+
+        var municipalityIds = ConvertFidsToInt(filter.MunicipalityIds);
+        var countyIds = ConvertFidsToInt(filter.CountyIds);
+        var restrictedIds = ConvertRestrictedAreaFidsToInt(filter.RestrictedAreaIds);
+        var oceanIds = ConvertFidsToInt(filter.OceanAreaIds);
+
+        return context.Set<ObservationEntityIndex>().Where(idx =>
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+            // Svalbard/Bjørnøya/Jan Mayen slås opp med fylkes-IDene, som i
+            // SearchRepository. Grenen manglet her, så et fylkesvalg på
+            // Svalbard ga treff på kartet og en tom CSV.
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
     }
 
     /// <summary>

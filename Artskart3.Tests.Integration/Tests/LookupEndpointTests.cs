@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -387,6 +389,51 @@ public class LookupEndpointTests : IAsyncLifetime
             entry.TryGetProperty("parentIds", out var parentIds).Should().BeTrue();
             parentIds.ValueKind.Should().Be(JsonValueKind.Array);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/CadastralUnit
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetCadastralUnit_WithIncompleteNumber_Returns400()
+    {
+        var response = await _client.GetAsync("/api/Lookup/CadastralUnit?id=1101-1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>
+    /// Kartverket byttes ut med en stub, så testen sjekker ruting, normalisering og
+    /// JSON-formen uten å være avhengig av nettverket.
+    /// </summary>
+    [Fact]
+    public async Task GetCadastralUnit_WithKnownNumber_ReturnsNormalizedIdAndOutline()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddSingleton<ICadastralUnitService>(new StubCadastralUnitService(new() { ["1101-1/2"] = [1] }))));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        var response = await client.GetAsync("/api/Lookup/CadastralUnit?id=1101-01%2F2");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("id").GetString().Should().Be("1101-1/2");
+        doc.RootElement.GetProperty("wktPolygon").GetString().Should().StartWith("MULTIPOLYGON");
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WithUnknownNumber_Returns404()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddSingleton<ICadastralUnitService>(new StubCadastralUnitService())));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        var response = await client.GetAsync("/api/Lookup/CadastralUnit?id=1101-99999%2F1");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     // -----------------------------------------------------------------------

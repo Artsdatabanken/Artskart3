@@ -4,6 +4,8 @@ using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.EntityFrameworkCore;
 using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.DependencyInjection;
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Services;
@@ -84,6 +86,10 @@ builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRe
 builder.Services.AddSingleton<TaxonHierarchyService>();
 builder.Services.AddSingleton<ITaxonHierarchyService>(sp => sp.GetRequiredService<TaxonHierarchyService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TaxonHierarchyService>());
+
+// Matrikkelenheter i filteret slås opp mot Kartverket, likt som i API-et.
+builder.Services.AddCadastralUnitService(
+    builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
 
 // Helsesjekk
 builder.Services.AddHealthChecks();

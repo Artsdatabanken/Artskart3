@@ -23,8 +23,9 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { LoggingService } from '@shared/logging.service';
-import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer } from 'rxjs';
+import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationPoint, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { LocationCountResult } from '@shared/types/api.types';
@@ -60,10 +61,11 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ActiveObservationPoint, ObservationPanelComponent } from '../observation-panel/observation-panel.component';
 import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
-import { ObservationListInfoDto } from '@shared/types/api.types';
+import { CadastralUnitDto, ObservationListInfoDto } from '@shared/types/api.types';
 import { SearchFilterService } from '@shared/services/search-filter/search-filter.service';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapViewService } from '@shared/services/map-view/map-view.service';
+import { CadastralUnitService } from '@shared/services/cadastral-unit/cadastral-unit.service';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import Layer from 'ol/layer/Layer';
@@ -154,6 +156,29 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly searchFilterService = inject(SearchFilterService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly mapView = inject(MapViewService);
+  private readonly cadastralUnitService = inject(CadastralUnitService);
+
+  /**
+   * Omrisset av valgte matrikkelenheter. En som ikke kan slås opp, tegnes bare ikke.
+   */
+  private readonly selectedCadastralUnits = rxResource({
+    params: () => this.filterState.selectedCadastralUnitIds(),
+    stream: ({ params: ids }) =>
+      ids.length ? forkJoin(ids.map((id) => this.cadastralUnitService.get(id).pipe(catchError(() => of(null))))) : of([]),
+  });
+
+  /**
+   * Holder på forrige omriss mens ressursen laster etter en endring, så de ikke blinker bort.
+   */
+  private readonly cadastralUnitOutlines = linkedSignal<(CadastralUnitDto | null)[] | undefined, CadastralUnitDto[]>({
+    source: this.selectedCadastralUnits.value,
+    computation: (units, previous) => (units ? units.filter((unit) => unit != null) : (previous?.value ?? [])),
+  });
+
+  private readonly _onCadastralUnitsLoaded = effect(() => {
+    this.cadastralUnitOutlines();
+    untracked(() => this.updateSelectedAreaOverlays());
+  });
 
   /**
    * Observasjonsattributtfiltre som påvirker antall per område.
@@ -167,6 +192,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const datasetOrgIds = this.filterState.selectedDatasetIds();
       const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
+      const cadastralUnitIds = this.filterState.selectedCadastralUnitIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
@@ -188,6 +214,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
+        // Ikke et attributt, men matrikkelenheter er ikke forhåndstalt, så antallene må hentes fra API-et.
+        cadastralUnitIds: cadastralUnitIds.length ? cadastralUnitIds : undefined,
         withImages,
         changedByAnnotation,
         sensitive,
@@ -1514,6 +1542,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const municipalityFids = new Set(filter.municipalityIds ?? []);
     const oceanAreaFids = new Set(filter.oceanAreaIds ?? []);
 
+    // Matrikkelenheter OR-es med områdene, så treff kan ligge utenfor de valgte områdene.
+    if (filter.cadastralUnitIds?.length) return areas;
+
     if (countyFids.size === 0 && municipalityFids.size === 0 && oceanAreaFids.size === 0) {
       return areas;
     }
@@ -1577,9 +1608,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const countyLevelFids = [...new Set([...countyIds, ...selectedOceanAreaFids, ...parentCountyFids])];
     const countyFeatures = this.areasService.buildOverlayFeatures(countyAreas, countyLevelFids);
     const municipalityFeatures = this.areasService.buildOverlayFeatures(municipalityAreas, municipalityIds);
+    const cadastralUnitFeatures = this.areasService.buildCadastralUnitOverlayFeatures(this.cadastralUnitOutlines());
     const combined = JSON.stringify({
       type: 'FeatureCollection',
-      features: [...countyFeatures, ...municipalityFeatures],
+      features: [...countyFeatures, ...municipalityFeatures, ...cadastralUnitFeatures],
     });
 
     this.map.updateGeoJSONLayer(this.SELECTED_AREAS_OVERLAY_ID, combined, { mode: 'replace' });
