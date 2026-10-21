@@ -463,6 +463,8 @@ public class SearchRepository : ISearchRepository
         public bool? WithImages => inner.WithImages;
         public bool? ChangedByAnnotation => inner.ChangedByAnnotation;
         public bool? Sensitive => inner.Sensitive;
+        public bool? UncertainIdentification => inner.UncertainIdentification;
+        public bool? Introduced => inner.Introduced;
     }
 
     /// <summary>
@@ -990,6 +992,18 @@ public class SearchRepository : ISearchRepository
         {
             var sensitive = filter.Sensitive.Value;
             query = query.Where(idx => idx.Sensitive == sensitive);
+        }
+
+        if (filter.UncertainIdentification.HasValue)
+        {
+            var uncertainIdentification = filter.UncertainIdentification.Value;
+            query = query.Where(idx => idx.UncertainIdentification == uncertainIdentification);
+        }
+
+        if (filter.Introduced.HasValue)
+        {
+            var introduced = filter.Introduced.Value;
+            query = query.Where(idx => idx.Introduced == introduced);
         }
 
         return query;
@@ -1528,6 +1542,18 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.Sensitive == sensitive);
         }
 
+        if (filter.UncertainIdentification.HasValue)
+        {
+            var uncertainIdentification = filter.UncertainIdentification.Value;
+            query = query.Where(o => o.UncertainIdentification == uncertainIdentification);
+        }
+
+        if (filter.Introduced.HasValue)
+        {
+            var introduced = filter.Introduced.Value;
+            query = query.Where(o => o.Introduced == introduced);
+        }
+
         if (filter.Period?.Months?.Any() == true)
         {
             // Observation.MonthCollected har IX_Observation_MonthCollected.
@@ -2040,6 +2066,18 @@ public class SearchRepository : ISearchRepository
         {
             var sensitive = filter.Sensitive.Value;
             query = query.Where(idx => idx.Sensitive == sensitive);
+        }
+
+        if (filter.UncertainIdentification.HasValue)
+        {
+            var uncertainIdentification = filter.UncertainIdentification.Value;
+            query = query.Where(idx => idx.UncertainIdentification == uncertainIdentification);
+        }
+
+        if (filter.Introduced.HasValue)
+        {
+            var introduced = filter.Introduced.Value;
+            query = query.Where(idx => idx.Introduced == introduced);
         }
 
         // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).

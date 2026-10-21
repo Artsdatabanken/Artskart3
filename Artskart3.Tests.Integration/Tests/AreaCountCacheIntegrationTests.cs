@@ -297,14 +297,41 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     {
         await BuildLevel1Async(TaxonGroupDimensionId, r => r.TaxonGroupId);
 
+        // Tre EKTE dimensjoner. Bool-filtrene teller ikke lenger med — de ligger i
+        // FilterMask og koster ingen dimensjonsplass, så de kan ikke brukes til å
+        // presse oppslaget over grensen.
         var result = await CreateCacheService().TryGetCountsAsync(new LocationSearchFilterDto
         {
             TaxonGroupIds = [TaxonGroupA],
             CategoryIds = [CategoryA],
-            WithImages = true,
+            RegistrationStatusId = 1,
         }, await AreasAsync(), areasAreNarrowed: false);
 
         result.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Vaktposten for hele poenget med masken: bool-filtre spiser ikke
+    /// dimensjonsplasser. To vanlige filtre pluss flere bool-verdier skal fortsatt
+    /// besvares fra bufferen — før masken falt dette gjennom til databasen og
+    /// kostet 2091-2752 ms på LocationPolygons.
+    /// </summary>
+    [Fact]
+    public async Task Boolfiltre_teller_ikke_mot_dimensjonsgrensen()
+    {
+        await BuildLevel1Async(TaxonGroupDimensionId, r => r.TaxonGroupId);
+
+        var result = await CreateCacheService().TryGetCountsAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = [TaxonGroupA],
+            WithImages = false,
+            ChangedByAnnotation = false,
+            Sensitive = false,
+            UncertainIdentification = false,
+            Introduced = false,
+        }, await AreasAsync(), areasAreNarrowed: false);
+
+        result.Should().NotBeNull("ett filter pluss fem maskebit er fortsatt én dimensjon");
     }
 
     [Fact]

@@ -5,10 +5,14 @@ import {
   annotationFilterToChangedByAnnotation,
   changedByAnnotationToAnnotationFilter,
   FilterStateService,
+  identificationFilterToUncertainIdentification,
   imageFilterToWithImages,
+  introducedToOriginFilter,
+  originFilterToIntroduced,
   sameIds,
   sensitiveFilterToSensitive,
   sensitiveToSensitiveFilter,
+  uncertainIdentificationToIdentificationFilter,
   withImagesToImageFilter,
 } from '../filter-state/filter-state.service';
 import { OrganizationService } from '../organization/organization.service';
@@ -58,6 +62,8 @@ export class SearchFilterService {
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
+      const uncertainIdentification = identificationFilterToUncertainIdentification(this.filterState.identificationFilter());
+      const introduced = originFilterToIntroduced(this.filterState.originFilter());
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
@@ -77,6 +83,8 @@ export class SearchFilterService {
         withImages: withImages,
         changedByAnnotation,
         sensitive,
+        uncertainIdentification,
+        introduced,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
@@ -120,6 +128,8 @@ export class SearchFilterService {
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
     state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
     state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
+    state.setIdentificationFilter(uncertainIdentificationToIdentificationFilter(filter.uncertainIdentification));
+    state.setOriginFilter(introducedToOriginFilter(filter.introduced));
 
     this.resolveDisplayNames(filter);
   }

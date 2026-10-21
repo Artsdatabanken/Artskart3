@@ -107,6 +107,26 @@ public partial class Observation : BaseEntity
     /// <summary>Denormalisert fra taggen Sensitive.</summary>
     public bool Sensitive { get; set; }
 
+    /// <summary>
+    /// Denormalisert fra taggen UnsureIdentification. true = artsbestemmelsen er
+    /// USIKKER. Fravær av taggen regnes som sikker, slik gamle Artskart gjorde det
+    /// (etiketten der var bokstavelig talt "Vis sikker artsbestemmelse").
+    ///
+    /// Ikke det samme som taggen Validated, som er ekspertvalidering og et eget
+    /// begrep med eget filter i gamle Artskart.
+    /// </summary>
+    public bool UncertainIdentification { get; set; }
+
+    /// <summary>
+    /// Denormalisert fra taggen Unspontaneus. true = INNFØRT forekomst; fravær av
+    /// taggen regnes som naturlig.
+    ///
+    /// Navnet følger domenet, ikke taggen: taggnavnet er feilstavet i både enum og
+    /// Tag-tabellen, og vi bærer ikke den skrivefeilen inn i skjema og API. Samme
+    /// frihet som ChangedByAnnotation, som heter noe annet enn taggen AnnotatedChanges.
+    /// </summary>
+    public bool Introduced { get; set; }
+
     public int? ObservationQualityTypeId { get; set; }
 
     public virtual BasisOfRecord BasisOfRecord { get; set; } = null!;

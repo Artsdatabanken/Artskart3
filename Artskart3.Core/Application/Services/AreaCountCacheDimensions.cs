@@ -111,13 +111,17 @@ public static class AreaCountCacheDimensions
     /// <summary>Rangnivået takson-dimensjonen er bygget på (orden).</summary>
     public const int TaxonRankOrder = 11;
 
+    /// <summary>
+    /// Id 1 og 14-17 står ledige. De var bool-dimensjonene — bilder, annotering,
+    /// sensitivitet, artsbestemmelse og opprinnelse — og ligger nå i
+    /// <see cref="FilterMask"/> som en tredje nøkkel på hver bufferrad i stedet.
+    ///
+    /// De kan trygt gjenbrukes: <see cref="SchemaVersion"/> hasher både id, Kind og
+    /// navn, så en ny dimensjon på id 1 gir ny versjon, og bufferen bygges om før
+    /// den leses. Hullene er bare et spor av historikken.
+    /// </summary>
     public static readonly IReadOnlyList<CacheDimension> All =
     [
-        new(1, "Bilder", CacheDimensionKind.SingleValue, "HasMediaFiles",
-            c => c.Filter.WithImages is { } withImages
-                ? DimensionSelection.Of(new BucketSet([withImages ? 1 : 0]))
-                : DimensionSelection.Inactive),
-
         new(2, "Regstatus", CacheDimensionKind.SingleValue, "RegistrationStatusId",
             c => c.Filter.RegistrationStatusId is { } status
                 ? DimensionSelection.Of(new BucketSet([status]))
@@ -164,6 +168,7 @@ public static class AreaCountCacheDimensions
 
         new(13, "Prosjekt", CacheDimensionKind.MultiValue, "ObservationProject.ProjectOrgId",
             c => Set(c.Filter.ProjectOrgIds)),
+
     ];
 
     /// <summary>

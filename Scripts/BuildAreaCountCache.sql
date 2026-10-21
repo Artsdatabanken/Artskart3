@@ -23,7 +23,7 @@
     nøyaktig samme sekvens.
 
     KJØRING
-    Sett @BuildLevel1 / @BuildLevel2 for å bygge ett nivå om gangen. Nivå 2 er 78
+    Sett @BuildLevel1 / @BuildLevel2 for å bygge ett nivå om gangen. Nivå 2 er 66
     grupperinger over 134 millioner rader og ~36 millioner rader å sette inn.
 
     Bygges bare ETT nivå, blir Status stående på «Building» og bufferen brukes
@@ -48,7 +48,7 @@ DECLARE @BuildLevel2 BIT = 1;
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 1194527040;
+DECLARE @SchemaVersion INT = 306158581;
 
 DECLARE @NullBucket INT = -2147483648;   -- int.MinValue
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
@@ -74,7 +74,6 @@ DECLARE @T DATETIME2, @Msg NVARCHAR(400), @Rows BIGINT;
 -- ---------------------------------------------------------------------------
 CREATE TABLE #dim (Id TINYINT PRIMARY KEY, Navn VARCHAR(40), Uttrykk NVARCHAR(200));
 INSERT #dim VALUES
- (1,  'Bilder',         N'CASE WHEN i.HasMediaFiles = 1 THEN 1 ELSE 0 END'),
  (2,  'Regstatus',      N'CAST(i.RegistrationStatusId AS INT)'),
  (3,  'Atferd',         N'ISNULL(CAST(i.BehaviorId AS INT), -2147483648)'),
  (4,  'Funntype',       N'i.BasisOfRecordId'),
@@ -328,11 +327,11 @@ BEGIN
         SET @Join = CASE WHEN @Id = 12 THEN @JoinVern WHEN @Id = 13 THEN @JoinProj ELSE N'' END;
 
         SET @Sql = N'
-INSERT dbo.AreaCountCacheLevel1 (DimensionId, BucketId, EntityTypeId, EntityId, ObservationCount)
-SELECT ' + CAST(@Id AS VARCHAR(3)) + N', ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, COUNT_BIG(*)
+INSERT dbo.AreaCountCacheLevel1 (DimensionId, BucketId, EntityTypeId, EntityId, Mask, ObservationCount)
+SELECT ' + CAST(@Id AS VARCHAR(3)) + N', ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16, COUNT_BIG(*)
 FROM dbo.ObservationEntityIndex i' + @Join + N'
 WHERE ' + @Uttrykk + N' <> -2147483648
-GROUP BY ' + @Uttrykk + N', i.EntityTypeId, i.EntityId
+GROUP BY ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16
 OPTION (RECOMPILE);';
         EXEC sp_executesql @Sql;
         SET @Rows = @@ROWCOUNT;
@@ -350,7 +349,7 @@ END
 -- ---------------------------------------------------------------------------
 IF @BuildLevel2 = 1
 BEGIN
-    RAISERROR('--- Nivaa 2 (78 par) ---', 0, 1) WITH NOWAIT;
+    RAISERROR('--- Nivaa 2 (66 par) ---', 0, 1) WITH NOWAIT;
 
     SELECT a.Id AS IdA, b.Id AS IdB, a.Navn AS NavnA, b.Navn AS NavnB,
            a.Uttrykk AS UttrykkA, b.Uttrykk AS UttrykkB,
@@ -371,16 +370,16 @@ BEGIN
                   + CASE WHEN @IdA = 13 OR @IdB = 13 THEN @JoinProj ELSE N'' END;
 
         SET @Sql = N'
-INSERT dbo.AreaCountCacheLevel2 (DimensionPairId, BucketA, BucketB, EntityTypeId, EntityId, ObservationCount)
-SELECT ' + CAST(@PairId AS VARCHAR(3)) + N', ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, COUNT_BIG(*)
+INSERT dbo.AreaCountCacheLevel2 (DimensionPairId, BucketA, BucketB, EntityTypeId, EntityId, Mask, ObservationCount)
+SELECT ' + CAST(@PairId AS VARCHAR(3)) + N', ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16, COUNT_BIG(*)
 FROM dbo.ObservationEntityIndex i' + @Join + N'
 WHERE ' + @UttA + N' <> -2147483648 AND ' + @UttB + N' <> -2147483648
-GROUP BY ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId
+GROUP BY ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16
 OPTION (RECOMPILE);';
         EXEC sp_executesql @Sql;
         SET @Rows = @@ROWCOUNT;
 
-        SET @Msg = CONCAT('  [', @PairId, '/78] ', @NavnA, ' x ', @NavnB, ': ',
+        SET @Msg = CONCAT('  [', @PairId, '/66] ', @NavnA, ' x ', @NavnB, ': ',
                           FORMAT(@Rows, 'N0'), ' rader, ', DATEDIFF(SECOND, @T, SYSUTCDATETIME()), 's',
                           ' | totalt ', DATEDIFF(SECOND, @Start, SYSUTCDATETIME()), 's');
         RAISERROR(@Msg, 0, 1) WITH NOWAIT;

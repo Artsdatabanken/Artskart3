@@ -395,6 +395,61 @@ public class ObservationQueryBuilderTests
     }
 
     // ---------------------------------------------------------------------
+    // Artsbestemmelse
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_UncertainIdentification_SplitsOnDenormalisedColumn(bool uncertain, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var usikker = CreateObservation(1);
+        var sikker = CreateObservation(2);
+
+        // true = USIKKER artsbestemmelse. Fravær av taggen er «sikker», slik gamle
+        // Artskart tolket det. Taggen legges inn ved siden av kolonnen, som i
+        // testene over.
+        usikker.UncertainIdentification = true;
+
+        SeedObservationsWithTags(context,
+            (usikker, [(int)TagEnum.UnsureIdentification]),
+            (sikker, [(int)TagEnum.Validated]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { UncertainIdentification = uncertain });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Opprinnelse
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_Introduced_SplitsOnDenormalisedColumn(bool introduced, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var innfoert = CreateObservation(1);
+        var naturlig = CreateObservation(2);
+
+        // true = INNFØRT. Kolonnen heter ikke det samme som taggen (Unspontaneus),
+        // fordi taggnavnet er feilstavet; testen viser koblingen eksplisitt.
+        innfoert.Introduced = true;
+
+        SeedObservationsWithTags(context,
+            (innfoert, [(int)TagEnum.Unspontaneus]),
+            (naturlig, [(int)TagEnum.Validated]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { Introduced = introduced });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
     // Paritet mot søket
     // ---------------------------------------------------------------------
 
@@ -474,6 +529,10 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
+        // Observasjonen har ingen tagger — altså sikker artsbestemmelse.
+        [nameof(IObservationFilter.UncertainIdentification)] = f => f.UncertainIdentification = true,
+        // Observasjonen har ingen tagger — altså naturlig forekomst.
+        [nameof(IObservationFilter.Introduced)] = f => f.Introduced = true,
     };
 
     /// <summary>

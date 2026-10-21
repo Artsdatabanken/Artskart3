@@ -108,6 +108,14 @@ $dims = @(
         New-PerfTier -Key 'sensitivitet:lett' -Role 'lett' -Label 'sensitive funn'      -Filter @{ sensitive = $true }
         New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }
     )),
+    (New-PerfDimension -Name 'artsbestemmelse' -Tiers @(
+        New-PerfTier -Key 'artsbestemmelse:lett' -Role 'lett' -Label 'usikker artsbestemmelse' -Filter @{ uncertainIdentification = $true }
+        New-PerfTier -Key 'artsbestemmelse:tung' -Role 'tung' -Label 'sikker artsbestemmelse'  -Filter @{ uncertainIdentification = $false }
+    )),
+    (New-PerfDimension -Name 'opprinnelse' -Tiers @(
+        New-PerfTier -Key 'opprinnelse:lett' -Role 'lett' -Label 'innfoert forekomst' -Filter @{ introduced = $true }
+        New-PerfTier -Key 'opprinnelse:tung' -Role 'tung' -Label 'naturlig forekomst' -Filter @{ introduced = $false }
+    )),
     (New-PerfDimension -Name 'periode' -Tiers @(
         New-PerfTier -Key 'periode:tung' -Role 'tung' -Label '1970-2026' -Filter @{ period = @{ from = 1970; to = 2026 } }
         New-PerfTier -Key 'periode:lett' -Role 'lett' -Label '2023-2024' -Filter @{ period = @{ from = 2023; to = 2024 } }

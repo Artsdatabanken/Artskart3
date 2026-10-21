@@ -659,15 +659,45 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.ChangedByAnnotation).HasDefaultValue(false);
             entity.Property(e => e.Sensitive).HasDefaultValue(false);
 
+            // INCLUDE som på RegistrationStatusRare, og av samme grunn: det er de tre
+            // filterkolonnene som IKKE har egen (kolonne, DateTimeCollected)-indeks.
+            // Uten dem seeker indeksen riktig, men må slå opp i klyngeindeksen per rad
+            // så snart filteret også nevner atferd, bilder eller koordpresisjon.
+            //
+            // Målt uten INCLUDE, listevisningen: annotering:lett + atferd:lett tok
+            // 1 908 ms, og atferd:lett + koordpresisjon:lett + opprinnelse:lett 539 ms,
+            // mot en median på 22 ms for endepunktet ellers.
             entity.HasIndex(e => new { e.ChangedByAnnotation, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_ChangedByAnnotation")
                 .IsDescending(false, true, true)
-                .HasFilter("[ChangedByAnnotation] = 1");
+                .HasFilter("[ChangedByAnnotation] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
             entity.HasIndex(e => new { e.Sensitive, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_Sensitive")
                 .IsDescending(false, true, true)
-                .HasFilter("[Sensitive] = 1");
+                .HasFilter("[Sensitive] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            // Artsbestemmelse og opprinnelse — samme mønster. Skannedybden for side 1
+            // målt på 61M rader: UnsureIdentification 708 863, Unspontaneus 24 130.
+            // Opprinnelse ville trolig klart seg uten indeks, men får den likevel:
+            // alternativet er at ett av de fire taggfiltrene bruker en annen
+            // mekanisme enn de tre andre, og fordelingen kan endre seg med import.
+            entity.Property(e => e.UncertainIdentification).HasDefaultValue(false);
+            entity.Property(e => e.Introduced).HasDefaultValue(false);
+
+            entity.HasIndex(e => new { e.UncertainIdentification, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_UncertainIdentification")
+                .IsDescending(false, true, true)
+                .HasFilter("[UncertainIdentification] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            entity.HasIndex(e => new { e.Introduced, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_Introduced")
+                .IsDescending(false, true, true)
+                .HasFilter("[Introduced] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
@@ -1190,13 +1220,13 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
         // -------------------------------------------------------------------
         modelBuilder.Entity<AreaCountCacheLevel1>(entity =>
         {
-            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.EntityTypeId, e.EntityId });
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.EntityTypeId, e.EntityId, e.Mask });
             entity.ToTable("AreaCountCacheLevel1");
         });
 
         modelBuilder.Entity<AreaCountCacheLevel2>(entity =>
         {
-            entity.HasKey(e => new { e.DimensionPairId, e.BucketA, e.BucketB, e.EntityTypeId, e.EntityId });
+            entity.HasKey(e => new { e.DimensionPairId, e.BucketA, e.BucketB, e.EntityTypeId, e.EntityId, e.Mask });
             entity.ToTable("AreaCountCacheLevel2");
         });
 
@@ -1234,7 +1264,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
         // -------------------------------------------------------------------
         modelBuilder.Entity<LocationCountCacheLevel1>(entity =>
         {
-            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.East, e.North, e.LocationId });
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.East, e.North, e.LocationId, e.Mask });
             entity.ToTable("LocationCountCacheLevel1");
         });
 

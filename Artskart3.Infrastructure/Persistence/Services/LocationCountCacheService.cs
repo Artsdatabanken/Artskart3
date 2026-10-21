@@ -96,7 +96,7 @@ public class LocationCountCacheService : ILocationCountCacheService
         if (dimensjon is null)
             return await BekreftTilstandAsync(tilstand!, stateId, cancellationToken) ? [] : null;
 
-        var resultat = await LookupAsync(dimensjon, filter.Envelope, maxResults, cancellationToken);
+        var resultat = await LookupAsync(dimensjon, FilterMask.Select(filter), filter.Envelope, maxResults, cancellationToken);
 
         return await BekreftTilstandAsync(tilstand!, stateId, cancellationToken) ? resultat : null;
     }
@@ -163,17 +163,6 @@ public class LocationCountCacheService : ILocationCountCacheService
         // endelig vokabular å bøtte på. Den trenger det heller ikke — filteret er
         // et seek på klyngeindeksen og er den raskeste stien vi har.
         if (filter.ObservationIds?.Length > 0)
-            return (false, null, null);
-
-        // Annotering og sensitivitet er ikke dimensjoner i bufferen. Kolonnene
-        // finnes på ObservationEntityIndex, men bufferen bygges fra #dim-listene
-        // i byggeskriptene, og der er de ikke med. Uten denne vakta ville
-        // bufferen aldri konsultert dem og svart for høyt.
-        //
-        // Skal de inn, må AreaCountCacheDimensions, SchemaVersion og #dim-listene
-        // i BuildAreaCountCache.sql og BuildLocationCountCache.sql endres i takt,
-        // og begge bufferne bygges på nytt.
-        if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue)
             return (false, null, null);
 
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
@@ -366,7 +355,8 @@ public class LocationCountCacheService : ILocationCountCacheService
     /// radene som faktisk returneres, akkurat som i tellestien.
     /// </summary>
     private async Task<List<LocationModel>> LookupAsync(
-        ResolvedDimension dimension, EnvelopeDto? envelope, int maxResults, CancellationToken cancellationToken)
+        ResolvedDimension dimension, FilterMask.Selection maske, EnvelopeDto? envelope, int maxResults,
+        CancellationToken cancellationToken)
     {
         var dimensionId = dimension.DimensionId;
         var query = _context.Set<LocationCountCacheLevel1>()
@@ -397,6 +387,15 @@ public class LocationCountCacheService : ILocationCountCacheService
                 var monthValues = months.ToArray();
                 query = query.Where(r => monthValues.Contains(r.BucketId % 100));
             }
+        }
+
+        // Maskepredikatet. Er ingen bool satt, legges ingenting til, og cellens
+        // masker summeres av grupperingen under.
+        if (maske.IsActive)
+        {
+            var care = maske.Care;
+            var want = maske.Want;
+            query = query.Where(r => (r.Mask & care) == want);
         }
 
         // Samme avkorting til int som ApplyEnvelopeFilterToEntityIndex. Formen må

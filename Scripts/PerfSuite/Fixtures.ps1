@@ -484,6 +484,20 @@ function New-PerfFixtures {
         New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }
     )))
 
+    # Artsbestemmelse og opprinnelse. Skannedybden for side 1 skilte dem foer
+    # kolonnene kom: 708 863 rader for usikker bestemmelse mot 24 130 for innfoert,
+    # mot 1 504 153 for annotering. Opprinnelse er rask fordi dataene er ferske,
+    # ikke fordi de er faa - derfor maales begge retninger her ogsaa.
+    $dimensions.Add((New-PerfDimension -Name 'artsbestemmelse' -Tiers @(
+        New-PerfTier -Key 'artsbestemmelse:lett' -Role 'lett' -Label 'usikker artsbestemmelse' -Filter @{ uncertainIdentification = $true }
+        New-PerfTier -Key 'artsbestemmelse:tung' -Role 'tung' -Label 'sikker artsbestemmelse'  -Filter @{ uncertainIdentification = $false }
+    )))
+
+    $dimensions.Add((New-PerfDimension -Name 'opprinnelse' -Tiers @(
+        New-PerfTier -Key 'opprinnelse:lett' -Role 'lett' -Label 'innfoert forekomst'  -Filter @{ introduced = $true }
+        New-PerfTier -Key 'opprinnelse:tung' -Role 'tung' -Label 'naturlig forekomst'  -Filter @{ introduced = $false }
+    )))
+
     $dimensions.Add((New-PerfDimension -Name 'periode' -Tiers @(
         New-PerfTier -Key 'periode:tung'  -Role 'tung'  -Label '1970-2026'    -Filter @{ period = @{ from = 1970; to = 2026 } }
         New-PerfTier -Key 'periode:lett'  -Role 'lett'  -Label '2023-2024'    -Filter @{ period = @{ from = 2023; to = 2024 } }

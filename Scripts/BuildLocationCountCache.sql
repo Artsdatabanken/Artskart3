@@ -50,7 +50,7 @@ DROP TABLE IF EXISTS #dim, #vern, #vernsig, #vernbucket, #proj, #projsig, #projb
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 1194527040;
+DECLARE @SchemaVersion INT = 306158581;
 
 DECLARE @NullBucket INT = -2147483648;   -- int.MinValue
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
@@ -76,7 +76,6 @@ DECLARE @T DATETIME2, @Msg NVARCHAR(400), @Rows BIGINT;
 CREATE TABLE #dim (Id TINYINT PRIMARY KEY, Navn VARCHAR(40), Uttrykk NVARCHAR(200));
 INSERT #dim VALUES
  (0,  'Ufiltrert',      N'0'),
- (1,  'Bilder',         N'CASE WHEN i.HasMediaFiles = 1 THEN 1 ELSE 0 END'),
  (2,  'Regstatus',      N'CAST(i.RegistrationStatusId AS INT)'),
  (3,  'Atferd',         N'ISNULL(CAST(i.BehaviorId AS INT), -2147483648)'),
  (4,  'Funntype',       N'i.BasisOfRecordId'),
@@ -355,16 +354,16 @@ BEGIN
     SET @Join = CASE WHEN @Id = 12 THEN @JoinVern WHEN @Id = 13 THEN @JoinProj ELSE N'' END;
 
     SET @Sql = N'
-INSERT dbo.LocationCountCacheLevel1 (DimensionId, BucketId, LocationId, East, North, ObservationCount)
-SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North, COUNT(DISTINCT q.ObservationId)
+INSERT dbo.LocationCountCacheLevel1 (DimensionId, BucketId, LocationId, East, North, Mask, ObservationCount)
+SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North, q.Mask, COUNT(DISTINCT q.ObservationId)
 FROM (
-    SELECT DISTINCT i.ObservationId, i.LocationId, ' + @Uttrykk + N' AS Bucket
+    SELECT DISTINCT i.ObservationId, i.LocationId, ' + @Uttrykk + N' AS Bucket, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 AS Mask
     FROM dbo.ObservationEntityIndex i' + @Join + N'
     WHERE i.LocationId IS NOT NULL
 ) q
 JOIN dbo.Location l ON l.Id = q.LocationId
 WHERE q.Bucket <> -2147483648
-GROUP BY q.Bucket, q.LocationId, l.East, l.North
+GROUP BY q.Bucket, q.LocationId, l.East, l.North, q.Mask
 OPTION (RECOMPILE);';
     EXEC sp_executesql @Sql;
     SET @Rows = @@ROWCOUNT;

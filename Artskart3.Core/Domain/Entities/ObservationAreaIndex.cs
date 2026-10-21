@@ -79,4 +79,10 @@ public class ObservationEntityIndex
 
     /// <summary>Denormalisert fra taggen Sensitive. Se <see cref="ChangedByAnnotation"/>.</summary>
     public bool Sensitive { get; set; }
+
+    /// <summary>Denormalisert fra taggen UnsureIdentification. Se <see cref="ChangedByAnnotation"/>.</summary>
+    public bool UncertainIdentification { get; set; }
+
+    /// <summary>Denormalisert fra taggen Unspontaneus. Se <see cref="ChangedByAnnotation"/>.</summary>
+    public bool Introduced { get; set; }
 }

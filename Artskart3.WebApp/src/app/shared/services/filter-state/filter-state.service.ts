@@ -4,6 +4,18 @@ export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
 export type AnnotationFilterOption = 'all' | 'changed' | 'notChanged';
 export type SensitiveFilterOption = 'all' | 'sensitive' | 'notSensitive';
 
+/**
+ * Artsbestemmelse og opprinnelse. Backend og filterbyggingen støtter begge;
+ * sidebaren har ennå ingen kontroll som setter dem, så de står alltid på 'all'
+ * inntil den kobles på.
+ *
+ * Polariteten følger taggene, slik gamle Artskart tolket dem: 'uncertain' er
+ * funn merket med UnsureIdentification, og 'certain' er fravær av den taggen.
+ * Tilsvarende er 'introduced' taggen Unspontaneus, og 'natural' fravær av den.
+ */
+export type IdentificationFilterOption = 'all' | 'uncertain' | 'certain';
+export type OriginFilterOption = 'all' | 'introduced' | 'natural';
+
 /** A filter value picked by searching. The name is only for display; the id is what gets sent. */
 export interface NamedId {
   id: number;
@@ -46,6 +58,32 @@ export function sensitiveToSensitiveFilter(sensitive: boolean | null | undefined
   return 'all';
 }
 
+export function identificationFilterToUncertainIdentification(option: IdentificationFilterOption): boolean | undefined {
+  if (option === 'uncertain') return true;
+  if (option === 'certain') return false;
+  return undefined;
+}
+
+export function uncertainIdentificationToIdentificationFilter(
+  uncertainIdentification: boolean | null | undefined,
+): IdentificationFilterOption {
+  if (uncertainIdentification === true) return 'uncertain';
+  if (uncertainIdentification === false) return 'certain';
+  return 'all';
+}
+
+export function originFilterToIntroduced(option: OriginFilterOption): boolean | undefined {
+  if (option === 'introduced') return true;
+  if (option === 'natural') return false;
+  return undefined;
+}
+
+export function introducedToOriginFilter(introduced: boolean | null | undefined): OriginFilterOption {
+  if (introduced === true) return 'introduced';
+  if (introduced === false) return 'natural';
+  return 'all';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -75,6 +113,8 @@ export class FilterStateService {
   readonly imageFilter = signal<ImageFilterOption>('all');
   readonly annotationFilter = signal<AnnotationFilterOption>('all');
   readonly sensitiveFilter = signal<SensitiveFilterOption>('all');
+  readonly identificationFilter = signal<IdentificationFilterOption>('all');
+  readonly originFilter = signal<OriginFilterOption>('all');
   readonly selectedMonths = signal<number[]>([]);
 
   toggleCategory(id: number): void {
@@ -329,6 +369,14 @@ export class FilterStateService {
     this.sensitiveFilter.set(value);
   }
 
+  setIdentificationFilter(value: IdentificationFilterOption): void {
+    this.identificationFilter.set(value);
+  }
+
+  setOriginFilter(value: OriginFilterOption): void {
+    this.originFilter.set(value);
+  }
+
   clearOtherFindProperties(): void {
     this.selectedProjects.set([]);
     this.selectedDatasets.set([]);
@@ -337,6 +385,8 @@ export class FilterStateService {
     this.imageFilter.set('all');
     this.annotationFilter.set('all');
     this.sensitiveFilter.set('all');
+    this.identificationFilter.set('all');
+    this.originFilter.set('all');
   }
 
   clearAll(): void {

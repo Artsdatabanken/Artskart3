@@ -52,4 +52,16 @@ public interface IObservationFilter
     /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.
     /// </summary>
     bool? Sensitive { get; }
+
+    /// <summary>
+    /// Taggen UnsureIdentification. true = usikker artsbestemmelse; false = sikker,
+    /// altså fravær av taggen. Ikke det samme som taggen Validated.
+    /// </summary>
+    bool? UncertainIdentification { get; }
+
+    /// <summary>
+    /// Taggen Unspontaneus. true = innført forekomst; false = naturlig, altså fravær
+    /// av taggen. Navnet følger domenet fordi taggnavnet er feilstavet.
+    /// </summary>
+    bool? Introduced { get; }
 }

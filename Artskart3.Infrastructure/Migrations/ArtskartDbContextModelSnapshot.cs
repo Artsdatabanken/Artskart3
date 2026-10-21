@@ -144,10 +144,13 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
                     b.Property<int>("ObservationCount")
                         .HasColumnType("int");
 
-                    b.HasKey("DimensionId", "BucketId", "EntityTypeId", "EntityId");
+                    b.HasKey("DimensionId", "BucketId", "EntityTypeId", "EntityId", "Mask");
 
                     b.ToTable("AreaCountCacheLevel1", (string)null);
                 });
@@ -169,10 +172,13 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
                     b.Property<int>("ObservationCount")
                         .HasColumnType("int");
 
-                    b.HasKey("DimensionPairId", "BucketA", "BucketB", "EntityTypeId", "EntityId");
+                    b.HasKey("DimensionPairId", "BucketA", "BucketB", "EntityTypeId", "EntityId", "Mask");
 
                     b.ToTable("AreaCountCacheLevel2", (string)null);
                 });
@@ -1011,10 +1017,13 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
                     b.Property<int>("ObservationCount")
                         .HasColumnType("int");
 
-                    b.HasKey("DimensionId", "BucketId", "East", "North", "LocationId");
+                    b.HasKey("DimensionId", "BucketId", "East", "North", "LocationId", "Mask");
 
                     b.ToTable("LocationCountCacheLevel1", (string)null);
                 });
@@ -1396,6 +1405,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("Introduced")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1452,6 +1466,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("TaxonId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("UncertainIdentification")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1475,6 +1494,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasDatabaseName("IX_Observation_ChangedByAnnotation")
                         .HasFilter("[ChangedByAnnotation] = 1");
 
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ChangedByAnnotation", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
+
+                    b.HasIndex("Introduced", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_Introduced")
+                        .HasFilter("[Introduced] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Introduced", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
+
                     b.HasIndex("RegistrationStatusId", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
                         .HasDatabaseName("IX_Observation_RegistrationStatusRare")
@@ -1486,6 +1514,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsDescending(false, true, true)
                         .HasDatabaseName("IX_Observation_Sensitive")
                         .HasFilter("[Sensitive] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Sensitive", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
+
+                    b.HasIndex("UncertainIdentification", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_UncertainIdentification")
+                        .HasFilter("[UncertainIdentification] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UncertainIdentification", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
 
@@ -1692,6 +1729,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("Introduced")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
 
@@ -1712,6 +1752,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<int>("TaxonGroupId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("UncertainIdentification")
+                        .HasColumnType("bit");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 

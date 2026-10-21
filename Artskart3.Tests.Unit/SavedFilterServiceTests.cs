@@ -227,6 +227,8 @@ public class SavedFilterServiceTests
               "WithImages": true,
               "ChangedByAnnotation": true,
               "Sensitive": true,
+              "UncertainIdentification": true,
+              "Introduced": true,
               "PageNumber": null,
               "ResultsPerPage": null,
               "IsPaginated": false
@@ -274,6 +276,8 @@ public class SavedFilterServiceTests
         WithImages = true,
         ChangedByAnnotation = true,
         Sensitive = true,
+        UncertainIdentification = true,
+        Introduced = true,
     };
 
     private static IEnumerable<string> UnsetProperties(object dto, string prefix = "")

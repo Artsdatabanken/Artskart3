@@ -73,17 +73,6 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return null;
 
-        // Annotering og sensitivitet er ikke dimensjoner i bufferen. Kolonnene
-        // finnes på ObservationEntityIndex, men bufferen bygges fra #dim-listene
-        // i byggeskriptene, og der er de ikke med. Uten denne vakta ville
-        // bufferen aldri konsultert dem og svart for høyt.
-        //
-        // Skal de inn, må AreaCountCacheDimensions, SchemaVersion og #dim-listene
-        // i BuildAreaCountCache.sql og BuildLocationCountCache.sql endres i takt,
-        // og begge bufferne bygges på nytt.
-        if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue)
-            return null;
-
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
         var active = new List<(CacheDimension Dimension, BucketSelection Buckets)>();
 
@@ -101,10 +90,19 @@ public class AreaCountCacheService : IAreaCountCacheService
                 active.Add((dimension, selection.Buckets!));
         }
 
-        // Null dimensjoner havner ikke her — ComputeFilteredAreaCounts kalles bare når
-        // HasObservationAttributeFilters er sann. Tre eller flere dekkes ikke: det ville
-        // krevd et tredje nivå, og kombinatorikken sprekker.
-        if (active.Count is 0 or > 2)
+        var maske = FilterMask.Select(filter);
+
+        // Tre eller flere dimensjoner dekkes ikke: det ville krevd et tredje nivå, og
+        // kombinatorikken sprekker.
+        //
+        // Null dimensjoner er derimot et GYLDIG oppslag nå — bool-filtrene ligger i
+        // masken og teller ikke som dimensjoner, så «bare sensitiv» er null
+        // dimensjoner pluss et maskeutvalg. Uten maske og uten dimensjoner er det
+        // ingenting å slå opp.
+        if (active.Count > 2)
+            return null;
+
+        if (active.Count == 0 && !maske.IsActive)
             return null;
 
         if (active.Count == 2 && !_options.EnableLevel2)
@@ -163,9 +161,12 @@ public class AreaCountCacheService : IAreaCountCacheService
         // Dimensjonene kommer i id-rekkefølge fordi AreaCountCacheDimensions.All er
         // deklarert slik. Pargruppe-id-en sorterer også, så BucketA hører alltid til
         // den laveste id-en.
-        var resultat = resolved.Count == 1
-            ? await LookupLevel1Async(resolved[0], entityTypeIds, entityIds, cancellationToken)
-            : await LookupLevel2Async(resolved[0], resolved[1], entityTypeIds, entityIds, cancellationToken);
+        var resultat = resolved.Count switch
+        {
+            0 => await LookupMaskOnlyAsync(maske, entityTypeIds, entityIds, cancellationToken),
+            1 => await LookupLevel1Async(resolved[0], maske, entityTypeIds, entityIds, cancellationToken),
+            _ => await LookupLevel2Async(resolved[0], resolved[1], maske, entityTypeIds, entityIds, cancellationToken),
+        };
 
         return await BekreftTilstandAsync(tilstand, cancellationToken) ? resultat : null;
     }
@@ -343,8 +344,52 @@ public class AreaCountCacheService : IAreaCountCacheService
         return null;
     }
 
+    /// <summary>
+    /// Totalen per område, filtrert bare på masken.
+    ///
+    /// Leser nivå 1 for Regstatus og summerer over alle bøttene. Det gir riktig total
+    /// fordi RegistrationStatusId er NOT NULL og enkeltverdi: hver indeksrad ligger i
+    /// nøyaktig én bøtte, så summen er antallet rader. En flerverdi-dimensjon som
+    /// geografi ville dobbelttalt.
+    /// </summary>
+    private async Task<Dictionary<(int EntityTypeId, int EntityId), int>> LookupMaskOnlyAsync(
+        FilterMask.Selection maske, int[] entityTypeIds, int[]? entityIds, CancellationToken cancellationToken)
+    {
+        const byte regstatus = 2;
+        var query = _context.Set<AreaCountCacheLevel1>()
+            .AsNoTracking()
+            .Where(r => r.DimensionId == regstatus);
+
+        query = FiltrerPaaMaske(query, maske);
+        query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
+        if (entityIds is not null)
+            query = query.Where(r => entityIds.Contains(r.EntityId));
+
+        var rows = await query
+            .GroupBy(r => new { r.EntityTypeId, r.EntityId })
+            .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Sum(r => r.ObservationCount) })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => (r.EntityTypeId, r.EntityId), r => r.Count);
+    }
+
+    /// <summary>
+    /// Maskepredikatet. Er ingen bool satt, legges ingenting til, og cellens masker
+    /// summeres av GroupBy-en som følger.
+    /// </summary>
+    private static IQueryable<T> FiltrerPaaMaske<T>(IQueryable<T> query, FilterMask.Selection maske)
+        where T : class, IHarFilterMaske
+    {
+        if (!maske.IsActive) return query;
+
+        var care = maske.Care;
+        var want = maske.Want;
+        return query.Where(r => (r.Mask & care) == want);
+    }
+
     private async Task<Dictionary<(int EntityTypeId, int EntityId), int>> LookupLevel1Async(
-        ResolvedDimension dimension, int[] entityTypeIds, int[]? entityIds, CancellationToken cancellationToken)
+        ResolvedDimension dimension, FilterMask.Selection maske, int[] entityTypeIds, int[]? entityIds,
+        CancellationToken cancellationToken)
     {
         var dimensionId = dimension.DimensionId;
         var query = _context.Set<AreaCountCacheLevel1>()
@@ -372,6 +417,7 @@ public class AreaCountCacheService : IAreaCountCacheService
             }
         }
 
+        query = FiltrerPaaMaske(query, maske);
         query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
         if (entityIds is not null)
             query = query.Where(r => entityIds.Contains(r.EntityId));
@@ -385,7 +431,8 @@ public class AreaCountCacheService : IAreaCountCacheService
     }
 
     private async Task<Dictionary<(int EntityTypeId, int EntityId), int>> LookupLevel2Async(
-        ResolvedDimension a, ResolvedDimension b, int[] entityTypeIds, int[]? entityIds, CancellationToken cancellationToken)
+        ResolvedDimension a, ResolvedDimension b, FilterMask.Selection maske,
+        int[] entityTypeIds, int[]? entityIds, CancellationToken cancellationToken)
     {
         var pairId = AreaCountCacheDimensions.GetPairId(a.DimensionId, b.DimensionId);
 
@@ -427,6 +474,7 @@ public class AreaCountCacheService : IAreaCountCacheService
             }
         }
 
+        query = FiltrerPaaMaske(query, maske);
         query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
         if (entityIds is not null)
             query = query.Where(r => entityIds.Contains(r.EntityId));

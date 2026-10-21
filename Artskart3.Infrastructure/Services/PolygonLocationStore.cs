@@ -59,6 +59,10 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private byte[] _regStatus = [];
     private byte[] _behavior = [];          // 0 = ingen
     private bool[] _harBilder = [];
+    private bool[] _annotert = [];
+    private bool[] _sensitiv = [];
+    private bool[] _usikkerBestemmelse = [];
+    private bool[] _innfoert = [];
     private int[] _funntype = [];
     private int[] _kategori = [];           // Ingen = null
     private int[] _institusjon = [];        // Ingen = null
@@ -123,11 +127,6 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     public IReadOnlyList<LocationPolygonDto>? TryQuery(LocationSearchFilterDto filter, int maxResults)
     {
         if (!IsReady) return null;
-
-        // Annotering og sensitivitet er ikke dimensjoner i bufferen, selv om
-        // kolonnene finnes på ObservationEntityIndex. Databasestien som før — å
-        // se bort fra filteret ville gitt for mange polygoner med for høye tall.
-        if (filter.ChangedByAnnotation.HasValue || filter.Sensitive.HasValue) return null;
 
         var p = BuildPredicate(filter);
 
@@ -242,6 +241,18 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public bool HarBilderSatt { get; init; }
         public bool HarBilder { get; init; }
 
+        // Taggfiltrene. Samme «satt»-mønster som HarBilder: false er en gyldig
+        // verdi brukeren kan velge, så nullable ville kostet en unboxing per rad
+        // i en løkke som kjører millioner av ganger.
+        public bool AnnotertSatt { get; init; }
+        public bool Annotert { get; init; }
+        public bool SensitivSatt { get; init; }
+        public bool Sensitiv { get; init; }
+        public bool UsikkerBestemmelseSatt { get; init; }
+        public bool UsikkerBestemmelse { get; init; }
+        public bool InnfoertSatt { get; init; }
+        public bool Innfoert { get; init; }
+
         public int KoordFra { get; init; }           // Ingen = ikke satt
         public int KoordTil { get; init; }
         public long TicksFra { get; init; }          // long.MinValue = ikke satt
@@ -289,6 +300,11 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         }
 
         if (p.HarBilderSatt && _harBilder[i] != p.HarBilder) return false;
+
+        if (p.AnnotertSatt && _annotert[i] != p.Annotert) return false;
+        if (p.SensitivSatt && _sensitiv[i] != p.Sensitiv) return false;
+        if (p.UsikkerBestemmelseSatt && _usikkerBestemmelse[i] != p.UsikkerBestemmelse) return false;
+        if (p.InnfoertSatt && _innfoert[i] != p.Innfoert) return false;
 
         if (p.KoordFra != Ingen)
         {
@@ -444,6 +460,14 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             RegStatus = f.RegistrationStatusId is { } rs and >= 0 and <= 255 ? (byte)rs : (byte)0,
             Datasett = f.DatasetOrgIds?.Length > 0 ? f.DatasetOrgIds.ToHashSet() : null,
             HarBilderSatt = f.WithImages.HasValue,
+            AnnotertSatt = f.ChangedByAnnotation.HasValue,
+            Annotert = f.ChangedByAnnotation ?? false,
+            SensitivSatt = f.Sensitive.HasValue,
+            Sensitiv = f.Sensitive ?? false,
+            UsikkerBestemmelseSatt = f.UncertainIdentification.HasValue,
+            UsikkerBestemmelse = f.UncertainIdentification ?? false,
+            InnfoertSatt = f.Introduced.HasValue,
+            Innfoert = f.Introduced ?? false,
             HarBilder = f.WithImages ?? false,
             KoordFra = f.CoordinatePrecision?.From ?? Ingen,
             KoordTil = f.CoordinatePrecision?.To ?? Ingen,
@@ -662,7 +686,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                    o.BasisOfRecordId, o.InstitutionOrgId, o.DatasetOrgId,
                    o.RegistrationStatusId, o.BehaviorId, o.HasMediaFiles,
                    o.CoordinatePrecisionInMeters, o.DateTimeCollected, o.MonthCollected,
-                   g.BucketId AS GeoBucket, p.BucketId AS ProjBucket
+                   g.BucketId AS GeoBucket, p.BucketId AS ProjBucket,
+                   o.ChangedByAnnotation, o.Sensitive, o.UncertainIdentification, o.Introduced
             FROM dbo.Observation o
             JOIN dbo.Location l ON l.Id = o.LocationId
             LEFT JOIN #geo g ON g.ObservationId = o.Id
@@ -749,6 +774,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _institusjon = new int[n]; _taksongruppe = new int[n]; _datasett = new int[n];
         _koordpresisjon = new int[n]; _samletTicks = new long[n]; _maaned = new byte[n];
         _taksonIdx = new int[n]; _geoBucketIdx = new int[n]; _projBucketIdx = new int[n];
+        _annotert = new bool[n]; _sensitiv = new bool[n];
+        _usikkerBestemmelse = new bool[n]; _innfoert = new bool[n];
 
         var teller = new int[_locId.Length + 1];
 
@@ -802,6 +829,10 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 _maaned[i] = leser.IsDBNull(13) ? (byte)0 : (byte)leser.GetInt32(13);
                 _geoBucketIdx[i] = leser.IsDBNull(14) ? Ingen : _geoTett[leser.GetInt32(14)];
                 _projBucketIdx[i] = leser.IsDBNull(15) ? Ingen : _projTett[leser.GetInt32(15)];
+                _annotert[i] = leser.GetBoolean(16);
+                _sensitiv[i] = leser.GetBoolean(17);
+                _usikkerBestemmelse[i] = leser.GetBoolean(18);
+                _innfoert[i] = leser.GetBoolean(19);
                 i++;
             }
         }
@@ -847,6 +878,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         Array.Resize(ref _samletTicks, stoerrelse); Array.Resize(ref _maaned, stoerrelse);
         Array.Resize(ref _taksonIdx, stoerrelse); Array.Resize(ref _geoBucketIdx, stoerrelse);
         Array.Resize(ref _projBucketIdx, stoerrelse);
+        Array.Resize(ref _annotert, stoerrelse); Array.Resize(ref _sensitiv, stoerrelse);
+        Array.Resize(ref _usikkerBestemmelse, stoerrelse); Array.Resize(ref _innfoert, stoerrelse);
     }
 
     private static SqlConnection NyTilkobling(IArtsKartDbContext context) =>

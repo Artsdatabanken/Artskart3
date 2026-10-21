@@ -40,6 +40,10 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public bool? Sensitive { get; set; }
 
+    public bool? UncertainIdentification { get; set; }
+
+    public bool? Introduced { get; set; }
+
     /// <summary>
     /// Returnerer true dersom minst ett søkefilter er satt (ekskluderer Envelope, Epsg, MaxResults).
     /// </summary>
@@ -65,7 +69,9 @@ public class LocationSearchFilterDto : IObservationFilter
         ObservationIds?.Length > 0 ||
         WithImages != null ||
         ChangedByAnnotation != null ||
-        Sensitive != null;
+        Sensitive != null ||
+        UncertainIdentification != null ||
+        Introduced != null;
 
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
@@ -92,7 +98,9 @@ public class LocationSearchFilterDto : IObservationFilter
         ObservationIds?.Length > 0 ||
         WithImages != null ||
         ChangedByAnnotation != null ||
-        Sensitive != null;
+        Sensitive != null ||
+        UncertainIdentification != null ||
+        Introduced != null;
 
     /// <summary>
     /// EPSG code for coordinate system (default: 25833)

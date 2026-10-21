@@ -767,6 +767,16 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         AssertAreaCountsSplitOnTagAsync(983000, TagEnum.Sensitive,
             hasTag => new LocationSearchFilterDto { Sensitive = hasTag });
 
+    [Fact]
+    public Task GetAreaCountsAsync_UncertainIdentificationFilter_SplitsOnUnsureIdentificationTag() =>
+        AssertAreaCountsSplitOnTagAsync(984000, TagEnum.UnsureIdentification,
+            hasTag => new LocationSearchFilterDto { UncertainIdentification = hasTag });
+
+    [Fact]
+    public Task GetAreaCountsAsync_IntroducedFilter_SplitsOnUnspontaneusTag() =>
+        AssertAreaCountsSplitOnTagAsync(985000, TagEnum.Unspontaneus,
+            hasTag => new LocationSearchFilterDto { Introduced = hasTag });
+
     private async Task AssertAreaCountsSplitOnTagAsync(
         int untaggedObservationId, TagEnum tag, Func<bool, LocationSearchFilterDto> filterOnTag)
     {
@@ -788,7 +798,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         SeedArea(areaFid, $"{tag} test kommune");
         SeedIndexRow(taggedObservationId, areaEntityId,
             changedByAnnotation: tag == TagEnum.AnnotatedChanges,
-            sensitive: tag == TagEnum.Sensitive);
+            sensitive: tag == TagEnum.Sensitive,
+            uncertainIdentification: tag == TagEnum.UnsureIdentification,
+            introduced: tag == TagEnum.Unspontaneus);
         SeedIndexRow(untaggedObservationId, areaEntityId);
         ObservationTags().Add(new Dictionary<string, object>
         {
@@ -841,7 +853,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         int? datasetOrgId = null,
         byte? behaviorId = null,
         bool changedByAnnotation = false,
-        bool sensitive = false) =>
+        bool sensitive = false,
+        bool uncertainIdentification = false,
+        bool introduced = false) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
             ObservationId = observationId,
@@ -855,6 +869,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             BehaviorId = behaviorId,
             ChangedByAnnotation = changedByAnnotation,
             Sensitive = sensitive,
+            UncertainIdentification = uncertainIdentification,
+            Introduced = introduced,
         });
 
     /// <summary>

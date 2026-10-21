@@ -39,4 +39,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public bool? ChangedByAnnotation { get; set; }
 
     public bool? Sensitive { get; set; }
+
+    public bool? UncertainIdentification { get; set; }
+
+    public bool? Introduced { get; set; }
 }

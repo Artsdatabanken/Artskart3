@@ -218,6 +218,8 @@ describe('SearchFilterService.applyFilter', () => {
       withImages: true,
       changedByAnnotation: true,
       sensitive: false,
+      uncertainIdentification: true,
+      introduced: false,
     };
 
     await service.applyFilter(sample);

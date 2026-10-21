@@ -46,7 +46,6 @@ public class AreaCountCacheDimensionsTests
         AreaCountCacheDimensions.All.ToDictionary(d => d.Id, d => d.Name)
             .Should().Equal(new Dictionary<byte, string>
             {
-                [1] = "Bilder",
                 [2] = "Regstatus",
                 [3] = "Atferd",
                 [4] = "Funntype",
@@ -63,9 +62,9 @@ public class AreaCountCacheDimensionsTests
     }
 
     [Fact]
-    public void Tretten_dimensjoner_gir_syttiatte_par()
+    public void Tolv_dimensjoner_gir_sekstiseks_par()
     {
-        AreaCountCacheDimensions.PairCount.Should().Be(78);
+        AreaCountCacheDimensions.PairCount.Should().Be(66);
     }
 
     [Fact]
@@ -75,15 +74,15 @@ public class AreaCountCacheDimensionsTests
     }
 
     [Fact]
-    public void Pargruppe_idene_er_unike_og_dekker_en_til_syttiatte()
+    public void Pargruppe_idene_er_unike_og_dekker_en_til_sekstiseks()
     {
         var ids = AreaCountCacheDimensions.All;
         var pairIds = (from a in ids from b in ids where a.Id < b.Id
                        select AreaCountCacheDimensions.GetPairId(a.Id, b.Id)).ToArray();
 
-        pairIds.Should().HaveCount(78);
-        pairIds.Distinct().Should().HaveCount(78);
-        pairIds.Should().OnlyContain(id => id >= 1 && id <= 78);
+        pairIds.Should().HaveCount(66);
+        pairIds.Distinct().Should().HaveCount(66);
+        pairIds.Should().OnlyContain(id => id >= 1 && id <= 66);
     }
 
     [Fact]
@@ -96,7 +95,7 @@ public class AreaCountCacheDimensionsTests
         // må bufferen bygges på nytt OG @SchemaVersion i Scripts/BuildAreaCountCache.sql
         // oppdateres. Uten det vil en nybygget buffer bli ignorert uten at noen skjønner
         // hvorfor — den feiler stille, bare tregt.
-        AreaCountCacheDimensions.SchemaVersion.Should().Be(1194527040);
+        AreaCountCacheDimensions.SchemaVersion.Should().Be(306158581);
     }
 
     // -----------------------------------------------------------------------
@@ -117,29 +116,36 @@ public class AreaCountCacheDimensionsTests
         // Katalognummer: ObservationIds er en vilkårlig liste uten endelig vokabular å
         // bøtte på, og trenger det ikke — id-ene er allerede slått opp, så filteret er
         // et seek.
-        //
-        // Annotering og sensitivitet: kolonnene finnes både på Observation og på
-        // ObservationEntityIndex, men de er ikke dimensjoner i bufferen — #dim-listene
-        // i byggeskriptene har dem ikke. Blir de dimensjoner, flyttes de ned i
-        // dekketAvDimensjon og vaktene i de tre tjenestene kan fjernes.
-        string[] bevisstUtenfor = ["ObservationIds", "ChangedByAnnotation", "Sensitive"];
+        string[] bevisstUtenfor = ["ObservationIds"];
+
+        // Bool-filtrene er ikke dimensjoner, men bit i FilterMask — en tredje nøkkel
+        // på hver bufferrad. De koster derfor ingen dimensjonsplass, og to vanlige
+        // filtre pluss hvilken som helst kombinasjon av disse besvares fortsatt fra
+        // bufferen. Et nytt bool-filter hører hjemme her, ikke som egen dimensjon.
+        string[] dekketAvMasken =
+            ["WithImages", "ChangedByAnnotation", "Sensitive", "UncertainIdentification", "Introduced"];
 
         // Fire av disse hører til samme dimensjon: Geografi. Semi-joinen ORer kommune,
         // fylke, Svalbard, verneområde og havområde sammen, så de ER ett filter.
         string[] dekketAvDimensjon =
         [
-            "WithImages", "RegistrationStatusId", "BehaviorIds", "BasisOfRecordIds", "CategoryIds",
+            "RegistrationStatusId", "BehaviorIds", "BasisOfRecordIds", "CategoryIds",
             "OrganizationIds", "TaxonGroupIds", "TaxonIds", "DatasetOrgIds", "Period",
             "CoordinatePrecision", "ProjectOrgIds",
             "MunicipalityIds", "CountyIds", "OceanAreaIds", "RestrictedAreaIds",
         ];
 
+        // Masken må dekke nøyaktig de fem bitene, ellers er et filter stille utelatt
+        // fra bøttingen selv om det står i lista over.
+        dekketAvMasken.Should().HaveCount(5,
+            "FilterMask har fem bit, og hvert av dem må svare til ett filterfelt");
+
         typeof(LocationSearchFilterDto)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(p => p.Name)
-            .Should().BeEquivalentTo([.. ikkeFilter, .. bevisstUtenfor, .. dekketAvDimensjon],
-                "et nytt filter må enten bli en dimensjon eller føres opp som bevisst utenfor — " +
-                "ellers ville bufferen svart som om filteret ikke var satt");
+            .Should().BeEquivalentTo([.. ikkeFilter, .. bevisstUtenfor, .. dekketAvMasken, .. dekketAvDimensjon],
+                "et nytt filter må bli en dimensjon, et maskebit, eller føres opp som bevisst " +
+                "utenfor — ellers ville bufferen svart som om filteret ikke var satt");
     }
 
     // -----------------------------------------------------------------------
@@ -155,10 +161,56 @@ public class AreaCountCacheDimensionsTests
     }
 
     [Fact]
-    public void Bilder_blir_null_eller_en()
+    public void Tomt_filter_gir_inaktiv_maske()
     {
-        Values(Select("Bilder", new LocationSearchFilterDto { WithImages = true })).Should().Equal(1);
-        Values(Select("Bilder", new LocationSearchFilterDto { WithImages = false })).Should().Equal(0);
+        // Ingen bool satt betyr at maskepredikatet utelates helt og cellens masker
+        // summeres. Var den aktiv med Care = 0, ville (Mask & 0) == 0 vært sant for
+        // alt — samme svar, men et unødvendig restledd på hver rad.
+        FilterMask.Select(new LocationSearchFilterDto()).IsActive.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true, FilterMask.HasMediaFiles)]
+    [InlineData(false, 0)]
+    public void Bilder_setter_sitt_bit_i_masken(bool withImages, int forventetWant)
+    {
+        var maske = FilterMask.Select(new LocationSearchFilterDto { WithImages = withImages });
+
+        maske.Care.Should().Be(FilterMask.HasMediaFiles);
+        maske.Want.Should().Be((byte)forventetWant);
+    }
+
+    [Fact]
+    public void Flere_boolfiltre_samles_i_ett_predikat()
+    {
+        // Poenget med masken: fire bool-filtre koster null dimensjonsplasser, der de
+        // tidligere spiste fire og tvang oppslaget ned i databasen.
+        var maske = FilterMask.Select(new LocationSearchFilterDto
+        {
+            ChangedByAnnotation = true,
+            Sensitive = false,
+            Introduced = true,
+        });
+
+        maske.Care.Should().Be(FilterMask.ChangedByAnnotation | FilterMask.Sensitive | FilterMask.Introduced);
+        maske.Want.Should().Be(FilterMask.ChangedByAnnotation | FilterMask.Introduced);
+
+        // Artsbestemmelse er ikke satt, så den biten skal stå fritt.
+        (maske.Care & FilterMask.UncertainIdentification).Should().Be(0);
+    }
+
+    [Fact]
+    public void Maskebitene_er_unike_og_dekker_fem_filtre()
+    {
+        byte[] bits =
+        [
+            FilterMask.ChangedByAnnotation, FilterMask.Sensitive,
+            FilterMask.UncertainIdentification, FilterMask.Introduced, FilterMask.HasMediaFiles,
+        ];
+
+        bits.Distinct().Should().HaveCount(5, "to filtre på samme bit ville vært samme filter");
+        bits.Aggregate(0, (acc, b) => acc | b).Should().Be(FilterMask.Count - 1,
+            "bitene skal dekke maskerommet sammenhengende fra 1 til 16");
     }
 
     [Fact]

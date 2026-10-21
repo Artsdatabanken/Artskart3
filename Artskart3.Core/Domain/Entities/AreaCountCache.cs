@@ -15,12 +15,23 @@ namespace Artskart3.Core.Domain.Entities;
 /// EntityTypeId er int, ikke tinyint: områdetype-id-ene er ikke garantert små
 /// (testdataene bruker 910001), og en tinyint ville stille avkortet dem.
 /// </summary>
-public class AreaCountCacheLevel1
+public class AreaCountCacheLevel1 : IHarFilterMaske
 {
     public byte DimensionId { get; set; }
     public int BucketId { get; set; }
     public int EntityTypeId { get; set; }
     public int EntityId { get; set; }
+
+    /// <summary>
+    /// Bitmaske over de fem bool-filtrene. Se <c>FilterMask</c> i Application.Services.
+    ///
+    /// Ligger SIST i nøkkelen med vilje: hver celle får 1-3 rader som da havner rett
+    /// etter hverandre, så et oppslag uten bool-filter summerer dem i én
+    /// sammenhengende lesing. Et bool-filter blir et restledd på rader vi uansett
+    /// leser — billigere enn ett seek per maske, siden det er så få av dem.
+    /// </summary>
+    public byte Mask { get; set; }
+
     public int ObservationCount { get; set; }
 }
 
@@ -32,13 +43,17 @@ public class AreaCountCacheLevel1
 ///
 /// Målt: 36 320 085 rader for alle 78 par. Periode alene står for 19,5 millioner.
 /// </summary>
-public class AreaCountCacheLevel2
+public class AreaCountCacheLevel2 : IHarFilterMaske
 {
     public byte DimensionPairId { get; set; }
     public int BucketA { get; set; }
     public int BucketB { get; set; }
     public int EntityTypeId { get; set; }
     public int EntityId { get; set; }
+
+    /// <summary>Se <see cref="AreaCountCacheLevel1.Mask"/>.</summary>
+    public byte Mask { get; set; }
+
     public int ObservationCount { get; set; }
 }
 
@@ -84,4 +99,13 @@ public class AreaCountCacheState
     public long? SourceRows { get; set; }
 
     public int? DurationSeconds { get; set; }
+}
+
+/// <summary>
+/// Bufferrader som bærer filtermasken. Finnes bare for å la
+/// maskepredikatet skrives én gang i stedet for per tabell.
+/// </summary>
+public interface IHarFilterMaske
+{
+    byte Mask { get; }
 }

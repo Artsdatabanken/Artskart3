@@ -27,7 +27,7 @@ namespace Artskart3.Core.Domain.Entities;
 /// spørringene er ikke de trege (389 ms i snitt), så nivå 1 treffer der det gjør
 /// vondt.
 /// </summary>
-public class LocationCountCacheLevel1
+public class LocationCountCacheLevel1 : IHarFilterMaske
 {
     /// <summary>
     /// Dimensjonen fra AreaCountCacheDimensions. 0 er reservert for «uten
@@ -44,6 +44,9 @@ public class LocationCountCacheLevel1
     public int East { get; set; }
 
     public int North { get; set; }
+
+    /// <summary>Se <see cref="AreaCountCacheLevel1.Mask"/>.</summary>
+    public byte Mask { get; set; }
 
     /// <summary>Distinkte observasjoner, ikke indeksrader.</summary>
     public int ObservationCount { get; set; }

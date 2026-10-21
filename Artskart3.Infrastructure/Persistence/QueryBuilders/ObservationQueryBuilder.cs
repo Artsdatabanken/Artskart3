@@ -184,6 +184,18 @@ public static class ObservationQueryBuilder
             query = query.Where(o => o.Sensitive == sensitive);
         }
 
+        if (filter.UncertainIdentification.HasValue)
+        {
+            var uncertainIdentification = filter.UncertainIdentification.Value;
+            query = query.Where(o => o.UncertainIdentification == uncertainIdentification);
+        }
+
+        if (filter.Introduced.HasValue)
+        {
+            var introduced = filter.Introduced.Value;
+            query = query.Where(o => o.Introduced == introduced);
+        }
+
         return query;
     }
 
