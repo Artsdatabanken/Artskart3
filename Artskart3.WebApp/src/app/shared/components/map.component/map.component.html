@@ -1,5 +1,7 @@
 <div class="map-container">
   <app-map-toolbar
+    [(clusteringEnabled)]="clusteringEnabled"
+    [clusteringLock]="clusteringLock()"
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>

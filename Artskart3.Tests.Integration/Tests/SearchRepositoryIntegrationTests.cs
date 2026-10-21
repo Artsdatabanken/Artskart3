@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using RegistrationStatus = Artskart3.Core.Domain.Enums.RegistrationStatus;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Tests.Integration.Tests;
@@ -89,6 +90,44 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetLocationsAsync_SetsRegistrationStatusFromAllObservationsAtLocation()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
+        };
+        var observationIds = await _context.Set<Observation>()
+            .Where(o => o.LocationId == _locationTwo.Id)
+            .OrderBy(o => o.Id).Select(o => o.Id).ToListAsync();
+        observationIds.Should().HaveCount(2);
+
+        async Task<RegistrationStatus> StatusOf(Location location) =>
+            (await _repository.GetLocationsAsync(filter)).Single(l => l.Id == location.Id).RegistrationStatus;
+
+        try
+        {
+            await AddTagRowAsync(observationIds[0], TagEnum.Absent);
+            (await StatusOf(_locationTwo)).Should().Be(RegistrationStatus.Found);
+
+            await AddTagRowAsync(observationIds[1], TagEnum.Absent);
+            await AddTagRowAsync(observationIds[1], TagEnum.NotRecovered);
+            (await StatusOf(_locationTwo)).Should().Be(RegistrationStatus.NotRecovered);
+
+            await RemoveSyntheticTagRowAsync(observationIds[1], (int)TagEnum.NotRecovered);
+            (await StatusOf(_locationTwo)).Should().Be(RegistrationStatus.Absent);
+            (await StatusOf(_locationOne)).Should().Be(RegistrationStatus.Found);
+        }
+        finally
+        {
+            foreach (var observationId in observationIds)
+            {
+                await RemoveSyntheticTagRowAsync(observationId, (int)TagEnum.Absent);
+                await RemoveSyntheticTagRowAsync(observationId, (int)TagEnum.NotRecovered);
+            }
+        }
+    }
+
+    [Fact]
     public async Task GetLocationsAsync_OrdersByObservationCountDescending()
     {
         var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
@@ -128,6 +167,24 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Select(x => x.Id).Should().Contain(_locationOne.Id);
         result.Select(x => x.Id).Should().Contain(_locationThree.Id);
         result.Select(x => x.Id).Should().NotContain(_locationTwo.Id);
+    }
+
+    /// <summary>
+    /// Uten underliggende taksa matches observasjonens eget TaxonId, ikke hierarkitabellen.
+    /// Alle testobservasjonene er bestemt til TestTaxonExactId.
+    /// </summary>
+    [Fact]
+    public async Task GetLocationsAsync_WithoutDescendantTaxa_MatchesObservationTaxonId()
+    {
+        var result = await _repository.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false,
+        });
+
+        result.Should().Contain(model => model.Id == _locationOne.Id && model.ObservationCount == 3);
+        result.Should().Contain(model => model.Id == _locationTwo.Id && model.ObservationCount == 2);
+        result.Should().Contain(model => model.Id == _locationThree.Id && model.ObservationCount == 1);
     }
 
     [Fact]
@@ -567,6 +624,44 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
+    /// <summary>
+    /// Uten underliggende taksa slås observasjonens eget takson opp i Observation,
+    /// siden indekstabellen ikke har en kolonne for det.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_WithoutDescendantTaxa_CountsOnlyObservationsOfThatTaxon()
+    {
+        const int indexOnlyObservationId = 981800;
+        const string areaFid = "981810";
+        const int areaEntityId = 981810;
+
+        var observationId = await _context.Set<Observation>()
+            .Where(o => o.TaxonId == TestTaxonExactId)
+            .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        var repository = CreateCompleteFilterRepository();
+        await RemoveSyntheticRowsAsync(observationId, areaFid);
+        await RemoveSyntheticRowsAsync(indexOnlyObservationId, areaFid);
+        SeedArea(areaFid, "Uten underliggende taksa kommune");
+        SeedIndexRow(observationId, areaEntityId);
+        SeedIndexRow(indexOnlyObservationId, areaEntityId);
+        await _context.SaveChangesAsync();
+
+        var treff = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false,
+        });
+        var bom = await repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
+        {
+            TaxonIds = [TestTaxonStartsId],
+            IncludeDescendantTaxa = false,
+        });
+
+        treff.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
+        bom.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(0);
+    }
+
     [Fact]
     public async Task GetAreaCountsAsync_DatasetFilter_CountsObservationsInThatDataset()
     {
@@ -730,17 +825,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         await RemoveSyntheticRowsAsync(taggedObservationId, areaFid);
         await RemoveSyntheticRowsAsync(untaggedObservationId, areaFid);
         await RemoveSyntheticTagRowAsync(taggedObservationId, tagId);
-        if (!await _context.Set<Tag>().AnyAsync(t => t.Id == tagId))
-            _context.Set<Tag>().Add(new Tag { Id = tagId, Name = tag.ToString() });
         SeedArea(areaFid, $"{tag} test kommune");
         SeedIndexRow(taggedObservationId, areaEntityId);
         SeedIndexRow(untaggedObservationId, areaEntityId);
-        ObservationTags().Add(new Dictionary<string, object>
-        {
-            ["ObservationId"] = taggedObservationId,
-            ["TagId"] = tagId,
-        });
-        await _context.SaveChangesAsync();
+        await AddTagRowAsync(taggedObservationId, tag);
 
         var withTag = await repository.GetAreaCountsAsync(2, filterOnTag(true));
         var withoutTag = await repository.GetAreaCountsAsync(2, filterOnTag(false));
@@ -751,6 +839,19 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     private DbSet<Dictionary<string, object>> ObservationTags() =>
         _context.Set<Dictionary<string, object>>("ObservationTag");
+
+    private async Task AddTagRowAsync(int observationId, TagEnum tag)
+    {
+        var tagId = (int)tag;
+        if (!await _context.Set<Tag>().AnyAsync(t => t.Id == tagId))
+            _context.Set<Tag>().Add(new Tag { Id = tagId, Name = tag.ToString() });
+        ObservationTags().Add(new Dictionary<string, object>
+        {
+            ["ObservationId"] = observationId,
+            ["TagId"] = tagId,
+        });
+        await _context.SaveChangesAsync();
+    }
 
     private async Task RemoveSyntheticTagRowAsync(int observationId, int tagId)
     {
