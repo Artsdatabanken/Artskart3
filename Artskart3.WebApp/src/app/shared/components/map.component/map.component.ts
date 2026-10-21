@@ -98,7 +98,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly observationPanel = viewChild(ObservationPanelComponent);
   private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
-  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
   readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
     new Observable((subscriber) => {
       const controller = new AbortController();
@@ -119,14 +118,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setZoom(place.zoomLevel);
   }
 
-  private readonly MAP_TYPE_PREFIX = 'map-type:';
-  private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
-  private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
-  private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
-  private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
-  private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
-  private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
-  private readonly HIT_TOLERANCE_PX = 5;
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS> | ImageLayer<ImageWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapLayerService = inject(MapLayerService);
@@ -734,7 +725,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         return undefined;
       },
       {
-        hitTolerance: this.HIT_TOLERANCE_PX,
+        hitTolerance: MAP_CONSTANTS.HIT_TOLERANCE_PX,
         layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) && layer !== this.webglLocationsLayer,
       },
     );
@@ -791,8 +782,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady) return;
     const ids = [...new Set([...this.hoveredLocationIds, ...this.selectedLocationIds()])];
     const pointsLayerId = this.clusteringEnabled() ? null : MAP_CONSTANTS.LOCATIONS_LAYER_ID;
-    this.fillHighlightLayer(this.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
-    this.fillHighlightLayer(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, ids);
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, ids);
   }
 
   private fillHighlightLayer(highlightLayerId: string, sourceLayerId: string | null, ids: number[]): void {
@@ -819,7 +810,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private webglLocationHits(coordinate: Coordinate | null, resolution: number | undefined): Feature[] {
     const source = this.webglLocationsSource();
     if (!source || !coordinate || !resolution) return [];
-    const radius = (UNCLUSTERED_LOCATION_RADIUS + this.HIT_TOLERANCE_PX) * resolution;
+    const radius = (UNCLUSTERED_LOCATION_RADIUS + MAP_CONSTANTS.HIT_TOLERANCE_PX) * resolution;
     const [x, y] = coordinate;
     const squaredDistance = (feature: Feature) => {
       const [featureX, featureY] = (feature.getGeometry() as Point).getCoordinates();
@@ -926,7 +917,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
 
     this.map.addLayer({
-      id: this.LOCATION_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -942,7 +933,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
 
     this.map.addLayer({
-      id: this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -1113,8 +1104,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // har egne zoomterskler som begrenser dem når de er satt synlige.
     this.map.setLayerVisibility(MAP_CONSTANTS.LOCATIONS_LAYER_ID, showLocations);
     this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
     this.map.setLayerVisibility(MAP_CONSTANTS.COUNTIES_LAYER_ID, !locationsAtAllZooms);
     this.map.setLayerVisibility(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
 

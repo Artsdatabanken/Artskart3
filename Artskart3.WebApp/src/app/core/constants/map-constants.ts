@@ -9,4 +9,7 @@
   LOCATION_POLYGONS_LAYER_ID: 'location-polygons',
   SELECTED_AREAS_OVERLAY_ID: 'area-overlay-selected',
   CLICK_ANIMATION_DURATION_MS: 300,
+  LOCATION_HIGHLIGHTS_LAYER_ID: 'location-highlights',
+  LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID: 'location-polygon-highlights',
+  HIT_TOLERANCE_PX: 5,
 }
