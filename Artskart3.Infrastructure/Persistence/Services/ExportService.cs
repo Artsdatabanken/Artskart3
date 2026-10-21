@@ -22,17 +22,20 @@ public class ExportService : IExportService
     private readonly IConfiguration _configuration;
     private readonly ExportColumnRegistry _columnRegistry;
     private readonly ITaxonHierarchyService _taxonHierarchy;
+    private readonly ICadastralUnitService _cadastralUnits;
 
     public ExportService(
         IArtsKartDbContext context,
         IConfiguration configuration,
         ExportColumnRegistry columnRegistry,
-        ITaxonHierarchyService taxonHierarchy)
+        ITaxonHierarchyService taxonHierarchy,
+        ICadastralUnitService cadastralUnits)
     {
         _context = context;
         _configuration = configuration;
         _columnRegistry = columnRegistry;
         _taxonHierarchy = taxonHierarchy;
+        _cadastralUnits = cadastralUnits;
     }
 
     public Task<IReadOnlyList<ExportColumnDefinition>> GetAvailableColumnsAsync()
@@ -42,7 +45,7 @@ public class ExportService : IExportService
 
     public async Task<ExportSummaryDto> GetExportSummaryAsync(ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
     {
-        var query = BuildFilteredQuery(filter);
+        var query = await BuildFilteredQueryAsync(filter, cancellationToken);
         var count = await query.CountAsync(cancellationToken);
 
         var softLimit = _configuration.GetValue("CsvExport:Limits:SoftRowLimit", 50_000);
@@ -103,7 +106,7 @@ public class ExportService : IExportService
                 "Vent til en av dem er ferdig, eller avbryt en av dem i Mitt Artskart.");
 
         // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
-        var query = BuildFilteredQuery(filter);
+        var query = await BuildFilteredQueryAsync(filter, cancellationToken);
         var exceedsLimit = await query.OrderBy(o => o.Id).Skip(hardLimit).AnyAsync(cancellationToken);
 
         if (exceedsLimit)
@@ -190,10 +193,10 @@ public class ExportService : IExportService
         return jobs.Select(MapToDto).ToList();
     }
 
-    private IQueryable<Observation> BuildFilteredQuery(ObservationSearchFilterDto filter)
+    private Task<IQueryable<Observation>> BuildFilteredQueryAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken)
     {
         var query = _context.Set<Observation>().AsNoTracking();
-        return ObservationQueryBuilder.ApplyFilters(_context, _taxonHierarchy, query, filter);
+        return ObservationQueryBuilder.ApplyFiltersAsync(_context, _taxonHierarchy, _cadastralUnits, query, filter, cancellationToken);
     }
 
     private static CsvExportJobDto MapToDto(CsvExportJob job) => new()

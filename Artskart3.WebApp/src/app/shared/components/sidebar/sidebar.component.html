@@ -83,6 +83,12 @@
 
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+      <h6 class="area-section-heading cadastral-unit-heading">{{ 'sidebar.cadastralUnit' | translate }}</h6>
+      <app-cadastral-unit-search
+        class="cadastral-unit-search"
+        [label]="'sidebar.cadastralUnit' | translate"
+        (selected)="onCadastralUnitSelected($event)"
+      />
       @if (countyGroups(); as groups) {
         @if (groups.length > 0) {
           <h6 class="area-section-heading">

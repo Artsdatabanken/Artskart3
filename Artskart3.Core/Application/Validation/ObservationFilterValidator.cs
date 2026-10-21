@@ -19,7 +19,27 @@ public static class ObservationFilterValidator
             return SearchConstants.CoordinatePrecisionInvalidMessage;
         }
 
-        return GetArraySizeError(filter);
+        return GetArraySizeError(filter) ?? GetCadastralUnitError(filter);
+    }
+
+    private static string? GetCadastralUnitError(IObservationFilter filter)
+    {
+        if (filter.CadastralUnitIds is not { Length: > 0 } ids) return null;
+
+        if (ids.Length > SearchConstants.MaxCadastralUnitFilterSize)
+        {
+            return $"{nameof(filter.CadastralUnitIds)} can contain at most {SearchConstants.MaxCadastralUnitFilterSize} items.";
+        }
+
+        foreach (var id in ids)
+        {
+            if (CadastralUnitId.Normalize(id) == null)
+            {
+                return $"'{id}' is not a valid cadastral unit number (e.g. 1101-1/2).";
+            }
+        }
+
+        return null;
     }
 
     private static string? GetArraySizeError(IObservationFilter filter)

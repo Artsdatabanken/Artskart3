@@ -32,14 +32,16 @@ public class SearchRepository : ISearchRepository
     private readonly PaginationOptions _paginationOptions;
     private readonly IAreaHierarchyService _areaHierarchy;
     private readonly ITaxonHierarchyService _taxonHierarchy;
+    private readonly ICadastralUnitService _cadastralUnits;
 
-    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy, ITaxonHierarchyService taxonHierarchy)
+    public SearchRepository(IArtsKartDbContext context, ILogger<SearchRepository> logger, IOptions<PaginationOptions> paginationOptions, IAreaHierarchyService areaHierarchy, ITaxonHierarchyService taxonHierarchy, ICadastralUnitService cadastralUnits)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions.Value;
         _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
+        _cadastralUnits = cadastralUnits ?? throw new ArgumentNullException(nameof(cadastralUnits));
     }
     /// <summary>
     /// Searches for taxa by name using a three-level matching strategy:
@@ -152,6 +154,8 @@ public class SearchRepository : ISearchRepository
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
+        var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
+
         // Taggen plukkes opp av RecompileHintInterceptor, som legger på
         // OPTION (RECOMPILE) og valg av riktig query plan.
         var query = _context.Set<Observation>()
@@ -159,7 +163,7 @@ public class SearchRepository : ISearchRepository
                             .TagWith(RecompileHintInterceptor.Tag);
 
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
-        query = ApplyCommonFilters(query, filter);
+        query = ApplyCommonFilters(query, filter, cadastralLocationIds);
 
         query = query.OrderByDescending(o => o.DateTimeCollected)
                      .ThenByDescending(o => o.Id);
@@ -213,8 +217,9 @@ public class SearchRepository : ISearchRepository
     public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
     {
         var filter = request.Filter ?? new ObservationSearchFilterDto();
+        var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
         var query = _context.Set<Observation>().AsNoTracking();
-        query = ApplyCommonFilters(query, filter);
+        query = ApplyCommonFilters(query, filter, cadastralLocationIds);
         query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value))
             .OrderByDescending(o => o.DateTimeCollected)
             .ThenByDescending(o => o.Id);
@@ -279,9 +284,10 @@ public class SearchRepository : ISearchRepository
         try
         {
             filter ??= new LocationSearchFilterDto();
+            var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
 
             var query = _context.Set<Observation>().AsNoTracking();
-            query = ApplyCommonFilters(query, filter);
+            query = ApplyCommonFilters(query, filter, cadastralLocationIds);
             query = ApplyEnvelopeFilter(query, filter.Envelope);
 
             var maxResults = filter.MaxResults > 0 && filter.MaxResults <= SearchConstants.MaxLocationResults
@@ -355,9 +361,10 @@ public class SearchRepository : ISearchRepository
         try
         {
             filter ??= new LocationSearchFilterDto();
+            var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
 
             var query = _context.Set<Observation>().AsNoTracking();
-            query = ApplyCommonFilters(query, filter);
+            query = ApplyCommonFilters(query, filter, cadastralLocationIds);
             query = ApplyEnvelopeFilter(query, filter.Envelope);
 
             var locationIds = await query
@@ -381,10 +388,45 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
+    /// Lokasjonene innenfor matrikkelenhetene i filteret, eller null når filteret ikke har noen.
+    /// Slås opp før spørringen bygges, fordi geometrien kommer fra Kartverket.
+    /// </summary>
+    private async Task<int[]?> ResolveCadastralLocationIdsAsync(IObservationFilter filter, CancellationToken cancellationToken) =>
+        filter.CadastralUnitIds?.Length > 0
+            ? await _cadastralUnits.GetLocationIdsAsync(filter.CadastralUnitIds, cancellationToken)
+            : null;
+
+    /// <summary>
+    /// Indeksradene for fylkene, kommunene, verneområdene og havområdene i filteret,
+    /// eller null når ingen er valgt.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex>? SelectedAreaIndexRows(IObservationFilter filter)
+    {
+        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
+        var hasCounty = filter.CountyIds?.Any() == true;
+        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
+        var hasOcean = filter.OceanAreaIds?.Any() == true;
+
+        if (!hasMunicipality && !hasCounty && !hasRestricted && !hasOcean) return null;
+
+        var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
+        var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
+        var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
+        var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
+
+        return _context.Set<ObservationEntityIndex>().Where(idx =>
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
+            (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId)));
+    }
+
+    /// <summary>
     /// Legger til felles filterpredikater (taksongruppe, kategori, område, atferd, etc.) på en observasjonsspørring.
     /// Brukes av både lokasjons- og områdemarkørspørringer.
     /// </summary>
-    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, IObservationFilter filter)
+    private IQueryable<Observation> ApplyCommonFilters(IQueryable<Observation> query, IObservationFilter filter, int[]? cadastralLocationIds)
     {
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -415,28 +457,10 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
         }
 
-        // Geografiske områdefiltre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
-
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
-        {
-            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
-            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
-            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
-            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
-
-            query = query.Where(o => _context.Set<ObservationEntityIndex>().Any(idx =>
-                idx.ObservationId == o.Id && (
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(idx.EntityId)) ||
-                    (idx.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(idx.EntityId))
-                )));
-        }
+        // Geografiske områdefiltre (OR — observasjon i minst ett av områdene). Fylker,
+        // kommuner, verneområder og havområder via ObservationEntityIndex, matrikkelenheter
+        // via lokasjonene som ligger innenfor dem.
+        query = ObservationQueryBuilder.WhereInAreasOrLocations(query, SelectedAreaIndexRows(filter), cadastralLocationIds);
 
         // Institusjonsfilter (AND — separat fra geografiske filtre).
         // Denormalisert kolonne, ikke lenger self-join mot indekstabellen.
@@ -614,9 +638,10 @@ public class SearchRepository : ISearchRepository
         Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
         Dictionary<string, int>? municipalityCountsByCounty = null;
 
-        // Steg 1: Filtrer hvilke områder som vises
-        var hasAreaSelection = hasFilters && (
-            filter!.CountyIds?.Length > 0 ||
+        // Steg 1: Filtrer hvilke områder som vises. Matrikkelenheter OR-es med områdene,
+        // så med dem i filteret kan treff ligge utenfor de valgte områdene.
+        var hasAreaSelection = hasFilters && !(filter!.CadastralUnitIds?.Length > 0) && (
+            filter.CountyIds?.Length > 0 ||
             filter.MunicipalityIds?.Length > 0 ||
             filter.OceanAreaIds?.Length > 0);
 
@@ -928,28 +953,24 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => observationIds.Contains(idx.ObservationId));
         }
 
-        // Geografiske filtre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
-        var hasMunicipality = filter.MunicipalityIds?.Any() == true;
-        var hasCounty = filter.CountyIds?.Any() == true;
-        var hasRestricted = filter.RestrictedAreaIds?.Any() == true;
-        var hasOcean = filter.OceanAreaIds?.Any() == true;
+        // Geografiske filtre (OR — observasjon i minst ett av områdene), som i ApplyCommonFilters
+        var areaIndexRows = SelectedAreaIndexRows(filter);
+        var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
+        var cadastralObservationIds = cadastralLocationIds == null
+            ? null
+            : _context.Set<Observation>()
+                .Where(o => o.LocationId != null && cadastralLocationIds.Contains(o.LocationId.Value))
+                .Select(o => o.Id);
 
-        if (hasMunicipality || hasCounty || hasRestricted || hasOcean)
+        query = (areaIndexRows, cadastralObservationIds) switch
         {
-            var municipalityIds = _areaHierarchy.FidsToEntityIds(filter.MunicipalityIds);
-            var countyIds = _areaHierarchy.FidsToEntityIds(filter.CountyIds);
-            var restrictedIds = _areaHierarchy.RestrictedAreaFidsToEntityIds(filter.RestrictedAreaIds);
-            var oceanIds = _areaHierarchy.FidsToEntityIds(filter.OceanAreaIds);
-
-            query = query.Where(idx => _context.Set<ObservationEntityIndex>().Any(geo =>
-                geo.ObservationId == idx.ObservationId && (
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.Municipality && municipalityIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.County && countyIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen && countyIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.RestrictedArea && restrictedIds.Contains(geo.EntityId)) ||
-                    (geo.EntityTypeId == (int)ObservationIndexEntityType.OceanArea && oceanIds.Contains(geo.EntityId))
-                )));
-        }
+            ({ } rows, { } observationIds) => query.Where(idx =>
+                rows.Any(geo => geo.ObservationId == idx.ObservationId) ||
+                observationIds.Contains(idx.ObservationId)),
+            ({ } rows, null) => query.Where(idx => rows.Any(geo => geo.ObservationId == idx.ObservationId)),
+            (null, { } observationIds) => query.Where(idx => observationIds.Contains(idx.ObservationId)),
+            _ => query,
+        };
 
         var counts = await query
             .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
@@ -1168,10 +1189,10 @@ public class SearchRepository : ISearchRepository
         return query.Where(o => o.LocationId != null && locationIds.Contains(o.LocationId.Value));
     }
 
-    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter)
+    private IQueryable<Observation> BuildLocationsQuery(LocationSearchFilterDto filter, int[]? cadastralLocationIds)
     {
         var query = _context.Set<Observation>().AsNoTracking();
-        query = ApplyCommonFilters(query, filter);
+        query = ApplyCommonFilters(query, filter, cadastralLocationIds);
         query = ApplyEnvelopeFilter(query, filter.Envelope);
 
         return query;
@@ -1202,8 +1223,9 @@ public class SearchRepository : ISearchRepository
         try
         {
             filter ??= new LocationSearchFilterDto();
+            var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
 
-            var query = BuildLocationsQuery(filter);
+            var query = BuildLocationsQuery(filter, cadastralLocationIds);
             var polygonMaxResults = filter.MaxResults > 0
                 ? Math.Min(filter.MaxResults, SearchConstants.MaxPolygonResults)
                 : SearchConstants.DefaultMaxPolygons;

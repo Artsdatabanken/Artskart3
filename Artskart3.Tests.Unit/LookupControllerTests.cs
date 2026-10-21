@@ -11,18 +11,20 @@ namespace Artskart3.Tests.Unit;
 public class LookupControllerTests
 {
     private readonly Mock<ILookupService> _serviceMock;
+    private readonly Mock<ICadastralUnitService> _cadastralUnitServiceMock;
     private readonly LookupController _sut;
 
     public LookupControllerTests()
     {
         _serviceMock = new Mock<ILookupService>();
-        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService());
+        _cadastralUnitServiceMock = new Mock<ICadastralUnitService>();
+        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object);
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLookupServiceIsNull()
     {
-        var act = () => new LookupController(null!, new StubTaxonHierarchyService());
+        var act = () => new LookupController(null!, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("lookupService");
     }
@@ -458,6 +460,59 @@ public class LookupControllerTests
 
         result.Result.Should().BeOfType<OkObjectResult>()
             .Which.Value.Should().BeEquivalentTo(new OrganizationDto { Id = 5, Name = "Prosjekt" });
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WithInvalidFormat_ReturnsBadRequestWithoutCallingKartverket()
+    {
+        var result = await _sut.GetCadastralUnit("1101-1");
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _cadastralUnitServiceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenFound_ReturnsOkWithNormalizedId()
+    {
+        var cadastralUnit = new CadastralUnitDto { Id = "1101-1/2", WktPolygon = "MULTIPOLYGON (((0 0, 1 0, 1 1, 0 0)))" };
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync("1101-1/2", It.IsAny<CancellationToken>())).ReturnsAsync(cadastralUnit);
+
+        var result = await _sut.GetCadastralUnit(" 1101-01/2 ");
+
+        result.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().Be(cadastralUnit);
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenNotFound_ReturnsNotFound()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync("1101-99999/1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CadastralUnitDto?)null);
+
+        var result = await _sut.GetCadastralUnit("1101-99999/1");
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenKartverketIsUnavailable_Returns502()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+        var result = await _sut.GetCadastralUnit("1101-1/2");
+
+        result.Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(502);
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenKartverketTimesOut_Returns504()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TaskCanceledException("Timeout", new TimeoutException()));
+
+        var result = await _sut.GetCadastralUnit("1101-1/2");
+
+        result.Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(504);
     }
 
     [Fact]

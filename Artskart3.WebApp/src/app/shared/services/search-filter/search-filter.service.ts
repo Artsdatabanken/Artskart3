@@ -71,6 +71,7 @@ export class SearchFilterService {
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
+        cadastralUnitIds: this.filterState.selectedCadastralUnitIds().length ? this.filterState.selectedCadastralUnitIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
         datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
@@ -105,6 +106,7 @@ export class SearchFilterService {
     state.selectedCountyIds.set(areas.countyIds);
     state.selectedMunicipalityIds.set(areas.municipalityIds);
     state.selectedOceanAreaIds.set(filter.oceanAreaIds ?? []);
+    state.selectedCadastralUnitIds.set(filter.cadastralUnitIds ?? []);
     state.selectedCategoryIds.set(filter.categoryIds ?? []);
     state.selectedInstitutionIds.set(filter.organizationIds ?? []);
     state.selectedBehaviorIds.set(filter.behaviorIds ?? []);

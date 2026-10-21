@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Application.Validation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +36,9 @@ public class ExportController : ControllerBase
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
 
+        if (ObservationFilterValidator.GetError(request.Filter) is { } filterError)
+            return BadRequest(new { error = filterError });
+
         var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
         return Ok(summary);
     }
@@ -44,6 +48,9 @@ public class ExportController : ControllerBase
     {
         if (request?.Filter == null)
             return BadRequest(new { error = "Filter er påkrevd." });
+
+        if (ObservationFilterValidator.GetError(request.Filter) is { } filterError)
+            return BadRequest(new { error = filterError });
 
         var error = TryGetUserId(out var userId);
         if (error != null) return error;

@@ -38,6 +38,9 @@ public static class SearchConstants
     // begrense IN-klausulen på dette anonyme endepunktet.
     public const int MaxObservationIdFilterSize = 5000;
 
+    // Matrikkelenheter slås opp én og én mot Kartverket.
+    public const int MaxCadastralUnitFilterSize = 20;
+
     // Minstelengde for katalognummer-oppslaget, håndhevet på serveren.
     // 1 tegn ville krevd DISTINCT over millioner av indeksrader for hvert
     // tastetrykk; 2 er nok til at prefikssøket blir et smalt range seek.
