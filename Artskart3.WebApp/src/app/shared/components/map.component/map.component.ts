@@ -36,6 +36,7 @@ import { MAP_CONFIG } from '@shared/config/map.config';
 import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
+import type { AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { Feature, ImageTile } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
@@ -75,6 +76,8 @@ import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
 import type ImageWrapper from 'ol/Image';
 import type Tile from 'ol/Tile';
+import { PlaceSearchComponent } from './place-search/place-search.component';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState, registrationStatusOf } from './map-feature-styles';
 import {
@@ -83,7 +86,7 @@ import {
 
 @Component({
   selector: 'app-map',
-  imports: [CommonModule, MapToolbarComponent, ObservationPanelComponent, LoadingIndicatorComponent, TranslateModule],
+  imports: [CommonModule, MapToolbarComponent, PlaceSearchComponent, ObservationPanelComponent, LoadingIndicatorComponent, TranslateModule],
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
@@ -95,6 +98,32 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly observationPanel = viewChild(ObservationPanelComponent);
   private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
+  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
+  readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
+    new Observable((subscriber) => {
+      const controller = new AbortController();
+      this.map.searchPlaces(term, { signal: controller.signal }).then(
+        (places) => {
+          subscriber.next(places);
+          subscriber.complete();
+        },
+        (error) => subscriber.error(error),
+      );
+      return () => controller.abort();
+    });
+
+  goToPlace(place: PlaceSearchResult): void {
+    const { lon, lat } = place.coordinates;
+    const center = this.map.transformCoordsFrom([lon, lat], 'EPSG:4326', MAP_CONFIG.projection);
+    this.map.setCenter(center);
+    this.map.setZoom(place.zoomLevel);
+  }
+
+  private readonly MAP_TYPE_PREFIX = 'map-type:';
+  private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
+  private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
+  private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
+  private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
   private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
   private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
   private readonly HIT_TOLERANCE_PX = 5;
