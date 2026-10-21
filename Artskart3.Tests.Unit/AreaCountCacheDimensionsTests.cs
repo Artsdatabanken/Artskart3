@@ -122,7 +122,11 @@ public class AreaCountCacheDimensionsTests
         // etterkommerne med, så «bare de valgte taksa» kan ikke uttrykkes der —
         // SelectTaxonOrders svarer NotCacheable og tellingen tar det. Minnelageret
         // for polygoner treffer derimot eksakt på observasjonens eget takson.
-        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa"];
+        //
+        // Matrikkelenheter: lokasjonene slås opp mot Kartverket per forespørsel og
+        // finnes ikke som bøtter. Minnelageret for polygoner får dem oppslått av
+        // SearchRepository og evaluerer dem selv.
+        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa", "CadastralUnitIds"];
 
         // Bool-filtrene er ikke dimensjoner, men bit i FilterMask — en tredje nøkkel
         // på hver bufferrad. De koster derfor ingen dimensjonsplass, og to vanlige

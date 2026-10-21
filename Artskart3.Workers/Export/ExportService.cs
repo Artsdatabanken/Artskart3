@@ -34,6 +34,7 @@ public class ExportService
     private readonly CsvExportOptions _options;
     private readonly ILogger<ExportService> _logger;
     private readonly ITaxonHierarchyService _taxonHierarchy;
+    private readonly ICadastralUnitService _cadastralUnits;
 
     public ExportService(
         IArtsKartDbContext context,
@@ -42,7 +43,8 @@ public class ExportService
         ExportColumnRegistry columnRegistry,
         IOptions<CsvExportOptions> options,
         ILogger<ExportService> logger,
-        ITaxonHierarchyService taxonHierarchy)
+        ITaxonHierarchyService taxonHierarchy,
+        ICadastralUnitService cadastralUnits)
     {
         _context = context;
         _blobStorage = blobStorage;
@@ -51,6 +53,7 @@ public class ExportService
         _options = options.Value;
         _logger = logger;
         _taxonHierarchy = taxonHierarchy;
+        _cadastralUnits = cadastralUnits;
     }
 
     public async Task ProcessJobAsync(CsvExportJob job, CancellationToken cancellationToken)
@@ -95,7 +98,7 @@ public class ExportService
                 .ToDictionaryAsync(o => o.Id, o => o.Code, cancellationToken);
         }
 
-        var query = BuildQuery(filter, needsDetail);
+        var query = await BuildQueryAsync(filter, needsDetail, cancellationToken);
 
         // Tell totalt antall rader og lagre på jobben med én gang
         var totalRows = await query.CountAsync(cancellationToken);
@@ -331,7 +334,7 @@ public class ExportService
         };
     }
 
-    private IQueryable<Observation> BuildQuery(ObservationSearchFilterDto? filter, bool includeDetail)
+    private async Task<IQueryable<Observation>> BuildQueryAsync(ObservationSearchFilterDto? filter, bool includeDetail, CancellationToken cancellationToken)
     {
         var query = _context.Set<Observation>().AsNoTracking();
 
@@ -342,7 +345,7 @@ public class ExportService
 
         if (filter != null)
         {
-            query = ObservationQueryBuilder.ApplyFilters(_context, _taxonHierarchy, query, filter);
+            query = await ObservationQueryBuilder.ApplyFiltersAsync(_context, _taxonHierarchy, _cadastralUnits, query, filter, cancellationToken);
         }
 
         return query;
