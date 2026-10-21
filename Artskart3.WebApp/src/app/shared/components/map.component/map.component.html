@@ -5,6 +5,7 @@
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
+  <app-place-search [search]="searchPlaces" (selected)="goToPlace($event)"></app-place-search>
   <div #mapEl class="map"></div>
   <app-observation-panel
     [observations]="observationList()"
