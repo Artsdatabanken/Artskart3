@@ -86,24 +86,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private observationFilterInitialized = false;
   private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
   readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
-    new Observable<PlaceSearchResult[]>((subscriber) => {
-      const map = this.map;
-      if (!map) {
-        subscriber.next([]);
-        subscriber.complete();
-        return;
-      }
-
+    new Observable((subscriber) => {
       const controller = new AbortController();
-      void map.searchPlaces(term, { signal: controller.signal }).then(
+      this.map.searchPlaces(term, { signal: controller.signal }).then(
         (places) => {
-          if (subscriber.closed) return;
           subscriber.next(places);
           subscriber.complete();
         },
-        (error: unknown) => {
-          if (!subscriber.closed) subscriber.error(error);
-        },
+        (error) => subscriber.error(error),
       );
       return () => controller.abort();
     });
