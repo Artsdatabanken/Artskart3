@@ -1,0 +1,21 @@
+:host {
+  box-sizing: border-box;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--adb-color-neutrals-ocean-10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:host(.found) {
+  background: var(--adb-text-accent-primary);
+}
+
+:host(.negative) {
+  background: var(--adb-color-neutrals-ocean-10);
+  border-color: var(--adb-color-special-100);
+  color: var(--adb-color-special-110);
+}

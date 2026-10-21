@@ -36,6 +36,7 @@
     "sections": { "observation": "Funnopplysninger", "place": "Sted og georeferanse", "dataset": "Datasett" },
     "qualities": { "0": "Ikke kontrollert", "1": "God kvalitet", "2": "Kvalitetsproblem", "3": "Kvalitetsproblem — skjult som standard" },
     "fields": {
+      "registration": "Registrering",
       "date": "Funndato",
       "collector": "Finner/samler",
       "basis": "Funntype",
@@ -251,6 +252,9 @@
     },
     "taxonGroups": "Artsgrupper",
     "taxonTree": "Artstre",
+    "includeDescendantTaxa": "Underliggende taksa",
+    "excludesDescendantTaxa": "Ekskluderer underliggende taksa",
+    "scientificNames": "Vitenskapelige navn",
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
@@ -305,13 +309,21 @@
     "sensitiveNot": "Ikke sensitive funn",
     "sensitivity": "Funnsensitivitet"
   },
+  "mapSearch": {
+    "placeholder": "Finn sted",
+    "resultsLabel": "Stedssøkeresultater",
+    "noResultsFor": "Ingen treff på sted “{{searchTerm}}”."
+  },
   "mapToolbar": {
     "layersAriaLabel": "Lag",
     "layersHeading": "Kartlag",
     "noLayers": "Ingen kartlag tilgjengelig",
     "layerLoadError": "Kartlaget kunne ikke lastes",
     "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
-    "filterAriaLabel": "Innstillinger",
+    "settingsAriaLabel": "Kartinnstillinger",
+    "clustering": "Punktklynge",
+    "clusteringDescription": "Clustering",
+    "clusteringLocked": "Antall lokaliteter er for stort til å slå av punktklynger. Reduser utvalget med filtre til under {{max}} lokaliteter.",
     "polygonAriaLabel": "Polygon",
     "geolocationAriaLabel": "Min posisjon",
     "fullscreenAriaLabel": "Fullskjerm",
