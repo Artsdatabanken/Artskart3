@@ -97,6 +97,8 @@ export class FilterStateService {
   readonly selectedRegistrationStatusId = signal<number | null>(null);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
+  // Matrikkelnummer like 1101-1/2. The id doubles as the label.
+  readonly selectedCadastralUnitIds = signal<string[]>([]);
   readonly selectedTaxonIds = signal<number[]>([]);
   readonly includeDescendantTaxa = signal(true);
   // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
@@ -265,6 +267,14 @@ export class FilterStateService {
     this.selectedOceanAreaIds.set([]);
   }
 
+  addCadastralUnit(id: string): void {
+    this.selectedCadastralUnitIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  removeCadastralUnit(id: string): void {
+    this.selectedCadastralUnitIds.update((ids) => ids.filter((i) => i !== id));
+  }
+
   addTaxon(taxonId: number): void {
     this.selectedTaxonIds.update((ids) => (ids.includes(taxonId) ? ids : [...ids, taxonId]));
   }
@@ -289,6 +299,7 @@ export class FilterStateService {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
     this.selectedOceanAreaIds.set([]);
+    this.selectedCadastralUnitIds.set([]);
   }
 
   clearMunicipalities(): void {

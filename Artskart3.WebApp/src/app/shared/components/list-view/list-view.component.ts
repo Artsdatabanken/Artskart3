@@ -76,6 +76,7 @@ export class ListViewComponent {
     this.filterState.selectedMunicipalityIds();
     this.filterState.selectedCountyIds();
     this.filterState.selectedOceanAreaIds();
+    this.filterState.selectedCadastralUnitIds();
     this.filterState.selectedInstitutionIds();
     this.filterState.selectedBehaviorIds();
     this.filterState.selectedBasisOfRecordIds();

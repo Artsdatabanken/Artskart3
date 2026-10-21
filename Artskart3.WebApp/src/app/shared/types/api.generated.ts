@@ -598,6 +598,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/CadastralUnit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CadastralUnitDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/CatalogNumbers/ByObservationIds": {
         parameters: {
             query?: never;
@@ -1715,6 +1752,11 @@ export interface components {
             observationCount?: null | number;
             description?: null | string;
         };
+        CadastralUnitDto: {
+            id?: string;
+            wktPolygon?: string;
+            extent?: components["schemas"]["MapExtentDto"];
+        };
         CatalogNumberMatchDto: {
             catalogNumber?: string;
             observationIds?: number[];
@@ -1840,6 +1882,7 @@ export interface components {
             countyIds?: null | string[];
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
+            cadastralUnitIds?: null | string[];
             behaviorIds?: null | number[];
             /** Format: int32 */
             registrationStatusId?: null | number;
@@ -2018,6 +2061,7 @@ export interface components {
             countyIds?: null | string[];
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
+            cadastralUnitIds?: null | string[];
             behaviorIds?: null | number[];
             basisOfRecordIds?: null | number[];
             /** Format: int32 */

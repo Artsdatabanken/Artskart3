@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,13 @@ public class LookupController : ControllerBase
 {
     private readonly ILookupService _lookupService;
     private readonly ITaxonHierarchyService _taxonHierarchy;
+    private readonly ICadastralUnitService _cadastralUnits;
 
-    public LookupController(ILookupService lookupService, ITaxonHierarchyService taxonHierarchy)
+    public LookupController(ILookupService lookupService, ITaxonHierarchyService taxonHierarchy, ICadastralUnitService cadastralUnits)
     {
         _lookupService = lookupService ?? throw new ArgumentNullException(nameof(lookupService));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
+        _cadastralUnits = cadastralUnits ?? throw new ArgumentNullException(nameof(cadastralUnits));
     }
 
     /// <summary>
@@ -178,6 +181,34 @@ public class LookupController : ControllerBase
     {
         var organization = await _lookupService.GetOrganizationByIdAsync(id, cancellationToken);
         return organization == null ? NotFound() : Ok(organization);
+    }
+
+    /// <summary>
+    /// Slår opp en matrikkelenhet (gårds- og bruksnummer) hos Kartverket. ID-en er en
+    /// query-parameter fordi den inneholder skråstrek, f.eks. 1101-1/2.
+    /// </summary>
+    [HttpGet("CadastralUnit")]
+    [Produces("application/json")]
+    public async Task<ActionResult<CadastralUnitDto>> GetCadastralUnit([FromQuery] string id, CancellationToken cancellationToken = default)
+    {
+        if (CadastralUnitId.Normalize(id) is not { } normalizedId)
+        {
+            return BadRequest(new { error = "id must be a cadastral unit number like 1101-1/2." });
+        }
+
+        try
+        {
+            var cadastralUnit = await _cadastralUnits.GetAsync(normalizedId, cancellationToken);
+            return cadastralUnit == null ? NotFound() : Ok(cadastralUnit);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new { error = "Kartverket did not respond within the timeout period." });
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "Unable to contact Kartverket." });
+        }
     }
 
     /// <summary>

@@ -64,6 +64,8 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
 
     private const int Rutenett = 25833;
 
+    private const string Matrikkelnummer = "1101-1/2";
+
     /// <summary>Rektangel: fem koordinatpar, altså en rutenettrute.</summary>
     private const string Rektangel = "POLYGON ((0 0, 4000 0, 4000 4000, 0 4000, 0 0))";
 
@@ -149,6 +151,38 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         // TaksonB finnes bare på myra, så den sensitive ruta skal ikke være med.
         baresTaksonB.Select(p => p.LocationId).Should().Contain(_myr.Id);
         baresTaksonB.Select(p => p.LocationId).Should().NotContain(_sensitivRute.Id);
+    }
+
+    [Fact]
+    public async Task Matrikkelenhet_gir_begge_stier_samme_polygoner()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CadastralUnitIds = [Matrikkelnummer] }, eiendom: [_myr.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    /// <summary>
+    /// Kommunen treffer ingenting, så alt må komme fra matrikkelenheten. Uten OR mellom
+    /// dem ville lageret svart tomt.
+    /// </summary>
+    [Fact]
+    public async Task Matrikkelenhet_og_kommune_uten_treff_gir_begge_stier_samme_polygoner()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { MunicipalityIds = ["9999"], CadastralUnitIds = [Matrikkelnummer] },
+            eiendom: [_myr.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    [Fact]
+    public async Task Matrikkelenhet_uten_oppslaatte_lokasjoner_gir_null()
+    {
+        var minnelager = await MinnelagerAsync();
+
+        minnelager.TryQuery(new LocationSearchFilterDto { CadastralUnitIds = [Matrikkelnummer] }, 1000)
+            .Should().BeNull("lokasjonene må slås opp mot Kartverket av kalleren");
     }
 
     /// <summary>
@@ -266,17 +300,23 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// kontrakten er hvilke polygoner som kommer ut og med hvilke tall, ikke
     /// hvilken rekkefølge de to stiene sorterer likt i.
     /// </summary>
-    private async Task AssertSammeSomDatabasenAsync(LocationSearchFilterDto filter)
+    /// <summary>
+    /// <paramref name="eiendom"/> er lokasjonene matrikkelenheten <see cref="Matrikkelnummer"/>
+    /// slås opp til. Returnerer lokasjonene begge stiene ga.
+    /// </summary>
+    private async Task<List<int>> AssertSammeSomDatabasenAsync(LocationSearchFilterDto filter, int[]? eiendom = null)
     {
         const int maxResults = 1000;
 
-        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults);
+        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults, eiendom?.ToHashSet());
         fraMinnet.Should().NotBeNull("minnelageret er bygget, så det skal svare");
 
-        var fraBasen = await UtenMinnelager().GetLocationPolygonsAsync(filter);
+        var fraBasen = await UtenMinnelager(eiendom).GetLocationPolygonsAsync(filter);
 
         fraMinnet!.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId)
             .Should().Equal(fraBasen.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId));
+
+        return fraMinnet.Select(p => p.LocationId).Order().ToList();
     }
 
     /// <summary>
@@ -298,9 +338,10 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         return store;
     }
 
-    private SearchRepository UtenMinnelager() =>
+    private SearchRepository UtenMinnelager(int[]? eiendom = null) =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(),
+            new StubCadastralUnitService(eiendom == null ? null : new() { [Matrikkelnummer] = eiendom }));
 
     /// <summary>
     /// PolygonLocationStore henter konteksten fra et scope. Her er det samme

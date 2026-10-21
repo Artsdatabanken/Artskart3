@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 using RegistrationStatus = Artskart3.Core.Domain.Enums.RegistrationStatus;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
@@ -51,6 +52,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     // CompleteFilter: samling er en Organization-ID, ikke lenger en kode-streng.
     private const int CollectionOne = 1;
     private const int CollectionTwo = 2;
+    private const string CadastralUnitId = "1101-1/2";
 
     private readonly DatabaseFixture _db;
     private ArtskartDbContext _context = null!;
@@ -72,7 +74,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ArtskartDbContext(options);
-        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+        _repository = new SearchRepository(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
         await SeedTestDataAsync();
     }
@@ -366,7 +368,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
         var repository = new SearchRepository(
             _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), hierarchy);
+            new StubAreaHierarchyService(), hierarchy, new StubCadastralUnitService());
 
         var act = () => repository.GetAreaCountsAsync(2, new LocationSearchFilterDto
         {
@@ -391,7 +393,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
         var repository = new SearchRepository(
             _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), hierarchy);
+            new StubAreaHierarchyService(), hierarchy, new StubCadastralUnitService());
 
         // Seed: område på zoomnivå 2 + indeks- og hierarkirad. AreaCounts-spørringen
         // berører kun indeks- og hierarkitabellen, så ingen Observation-rad trengs —
@@ -462,7 +464,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
         var repository = new SearchRepository(
             _context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), hierarchy);
+            new StubAreaHierarchyService(), hierarchy, new StubCadastralUnitService());
 
         _context.Set<Area>().Add(new Area
         {
@@ -910,6 +912,265 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         withoutTag.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetLocationsAsync_WithCadastralUnit_ReturnsOnlyLocationsInsideIt()
+    {
+        var repository = CreateRepositoryWithCadastralUnit(_locationTwo.Id);
+
+        var result = await repository.GetLocationsAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = [TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId],
+            CadastralUnitIds = [CadastralUnitId],
+        });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(_locationTwo.Id);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_WithCadastralUnitAndMunicipality_ReturnsLocationsInEither()
+    {
+        const int municipalityEntityId = 981910;
+        var indexRow = await SeedMunicipalityRowAsync(municipalityEntityId, _locationOne);
+
+        try
+        {
+            var result = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetLocationsAsync(new LocationSearchFilterDto
+            {
+                TaxonGroupIds = [TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId],
+                MunicipalityIds = [municipalityEntityId.ToString()],
+                CadastralUnitIds = [CadastralUnitId],
+            });
+
+            result.Select(l => l.Id).Should().BeEquivalentTo([_locationOne.Id, _locationTwo.Id]);
+        }
+        finally
+        {
+            _context.Remove(indexRow);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Områdene og matrikkelenhetene slås sammen med UNION ALL, så en observasjon i
+    /// begge kommer fra begge sider. Den skal likevel telles én gang.
+    /// </summary>
+    [Fact]
+    public async Task GetLocationsAsync_WithObservationInBothCadastralUnitAndMunicipality_CountsItOnce()
+    {
+        const int municipalityEntityId = 981950;
+        var indexRow = await SeedMunicipalityRowAsync(municipalityEntityId, _locationTwo);
+
+        try
+        {
+            var filter = new LocationSearchFilterDto
+            {
+                TaxonGroupIds = [TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId],
+                MunicipalityIds = [municipalityEntityId.ToString()],
+                CadastralUnitIds = [CadastralUnitId],
+            };
+            var repository = CreateRepositoryWithCadastralUnit(_locationTwo.Id);
+            var atLocationTwo = await repository.GetLocationsAsync(new LocationSearchFilterDto
+            {
+                TaxonGroupIds = filter.TaxonGroupIds,
+                CadastralUnitIds = [CadastralUnitId],
+            });
+
+            var result = await repository.GetLocationsAsync(filter);
+            var count = await repository.GetLocationCountAsync(filter);
+
+            result.Should().ContainSingle().Which.ObservationCount.Should().Be(atLocationTwo.Single().ObservationCount);
+            count.Count.Should().Be(1);
+        }
+        finally
+        {
+            _context.Remove(indexRow);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GetLocationCountAsync_WithCadastralUnit_CountsOnlyItsLocations()
+    {
+        var antall = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetLocationCountAsync(new LocationSearchFilterDto
+        {
+            TaxonGroupIds = [TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId],
+            CadastralUnitIds = [CadastralUnitId],
+        });
+
+        antall.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetObservationsAsync_WithCadastralUnit_ReturnsOnlyObservationsAtItsLocations()
+    {
+        var expected = await _context.Set<Observation>()
+            .Where(o => o.LocationId == _locationTwo.Id)
+            .Select(o => o.Id)
+            .ToListAsync();
+
+        var result = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetObservationsAsync(new ObservationSearchFilterDto
+        {
+            CadastralUnitIds = [CadastralUnitId],
+        });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo(expected);
+    }
+
+    /// <summary>
+    /// Områdestien har ingen gren for matrikkelenheter, så med begge i filteret skal
+    /// grenstien (to taksongrupper) ta over og OR-e dem.
+    /// </summary>
+    [Fact]
+    public async Task GetObservationsAsync_WithCadastralUnitAndMunicipality_ReturnsObservationsInEither()
+    {
+        const int municipalityEntityId = 981940;
+        int[] taxonGroupIds = [TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId];
+        var indexRow = await SeedMunicipalityRowAsync(municipalityEntityId, _locationOne);
+
+        try
+        {
+            var atLocationTwo = await _context.Set<Observation>()
+                .Where(o => o.LocationId == _locationTwo.Id && taxonGroupIds.Contains(o.TaxonGroupId))
+                .Select(o => o.Id)
+                .ToListAsync();
+
+            var result = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetObservationsAsync(new ObservationSearchFilterDto
+            {
+                TaxonGroupIds = taxonGroupIds,
+                MunicipalityIds = [municipalityEntityId.ToString()],
+                CadastralUnitIds = [CadastralUnitId],
+            });
+
+            result.Select(o => o.Id).Should().BeEquivalentTo([indexRow.ObservationId, .. atLocationTwo]);
+        }
+        finally
+        {
+            _context.Remove(indexRow);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GetAreaCountsAsync_WithCadastralUnit_CountsOnlyObservationsAtItsLocations()
+    {
+        const string areaFid = "981920";
+        await SeedAreaWithObservationsAtLocationsOneAndTwoAsync(areaFid);
+
+        try
+        {
+            var result = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetAreaCountsAsync(2, new LocationSearchFilterDto
+            {
+                CadastralUnitIds = [CadastralUnitId],
+            });
+
+            result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(2);
+        }
+        finally
+        {
+            await RemoveAreaAsync(areaFid);
+        }
+    }
+
+    /// <summary>
+    /// Den valgte kommunen telles som uten matrikkelenhet, her det forhåndstalte antallet.
+    /// Cellen eiendommen ligger i teller eiendommens observasjoner utenfor kommunen, og
+    /// den ene som også er i kommunen telles ikke på nytt.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_WithCadastralUnitAndMunicipality_AddsCadastralObservationsOutsideTheMunicipality()
+    {
+        const string municipalityFid = "981930";
+        const string propertyAreaFid = "981935";
+        await SeedAreaWithObservationsAtLocationsOneAndTwoAsync(propertyAreaFid);
+        await RemoveAreaAsync(municipalityFid);
+        SeedArea(municipalityFid, "Matrikkelenhet test valgt kommune", observationCount: 7);
+        await _context.SaveChangesAsync();
+        var inMunicipality = await SeedMunicipalityRowAsync(int.Parse(municipalityFid), _locationTwo);
+
+        try
+        {
+            var atLocationTwo = await _context.Set<Observation>().CountAsync(o => o.LocationId == _locationTwo.Id);
+
+            var result = await CreateRepositoryWithCadastralUnit(_locationTwo.Id).GetAreaCountsAsync(2, new LocationSearchFilterDto
+            {
+                MunicipalityIds = [municipalityFid],
+                CadastralUnitIds = [CadastralUnitId],
+            });
+
+            result.Single(a => a.Fid == municipalityFid).ObservationCount.Should().Be(7);
+            result.Single(a => a.Fid == propertyAreaFid).ObservationCount.Should().Be(atLocationTwo - 1);
+        }
+        finally
+        {
+            _context.Remove(inMunicipality);
+            await RemoveAreaAsync(municipalityFid);
+            await RemoveAreaAsync(propertyAreaFid);
+        }
+    }
+
+    private SearchRepository CreateRepositoryWithCadastralUnit(params int[] locationIds) =>
+        new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(),
+            new StubCadastralUnitService(new() { [CadastralUnitId] = locationIds }));
+
+    /// <summary>
+    /// Et eget område med en indeksrad for hver observasjon på lokasjon 1 og 2. De seedede
+    /// indeksradene til observasjonene røres ikke, siden lokasjonstestene leser dem.
+    /// </summary>
+    private async Task SeedAreaWithObservationsAtLocationsOneAndTwoAsync(string areaFid)
+    {
+        await RemoveAreaAsync(areaFid);
+
+        var observations = await _context.Set<Observation>()
+            .Where(o => o.LocationId == _locationOne.Id || o.LocationId == _locationTwo.Id)
+            .ToListAsync();
+
+        SeedArea(areaFid, $"Matrikkelenhet test kommune {areaFid}");
+        _context.Set<ObservationEntityIndex>().AddRange(observations.Select(o => new ObservationEntityIndex
+        {
+            ObservationId = o.Id,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = int.Parse(areaFid),
+            TaxonGroupId = o.TaxonGroupId,
+            BasisOfRecordId = o.BasisOfRecordId,
+            RegistrationStatusId = o.RegistrationStatusId,
+            LocationId = o.LocationId,
+        }));
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task RemoveAreaAsync(string areaFid)
+    {
+        var areaEntityId = int.Parse(areaFid);
+        _context.Set<ObservationEntityIndex>().RemoveRange(_context.Set<ObservationEntityIndex>()
+            .Where(i => i.EntityTypeId == TestAreaTypeMunicipalityId && i.EntityId == areaEntityId));
+        _context.Set<Area>().RemoveRange(_context.Set<Area>().Where(a => a.Fid == areaFid));
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<ObservationEntityIndex> SeedMunicipalityRowAsync(int municipalityEntityId, Location location)
+    {
+        var observationId = await _context.Set<Observation>()
+            .Where(o => o.LocationId == location.Id)
+            .OrderBy(o => o.Id)
+            .Select(o => o.Id)
+            .FirstAsync();
+
+        var indexRow = new ObservationEntityIndex
+        {
+            ObservationId = observationId,
+            EntityTypeId = (int)ObservationIndexEntityType.Municipality,
+            EntityId = municipalityEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            RegistrationStatusId = (byte)RegistrationStatus.Found,
+            LocationId = location.Id,
+        };
+        _context.Set<ObservationEntityIndex>().Add(indexRow);
+        await _context.SaveChangesAsync();
+        return indexRow;
+    }
+
     private DbSet<Dictionary<string, object>> ObservationTags() =>
         _context.Set<Dictionary<string, object>>("ObservationTag");
 
@@ -970,9 +1231,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     private SearchRepository CreateCompleteFilterRepository() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
-    private void SeedArea(string areaFid, string name) =>
+    private void SeedArea(string areaFid, string name, int observationCount = 0) =>
         _context.Set<Area>().Add(new Area
         {
             DocumentId = Guid.NewGuid().ToString("N"),
@@ -982,7 +1243,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             ZoomLevel = 2,
             ParentFid = "repo-parent",
             SyncDateTime = DateTime.UtcNow,
-            ObservationCount = 0,
+            ObservationCount = observationCount,
             Bbox = "bbox",
             TimeStamp = DateTime.UtcNow,
             IsCurrent = true,

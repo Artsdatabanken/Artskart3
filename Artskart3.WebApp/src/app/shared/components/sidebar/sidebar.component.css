@@ -153,6 +153,14 @@ adb-checkbox::part(control) {
   padding-inline-start: var(--adb-spacing-3xsm);
 }
 
+.cadastral-unit-heading {
+  margin-bottom: var(--adb-spacing-2xsm);
+}
+
+.cadastral-unit-search {
+  padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
+}
+
 .category-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-4);

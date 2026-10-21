@@ -7,7 +7,15 @@ import { InstitutionService } from '../../services/institution/institution.servi
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
+import {
+  BehaviorDto,
+  BasisOfRecordDto,
+  CadastralUnitDto,
+  CategoryTypeDto,
+  InstitutionDto,
+  TaxonGroupDto,
+  CategoryDto,
+} from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
@@ -28,6 +36,8 @@ import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
+import { CadastralUnitSearchComponent } from '../cadastral-unit-search/cadastral-unit-search.component';
+import { MapViewService } from '../../services/map-view/map-view.service';
 import type { components } from '../../types/api.generated';
 import { LoggingService } from '../../logging.service';
 
@@ -55,6 +65,7 @@ const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
     AutocompleteComponent,
     AutocompleteOptionDirective,
     HighlightTextComponent,
+    CadastralUnitSearchComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',
@@ -71,6 +82,7 @@ export class SidebarComponent {
   private readonly filterState = inject(FilterStateService);
   private readonly searchFilter = inject(SearchFilterService);
   private readonly savedFilterService = inject(SavedFilterService);
+  private readonly mapView = inject(MapViewService);
   protected readonly authService = inject(AuthService);
   private readonly logger = inject(LoggingService);
 
@@ -384,6 +396,16 @@ export class SidebarComponent {
   onProjectSelected(organization: OrganizationDto): void {
     if (organization.id == null) return;
     this.filterState.addProject({ id: organization.id, name: organization.name ?? '' });
+  }
+
+  onCadastralUnitSelected(cadastralUnit: CadastralUnitDto): void {
+    if (!cadastralUnit.id) return;
+    this.filterState.addCadastralUnit(cadastralUnit.id);
+
+    const { minX, minY, maxX, maxY } = cadastralUnit.extent ?? {};
+    if (minX == null || minY == null || maxX == null || maxY == null) return;
+    const margin = Math.max(maxX - minX, maxY - minY) * 0.25;
+    this.mapView.requestFit([minX - margin, minY - margin, maxX + margin, maxY + margin]);
   }
 
   onDatasetSelected(organization: OrganizationDto): void {
