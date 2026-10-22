@@ -37,6 +37,7 @@ import { ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
+import { MAP_CONSTANTS } from '@core/constants/map-constants';
 
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
@@ -1076,7 +1077,7 @@ describe('MapComponent', () => {
         CLICK_ANIMATION_DURATION_MS: number;
       };
 
-    const animationDuration = () => accessPrivate(component).CLICK_ANIMATION_DURATION_MS;
+    const animationDuration = () => MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS;
 
     const centroid = { x: 250000, y: 7100000 };
 
