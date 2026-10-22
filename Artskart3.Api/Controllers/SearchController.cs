@@ -99,7 +99,7 @@ public class SearchController : ControllerBase
 
     /// <summary>
     /// Returns the number of distinct locations matching the filter, capped at
-    /// <see cref="SearchConstants.MaxLocationResults"/>. Used by the map to choose between
+    /// <see cref="SearchConstants.MaxLocationCount"/>. Used by the map to choose between
     /// pre-aggregated area layers and direct location clustering.
     /// </summary>
     [HttpPost("LocationCount")]

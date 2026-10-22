@@ -5,6 +5,7 @@ using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -418,11 +419,28 @@ public class LocationCountCacheService : ILocationCountCacheService
         // med nøyaktig én bøtte står antallet ferdig på raden. Da slipper SQL
         // Server hash-aggregatet og går rett på sorteringen — og ett valgt takson
         // eller én kategori er det aller vanligste filteret.
+        // MIN AV MIN, MAX AV MAX
+        // Registreringsstatusen per lokalitet utledes av ytterpunktene, ikke av
+        // tellere, nettopp fordi ytterpunktene lar seg slå sammen på tvers av
+        // bøtter og maskerader uten å dedupliseres. Se kolonnene på
+        // LocationCountCacheLevel1.
         var topp = enBoette
-            ? query.Select(r => new { r.LocationId, Count = r.ObservationCount })
+            ? query.Select(r => new
+            {
+                r.LocationId,
+                Count = r.ObservationCount,
+                MinStatus = r.MinRegistrationStatusId,
+                MaxStatus = r.MaxRegistrationStatusId
+            })
             : query
                 .GroupBy(r => r.LocationId)
-                .Select(g => new { LocationId = g.Key, Count = g.Sum(r => r.ObservationCount) });
+                .Select(g => new
+                {
+                    LocationId = g.Key,
+                    Count = g.Sum(r => r.ObservationCount),
+                    MinStatus = g.Min(r => r.MinRegistrationStatusId),
+                    MaxStatus = g.Max(r => r.MaxRegistrationStatusId)
+                });
 
         return await topp
             .OrderByDescending(x => x.Count)
@@ -436,7 +454,15 @@ public class LocationCountCacheService : ILocationCountCacheService
                     Id = a.LocationId,
                     Latitude = l.Latitude ?? 0,
                     Longitude = l.Longitude ?? 0,
-                    ObservationCount = a.Count
+                    ObservationCount = a.Count,
+
+                    // Samme utledning som i GetLocationsAsync, og den må bli stående lik:
+                    // bufferen skal gi nøyaktig samme svar som tellingen.
+                    RegistrationStatus = a.MinStatus == (byte)RegistrationStatus.Found
+                        ? RegistrationStatus.Found
+                        : a.MaxStatus == (byte)RegistrationStatus.Absent
+                            ? RegistrationStatus.Absent
+                            : RegistrationStatus.NotRecovered
                 })
             .ToListAsync(cancellationToken);
     }

@@ -271,6 +271,15 @@ public static class AreaCountCacheDimensions
     /// </summary>
     private static DimensionSelection SelectTaxonOrders(CacheDimensionContext c)
     {
+        // UTEN UNDERLIGGENDE TAKSA KAN BUFFEREN IKKE SVARE
+        //
+        // Bøtta er OrderTaxonId, altså ordenen observasjonen ligger under — den
+        // teller alltid etterkommerne med. Ber filteret om BARE de valgte taksa,
+        // finnes det ingen bøtte som uttrykker det, og et oppslag ville gitt
+        // ordenens tall: raskt og for høyt. Spørringen regner det riktig.
+        if (c.Filter.TaxonIds?.Length > 0 && !c.Filter.IncludeDescendantTaxa)
+            return DimensionSelection.NotCacheable;
+
         var taxonIds = c.TaxonHierarchy.RemoveRedundantDescendants(c.Filter.TaxonIds);
         if (taxonIds is not { Length: > 0 })
             return DimensionSelection.Inactive;
@@ -375,6 +384,25 @@ public static class AreaCountCacheDimensions
     /// </summary>
     public static int SchemaVersion { get; } = ComputeSchemaVersion();
 
+    /// <summary>
+    /// Radformen i buffertabellene, uavhengig av dimensjonsregisteret.
+    ///
+    /// Versjonen dekker ikke bare hvilke dimensjoner som finnes, men også hvilke
+    /// kolonner en bufferrad har. Legges en kolonne til, står den tom i en buffer
+    /// bygget før endringen — og en tom kolonne leses som en gyldig verdi, ikke som
+    /// «mangler». Da svarer bufferen raskt og galt, uten en logglinje.
+    ///
+    /// Bumpes denne, må @SchemaVersion i BÅDE BuildAreaCountCache.sql og
+    /// BuildLocationCountCache.sql oppdateres, og begge bufferne bygges på nytt.
+    /// Områdebufferen bygges om selv om det var lokasjonsraden som endret seg —
+    /// versjonen er delt, og en ekstra ombygging er billigere enn to versjoner
+    /// å holde rede på.
+    ///
+    /// 2: MinRegistrationStatusId og MaxRegistrationStatusId på
+    /// LocationCountCacheLevel1.
+    /// </summary>
+    private const uint RowLayoutVersion = 2;
+
     private static int ComputeSchemaVersion()
     {
         unchecked
@@ -382,6 +410,8 @@ public static class AreaCountCacheDimensions
             const uint offsetBasis = 2166136261;
             const uint prime = 16777619;
             var hash = offsetBasis;
+
+            hash = (hash ^ RowLayoutVersion) * prime;
 
             foreach (var dimension in All.OrderBy(d => d.Id))
             {

@@ -50,6 +50,25 @@ public class LocationCountCacheLevel1 : IHarFilterMaske
 
     /// <summary>Distinkte observasjoner, ikke indeksrader.</summary>
     public int ObservationCount { get; set; }
+
+    /// <summary>
+    /// Laveste og høyeste RegistrationStatusId blant observasjonene i cellen.
+    ///
+    /// MIN OG MAX, IKKE TELLERE
+    /// Statusen per lokalitet er «funnet hvis noe er funnet, ellers ikke funnet
+    /// hvis alle er det, ellers ikke gjenfunnet». Den leses rett ut av MIN og
+    /// MAX: MIN = 1 betyr at noe er funnet, MAX = 2 at alt er ikke funnet.
+    ///
+    /// Og de lar seg slå sammen på tvers av celler — MIN av MIN, MAX av MAX —
+    /// noe tellere ikke gjør uten å dedupliseres først. Et oppslag over flere
+    /// bøtter får derfor riktig status gratis.
+    ///
+    /// To ekstra byte per rad. Samme utledning som i GetLocationsAsync, og
+    /// seksjon C i BackfillAll eier verdiene de bygges av.
+    /// </summary>
+    public byte MinRegistrationStatusId { get; set; }
+
+    public byte MaxRegistrationStatusId { get; set; }
 }
 
 /// <summary>

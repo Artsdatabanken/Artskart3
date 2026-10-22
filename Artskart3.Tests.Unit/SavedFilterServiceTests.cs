@@ -210,6 +210,7 @@ public class SavedFilterServiceTests
             {
               "TaxonGroupIds": [1, 2],
               "TaxonIds": [31133],
+              "IncludeDescendantTaxa": false,
               "CategoryIds": [3],
               "OrganizationIds": [4],
               "MunicipalityIds": ["5001"],
@@ -240,6 +241,20 @@ public class SavedFilterServiceTests
         (await _sut.GetUserFiltersAsync(UserId)).Single().Filter.Should().BeEquivalentTo(FullFilter());
     }
 
+    /// <summary>
+    /// Filtre lagret før IncludeDescendantTaxa fantes, skal fortsatt ta med underliggende taksa.
+    /// </summary>
+    [Fact]
+    public async Task GetUserFiltersAsync_FilterJsonWithoutIncludeDescendantTaxa_IncludesDescendants()
+    {
+        var entity = Entity(UserId, "Lagret før underliggende taksa");
+        entity.FilterJson = """{ "TaxonIds": [31133] }""";
+        _context.SavedFilters.Add(entity);
+        await _context.SaveChangesAsync();
+
+        (await _sut.GetUserFiltersAsync(UserId)).Single().Filter.IncludeDescendantTaxa.Should().BeTrue();
+    }
+
     private static CreateSavedFilterRequestDto Request(string name, bool isDefault = false, MapExtentDto? extent = null) => new()
     {
         Name = name,
@@ -259,6 +274,7 @@ public class SavedFilterServiceTests
     {
         TaxonGroupIds = [1, 2],
         TaxonIds = [31133],
+        IncludeDescendantTaxa = false,
         CategoryIds = [3],
         OrganizationIds = [4],
         MunicipalityIds = ["5001"],

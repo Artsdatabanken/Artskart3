@@ -1,0 +1,21 @@
+<app-autocomplete
+  class="search-field"
+  [search]="search()"
+  [label]="'mapSearch.placeholder' | translate"
+  [listLabel]="'mapSearch.resultsLabel' | translate"
+  noResultsKey="mapSearch.noResultsFor"
+  [trackBy]="trackById"
+  (selected)="selected.emit($event)"
+>
+  <ng-template [appAutocompleteOption]="search()" let-place>
+    <span class="place-row">
+      <span class="place-text">
+        <span class="place-name">{{ place.name }}</span>
+        @if (locationLabel(place); as location) {
+          <span class="place-location">{{ location }}</span>
+        }
+      </span>
+      <span class="place-type">{{ place.type }}</span>
+    </span>
+  </ng-template>
+</app-autocomplete>

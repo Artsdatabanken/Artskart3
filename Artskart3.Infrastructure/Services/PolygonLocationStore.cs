@@ -52,6 +52,10 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private string[] _wkt = [];
     private double[] _bbMinX = [], _bbMinY = [], _bbMaxX = [], _bbMaxY = [];
     private bool[] _erRutenett = [];
+
+    // Sensitive lokaliteter er rektangler, men unntas rektangelregelen. Samme
+    // unntak som databasestien i SearchRepository gjør med IsSensitive.
+    private bool[] _sensitivLokalitet = [];
     private int[] _obsStart = [];
 
     // --- per observasjon, sortert på lokasjon --------------------------------
@@ -77,6 +81,10 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
     // --- oppslag ------------------------------------------------------------
     private Dictionary<int, int[]> _taksaUnder = new();   // forfader -> tette taksonindekser
+
+    // Observasjonens EGET takson -> tett indeks. Brukes når filteret ber om bare de
+    // valgte taksa, uten underliggende.
+    private Dictionary<int, int> _tettTaksonIdx = new();
     private int _taksonAntall;
     private Dictionary<int, int[]> _geoBucketsForMedlem = new();
     private Dictionary<int, int[]> _projBucketsForMedlem = new();
@@ -183,7 +191,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         {
             var (antall, locId, loc) = treff[k];
 
-            if (_erRutenett[loc]) continue;
+            if (_erRutenett[loc] && !_sensitivLokalitet[loc]) continue;
 
             if (harUtsnitt &&
                 (_bbMaxX[loc] < envelope!.MinX || _bbMinX[loc] > envelope.MaxX ||
@@ -384,19 +392,43 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
         // Takson: samme normalisering og samme hierarkioppslag som
         // ApplyCommonFilters, men mot forfedrene vi bygget ved oppstart.
+        //
+        // UTEN UNDERLIGGENDE TAKSA treffer vi på observasjonens EGET takson i
+        // stedet. Her går det eksakt — _taksonIdx[i] ER det egne taksonet — så
+        // dette filteret trenger ingen fall-through til databasen, i motsetning
+        // til tellebufferne, som bøtter på OrderTaxonId.
+        //
+        // Normaliseringen gjelder bare den hierarkiske grenen: fjernes en
+        // etterkommer når bare de valgte taksa skal treffe, forsvinner et
+        // takson brukeren uttrykkelig ba om.
         bool[]? takson = null;
-        var taxonIds = _taxonHierarchy.RemoveRedundantDescendants(f.TaxonIds);
-        if (taxonIds is { Length: > 0 })
+        if (f.TaxonIds is { Length: > 0 } valgteTaksa && !f.IncludeDescendantTaxa)
         {
             takson = new bool[_taksonAntall];
             var noenTreff = false;
-            foreach (var id in taxonIds)
+            foreach (var id in valgteTaksa)
             {
-                if (!_taksaUnder.TryGetValue(id, out var under)) continue;
-                foreach (var idx in under) takson[idx] = true;
+                if (!_tettTaksonIdx.TryGetValue(id, out var idx)) continue;
+                takson[idx] = true;
                 noenTreff = true;
             }
             if (!noenTreff) tomt = true;
+        }
+        else
+        {
+            var taxonIds = _taxonHierarchy.RemoveRedundantDescendants(f.TaxonIds);
+            if (taxonIds is { Length: > 0 })
+            {
+                takson = new bool[_taksonAntall];
+                var noenTreff = false;
+                foreach (var id in taxonIds)
+                {
+                    if (!_taksaUnder.TryGetValue(id, out var under)) continue;
+                    foreach (var idx in under) takson[idx] = true;
+                    noenTreff = true;
+                }
+                if (!noenTreff) tomt = true;
+            }
         }
 
         // Geografi: ORes sammen som i semi-joinen, og fylkes-ID-er slås opp mot
@@ -536,7 +568,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         var rader = await context.Set<Location>().AsNoTracking()
             .Where(l => typer.Contains(l.GeometryTypeId) && l.Geometry != null)
             .OrderBy(l => l.Id)
-            .Select(l => new { l.Id, l.East, l.North, l.Locality, l.Geometry })
+            .Select(l => new { l.Id, l.East, l.North, l.Locality, l.Geometry, l.LookupId })
             .ToListAsync(ct);
 
         var n = rader.Count;
@@ -545,6 +577,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _bbMinX = new double[n]; _bbMinY = new double[n];
         _bbMaxX = new double[n]; _bbMaxY = new double[n];
         _erRutenett = new bool[n];
+        _sensitivLokalitet = new bool[n];
 
         var indeks = new Dictionary<int, int>(n);
         for (var i = 0; i < n; i++)
@@ -555,6 +588,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             var wkt = r.Geometry!.AsText();
             _wkt[i] = wkt;
             _erRutenett[i] = LocationGeometryRules.IsRectangularPolygon(wkt);
+            _sensitivLokalitet[i] = LocationGeometryRules.ErSensitivLokalitet(r.LookupId);
 
             var env = r.Geometry.EnvelopeInternal;
             _bbMinX[i] = env.MinX; _bbMinY[i] = env.MinY;
@@ -673,6 +707,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         }
 
         _taksaUnder = under.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
+        _tettTaksonIdx = tett;
         return tett;
     }
 

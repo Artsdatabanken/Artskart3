@@ -50,7 +50,7 @@ DROP TABLE IF EXISTS #dim, #vern, #vernsig, #vernbucket, #proj, #projsig, #projb
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 306158581;
+DECLARE @SchemaVersion INT = 723897205;
 
 DECLARE @NullBucket INT = -2147483648;   -- int.MinValue
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
@@ -343,6 +343,11 @@ RAISERROR(@Msg, 0, 1) WITH NOWAIT;
 -- stiene svarer ulikt avhengig av om bufferen er bygget. Skulle det hullet tettes en
 -- dag, endres begge samtidig.
 -- ---------------------------------------------------------------------------
+-- REGISTRERINGSSTATUS RIR GRATIS MED
+-- RegistrationStatusId er funksjonelt bestemt av ObservationId, så kolonnen i den
+-- indre DISTINCT gir ikke én rad mer. MIN og MAX i den ytre grupperingen er alt
+-- oppslaget trenger for å utlede statusen per lokalitet, og de slås sammen på
+-- tvers av bøtter uten å dedupliseres — i motsetning til tellere.
 DECLARE @Id TINYINT, @Navn VARCHAR(40), @Uttrykk NVARCHAR(200), @Sql NVARCHAR(MAX), @Join NVARCHAR(400);
 
 RAISERROR('--- Bygger 14 dimensjoner ---', 0, 1) WITH NOWAIT;
@@ -354,10 +359,10 @@ BEGIN
     SET @Join = CASE WHEN @Id = 12 THEN @JoinVern WHEN @Id = 13 THEN @JoinProj ELSE N'' END;
 
     SET @Sql = N'
-INSERT dbo.LocationCountCacheLevel1 (DimensionId, BucketId, LocationId, East, North, Mask, ObservationCount)
-SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North, q.Mask, COUNT(DISTINCT q.ObservationId)
+INSERT dbo.LocationCountCacheLevel1 (DimensionId, BucketId, LocationId, East, North, Mask, ObservationCount, MinRegistrationStatusId, MaxRegistrationStatusId)
+SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North, q.Mask, COUNT(DISTINCT q.ObservationId), MIN(q.RegistrationStatusId), MAX(q.RegistrationStatusId)
 FROM (
-    SELECT DISTINCT i.ObservationId, i.LocationId, ' + @Uttrykk + N' AS Bucket, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 AS Mask
+    SELECT DISTINCT i.ObservationId, i.LocationId, i.RegistrationStatusId, ' + @Uttrykk + N' AS Bucket, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 AS Mask
     FROM dbo.ObservationEntityIndex i' + @Join + N'
     WHERE i.LocationId IS NOT NULL
 ) q

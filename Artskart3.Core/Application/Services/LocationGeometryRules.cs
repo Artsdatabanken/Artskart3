@@ -12,6 +12,25 @@ namespace Artskart3.Core.Application.Services;
 public static class LocationGeometryRules
 {
     /// <summary>
+    /// Importen gir maskeringsruta til sensitive funn en LookupId med dette
+    /// suffikset.
+    /// </summary>
+    public const string SensitivLookupIdSuffix = "_sensitiv";
+
+    /// <summary>
+    /// Sensitive lokaliteter er maskeringsruter, og dermed rektangler — men de
+    /// er det eneste kartet har å vise for funnet, så de unntas rektangelregelen
+    /// under. Uten unntaket forsvant alle sensitive funn fra kartet.
+    ///
+    /// Databasestien må uttrykke det samme predikatet inline for at EF skal
+    /// oversette det til SQL; denne er for minnelageret, som har strengen i
+    /// hånda.
+    /// </summary>
+    public static bool ErSensitivLokalitet(string? lookupId) =>
+        lookupId is not null
+        && lookupId.EndsWith(SensitivLookupIdSuffix, StringComparison.Ordinal);
+
+    /// <summary>
     /// Sann når WKT-strengen er et rektangel — nøyaktig fem koordinatpar i
     /// ytre ring. Det er rutenettrutene, som ikke er reelle geografiske
     /// utstrekninger og derfor ikke skal tegnes.

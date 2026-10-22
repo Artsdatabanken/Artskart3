@@ -38,6 +38,12 @@ public static class ObservationQueryBuilder
         if (filter.TaxonIds?.Any() != true)
             return query;
 
+        if (!filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            return query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+
         // Samme normalisering som i SearchRepository: eksporten må filtrere identisk
         // med søket. Etterkommere som allerede er dekket av et annet valgt takson
         // fjernes — deres UNION-gren ville bare gjentatt rader grenen over ga.

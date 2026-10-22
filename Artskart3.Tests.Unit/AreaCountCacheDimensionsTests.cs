@@ -95,7 +95,7 @@ public class AreaCountCacheDimensionsTests
         // må bufferen bygges på nytt OG @SchemaVersion i Scripts/BuildAreaCountCache.sql
         // oppdateres. Uten det vil en nybygget buffer bli ignorert uten at noen skjønner
         // hvorfor — den feiler stille, bare tregt.
-        AreaCountCacheDimensions.SchemaVersion.Should().Be(306158581);
+        AreaCountCacheDimensions.SchemaVersion.Should().Be(723897205);
     }
 
     // -----------------------------------------------------------------------
@@ -116,7 +116,13 @@ public class AreaCountCacheDimensionsTests
         // Katalognummer: ObservationIds er en vilkårlig liste uten endelig vokabular å
         // bøtte på, og trenger det ikke — id-ene er allerede slått opp, så filteret er
         // et seek.
-        string[] bevisstUtenfor = ["ObservationIds"];
+        //
+        // IncludeDescendantTaxa er ikke et filter for seg, men endrer hvordan TaxonIds
+        // leses. Bøtta i Takson-dimensjonen er OrderTaxonId og teller alltid
+        // etterkommerne med, så «bare de valgte taksa» kan ikke uttrykkes der —
+        // SelectTaxonOrders svarer NotCacheable og tellingen tar det. Minnelageret
+        // for polygoner treffer derimot eksakt på observasjonens eget takson.
+        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa"];
 
         // Bool-filtrene er ikke dimensjoner, men bit i FilterMask — en tredje nøkkel
         // på hver bufferrad. De koster derfor ingen dimensjonsplass, og to vanlige

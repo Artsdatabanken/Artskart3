@@ -1020,6 +1020,12 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<byte>("Mask")
                         .HasColumnType("tinyint");
 
+                    b.Property<byte>("MaxRegistrationStatusId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("MinRegistrationStatusId")
+                        .HasColumnType("tinyint");
+
                     b.Property<int>("ObservationCount")
                         .HasColumnType("int");
 

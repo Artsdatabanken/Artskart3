@@ -143,7 +143,17 @@
                       @for (row of section.rows; track row.label) {
                         <div>
                           <dt>{{ 'observationDetails.fields.' + row.label | translate }}:</dt>
-                          <dd [class.empty]="row.empty">{{ row.value }}</dd>
+                          @if (row.status) {
+                            <dd>
+                              <app-registration-marker class="registration-marker" [status]="row.status" />
+                              {{ row.value }}
+                              @if (row.note) {
+                                <span class="note">– {{ row.note }}</span>
+                              }
+                            </dd>
+                          } @else {
+                            <dd [class.empty]="row.empty">{{ row.value }}</dd>
+                          }
                         </div>
                       }
                     </dl>

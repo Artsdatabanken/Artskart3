@@ -447,6 +447,7 @@ public class SearchRepository : ISearchRepository
         public int[]? OrganizationIds => organizationIds ?? inner.OrganizationIds;
 
         public int[]? TaxonIds => inner.TaxonIds;
+        public bool IncludeDescendantTaxa => inner.IncludeDescendantTaxa;
         public int[]? CategoryIds => inner.CategoryIds;
         public string[]? MunicipalityIds => inner.MunicipalityIds;
         public string[]? CountyIds => inner.CountyIds;
@@ -859,7 +860,17 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => taxonGroupIds.Contains(idx.TaxonGroupId));
         }
 
-        if (filter.TaxonIds?.Any() == true)
+        if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
+        {
+            // Uten underliggende taksa: indekstabellen har ingen kolonne for
+            // observasjonens eget takson, så det slås opp i Observation. Samme
+            // form som i ApplyAttributeFiltersToEntityIndex — rangnivå-kolonnene
+            // er alltid etterkommer-inklusive og kan ikke uttrykke dette.
+            var taxonIds = filter.TaxonIds;
+            query = query.Where(idx => _context.Set<Observation>()
+                .Any(o => o.Id == idx.ObservationId && taxonIds.Contains(o.TaxonId)));
+        }
+        else if (filter.TaxonIds?.Any() == true)
         {
             query = ApplyTaxonFilterToEntityIndex(query, filter.TaxonIds);
         }
@@ -1147,6 +1158,12 @@ public class SearchRepository : ISearchRepository
             // null betyr «kan ikke besvares herfra» og er det normale utfallet
             // for alt den ikke dekker. Da faller vi gjennom til aggregeringen
             // under, uendret.
+            //
+            // Registreringsstatusen følger med fra bufferen: radene bærer MIN og
+            // MAX av RegistrationStatusId, og utledningen der er den samme som
+            // under. Uten de kolonnene måtte bufferen stått av for dette
+            // endepunktet — en buffer som ikke kjenner statusen ville svart Found
+            // for alt, raskt og galt.
             if (_locationCountCache is not null)
             {
                 var buffret = await _locationCountCache
@@ -1216,7 +1233,9 @@ public class SearchRepository : ISearchRepository
                 .Select(g => new
                 {
                     LocationId = g.Key,
-                    ObservationCount = g.Select(idx => idx.ObservationId).Distinct().Count()
+                    ObservationCount = g.Select(idx => idx.ObservationId).Distinct().Count(),
+                    LavesteStatus = g.Min(idx => idx.RegistrationStatusId),
+                    HoyesteStatus = g.Max(idx => idx.RegistrationStatusId)
                 })
                 .OrderByDescending(x => x.ObservationCount)
                 .ThenBy(x => x.LocationId)
@@ -1229,7 +1248,27 @@ public class SearchRepository : ISearchRepository
                         Id = a.LocationId,
                         Latitude = l.Latitude ?? 0,
                         Longitude = l.Longitude ?? 0,
-                        ObservationCount = a.ObservationCount
+                        ObservationCount = a.ObservationCount,
+                        // STATUS FRA DEN DENORMALISERTE KOLONNEN, IKKE FRA TAGGENE
+                        //
+                        // RegistrationStatusId på indekstabellen er backfillet med
+                        // nøyaktig samme regel som en join mot ObservationTags ville
+                        // gitt: 3 når funnet har NotRecovered-taggen, ellers 2 ved
+                        // Absent, ellers 1. Se seksjon C i BackfillAll.sql.
+                        //
+                        // MIN og MAX i stedet for å telle: en observasjon har én rad
+                        // per område den ligger i, så enhver telling her måtte
+                        // deduplisere på ObservationId først. MIN og MAX er
+                        // upåvirket av duplikater og gir samme svar gratis.
+                        //
+                        //   MIN = 1  -> minst ett funn matcher    -> Found
+                        //   MAX = 2  -> alle er ikke funnet       -> Absent
+                        //   ellers   -> noen er ikke gjenfunnet   -> NotRecovered
+                        RegistrationStatus = a.LavesteStatus == (byte)RegistrationStatus.Found
+                            ? RegistrationStatus.Found
+                            : a.HoyesteStatus == (byte)RegistrationStatus.Absent
+                                ? RegistrationStatus.Absent
+                                : RegistrationStatus.NotRecovered
                     })
                 .ToListAsync(cancellationToken);
 
@@ -1252,8 +1291,9 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationResults.
-    /// Brukes av frontend til å velge mellom områdelag og direkte lokasjonsklustering.
+    /// Teller distinkte lokasjoner som matcher filteret, cappet til MaxLocationCount.
+    /// Samme gruppering som GetLocationsAsync, men uten koordinat-join — brukes av
+    /// frontend til å velge mellom områdelag og direkte lokasjonsklustering.
     /// </summary>
     public async Task<LocationCountDto> GetLocationCountAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
@@ -1324,19 +1364,19 @@ public class SearchRepository : ISearchRepository
             // Den forrige formen hentet opptil 100 001 ID-er ut av SQL Server bare
             // for å måle lengden på listen.
             //
-            // Taket er MaxLocationResults + 1 fordi én over grensen er nok til å
+            // Taket er MaxLocationCount + 1 fordi én over grensen er nok til å
             // vite at den er passert. Over taket er Truncated svaret, og det
             // eksakte tallet uinteressant.
             var antall = await indexQuery
                 .GroupBy(idx => idx.LocationId!.Value)
                 .Select(g => g.Key)
-                .Take(SearchConstants.MaxLocationResults + 1)
+                .Take(SearchConstants.MaxLocationCount + 1)
                 .CountAsync(cancellationToken);
 
-            var truncated = antall > SearchConstants.MaxLocationResults;
+            var truncated = antall > SearchConstants.MaxLocationCount;
             return new LocationCountDto
             {
-                Count = truncated ? SearchConstants.MaxLocationResults : antall,
+                Count = truncated ? SearchConstants.MaxLocationCount : antall,
                 Truncated = truncated,
             };
         }
@@ -1367,7 +1407,12 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => taxonGroupIds.Contains(o.TaxonGroupId));
         }
 
-        if (filter.TaxonIds?.Any() == true)
+        if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            query = query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+        else if (filter.TaxonIds?.Any() == true)
         {
             // Hierarkisk filtrering via ObservationTaxonHierarchy — inkluderer alle etterkommere.
             // Etterkommere som allerede er dekket av et annet valgt takson fjernes først:
@@ -2080,10 +2125,18 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => idx.Introduced == introduced);
         }
 
-        // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
-        // Høyere rangnivå (Class+) konverteres til nærmeste denormaliserte nivå via minne-oppslag.
-        if (filter.TaxonIds?.Any() == true)
+        if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
         {
+            // Uten underliggende taksa: indekstabellen har ingen kolonne for observasjonens
+            // eget takson, så det slås opp i Observation.
+            var taxonIds = filter.TaxonIds;
+            query = query.Where(idx => _context.Set<Observation>()
+                .Any(o => o.Id == idx.ObservationId && taxonIds.Contains(o.TaxonId)));
+        }
+        else if (filter.TaxonIds?.Any() == true)
+        {
+            // TaxonIds — bruker denormaliserte rangnivå-kolonner (Order/Family/Genus/Species).
+            // Høyere rangnivå (Class+) konverteres til nærmeste denormaliserte nivå via minne-oppslag.
             query = ApplyTaxonFilterToEntityIndex(query, filter.TaxonIds);
         }
 
@@ -2544,7 +2597,9 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// Henter polygon-geometrier fra Location-tabellen for observasjoner som matcher filteret.
-    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort.
+    /// Rektangulære polygoner (nøyaktig 5 punkter i ytre ring = rutenett-firkanter) filtreres bort,
+    /// unntatt maskeringsruter for sensitive funn: der er ruta selve posisjonen, og midtpunktet
+    /// alene ville sett ut som en eksakt posisjon.
     /// </summary>
     public async Task<IEnumerable<LocationPolygonDto>> GetLocationPolygonsAsync(LocationSearchFilterDto? filter = null, CancellationToken cancellationToken = default)
     {
@@ -2607,7 +2662,14 @@ public class SearchRepository : ISearchRepository
             var locations = await _context.Set<Location>()
                 .AsNoTracking()
                 .Where(l => locationIds.Contains(l.Id) && l.Geometry != null)
-                .Select(l => new { l.Id, l.Locality, l.Geometry })
+                .Select(l => new
+                {
+                    l.Id,
+                    l.Locality,
+                    l.Geometry,
+                    IsSensitive = l.LookupId != null
+                        && l.LookupId.EndsWith(LocationGeometryRules.SensitivLookupIdSuffix)
+                })
                 .ToListAsync(cancellationToken);
 
             if (locations.Count == 0) return [];
@@ -2640,7 +2702,7 @@ public class SearchRepository : ISearchRepository
             {
                 var geo = location.Geometry!;
                 var wkt = geo.AsText();
-                if (IsRectangularPolygon(wkt)) continue;
+                if (IsRectangularPolygon(wkt) && !location.IsSensitive) continue;
 
                 // Skip polygons whose bounding box doesn't intersect the visible map extent
                 if (filter.Envelope != null)

@@ -73,6 +73,7 @@ export class SearchFilterService {
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
+        includeDescendantTaxa: this.filterState.excludesDescendantTaxa() ? false : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
@@ -119,6 +120,7 @@ export class SearchFilterService {
     state.selectedRegistrationStatusId.set(filter.registrationStatusId ?? null);
     state.selectedTaxonGroupIds.set(filter.taxonGroupIds ?? []);
     state.selectedTaxonIds.set(filter.taxonIds ?? []);
+    state.setIncludeDescendantTaxa(filter.includeDescendantTaxa ?? true);
     state.setCoordinatePrecision(filter.coordinatePrecision?.from ?? null, filter.coordinatePrecision?.to ?? null);
     state.setPeriod(filter.period?.from ?? null, filter.period?.to ?? null);
     state.selectedMonths.set(filter.period?.months ?? []);

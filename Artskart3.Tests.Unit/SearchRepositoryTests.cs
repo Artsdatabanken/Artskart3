@@ -1,6 +1,7 @@
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
@@ -9,6 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
+using NetTopologySuite.IO;
+using RegistrationStatus = Artskart3.Core.Domain.Enums.RegistrationStatus;
+using TagEnum = Artskart3.Core.Domain.Enums.Tag;
+using LocationGeometryType = Artskart3.Core.Domain.Enums.LocationGeometryType;
 
 namespace Artskart3.Tests.Unit;
 
@@ -259,6 +264,75 @@ public class SearchRepositoryTests
         result[0].Id.Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetLocationsAsync_SetsRegistrationStatusFromAllObservationsAtLocation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context,
+            CreateLocation(1, "Funn og ikke funnet"),
+            CreateLocation(2, "Ikke funnet"),
+            CreateLocation(3, "Ikke funnet og ikke gjenfunnet"),
+            CreateLocation(4, "Begge tagger"),
+            CreateLocation(5, "Annen tagg"));
+
+        var absentTag = CreateTag(5, "Absent");
+        var notRecoveredTag = CreateTag(6, "NotRecovered");
+        var validatedTag = CreateTag(3, "Validated");
+        context.Set<Tag>().AddRange(absentTag, notRecoveredTag, validatedTag);
+
+        Observation Tagged(int id, int locationId, params Tag[] tags)
+        {
+            var observation = CreateObservation(id, locationId);
+            foreach (var tag in tags) observation.Tags.Add(tag);
+            return observation;
+        }
+
+        SeedObservations(context,
+            Tagged(1, 1),
+            Tagged(2, 1, absentTag),
+            Tagged(3, 2, absentTag),
+            Tagged(4, 2, absentTag),
+            Tagged(5, 3, absentTag),
+            Tagged(6, 3, notRecoveredTag),
+            Tagged(7, 4, absentTag, notRecoveredTag),
+            Tagged(8, 5, validatedTag));
+        await context.SaveChangesAsync();
+
+        var result = await sut.GetLocationsAsync(null);
+
+        result.ToDictionary(x => x.Id, x => x.RegistrationStatus).Should().BeEquivalentTo(new Dictionary<int, RegistrationStatus>
+        {
+            [1] = RegistrationStatus.Found,
+            [2] = RegistrationStatus.Absent,
+            [3] = RegistrationStatus.NotRecovered,
+            [4] = RegistrationStatus.NotRecovered,
+            [5] = RegistrationStatus.Found,
+        });
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_RegistrationStatusIgnoresObservationsOutsideFilter()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+
+        SeedLocations(context, CreateLocation(1, "Oslo"));
+
+        var absentTag = CreateTag(5, "Absent");
+        context.Set<Tag>().Add(absentTag);
+
+        var absentObservation = CreateObservation(1, 1, taxonGroupId: 1);
+        absentObservation.Tags.Add(absentTag);
+        SeedObservations(context, absentObservation, CreateObservation(2, 1, taxonGroupId: 2));
+        await context.SaveChangesAsync();
+
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { TaxonGroupIds = [1] });
+
+        result.Should().ContainSingle().Which.RegistrationStatus.Should().Be(RegistrationStatus.Absent);
+    }
+
     // CollectionId-filtrering er erstattet av OrganizationIds via ObservationEntityIndex.
     // Denne testen krever seeding av ObservationEntityIndex og dekkes av integrasjonstester.
 
@@ -380,7 +454,7 @@ public class SearchRepositoryTests
 
         await context.SaveChangesAsync();
 
-        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = 100001 });
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { MaxResults = SearchConstants.MaxLocationResults + 1 });
 
         result.Should().HaveCount(1000);
     }
@@ -635,6 +709,29 @@ public class SearchRepositoryTests
         result.Should().HaveCount(2);
     }
 
+    [Fact]
+    public async Task GetLocationPolygonsAsync_SkipsGridSquares_ExceptSensitiveMaskingSquares()
+    {
+        await using var context = CreateInMemoryContext();
+        var wktReader = new WKTReader();
+        const string Square = "POLYGON ((0 0, 4000 0, 4000 4000, 0 4000, 0 0))";
+
+        var gridSquare = CreateLocation(1, "Rute");
+        gridSquare.Geometry = wktReader.Read(Square);
+        var sensitiveSquare = CreateLocation(2, "Locality data withheld");
+        sensitiveSquare.LookupId = "1_2000_2000_4_sensitiv";
+        sensitiveSquare.Geometry = wktReader.Read(Square);
+        var irregularPolygon = CreateLocation(3, "Myr");
+        irregularPolygon.Geometry = wktReader.Read("POLYGON ((0 0, 4000 0, 4000 2000, 2000 4000, 0 4000, 0 0))");
+        SeedLocations(context, gridSquare, sensitiveSquare, irregularPolygon);
+        SeedObservations(context, CreateObservation(1, 1), CreateObservation(2, 2), CreateObservation(3, 3));
+        await context.SaveChangesAsync();
+
+        var result = await CreateRepository(context).GetLocationPolygonsAsync();
+
+        result.Select(p => p.LocationId).Should().BeEquivalentTo([2, 3]);
+    }
+
     private static ArtskartDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<ArtskartDbContext>()
@@ -647,8 +744,41 @@ public class SearchRepositoryTests
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
         new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
 
-    private static void SeedLocations(ArtskartDbContext context, params Location[] locations) =>
+    /// <summary>
+    /// Legger inn lokasjonene OG setter GeometryTypeId, som databasen eier.
+    ///
+    /// Kolonnen er beregnet og persistert fra Geometry, så entiteten har privat
+    /// setter og InMemory-provideren fyller den aldri. Polygonstien filtrerer på
+    /// nettopp den kolonnen — ikke på STGeometryType() — så uten dette ville
+    /// testene sett en tom database. Seederen spiller her samme rolle for
+    /// kolonnen som SeedObservations gjør for backfillen.
+    /// </summary>
+    private static void SeedLocations(ArtskartDbContext context, params Location[] locations)
+    {
         context.Set<Location>().AddRange(locations);
+
+        foreach (var location in locations)
+        {
+            context.Entry(location).Property(l => l.GeometryTypeId).CurrentValue =
+                GeometritypeFor(location.Geometry);
+        }
+    }
+
+    /// <summary>
+    /// Samme avbildning som den beregnede kolonnen i ArtskartDbContext. Endres den
+    /// ene, må den andre følge.
+    /// </summary>
+    private static LocationGeometryType GeometritypeFor(NetTopologySuite.Geometries.Geometry? geometry) =>
+        geometry?.GeometryType switch
+        {
+            "Point" => LocationGeometryType.Point,
+            "Polygon" => LocationGeometryType.Polygon,
+            "MultiPolygon" => LocationGeometryType.MultiPolygon,
+            "LineString" => LocationGeometryType.LineString,
+            "MultiLineString" => LocationGeometryType.MultiLineString,
+            "GeometryCollection" => LocationGeometryType.GeometryCollection,
+            _ => LocationGeometryType.Ukjent,
+        };
 
     /// <summary>
     /// Legger inn observasjonene OG den tilhørende raden i ObservationEntityIndex.
@@ -682,7 +812,7 @@ public class SearchRepositoryTests
             BasisOfRecordId = o.BasisOfRecordId,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             DateTimeCollected = o.DateTimeCollected,
-            RegistrationStatusId = o.RegistrationStatusId,
+            RegistrationStatusId = RegistreringsstatusFor(o),
             HasMediaFiles = o.HasMediaFiles,
             BehaviorId = o.BehaviorId,
             InstitutionOrgId = o.InstitutionOrgId,
@@ -691,6 +821,19 @@ public class SearchRepositoryTests
 
         context.Set<ObservationEntityIndex>().AddRange(indexRows);
     }
+
+    /// <summary>
+    /// Registreringsstatus utledes fra taggene, slik seksjon C i BackfillAll gjør:
+    /// ikke gjenfunnet slår ikke funnet, og uten noen av dem står det brukeren
+    /// satte på observasjonen (databasens DEFAULT er 1, funnet).
+    ///
+    /// Repositoriet leser den denormaliserte kolonnen og ikke taggene, så en test
+    /// som bare legger på tagger ville ellers sett alt som funnet.
+    /// </summary>
+    private static byte RegistreringsstatusFor(Observation o) =>
+        o.Tags.Any(t => t.Id == (int)TagEnum.NotRecovered) ? (byte)RegistrationStatus.NotRecovered
+        : o.Tags.Any(t => t.Id == (int)TagEnum.Absent) ? (byte)RegistrationStatus.Absent
+        : o.RegistrationStatusId;
 
     private static Location CreateLocation(int id, string locality) =>
         new()

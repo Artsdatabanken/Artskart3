@@ -532,7 +532,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
             .Select(r => (
                 Bucket: bucketOf(r) ?? AreaCountCacheDimensions.NullBucket,
                 LocationId: r.LocationId!.Value,
-                r.ObservationId))
+                r.ObservationId,
+                r.RegistrationStatusId))
             .Where(x => x.Bucket != AreaCountCacheDimensions.NullBucket)
             .GroupBy(x => (x.Bucket, x.LocationId))
             .Select(g => new LocationCountCacheLevel1
@@ -543,6 +544,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                 East = koordinater[g.Key.LocationId].East,
                 North = koordinater[g.Key.LocationId].North,
                 ObservationCount = g.Select(x => x.ObservationId).Distinct().Count(),
+                MinRegistrationStatusId = g.Min(x => x.RegistrationStatusId),
+                MaxRegistrationStatusId = g.Max(x => x.RegistrationStatusId),
             }));
 
         await MarkReadyAsync();
@@ -603,7 +606,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                     ? b
                     : AreaCountCacheDimensions.NullBucket,
                 LocationId: r.LocationId!.Value,
-                r.ObservationId))
+                r.ObservationId,
+                r.RegistrationStatusId))
             .Where(x => x.Bucket != AreaCountCacheDimensions.NullBucket)
             .GroupBy(x => (x.Bucket, x.LocationId))
             .Select(g => new LocationCountCacheLevel1
@@ -614,6 +618,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                 East = koordinater[g.Key.LocationId].East,
                 North = koordinater[g.Key.LocationId].North,
                 ObservationCount = g.Select(x => x.ObservationId).Distinct().Count(),
+                MinRegistrationStatusId = g.Min(x => x.RegistrationStatusId),
+                MaxRegistrationStatusId = g.Max(x => x.RegistrationStatusId),
             }));
 
         await MarkReadyAsync();
