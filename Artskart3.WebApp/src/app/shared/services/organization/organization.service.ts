@@ -20,6 +20,8 @@ export class OrganizationService {
   private readonly datasetsEndpoint = '/api/Lookup/Datasets';
   private readonly projectsEndpoint = '/api/Lookup/Projects';
   private readonly catalogNumbersEndpoint = '/api/Lookup/CatalogNumbers';
+  /** Backendens øvre grense (SearchConstants.MaxOrganizationCount). Mange treff har nesten like navn. */
+  private readonly typeaheadMaxCount = 50;
 
   searchOrganizations(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.endpoint, { params: { search } });
@@ -28,14 +30,14 @@ export class OrganizationService {
   /** Datasett (OrganizationTypeId = 2). Treffet legges til i datasetOrgIds. */
   searchDatasets(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.datasetsEndpoint, {
-      params: { search },
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
   /** Prosjekt (OrganizationTypeId = 3). Treffet legges til i projectOrgIds. */
   searchProjects(search: string): Observable<components['schemas']['OrganizationDto'][]> {
     return this.http.get<components['schemas']['OrganizationDto'][]>(this.projectsEndpoint, {
-      params: { search },
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
@@ -45,7 +47,7 @@ export class OrganizationService {
    */
   searchCatalogNumbers(search: string): Observable<components['schemas']['CatalogNumberMatchDto'][]> {
     return this.http.get<components['schemas']['CatalogNumberMatchDto'][]>(this.catalogNumbersEndpoint, {
-      params: { search },
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
