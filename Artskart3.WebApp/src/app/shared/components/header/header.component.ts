@@ -14,9 +14,9 @@ export interface MenuItem {
   ariaLabel?: string;
 }
 
-interface CookieInformationWindow {
-  CookieInformation?: {
-    renew(): void;
+interface CookieConsentWindow {
+  CookieConsent?: {
+    renew?(): void;
   };
 }
 
@@ -46,7 +46,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   private readonly languageService = inject(LanguageService);
-  private readonly cookieWindow = inject(DOCUMENT).defaultView as (Window & CookieInformationWindow) | null;
+  private readonly cookieWindow = inject(DOCUMENT).defaultView as (Window & CookieConsentWindow) | null;
   readonly authService = inject(AuthService);
 
   ngOnInit(): void {
@@ -84,7 +84,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   openCookieSettings(): void {
-    this.cookieWindow?.CookieInformation?.renew();
+    this.cookieWindow?.CookieConsent?.renew?.();
     this.onMenuItemClick();
   }
 
