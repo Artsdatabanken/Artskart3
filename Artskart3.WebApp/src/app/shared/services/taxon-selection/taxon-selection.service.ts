@@ -14,7 +14,10 @@ export type TaxonCheckboxState = 'checked' | 'indeterminate' | 'unchecked';
  * - En node er indeterminate om minst én etterkommer er valgt, uten at noden selv er checked.
  * - Avhaking av en arvet checked node materialiserer utvalget: den valgte forgjengeren
  *   erstattes med søsknene langs stien ned til noden.
- * - Når alle (kjente) barn av en forelder er valgt, kollapses utvalget tilbake til forelderens id.
+ * - En forelder blir aldri checked eller valgt bare fordi alle barna er valgt. Forelderen har
+ *   egne observasjoner (bestemt bare til forelderens nivå) som barna ikke dekker.
+ * - Uten underliggende taksa er hver node uavhengig: ingen arvet checked, og å velge en
+ *   forelder fjerner ikke valgte etterkommere.
  *
  * Treet mater inn forfedrekjeder og søskenlister for alt som rendres; det som ikke er
  * rendret (f.eks. taxa valgt via artsøk) hentes fra GET /api/Lookup/TaxonAncestry.
@@ -77,25 +80,21 @@ export class TaxonSelectionService {
     this.ancestryCache.update((current) => new Map([...current, ...additions]));
   }
 
-  /** Registrerer barna til en forelder slik materialisering/kollaps kan bruke dem. */
+  /** Registrerer barna til en forelder slik materialisering kan bruke dem. */
   registerChildren(parentTaxonId: number | undefined, children: TaxonTreeNodeDto[]): void {
-    this.registerChildIds(parentTaxonId ?? 0, children.map((n) => n.id));
+    const parentId = parentTaxonId ?? 0;
+    if (this.childrenCache().has(parentId)) return;
+    this.childrenCache.update((cache) => {
+      const next = new Map(cache);
+      next.set(parentId, children.map((n) => n.id));
+      return next;
+    });
   }
 
   /** Registrerer et lastet tre-nivå: barna til forelder og forfedrekjeden til hvert barn. */
   registerTreeLevel(parentTaxonId: number | undefined, ancestorIds: number[], children: TaxonTreeNodeDto[]): void {
     this.registerChildren(parentTaxonId, children);
     this.registerAncestries(children.map((node) => [node.id, ancestorIds] as const));
-  }
-
-  /** Som registerChildren, men med kjente id-er (f.eks. fra TaxonAncestry-nivåer). */
-  private registerChildIds(parentId: number, childIds: number[]): void {
-    if (this.childrenCache().has(parentId)) return;
-    this.childrenCache.update((cache) => {
-      const next = new Map(cache);
-      next.set(parentId, childIds);
-      return next;
-    });
   }
 
   isSelected(id: number): boolean {
@@ -111,26 +110,20 @@ export class TaxonSelectionService {
   }
 
   checkboxState(nodeId: number, ancestorIds: number[]): TaxonCheckboxState {
-    if (this.isSelected(nodeId) || this.isInheritedSelected(ancestorIds)) return 'checked';
-    if (this.isIndeterminate(nodeId)) {
-      return this.isFullyCovered(nodeId) ? 'checked' : 'indeterminate';
-    }
+    if (this.isSelected(nodeId)) return 'checked';
+    if (this.filterState.includeDescendantTaxa() && this.isInheritedSelected(ancestorIds)) return 'checked';
+    if (this.isIndeterminate(nodeId)) return 'indeterminate';
     return 'unchecked';
   }
 
-  /** Sann om alle (laste­de) barn av noden er fullt dekket av utvalget, rekursivt. */
-  private isFullyCovered(id: number): boolean {
-    return this.isCoveredBy(id, this.selectedIds());
-  }
-
-  /** Sjekker inn en node: legger den til, fjerner overflødige etterkommere, kollapser oppover. */
-  select(taxonId: number, ancestorIds: number[]): void {
-    const knownDescendants = this.knownDescendantsOf(taxonId);
+  /** Sjekker inn en node: legger den til og fjerner overflødige etterkommere. */
+  select(taxonId: number): void {
+    const knownDescendants = this.filterState.includeDescendantTaxa() ? this.knownDescendantsOf(taxonId) : new Set<number>();
     const ids = this.filterState
       .selectedTaxonIds()
       .filter((id) => !knownDescendants.has(id) && id !== taxonId);
     ids.push(taxonId);
-    this.filterState.setTaxons(this.normaliseUpwards(ids, ancestorIds));
+    this.filterState.setTaxons(ids);
   }
 
   /**
@@ -141,9 +134,7 @@ export class TaxonSelectionService {
     const selected = this.selectedIds();
 
     if (selected.has(taxonId)) {
-      this.filterState.setTaxons(
-        this.normaliseUpwards(this.filterState.selectedTaxonIds().filter((id) => id !== taxonId), ancestorIds),
-      );
+      this.filterState.setTaxons(this.filterState.selectedTaxonIds().filter((id) => id !== taxonId));
       return;
     }
 
@@ -155,17 +146,7 @@ export class TaxonSelectionService {
         break;
       }
     }
-    if (ancestorIndex < 0) {
-      // Noden er verken valgt eller arvet — men kan være checked via full barne­dekning.
-      // Avhaking fjerner da alle kjente valgte etterkommere.
-      if (this.isFullyCovered(taxonId)) {
-        const descendants = this.knownDescendantsOf(taxonId);
-        this.filterState.setTaxons(
-          this.filterState.selectedTaxonIds().filter((id) => !descendants.has(id)),
-        );
-      }
-      return;
-    }
+    if (ancestorIndex < 0) return;
 
     const selectedAncestor = ancestorIds[ancestorIndex];
     const path = [...ancestorIds.slice(ancestorIndex + 1), taxonId];
@@ -191,36 +172,7 @@ export class TaxonSelectionService {
       if (!ids.includes(id)) ids.push(id);
     }
 
-    this.filterState.setTaxons(this.normaliseUpwards(ids, ancestorIds));
-  }
-
-  /**
-   * Kollapser fullt dekkede forgjengere til forelderens id, fra nærmeste forelder og oppover.
-   * En forgjenger er dekket om alle dens (laste­de) barn er dekket, rekursivt — den øverste
-   * fullt dekkede noden ender dermed opp som filterets taxonId.
-   */
-  private normaliseUpwards(ids: number[], ancestorIds: number[]): number[] {
-    let result = [...ids];
-    for (let i = ancestorIds.length - 1; i >= 0; i--) {
-      const parentId = ancestorIds[i];
-      if (!this.isCoveredBy(parentId, new Set(result))) continue;
-      const descendants = this.knownDescendantsOf(parentId);
-      result = result.filter((id) => !descendants.has(id) && id !== parentId);
-      result.push(parentId);
-    }
-    return result;
-  }
-
-  /**
-   * Sann om noden er valgt eller alle dens (laste­de) barn er dekket, rekursivt.
-   * Noder med ulastede barn kan ikke verifiseres og regnes ikke som dekket.
-   */
-  private isCoveredBy(id: number, ids: ReadonlySet<number>, visited = new Set<number>()): boolean {
-    if (ids.has(id)) return true;
-    if (!visited.add(id)) return false; // syklusvakt
-    const children = this.childrenCache().get(id);
-    if (!children || children.length === 0) return false;
-    return children.every((childId) => this.isCoveredBy(childId, ids, visited));
+    this.filterState.setTaxons(ids);
   }
 
   /** Alle kjente etterkommere av taxonId, basert på hva som er registrert fra treet. */
@@ -276,14 +228,6 @@ export class TaxonSelectionService {
           if (!entries.has(id)) entries.set(id, []);
         }
         this.ancestryCache.update((cache) => new Map([...cache, ...entries]));
-        // Registrer kjente barn per nivå slik full dekning kan avgjøres uten
-        // at treet er ekspandert ned til nivået
-        for (const ancestry of ancestries) {
-          for (const level of ancestry.levels ?? []) {
-            if (level.parentId == null) continue;
-            this.registerChildIds(level.parentId, level.childIds ?? []);
-          }
-        }
       })
       .catch(() => {
         // Lar batchen gå ut av pending slik at neste utvalgsendring kan prøve på nytt.

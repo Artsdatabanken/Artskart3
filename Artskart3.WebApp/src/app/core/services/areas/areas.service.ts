@@ -15,6 +15,7 @@ import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-
 import { AreaMarkerDto, LocationCountResult } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { RegistrationStatus, registrationStatusFromId } from '@shared/helpers/registration-status/registration-status';
 import { ApiClientService } from '../api-client.service';
 import { LoggingService } from '@shared/logging.service';
 import { ValidationService } from '../validation.service';
@@ -286,6 +287,7 @@ export interface LocationSearchFilter {
   registrationStatusId?: number | null;
   taxonGroupIds?: number[];
   taxonIds?: number[];
+  includeDescendantTaxa?: boolean;
   countyIds?: string[];
   municipalityIds?: string[];
   restrictedAreaIds?: string[];
@@ -295,11 +297,22 @@ export interface LocationSearchFilter {
   periodFrom?: number | null;
   periodTo?: number | null;
   // Sendes som ID-er. Fritekstsoeket skjer i typeahead-endepunktene, ikke her.
-  datasetOrgId?: number | null;
-  projectOrgId?: number | null;
+  datasetOrgIds?: number[];
+  projectOrgIds?: number[];
   observationIds?: number[] | null;
   withImages?: boolean | null;
+  changedByAnnotation?: boolean | null;
+  sensitive?: boolean | null;
   periodMonths?: number[] | null;
+}
+
+/** Coordinates in EPSG:4326. */
+export interface LocationPoint {
+  id: number;
+  longitude: number;
+  latitude: number;
+  observationCount: number;
+  registrationStatus: RegistrationStatus;
 }
 
 @Injectable({
@@ -348,40 +361,51 @@ export class AreasService {
   }
 
   /**
-   * Henter lokasjoner fra API (kompakt format) og returnerer GeoJSON FeatureCollection-streng
-   * for `updateGeoJSONLayer`. Interaktive markører styles av kartlaget.
+   * Henter lokasjonspunkter fra API (kompakt format).
    * @param extent Kartutsnitt [minX, minY, maxX, maxY] i EPSG:25833
    * @param filter Valgfritt søkefilter for lokasjoner
+   * @param maxResults Maks antall lokasjoner, de med flest observasjoner først. API-ets standard brukes når den ikke er satt.
    */
-  getLocationsAsGeoJsonString(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+  getLocations(
+    extent?: [number, number, number, number],
+    filter?: LocationSearchFilter,
+    maxResults?: number,
+  ): Observable<LocationPoint[]> {
     const body = this.buildFilterBody(filter, extent);
+    if (maxResults != null) body['maxResults'] = maxResults;
 
     return this.apiClientService.postJson<string>(this.locationsEndpoint, body, { responseType: 'text' }).pipe(
       map((responseText: string) => {
         const parsed = this.apiClientService.parseJsonResponse<{ locations: unknown[] }>(responseText, AreasService.SERVICE_NAME);
-        const features = this.mapCompactLocationsToGeoJson(parsed);
-        this.loggerService.info(`Retrieved ${features.length} location features`, AreasService.SERVICE_NAME);
-        return JSON.stringify({ type: 'FeatureCollection', features });
+        const points = this.parseCompactLocations(parsed);
+        this.loggerService.info(`Retrieved ${points.length} locations`, AreasService.SERVICE_NAME);
+        return points;
       }),
     );
   }
 
   /**
-   * Fetches location polygon geometries and returns as a GeoJSON FeatureCollection string.
+   * Fetches location polygon geometries as a GeoJSON FeatureCollection string, with the number of
+   * polygons the API returned so callers can tell whether the result hit `maxResults`.
    */
-  getLocationPolygons(extent?: [number, number, number, number], filter?: LocationSearchFilter): Observable<string> {
+  getLocationPolygons(
+    extent?: [number, number, number, number],
+    filter?: LocationSearchFilter,
+    maxResults?: number,
+  ): Observable<{ geojson: string; count: number }> {
     const body = this.buildFilterBody(filter, extent);
+    if (maxResults != null) body['maxResults'] = maxResults;
 
     return this.apiClientService.postJson<LocationPolygonDto[]>(this.locationPolygonsEndpoint, body).pipe(
       map((polygons) => {
         if (!Array.isArray(polygons)) {
-          return JSON.stringify({ type: 'FeatureCollection', features: [] });
+          return { geojson: JSON.stringify({ type: 'FeatureCollection', features: [] }), count: 0 };
         }
 
         const features = polygons.map((p) => this.createPolygonFeature(p)).filter((f): f is AreaMarkerFeature => f !== null);
 
         this.loggerService.info(`Retrieved ${features.length} location polygon features`, AreasService.SERVICE_NAME);
-        return JSON.stringify({ type: 'FeatureCollection', features });
+        return { geojson: JSON.stringify({ type: 'FeatureCollection', features }), count: polygons.length };
       }),
     );
   }
@@ -468,6 +492,7 @@ export class AreasService {
       if (filter.registrationStatusId != null) body['registrationStatusId'] = filter.registrationStatusId;
       if (filter.taxonGroupIds?.length) body['taxonGroupIds'] = filter.taxonGroupIds;
       if (filter.taxonIds?.length) body['taxonIds'] = filter.taxonIds;
+      if (filter.includeDescendantTaxa === false) body['includeDescendantTaxa'] = false;
       if (filter.countyIds?.length) body['countyIds'] = filter.countyIds;
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
@@ -482,10 +507,12 @@ export class AreasService {
           months: filter.periodMonths?.length ? filter.periodMonths : undefined,
         };
       }
-      if (filter.datasetOrgId != null) body['datasetOrgId'] = filter.datasetOrgId;
-      if (filter.projectOrgId != null) body['projectOrgId'] = filter.projectOrgId;
+      if (filter.datasetOrgIds?.length) body['datasetOrgIds'] = filter.datasetOrgIds;
+      if (filter.projectOrgIds?.length) body['projectOrgIds'] = filter.projectOrgIds;
       if (filter.observationIds?.length) body['observationIds'] = filter.observationIds;
       if (filter.withImages != null) body['withImages'] = filter.withImages;
+      if (filter.changedByAnnotation != null) body['changedByAnnotation'] = filter.changedByAnnotation;
+      if (filter.sensitive != null) body['sensitive'] = filter.sensitive;
     }
 
     if (extent) {
@@ -497,33 +524,21 @@ export class AreasService {
   }
 
   /**
-   * Mapper kompakt lokasjon-respons [id, lon, lat, count] til GeoJSON-features.
+   * Leser kompakt lokasjon-respons [id, lon, lat, count, registrationStatusId].
    */
-  private mapCompactLocationsToGeoJson(response: unknown): AreaMarkerFeature[] {
+  private parseCompactLocations(response: unknown): LocationPoint[] {
     if (typeof response !== 'object' || response === null) return [];
     const locations = (response as { locations?: unknown[] }).locations;
     if (!Array.isArray(locations)) return [];
 
-    const features: AreaMarkerFeature[] = [];
+    const points: LocationPoint[] = [];
     for (const loc of locations) {
       if (!Array.isArray(loc) || loc.length < 4) continue;
-      const [id, lon, lat, count] = loc as [number, number, number, number];
-      if (isNaN(lon) || isNaN(lat)) continue;
-
-      features.push({
-        type: 'Feature',
-        id,
-        geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: {
-          id,
-          name: `Location ${id}`,
-          observationCount: count,
-          observationCountDisplay: count ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
-          isPolygon: false,
-        },
-      });
+      const [id, longitude, latitude, observationCount, statusId] = loc as [number, number, number, number, unknown];
+      if (isNaN(longitude) || isNaN(latitude)) continue;
+      points.push({ id, longitude, latitude, observationCount, registrationStatus: registrationStatusFromId(statusId) });
     }
-    return features;
+    return points;
   }
 
   /**

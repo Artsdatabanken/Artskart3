@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import '@artsdatabanken/components';
 import { ObservationDetailsComponent } from './observation-details.component';
 
@@ -176,6 +176,38 @@ describe('ObservationDetails', () => {
     expect(value('observationDetails.fields.dataset').textContent).toBe('observationDetails.noDataset');
     expect(value('observationDetails.fields.quality').textContent).toBe('observationDetails.noKnownIssues');
     expect(value('observationDetails.fields.quality').classList).not.toContain('empty');
+  });
+
+  it('shows the registration type first, with a description for not found records', async () => {
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    const registration = () => element.querySelector('dt')!.nextElementSibling!;
+    expect(element.querySelector('dt')!.textContent).toBe('observationDetails.fields.registration:');
+    expect(registration().querySelector('app-registration-marker')!.classList).toContain('found');
+    expect(registration().textContent!.trim()).toBe('observationList.found');
+
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('no', {
+      sidebar: {
+        registreringStatus: {
+          absentDescription: 'Målrettet søk uten funn',
+          notrefoundDescription: 'Målrettet søk på tidligere kjent lokalitet uten gjenfunn',
+        },
+      },
+    });
+    translate.use('no');
+    fixture.componentRef.setInput('detail', { id: 42, tags: ['Absent'] });
+    await fixture.whenStable();
+    const marker = registration().querySelector('app-registration-marker')!;
+    expect(marker.classList).toContain('negative');
+    expect(marker.getAttribute('aria-hidden')).toBe('true');
+    expect(marker.querySelector('adb-icon')!.getAttribute('name')).toBe('close');
+    expect(registration().textContent!.replace(/\s+/g, ' ').trim()).toBe('observationList.absent – målrettet søk uten funn');
+
+    fixture.componentRef.setInput('detail', { id: 42, tags: ['NotRecovered'] });
+    await fixture.whenStable();
+    expect(registration().querySelector('adb-icon')!.getAttribute('name')).toBe('remove');
+    expect(registration().textContent).toContain('– målrettet søk på tidligere kjent lokalitet uten gjenfunn');
   });
 
   it('never hides a quality warning behind a validated label', async () => {

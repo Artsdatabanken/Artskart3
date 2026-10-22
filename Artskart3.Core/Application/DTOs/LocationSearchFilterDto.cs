@@ -6,6 +6,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public int[]? TaxonIds { get; set; }
 
+    public bool IncludeDescendantTaxa { get; set; } = true;
+
     public int[]? CategoryIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }
@@ -28,13 +30,17 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public PeriodDto? Period { get; set; }
 
-    public int? DatasetOrgId { get; set; }
+    public int[]? DatasetOrgIds { get; set; }
 
-    public int? ProjectOrgId { get; set; }
+    public int[]? ProjectOrgIds { get; set; }
 
     public int[]? ObservationIds { get; set; }
 
     public bool? WithImages { get; set; }
+
+    public bool? ChangedByAnnotation { get; set; }
+
+    public bool? Sensitive { get; set; }
 
     /// <summary>
     /// Returnerer true dersom minst ett søkefilter er satt (ekskluderer Envelope, Epsg, MaxResults).
@@ -55,10 +61,12 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        DatasetOrgId.HasValue ||
-        ProjectOrgId.HasValue ||
+        DatasetOrgIds?.Length > 0 ||
+        ProjectOrgIds?.Length > 0 ||
         ObservationIds?.Length > 0 ||
-        WithImages != null;
+        WithImages != null ||
+        ChangedByAnnotation != null ||
+        Sensitive != null;
 
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
@@ -79,10 +87,12 @@ public class LocationSearchFilterDto : IObservationFilter
         CoordinatePrecision?.To != null ||
         Period?.From != null ||
         Period?.To != null ||
-        DatasetOrgId.HasValue ||
-        ProjectOrgId.HasValue ||
+        DatasetOrgIds?.Length > 0 ||
+        ProjectOrgIds?.Length > 0 ||
         ObservationIds?.Length > 0 ||
-        WithImages != null;
+        WithImages != null ||
+        ChangedByAnnotation != null ||
+        Sensitive != null;
 
     /// <summary>
     /// EPSG code for coordinate system (default: 25833)
@@ -90,7 +100,7 @@ public class LocationSearchFilterDto : IObservationFilter
     public int? Epsg { get; set; }
 
     /// <summary>
-    /// Maximum number of locations to return (default: 100000, max: 100000)
+    /// Maximum number of locations to return (default: 100000, max: 200000)
     /// </summary>
     public int MaxResults { get; set; } = 100000;
 

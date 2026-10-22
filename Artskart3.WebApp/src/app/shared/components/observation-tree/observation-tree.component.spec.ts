@@ -10,11 +10,7 @@ describe('ObservationTreeComponent', () => {
   let component: ObservationTreeComponent;
   let fixture: ComponentFixture<ObservationTreeComponent>;
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ObservationTreeComponent, TranslateModule.forRoot()],
-    }).compileComponents();
-
+  const create = async (openFirstSection = false) => {
     fixture = TestBed.createComponent(ObservationTreeComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput(
@@ -30,7 +26,15 @@ describe('ObservationTreeComponent', () => {
         () => '2024',
       ),
     );
+    fixture.componentRef.setInput('openFirstSection', openFirstSection);
     await fixture.whenStable();
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ObservationTreeComponent, TranslateModule.forRoot()],
+    }).compileComponents();
+    await create();
   });
 
   it('should create', () => {
@@ -167,6 +171,26 @@ describe('ObservationTreeComponent', () => {
     await fixture.whenStable();
     expect(rows()).toHaveLength(5);
     expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('opens the first section of each group while keeping species collapsed', async () => {
+    await create(true);
+    expect(rows()).toHaveLength(6);
+    expect(rows()[1].getAttribute('aria-expanded')).toBe('true');
+    expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps user changes to the default sections until a reset', async () => {
+    await create(true);
+    rows()[1].click();
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(5);
+    fixture.componentRef.setInput('nodes', structuredClone(component.nodes()));
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(5);
+    fixture.componentRef.setInput('resetKey', 'another-selection');
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(6);
   });
 
   it('navigates across groups with arrow keys and Home/End', async () => {

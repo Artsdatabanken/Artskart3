@@ -14,7 +14,8 @@ adb-checkbox {
 
 .map-layer-error {
   margin-inline: var(--adb-spacing-xsm);
-  margin-block-end: var(--adb-spacing-xsm);
+  margin-block-end: calc(var(--adb-spacing-2xsm) - var(--adb-spacing-md));
+  margin-block-start: calc(var(--adb-spacing-2xsm) - var(--adb-spacing-md));
 }
 
 .map-layer-error::part(heading) {

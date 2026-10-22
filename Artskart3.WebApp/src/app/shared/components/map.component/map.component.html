@@ -1,8 +1,11 @@
 <div class="map-container">
   <app-map-toolbar
+    [(clusteringEnabled)]="clusteringEnabled"
+    [clusteringLock]="clusteringLock()"
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>
+  <app-place-search [search]="searchPlaces" (selected)="goToPlace($event)"></app-place-search>
   <div #mapEl class="map"></div>
   <app-observation-panel
     [observations]="observationList()"
@@ -11,6 +14,7 @@
     (retry)="retryObservations()"
     (activePoint)="highlightObservation($event)"
     (detailsOpened)="detailsOpened.emit()"
+    (closed)="closeObservationList(false)"
   />
   <app-loading-indicator [active]="isLoadingAreaData()" [label]="'mapToolbar.loadingObservationsLabel' | translate"></app-loading-indicator>
 </div>

@@ -39,7 +39,19 @@
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
       @if (taxonTreeOpened()) {
-        <app-taxon-tree />
+        <div class="taxon-tree-options">
+          <adb-switch
+            size="sm"
+            [attr.checked]="includeDescendantTaxa() ? '' : null"
+            (change)="onIncludeDescendantTaxaChange($event)"
+          >
+            {{ 'sidebar.includeDescendantTaxa' | translate }}
+          </adb-switch>
+          <adb-switch size="sm" [attr.checked]="showScientificNames() ? '' : null" (change)="onShowScientificNamesChange($event)">
+            {{ 'sidebar.scientificNames' | translate }}
+          </adb-switch>
+        </div>
+        <app-taxon-tree [showScientificNames]="showScientificNames()" />
       }
     </adb-accordion-item>
   </adb-accordion>
@@ -264,19 +276,22 @@
         }
       }
 
-      <h6 class="area-section-heading">{{ 'sidebar.registrering' | translate }}</h6>
-      <div class="radio-group">
+      <adb-radio-group
+        class="sidebar-radio-group registration-status-filter"
+        name="registrationStatus"
+        [attr.label]="'sidebar.registrering' | translate"
+        [attr.value]="registrationStatusValue()"
+        (change)="onRegistrationStatusChange($event)"
+      >
         @for (option of registreringOptions; track option.id) {
           <adb-radio
-            name="registrationStatus"
-            [attr.checked]="isRegistrationStatusSelected(option.id) ? '' : null"
+            [attr.value]="option.value"
             [attr.description]="option.descriptionKey ? (option.descriptionKey | translate) : null"
-            (change)="onRegistrationStatusChange(option.id)"
           >
             {{ option.labelKey | translate }}
           </adb-radio>
         }
-      </div>
+      </adb-radio-group>
     </adb-accordion-item>
   </adb-accordion>
 
@@ -309,123 +324,105 @@
       <div class="other-properties-filter">
         <div class="other-properties-label">
           {{ 'sidebar.project' | translate }}
-          <div class="search-input-wrapper">
-            <adb-search
-              class="other-properties-search"
-              variant="standalone"
-              size="sm"
-              [attr.label]="'sidebar.project' | translate"
-              [attr.placeholder]="'sidebar.project' | translate"
-              [value]="projectName()"
-              (adb-input)="onProjectNameChange($any($event).detail.value)"
-              (adb-clear)="onProjectNameChange('')"
-              (focus)="onProjectNameFocus()"
-              (blur)="onProjectNameBlur()"
-            />
-            @if (showProjectSuggestions()) {
-              @if (projectSuggestions().length > 0) {
-                <ul id="dataset-suggestions" class="project-name-suggestions" role="listbox">
-                  @for (organization of projectSuggestions(); track organization.id) {
-                    <li role="option" aria-selected="false">
-                      <button type="button" class="project-name-suggestion" (mousedown)="selectProjectSuggestion(organization)">
-                        {{ organization.name }}
-                      </button>
-                    </li>
-                  }
-                </ul>
-              } @else if (!projectSearchPending() && projectSearchTerm().trim().length > 0) {
-                <div class="project-name-empty project-name-suggestions" role="status">
-                  <adb-icon name="info" size="md"></adb-icon>
-                  <span>{{ 'sidebar.noSearchResultsProject' | translate: { searchTerm: projectSearchTerm().trim() } }}</span>
-                </div>
-              }
-            }
-          </div>
+          <app-autocomplete
+            [search]="searchProjects"
+            [fitContent]="true"
+            [label]="'sidebar.project' | translate"
+            placeholder=""
+            [minLength]="1"
+            noResultsKey="sidebar.noSearchResultsProject"
+            [trackBy]="trackByOrganizationId"
+            (selected)="onProjectSelected($event)"
+          >
+            <ng-template [appAutocompleteOption]="searchProjects" let-organization let-term="term">
+              <span>
+                <app-highlight-text [text]="organization.name" [term]="term" />
+                <span class="suggestion-count"> ({{ organization.observationCount ?? 0 | formatNumber: translate.currentLang }})</span>
+              </span>
+            </ng-template>
+          </app-autocomplete>
         </div>
 
         <div class="other-properties-row">
           <div class="other-properties-label">
             {{ 'sidebar.dataset' | translate }}
-            <div class="search-input-wrapper">
-              <adb-search
-                class="other-properties-search"
-                variant="standalone"
-                size="sm"
-                [attr.label]="'sidebar.dataset' | translate"
-                [attr.placeholder]="'sidebar.dataset' | translate"
-                [value]="datasetName()"
-                (adb-input)="onDatasetNameChange($any($event).detail.value)"
-                (adb-clear)="onDatasetNameChange('')"
-                (focus)="onDatasetNameFocus()"
-                (blur)="onDatasetNameBlur()"
-              />
-              @if (showDatasetSuggestions()) {
-                @if (datasetSuggestions().length > 0) {
-                  <ul id="collection-suggestions" class="project-name-suggestions" role="listbox">
-                    @for (organization of datasetSuggestions(); track organization.id) {
-                      <li role="option" aria-selected="false">
-                        <button type="button" class="project-name-suggestion" (mousedown)="selectDatasetSuggestion(organization)">
-                          {{ organization.name }}
-                        </button>
-                      </li>
-                    }
-                  </ul>
-                } @else if (!datasetSearchPending() && datasetSearchTerm().trim().length > 0) {
-                  <div class="dataset-name-empty project-name-suggestions" role="status">
-                    <adb-icon name="info" size="md"></adb-icon>
-                    <span>{{ 'sidebar.noSearchResultsDataset' | translate: { searchTerm: datasetSearchTerm().trim() } }}</span>
-                  </div>
-                }
-              }
-            </div>
+            <app-autocomplete
+              [search]="searchDatasets"
+              [fitContent]="true"
+              [label]="'sidebar.dataset' | translate"
+              placeholder=""
+              [minLength]="1"
+              noResultsKey="sidebar.noSearchResultsDataset"
+              [trackBy]="trackByOrganizationId"
+              (selected)="onDatasetSelected($event)"
+            >
+              <ng-template [appAutocompleteOption]="searchDatasets" let-organization let-term="term">
+                <span>
+                  <app-highlight-text [text]="organization.name" [term]="term" />
+                  <span class="suggestion-count"> ({{ organization.observationCount ?? 0 | formatNumber: translate.currentLang }})</span>
+                </span>
+              </ng-template>
+            </app-autocomplete>
           </div>
           <div class="other-properties-label">
             {{ 'sidebar.catalogNumber' | translate }}
-            <div class="search-input-wrapper">
-              <adb-search
-                class="other-properties-search"
-                variant="standalone"
-                size="sm"
-                [attr.label]="'sidebar.catalogNumber' | translate"
-                [attr.placeholder]="'sidebar.catalogNumber' | translate"
-                [value]="catalogNumber()"
-                (adb-input)="onCatalogNumberChange($any($event).detail.value)"
-                (adb-clear)="onCatalogNumberChange('')"
-                (focus)="onCatalogNumberFocus()"
-                (blur)="onCatalogNumberBlur()"
-              />
-              @if (showCatalogNumberSuggestions() && catalogNumberSuggestions().length > 0) {
-                <ul id="catalog-number-suggestions" class="project-name-suggestions" role="listbox">
-                  @for (match of catalogNumberSuggestions(); track match.catalogNumber) {
-                    <li role="option" aria-selected="false">
-                      <button type="button" class="project-name-suggestion" (mousedown)="selectCatalogNumberSuggestion(match)">
-                        {{ match.catalogNumber }}
-                        @if ((match.observationCount ?? 0) > 1) {
-                          <span class="suggestion-count">({{ match.observationCount }})</span>
-                        }
-                      </button>
-                    </li>
+            <app-autocomplete
+              [search]="searchCatalogNumbers"
+              [fitContent]="true"
+              [label]="'sidebar.catalogNumber' | translate"
+              placeholder=""
+              [minLength]="catalogNumberMinLength"
+              noResultsKey="sidebar.noSearchResultsCatalogNumber"
+              [trackBy]="trackByCatalogNumber"
+              (selected)="onCatalogNumberSelected($event)"
+            >
+              <ng-template [appAutocompleteOption]="searchCatalogNumbers" let-match let-term="term">
+                <span>
+                  <app-highlight-text [text]="match.catalogNumber" [term]="term" />
+                  @if ((match.observationCount ?? 0) > 1) {
+                    <span class="suggestion-count"> ({{ match.observationCount }})</span>
                   }
-                </ul>
-              }
-            </div>
+                </span>
+              </ng-template>
+            </app-autocomplete>
           </div>
         </div>
 
-        <div class="other-properties-image-filter">
-          <span class="other-properties-image-heading">{{ 'sidebar.image' | translate }}</span>
-          <adb-radio-group name="imageFilter" [attr.value]="imageFilter()" (change)="onImageFilterChange($event)">
-            <adb-radio value="all" [attr.checked]="imageFilter() === 'all' ? '' : null">
-              {{ 'sidebar.imageAll' | translate }}
-            </adb-radio>
-            <adb-radio value="withImage" [attr.checked]="imageFilter() === 'withImage' ? '' : null">
-              {{ 'sidebar.imageWith' | translate }}
-            </adb-radio>
-            <adb-radio value="withoutImage" [attr.checked]="imageFilter() === 'withoutImage' ? '' : null">
-              {{ 'sidebar.imageWithout' | translate }}
-            </adb-radio>
-          </adb-radio-group>
-        </div>
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="imageFilter"
+          [attr.label]="'sidebar.image' | translate"
+          [attr.value]="imageFilter()"
+          (change)="onImageFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.imageAll' | translate }}</adb-radio>
+          <adb-radio value="withImage">{{ 'sidebar.imageWith' | translate }}</adb-radio>
+          <adb-radio value="withoutImage">{{ 'sidebar.imageWithout' | translate }}</adb-radio>
+        </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="sensitiveFilter"
+          [attr.label]="'sidebar.sensitive' | translate"
+          [attr.value]="sensitiveFilter()"
+          (change)="onSensitiveFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.sensitiveAll' | translate }}</adb-radio>
+          <adb-radio value="sensitive">{{ 'sidebar.sensitiveOnly' | translate }}</adb-radio>
+          <adb-radio value="notSensitive">{{ 'sidebar.sensitiveNot' | translate }}</adb-radio>
+        </adb-radio-group>
+
+        <adb-radio-group
+          class="sidebar-radio-group"
+          name="annotationFilter"
+          [attr.label]="'sidebar.annotation' | translate"
+          [attr.value]="annotationFilter()"
+          (change)="onAnnotationFilterChange($event)"
+        >
+          <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
+          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
+          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+        </adb-radio-group>
       </div>
     </adb-accordion-item>
   </adb-accordion>

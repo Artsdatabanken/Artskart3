@@ -89,7 +89,7 @@ public class LookupController : ControllerBase
 
     /// <summary>
     /// Typeahead for datasett — organisasjonstype 2. Returnerer OrganizationId som
-    /// sendes som datasetOrgId i søkefilteret.
+    /// legges til i datasetOrgIds i søkefilteret.
     /// </summary>
     [HttpGet("Datasets")]
     [Produces("application/json")]
@@ -115,7 +115,7 @@ public class LookupController : ControllerBase
 
     /// <summary>
     /// Typeahead for prosjekt — organisasjonstype 3. Returnerer OrganizationId som
-    /// sendes som projectOrgId i søkefilteret.
+    /// legges til i projectOrgIds i søkefilteret.
     /// </summary>
     [HttpGet("Projects")]
     [Produces("application/json")]

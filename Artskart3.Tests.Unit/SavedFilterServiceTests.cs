@@ -210,6 +210,7 @@ public class SavedFilterServiceTests
             {
               "TaxonGroupIds": [1, 2],
               "TaxonIds": [31133],
+              "IncludeDescendantTaxa": false,
               "CategoryIds": [3],
               "OrganizationIds": [4],
               "MunicipalityIds": ["5001"],
@@ -221,10 +222,12 @@ public class SavedFilterServiceTests
               "RegistrationStatusId": 1,
               "CoordinatePrecision": { "From": 10, "To": 100 },
               "Period": { "From": 2000, "To": 2020, "Months": [5, 6] },
-              "DatasetOrgId": 8,
-              "ProjectOrgId": 9,
+              "DatasetOrgIds": [11, 12],
+              "ProjectOrgIds": [13],
               "ObservationIds": [10],
               "WithImages": true,
+              "ChangedByAnnotation": true,
+              "Sensitive": true,
               "PageNumber": null,
               "ResultsPerPage": null,
               "IsPaginated": false
@@ -234,6 +237,20 @@ public class SavedFilterServiceTests
         await _context.SaveChangesAsync();
 
         (await _sut.GetUserFiltersAsync(UserId)).Single().Filter.Should().BeEquivalentTo(FullFilter());
+    }
+
+    /// <summary>
+    /// Filtre lagret før IncludeDescendantTaxa fantes, skal fortsatt ta med underliggende taksa.
+    /// </summary>
+    [Fact]
+    public async Task GetUserFiltersAsync_FilterJsonWithoutIncludeDescendantTaxa_IncludesDescendants()
+    {
+        var entity = Entity(UserId, "Lagret før underliggende taksa");
+        entity.FilterJson = """{ "TaxonIds": [31133] }""";
+        _context.SavedFilters.Add(entity);
+        await _context.SaveChangesAsync();
+
+        (await _sut.GetUserFiltersAsync(UserId)).Single().Filter.IncludeDescendantTaxa.Should().BeTrue();
     }
 
     private static CreateSavedFilterRequestDto Request(string name, bool isDefault = false, MapExtentDto? extent = null) => new()
@@ -255,6 +272,7 @@ public class SavedFilterServiceTests
     {
         TaxonGroupIds = [1, 2],
         TaxonIds = [31133],
+        IncludeDescendantTaxa = false,
         CategoryIds = [3],
         OrganizationIds = [4],
         MunicipalityIds = ["5001"],
@@ -266,10 +284,12 @@ public class SavedFilterServiceTests
         RegistrationStatusId = 1,
         CoordinatePrecision = new CoordinatePrecisionDto { From = 10, To = 100 },
         Period = new PeriodDto { From = 2000, To = 2020, Months = [5, 6] },
-        DatasetOrgId = 8,
-        ProjectOrgId = 9,
+        DatasetOrgIds = [11, 12],
+        ProjectOrgIds = [13],
         ObservationIds = [10],
         WithImages = true,
+        ChangedByAnnotation = true,
+        Sensitive = true,
     };
 
     private static IEnumerable<string> UnsetProperties(object dto, string prefix = "")
