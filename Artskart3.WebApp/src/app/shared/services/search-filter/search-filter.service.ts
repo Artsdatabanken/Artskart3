@@ -1,7 +1,16 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AreaService } from '../area/area.service';
-import { FilterStateService, imageFilterToWithImages, withImagesToImageFilter } from '../filter-state/filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  changedByAnnotationToAnnotationFilter,
+  FilterStateService,
+  imageFilterToWithImages,
+  sameIds,
+  sensitiveFilterToSensitive,
+  sensitiveToSensitiveFilter,
+  withImagesToImageFilter,
+} from '../filter-state/filter-state.service';
 import { OrganizationService } from '../organization/organization.service';
 import { ObservationSearchFilter } from '../../types/api.types';
 
@@ -43,10 +52,12 @@ export class SearchFilterService {
       const periodMonths = this.filterState.selectedMonths();
       const hasCoordinatePrecision = coordinatePrecisionFrom != null || coordinatePrecisionTo != null;
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
-      const datasetOrgId = this.filterState.datasetOrgId();
-      const projectOrgId = this.filterState.projectOrgId();
+      const datasetOrgIds = this.filterState.selectedDatasetIds();
+      const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
+      const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
 
       return {
         categoryIds: this.filterState.selectedCategoryIds().length ? this.filterState.selectedCategoryIds() : undefined,
@@ -56,14 +67,17 @@ export class SearchFilterService {
         registrationStatusId: this.filterState.selectedRegistrationStatusId() ?? undefined,
         taxonGroupIds: this.filterState.selectedTaxonGroupIds().length ? this.filterState.selectedTaxonGroupIds() : undefined,
         taxonIds: this.filterState.selectedTaxonIds().length ? this.filterState.selectedTaxonIds() : undefined,
+        includeDescendantTaxa: this.filterState.excludesDescendantTaxa() ? false : undefined,
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
-        datasetOrgId: datasetOrgId ?? undefined,
-        projectOrgId: projectOrgId ?? undefined,
+        datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
+        projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
+        changedByAnnotation,
+        sensitive,
         period: hasPeriod
           ? { from: periodFrom, to: periodTo, months: periodMonths.length ? periodMonths : undefined }
           : undefined,
@@ -98,37 +112,37 @@ export class SearchFilterService {
     state.selectedRegistrationStatusId.set(filter.registrationStatusId ?? null);
     state.selectedTaxonGroupIds.set(filter.taxonGroupIds ?? []);
     state.selectedTaxonIds.set(filter.taxonIds ?? []);
+    state.setIncludeDescendantTaxa(filter.includeDescendantTaxa ?? true);
     state.setCoordinatePrecision(filter.coordinatePrecision?.from ?? null, filter.coordinatePrecision?.to ?? null);
     state.setPeriod(filter.period?.from ?? null, filter.period?.to ?? null);
     state.selectedMonths.set(filter.period?.months ?? []);
-    state.setDatasetOrgId(filter.datasetOrgId ?? null);
-    state.setProjectOrgId(filter.projectOrgId ?? null);
+    state.selectedDatasets.set((filter.datasetOrgIds ?? []).map((id) => ({ id, name: '' })));
+    state.selectedProjects.set((filter.projectOrgIds ?? []).map((id) => ({ id, name: '' })));
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
+    state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
+    state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
 
     this.resolveDisplayNames(filter);
   }
 
   private resolveDisplayNames(filter: ObservationSearchFilter): void {
     const state = this.filterState;
-    const { datasetOrgId, projectOrgId, observationIds } = filter;
+    const { observationIds } = filter;
 
-    // Navnet settes bare hvis brukeren ikke har endret filteret mens oppslaget pågikk.
-    // Feiler oppslaget (f.eks. slettet organisasjon), vises ID-en, så filteret aldri er
-    // aktivt uten at det synes i panelet og som filterbrikke.
-    if (datasetOrgId != null) {
-      const setName = (name: string) => state.datasetOrgId() === datasetOrgId && state.setDatasetName(name);
-      this.organizationService.getOrganization(datasetOrgId).subscribe({
-        next: (organization) => setName(organization.name || `#${datasetOrgId}`),
-        error: () => setName(`#${datasetOrgId}`),
+    // Et navn som kommer etter at brukeren har fjernet valget, gjør ingenting. Feiler
+    // oppslaget (f.eks. slettet organisasjon), viser filterbrikken ID-en i stedet.
+    for (const { id } of state.selectedDatasets()) {
+      this.organizationService.getOrganization(id).subscribe({
+        next: (organization) => organization.name && state.setDatasetName(id, organization.name),
+        error: () => undefined,
       });
     }
 
-    if (projectOrgId != null) {
-      const setName = (name: string) => state.projectOrgId() === projectOrgId && state.setProjectName(name);
-      this.organizationService.getOrganization(projectOrgId).subscribe({
-        next: (organization) => setName(organization.name || `#${projectOrgId}`),
-        error: () => setName(`#${projectOrgId}`),
+    for (const { id } of state.selectedProjects()) {
+      this.organizationService.getOrganization(id).subscribe({
+        next: (organization) => organization.name && state.setProjectName(id, organization.name),
+        error: () => undefined,
       });
     }
 
@@ -141,8 +155,4 @@ export class SearchFilterService {
       });
     }
   }
-}
-
-function sameIds(a: number[], b: number[]): boolean {
-  return a.length === b.length && a.every((id, i) => id === b[i]);
 }

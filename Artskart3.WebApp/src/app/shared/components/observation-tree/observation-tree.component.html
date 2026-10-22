@@ -25,18 +25,8 @@
       @if (node.kind === 'status' || node.kind === 'species') {
         <adb-icon class="expand-icon" [attr.name]="item.expanded() ? 'unfold-less' : 'unfold-more'" size="sm" />
       }
-      @if (node.kind === 'observation') {
-        <span
-          class="marker"
-          [class.found]="node.status === 'found'"
-          [class.negative]="node.status !== 'found'"
-          [attr.aria-label]="'observationList.' + node.status | translate"
-          role="img"
-        >
-          @if (node.status !== 'found') {
-            <adb-icon [attr.name]="node.status === 'notRecovered' ? 'remove' : 'close'" size="sm" />
-          }
-        </span>
+      @if (node.kind === 'observation' && node.status) {
+        <app-registration-marker class="marker" [status]="node.status" [label]="'observationList.' + node.status | translate" />
       }
       @if (node.kind === 'group' && node.badges.length) {
         <app-risk-category-badge [code]="node.badges[0].code" aria-hidden="true" />
@@ -66,6 +56,9 @@
       }
       @if (node.kind === 'group') {
         <span class="group-detail">{{ 'observationList.registrations' | translate: { number: node.count } }}</span>
+        @if (node.statusSummary) {
+          <span class="group-detail group-summary">{{ node.statusSummary }}</span>
+        }
         @if (node.coordinatePrecision !== undefined) {
           <span class="group-detail precision">{{
             'observationList.coordinatePrecision'

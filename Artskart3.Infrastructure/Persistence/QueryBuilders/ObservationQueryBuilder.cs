@@ -38,6 +38,12 @@ public static class ObservationQueryBuilder
         if (filter.TaxonIds?.Any() != true)
             return query;
 
+        if (!filter.IncludeDescendantTaxa)
+        {
+            var taxonIds = filter.TaxonIds;
+            return query.Where(o => taxonIds.Contains(o.TaxonId));
+        }
+
         IQueryable<int>? combinedQuery = null;
         foreach (var taxonId in filter.TaxonIds)
         {
@@ -93,17 +99,17 @@ public static class ObservationQueryBuilder
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter)
     {
-        if (filter.DatasetOrgId.HasValue)
+        if (filter.DatasetOrgIds?.Any() == true)
         {
-            var datasetOrgId = filter.DatasetOrgId.Value;
-            query = query.Where(o => o.DatasetOrgId == datasetOrgId);
+            var datasetOrgIds = filter.DatasetOrgIds;
+            query = query.Where(o => o.DatasetOrgId.HasValue && datasetOrgIds.Contains(o.DatasetOrgId.Value));
         }
 
-        if (filter.ProjectOrgId.HasValue)
+        if (filter.ProjectOrgIds?.Any() == true)
         {
-            var projectOrgId = filter.ProjectOrgId.Value;
+            var projectOrgIds = filter.ProjectOrgIds;
             query = query.Where(o => context.Set<ObservationProject>()
-                .Any(d => d.ObservationId == o.Id && d.ProjectOrgId == projectOrgId));
+                .Any(d => d.ObservationId == o.Id && projectOrgIds.Contains(d.ProjectOrgId)));
         }
 
         if (filter.ObservationIds?.Any() == true)
@@ -159,6 +165,20 @@ public static class ObservationQueryBuilder
             query = filter.WithImages.Value
                 ? query.Where(o => o.MediaFiles.Any())
                 : query.Where(o => !o.MediaFiles.Any());
+        }
+
+        if (filter.ChangedByAnnotation.HasValue)
+        {
+            query = filter.ChangedByAnnotation.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.AnnotatedChanges));
+        }
+
+        if (filter.Sensitive.HasValue)
+        {
+            query = filter.Sensitive.Value
+                ? query.Where(o => o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive))
+                : query.Where(o => !o.Tags.Any(t => t.Id == (int)TagEnum.Sensitive));
         }
 
         return query;

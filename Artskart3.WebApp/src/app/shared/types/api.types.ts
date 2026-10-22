@@ -14,6 +14,8 @@ export type AreaTypeDto = components['schemas']['AreaTypeDto'];
 export type AreaDto = components['schemas']['AreaDto'];
 export type CoordinatePrecisionDto = components['schemas']['CoordinatePrecisionDto'];
 export type InstitutionDto = components['schemas']['InstitutionDto'];
+export type OrganizationDto = components['schemas']['OrganizationDto'];
+export type CatalogNumberMatchDto = components['schemas']['CatalogNumberMatchDto'];
 export type BehaviorDto = components['schemas']['BehaviorDto'];
 export type BasisOfRecordDto = components['schemas']['BasisOfRecordDto'];
 export type TaxonGroupDto = components['schemas']['TaxonGroupDto'];
@@ -56,4 +58,3 @@ export interface TaxonTreeNodeDto {
 
 /** Foreldrekjeden for et taxon, fra rotnivå til nærmeste forelder. */
 export type TaxonAncestryDto = components['schemas']['TaxonAncestryDto'];
-export type TaxonAncestryLevelDto = components['schemas']['TaxonAncestryLevelDto'];

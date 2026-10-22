@@ -4,12 +4,15 @@ import { afterNextRender, Component, computed, ElementRef, inject, Injector, inp
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, concat, map, merge, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { LoggingService } from '@shared/logging.service';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ObservationDetailDto, ObservationListInfoDto, ObservationPointDto } from '@shared/types/api.types';
 import { ObservationListComponent } from '../observation-list.component/observation-list.component';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { ObservationDetailsComponent, DetailState } from '../observation-details/observation-details.component';
+
+export type ActiveObservationPoint = ObservationPointDto & { readonly registrationStatus: RegistrationStatus };
 
 @Component({
   imports: [ObservationListComponent, ObservationDetailsComponent],
@@ -22,8 +25,9 @@ export class ObservationPanelComponent {
   readonly selection = input<ObservationSelection | null>(null);
   readonly requestState = input<ObservationRequestState>('ready');
   readonly retry = output<void>();
-  readonly activePoint = output<ObservationPointDto | null>();
+  readonly activePoint = output<ActiveObservationPoint | null>();
   readonly detailsOpened = output<void>();
+  readonly closed = output<void>();
   readonly list = viewChild(ObservationListComponent);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly router = inject(Router);
@@ -40,6 +44,9 @@ export class ObservationPanelComponent {
   private readonly activeContext = signal<string | null>(null);
   readonly rawId = signal<string | null>(null);
   readonly detailsOpen = computed(() => this.rawId() !== null);
+  readonly singleObservation = computed(
+    () => this.selection() !== null && this.requestState() === 'ready' && this.observations().length === 1,
+  );
   readonly selectedId = computed(() => {
     const value = this.rawId();
     return value && /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647 ? Number(value) : null;
@@ -72,6 +79,7 @@ export class ObservationPanelComponent {
           this.navigationError.set(false);
           if (raw === null) {
             if (closing) this.restoreFocus();
+            if (closing && this.singleObservation()) this.closed.emit();
             return of({ state: 'loading' as const, detail: null });
           }
           this.detailsOpened.emit();
@@ -100,7 +108,7 @@ export class ObservationPanelComponent {
       .subscribe(({ state, detail }) => {
         this.state.set(state);
         this.detail.set(detail);
-        this.activePoint.emit(detail?.point ?? null);
+        this.activePoint.emit(detail?.point ? { ...detail.point, registrationStatus: registrationStatusFromTags(detail.tags) } : null);
       });
   }
 
@@ -122,11 +130,19 @@ export class ObservationPanelComponent {
     this.dismissRequest.next();
     this.detail.set(null);
     this.activePoint.emit(null);
+    const detailsOpen = this.rawId() !== null;
     if (invalidate) {
       this.activeContext.set(null);
       this.returnFocus = null;
+      // The parent is replacing the selection, so the URL change must not count as the user closing it.
+      this.rawId.set(null);
     }
-    if (this.rawId() !== null) this.navigate(null, true, null);
+    if (detailsOpen) this.navigate(null, true, null);
+  }
+
+  closeList(): void {
+    this.closed.emit();
+    this.restoreFocus(null);
   }
 
   retryDetails(): void {
@@ -154,8 +170,7 @@ export class ObservationPanelComponent {
     this.state.set('error');
   }
 
-  private restoreFocus(): void {
-    const target = this.returnFocus;
+  private restoreFocus(target = this.returnFocus): void {
     afterNextRender(
       () => {
         if (target?.isConnected) target.focus({ preventScroll: true });

@@ -123,20 +123,6 @@ public class TaxonHierarchyServiceTests
     }
 
     [Fact]
-    public void GetAncestries_InkludererSynligeBarnPerNivaIKjeden()
-    {
-        var result = _sut.GetAncestries([4]);
-
-        // Kjeden 1 -> 2 -> 3 -> 4: nivåer for 1, 2, 3 og 4 selv
-        var levels = result[0].Levels;
-        levels.Select(l => l.ParentId).Should().Equal(1, 2, 3, 4);
-        levels.Single(l => l.ParentId == 1).ChildIds.Should().BeEquivalentTo([2, 5]);
-        levels.Single(l => l.ParentId == 2).ChildIds.Should().Equal(3);
-        levels.Single(l => l.ParentId == 3).ChildIds.Should().Equal(4);
-        levels.Single(l => l.ParentId == 4).ChildIds.Should().BeEmpty();
-    }
-
-    [Fact]
     public void GetAncestries_HandtererSykliskData()
     {
         // Legg til en syklus: 6 <-> 7

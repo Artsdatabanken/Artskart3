@@ -21,6 +21,7 @@ export class TaxonTreeComponent implements OnInit {
   readonly autoLoad = input(true);
   /** Forfedrekjeden til denne tre-forekomsten, fra rot til nærmeste forelder. */
   readonly ancestorIds = input<number[]>([]);
+  readonly showScientificNames = input(false);
   readonly nodes = signal<TaxonTreeNodeDto[]>([]);
   readonly loaded = signal(false);
   readonly expandedNodeIds = signal<Set<number>>(new Set());
@@ -74,6 +75,12 @@ export class TaxonTreeComponent implements OnInit {
     return chain;
   }
 
+  displayName(node: TaxonTreeNodeDto): string | null | undefined {
+    return this.showScientificNames()
+      ? (node.validScientificName ?? node.preferredPopularName)
+      : (node.preferredPopularName ?? node.validScientificName);
+  }
+
   checkboxState(nodeId: number): TaxonCheckboxState {
     return this.taxonSelection.checkboxState(nodeId, this.ancestorIds());
   }
@@ -86,7 +93,7 @@ export class TaxonTreeComponent implements OnInit {
       action =
         this.checkboxState(id) === 'checked'
           ? this.taxonSelection.deselect(id, this.ancestorIds())
-          : Promise.resolve(this.taxonSelection.select(id, this.ancestorIds()));
+          : Promise.resolve(this.taxonSelection.select(id));
     } catch (err) {
       this.logger.error('Klarte ikke oppdatere taksonvalg', 'TaxonTreeComponent', err);
       return Promise.resolve();
