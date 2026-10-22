@@ -30,9 +30,7 @@ describe('OrganizationService', () => {
     it('should call /api/Lookup/Organizations for searchOrganizations', () => {
       service.searchOrganizations('nina').subscribe();
 
-      const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/Organizations' && r.params.get('search') === 'nina',
-      );
+      const req = httpTesting.expectOne((r) => r.url === '/api/Lookup/Organizations' && r.params.get('search') === 'nina');
       expect(req.request.method).toBe('GET');
       req.flush([]);
     });
@@ -41,7 +39,7 @@ describe('OrganizationService', () => {
       service.searchDatasets('bergen').subscribe();
 
       const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/Datasets' && r.params.get('search') === 'bergen',
+        (r) => r.url === '/api/Lookup/Datasets' && r.params.get('search') === 'bergen' && r.params.get('maxCount') === '50',
       );
       expect(req.request.method).toBe('GET');
       req.flush([]);
@@ -51,7 +49,7 @@ describe('OrganizationService', () => {
       service.searchProjects('kartlegging').subscribe();
 
       const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/Projects' && r.params.get('search') === 'kartlegging',
+        (r) => r.url === '/api/Lookup/Projects' && r.params.get('search') === 'kartlegging' && r.params.get('maxCount') === '50',
       );
       expect(req.request.method).toBe('GET');
       req.flush([]);
@@ -61,7 +59,7 @@ describe('OrganizationService', () => {
       service.searchCatalogNumbers('1234').subscribe();
 
       const req = httpTesting.expectOne(
-        (r) => r.url === '/api/Lookup/CatalogNumbers' && r.params.get('search') === '1234',
+        (r) => r.url === '/api/Lookup/CatalogNumbers' && r.params.get('search') === '1234' && r.params.get('maxCount') === '50',
       );
       expect(req.request.method).toBe('GET');
       req.flush([]);
