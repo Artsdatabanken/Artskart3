@@ -797,7 +797,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             CREATE CLUSTERED INDEX ix ON #proj(ObservationId);
             """;
 
-        // Boettemedlemskapet leses tilbake fra de samme signaturene.
+        // Bøttemedlemskapet leses tilbake fra de samme signaturene.
         const string boetter = """
             SELECT b.BucketId, CAST(v.value AS INT)
             FROM #gb b CROSS APPLY STRING_SPLIT(b.Signatur, ',') v;

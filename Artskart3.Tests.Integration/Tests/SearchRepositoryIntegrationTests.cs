@@ -537,10 +537,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// BehaviorId er tinyint. C# caster unchecked, saa (byte)257 blir 1: en
-    /// foresporsel med behaviorIds=[257] ville talt atferd 1 paa kartet, mens
-    /// listevisningen - som sammenligner raa int - korrekt ikke fant noe. Ikke
-    /// ufiltrert, men stille forskjovet, som er verre aa oppdage.
+    /// BehaviorId er tinyint. C# caster unchecked, så (byte)257 blir 1: en
+    /// forespørsel med behaviorIds=[257] ville talt atferd 1 på kartet, mens
+    /// listevisningen - som sammenligner rå int - korrekt ikke fant noe. Ikke
+    /// ufiltrert, men stille forskjovet, som er verre å oppdage.
     /// </summary>
     [Theory]
     [InlineData(257)]
@@ -554,8 +554,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         var repository = CreateCompleteFilterRepository();
 
         // En rad per verdi de tre inndataene ville kollapset til med unchecked cast:
-        // (byte)257 = 1, (byte)-1 = 255, (byte)256 = 0. Uten en rad aa treffe ville
-        // testen bestaatt ogsaa med vakten fjernet - den ville maalt ingenting.
+        // (byte)257 = 1, (byte)-1 = 255, (byte)256 = 0. Uten en rad å treffe ville
+        // testen bestått også med vakten fjernet - den ville målt ingenting.
         foreach (var (observationId, seededBehaviorId) in new[] { (981100, 1), (981101, 255), (981102, 0) })
         {
             await RemoveSyntheticRowsAsync(observationId, areaFid);
@@ -596,7 +596,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     /// <summary>
     /// Institusjonsfilteret gikk tidligere via self-join mot EntityTypeId=101-radene.
-    /// Kolonnen erstattet baade joinen og radene.
+    /// Kolonnen erstattet både joinen og radene.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_InstitutionFilter_CountsOnlyMatchingInstitution()
@@ -647,8 +647,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Katalognummer er allerede lost opp til ObservationId-er av typeaheaden, saa
-    /// filteret er et seek paa klyngeindeksen.
+    /// Katalognummer er allerede løst opp til ObservationId-er av typeaheaden, så
+    /// filteret er et seek på klyngeindeksen.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_ObservationIdsFilter_CountsOnlyThoseObservations()
@@ -725,9 +725,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         const int areaEntityId = 981610;
 
         // ObservationProject har fremmednokler til BADE Observation og Organization,
-        // saa raden maa henge paa noe som finnes. Vi laaner en observasjon fra
-        // testdataene i stedet for aa lage en ny - en ny observasjon ville endret
-        // lokasjonstellingene som de andre testene i samlingen bygger paa.
+        // så raden må henge på noe som finnes. Vi låner en observasjon fra
+        // testdataene i stedet for å lage en ny - en ny observasjon ville endret
+        // lokasjonstellingene som de andre testene i samlingen bygger på.
         var observationId = await _context.Set<Observation>()
             .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
 
@@ -753,8 +753,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     /// <summary>
     /// 745 066 observasjoner tilhorer mellom to og fem datasett. Derfor er koblingen
-    /// en egen tabell, og derfor maa filteret vaere et semi-join: et join ville talt
-    /// observasjonen en gang per datasett og blaast opp omraadetellingen.
+    /// en egen tabell, og derfor må filteret være et semi-join: et join ville talt
+    /// observasjonen en gang per datasett og blåst opp områdetellingen.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_ObservationInSeveralDatasets_IsCountedOnce()
@@ -1016,8 +1016,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         });
 
     /// <summary>
-    /// ProjectOrgId peker paa Organization, som igjen peker paa OrganizationType.
-    /// Testdataene inneholder ingen av delene, saa begge maa opprettes.
+    /// ProjectOrgId peker på Organization, som igjen peker på OrganizationType.
+    /// Testdataene inneholder ingen av delene, så begge må opprettes.
     ///
     /// Id-ene settes IKKE eksplisitt: Organization.Id er en identity-kolonne, og et
     /// eksplisitt id-innslag avvises med IDENTITY_INSERT OFF. Vi lar databasen

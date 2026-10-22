@@ -364,12 +364,12 @@ public class LocationCountCacheService : ILocationCountCacheService
             .AsNoTracking()
             .Where(r => r.DimensionId == dimensionId);
 
-        var enBoette = dimension.Buckets is { Length: 1 };
+        var singleBucket = dimension.Buckets is { Length: 1 };
 
         if (dimension.Buckets is { } bucketIds)
         {
             var eneste = bucketIds[0];
-            query = enBoette
+            query = singleBucket
                 ? query.Where(r => r.BucketId == eneste)
                 : query.Where(r => bucketIds.Contains(r.BucketId));
         }

@@ -939,7 +939,7 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.To.HasValue == true)
         {
-            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // Eksklusiv øvre grense, se PeriodBounds: datetime2 har brøkdeler av
             // et sekund, og <= 23:59:59 utelot dem.
             var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
             query = query.Where(idx => idx.DateTimeCollected < beforeDate);
@@ -949,14 +949,14 @@ public class SearchRepository : ISearchRepository
         {
             // MonthCollected, ikke DATEPART(month, DateTimeCollected).
             //
-            // Funksjonen paa kolonnen er ikke sargbar: columnstore maatte levere
-            // alle 133 mill. rader ut av scanningen og beregne den per rad foer
-            // filteret slo til. Maalt paa Oslo-utsnittet 4271 ms mot 1550 for et
-            // sargbart intervall, enda maanedsfilteret slipper gjennom faerre
+            // Funksjonen på kolonnen er ikke sargbar: columnstore måtte levere
+            // alle 133 mill. rader ut av scanningen og beregne den per rad før
+            // filteret slo til. Målt på Oslo-utsnittet 4271 ms mot 1550 for et
+            // sargbart intervall, enda månedsfilteret slipper gjennom færre
             // rader. Kolonnen gir samme svar - verifisert 22 688 357 treff for
-            // sommermaanedene med begge formene.
+            // sommermånedene med begge formene.
             //
-            // Samme tinyint-vakt som de andre stiene: C# caster unchecked, saa
+            // Samme tinyint-vakt som de andre stiene: C# caster unchecked, så
             // (byte)268 ville blitt 12.
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
@@ -1553,7 +1553,7 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.To.HasValue == true)
         {
-            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // Eksklusiv øvre grense, se PeriodBounds: datetime2 har brøkdeler av
             // et sekund, og <= 23:59:59 utelot dem.
             var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
             query = query.Where(o => o.DateTimeCollected < beforeDate);
@@ -1627,15 +1627,15 @@ public class SearchRepository : ISearchRepository
         if (filter.Period?.Months?.Any() == true)
         {
             // Observation.MonthCollected har IX_Observation_MonthCollected.
-            // DATEPART paa DateTimeCollected kunne ikke bruke den.
+            // DATEPART på DateTimeCollected kunne ikke bruke den.
             //
             // Distinct som i de to andre filterstiene. Validatoren begrenser lista
-            // til tolv, saa det er ikke lenger et volumsporsmaal — men stiene skal gi
-            // samme spoerring for samme filter.
+            // til tolv, så det er ikke lenger et volumspørsmål — men stiene skal gi
+            // samme spørring for samme filter.
             //
-            // Eksporten gaar IKKE gjennom denne: den bygger sitt eget filter i
-            // ObservationQueryBuilder.ApplyRangeFilters. Den leser naa samme kolonne
-            // med samme form, og endres denne grenen, maa den endres ogsaa.
+            // Eksporten går IKKE gjennom denne: den bygger sitt eget filter i
+            // ObservationQueryBuilder.ApplyRangeFilters. Den leser nå samme kolonne
+            // med samme form, og endres denne grenen, må den endres også.
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
                 .Distinct()
@@ -2080,7 +2080,7 @@ public class SearchRepository : ISearchRepository
 
         if (filter.Period?.To.HasValue == true)
         {
-            // Eksklusiv oevre grense, se PeriodBounds: datetime2 har broekdeler av
+            // Eksklusiv øvre grense, se PeriodBounds: datetime2 har brøkdeler av
             // et sekund, og <= 23:59:59 utelot dem.
             var beforeDate = PeriodBounds.ExclusiveUpper(filter.Period.To.Value);
             query = query.Where(idx => idx.DateTimeCollected < beforeDate);
@@ -2090,14 +2090,14 @@ public class SearchRepository : ISearchRepository
         {
             // MonthCollected, ikke DATEPART(month, DateTimeCollected).
             //
-            // Funksjonen paa kolonnen er ikke sargbar: columnstore maatte levere
-            // alle 133 mill. rader ut av scanningen og beregne den per rad foer
-            // filteret slo til. Maalt paa Oslo-utsnittet 4271 ms mot 1550 for et
-            // sargbart intervall, enda maanedsfilteret slipper gjennom faerre
+            // Funksjonen på kolonnen er ikke sargbar: columnstore måtte levere
+            // alle 133 mill. rader ut av scanningen og beregne den per rad før
+            // filteret slo til. Målt på Oslo-utsnittet 4271 ms mot 1550 for et
+            // sargbart intervall, enda månedsfilteret slipper gjennom færre
             // rader. Kolonnen gir samme svar - verifisert 22 688 357 treff for
-            // sommermaanedene med begge formene.
+            // sommermånedene med begge formene.
             //
-            // Samme tinyint-vakt som de andre stiene: C# caster unchecked, saa
+            // Samme tinyint-vakt som de andre stiene: C# caster unchecked, så
             // (byte)268 ville blitt 12.
             var months = filter.Period.Months
                 .Where(m => m is >= 1 and <= 12)
@@ -2758,7 +2758,7 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Rektangelregelen ligger i LocationGeometryRules fordi minnelageret maa
+    /// Rektangelregelen ligger i LocationGeometryRules fordi minnelageret må
     /// bruke nøyaktig samme kode. Se kommentaren der.
     /// </summary>
     private static bool IsRectangularPolygon(string? wkt) =>
