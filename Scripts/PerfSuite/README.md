@@ -107,13 +107,18 @@ skal dokumenteres eller en baselinje settes.
 
 | `-Level` | Innhold | Målinger | Tid |
 |---|---|---|---|
-| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 359 | **1 min** |
+| `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 383 | **1 min** |
 | `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 802 | **5 min** |
-| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 7 535 | **21 min** |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 9 087 | **28 min** |
 
-Alle tre er målt 07.10.2026 mot `Artskart3IndexProdLikeTestMigrations`, med begge
-tellebufferne bygget og `LocationCount` i matrisen. `Full` brukte 13 516 kall, og
-140 av 7 535 målinger lå over ett sekund.
+`Quick` og `Full` er målt 22.10.2026 mot `Artskart3IndexProdLikeTestMigrations`, med
+begge tellebufferne nybygget og `LocationCount` i matrisen. `Full` brukte 16 316
+kall, og 199 av 9 087 målinger lå over ett sekund.
+
+`Standard`-raden står fortsatt med tallene fra 07.10.2026 — det nivået er ikke
+kjørt siden. Matrisen har vokst i mellomtiden, så anslaget er for lavt: `Quick` gikk
+fra 359 til 383 målinger og `Full` fra 7 535 til 9 087 da artsbestemmelse og
+opprinnelse ble egne dimensjoner. Veksten er i matrisen, ikke i suiten.
 
 Tidligere utgaver av denne tabellen anslo `Full` til ~2,6 timer. Avviket er ikke
 forklart her: mellom de to kjøringene kom denormaliserte filterkolonner, LocationId
@@ -123,7 +128,7 @@ forbedringen én av dem ville vært gjetning. Tallene over er målt, årsaken er
 ### Måletallene avhenger av fixtures.json — ikke bruk Test-Matrix-tallene her
 
 `Test-Matrix.ps1` bygger matrisen med SYNTETISKE fixtures og rapporterer færre
-målinger enn en ekte kjøring. For Quick: 218 mot 359 ekte. Forskjellen er
+målinger enn en ekte kjøring. For Quick: 218 mot 383 ekte. Forskjellen er
 nivåene — ekte fixtures ga 92 nivåer over 17 dimensjoner, de syntetiske gir
 færre, og hvert nivå er et case.
 

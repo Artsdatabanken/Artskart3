@@ -690,7 +690,13 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
 
         var repository = CreateCompleteFilterRepository();
-        await RemoveSyntheticRowsAsync(observationId, areaFid);
+
+        // observationId er en EKTE seedet observasjon — den er valgt fordi filteret
+        // krever en Observation-rad med dette taksonet. Da kan opprydningen bare
+        // fjerne radene denne testen selv legger til: RemoveSyntheticRowsAsync ville
+        // slettet ALLE indeks- og hierarkiradene dens, og den har rader på
+        // _locationOne som lokasjonstestene teller.
+        await RemoveSyntheticAreaRowsAsync(observationId, areaEntityId, areaFid);
         await RemoveSyntheticRowsAsync(indexOnlyObservationId, areaFid);
         SeedArea(areaFid, "Uten underliggende taksa kommune");
         SeedIndexRow(observationId, areaEntityId);
@@ -1054,6 +1060,27 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         _context.Set<ObservationProject>()
             .RemoveRange(_context.Set<ObservationProject>().Where(d => d.ObservationId == observationId));
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Fjerner bare radene en test selv la på ett syntetisk område, og lar
+    /// observasjonens øvrige rader stå.
+    ///
+    /// Brukes når testen trenger en EKTE seedet observasjon — typisk fordi
+    /// filteret krever en Observation-rad med en bestemt egenskap.
+    /// <see cref="RemoveSyntheticRowsAsync"/> sletter da for mye: alle
+    /// indeksradene OG taksonhierarkiet til en observasjon som resten av klassen
+    /// regner med. Seedet bygges én gang og deles av alle testene her, så det
+    /// kommer ikke tilbake — lokasjonstellingene faller stille med én.
+    /// </summary>
+    private async Task RemoveSyntheticAreaRowsAsync(int observationId, int areaEntityId, string areaFid)
+    {
+        _context.Set<ObservationEntityIndex>()
+            .RemoveRange(_context.Set<ObservationEntityIndex>()
+                .Where(i => i.ObservationId == observationId && i.EntityId == areaEntityId));
+        _context.Set<Area>()
+            .RemoveRange(_context.Set<Area>().Where(a => a.Fid == areaFid));
         await _context.SaveChangesAsync();
     }
 

@@ -414,33 +414,42 @@ public class LocationCountCacheService : ILocationCountCacheService
                                      && r.North >= minY && r.North <= maxY);
         }
 
-        // ÉN BØTTE TRENGER INGEN AGGREGERING
-        // (DimensionId, BucketId, East, North, LocationId) er unik i tabellen, så
-        // med nøyaktig én bøtte står antallet ferdig på raden. Da slipper SQL
-        // Server hash-aggregatet og går rett på sorteringen — og ett valgt takson
-        // eller én kategori er det aller vanligste filteret.
+        // CELLEN MÅ ALLTID SUMMERES
+        //
+        // Masken er tredje nøkkel på raden, så én (dimensjon, bøtte, lokasjon) har
+        // én rad per maskeverdi som faktisk forekommer der. Er ingen bool satt,
+        // utelates maskepredikatet over, og alle de radene matcher; er noen satt,
+        // matcher fortsatt alle kombinasjoner av bitene filteret ikke bryr seg om.
+        // Lokasjonen er altså ikke unik i utvalget, og summeringen her er det som
+        // gjør den unik igjen.
+        //
+        // Her sto det tidligere en snarvei for ett-bøtte-tilfellet som leste
+        // antallet rett av raden uten å gruppere. Den var riktig den gang
+        // (DimensionId, BucketId, East, North, LocationId) var unik, altså før
+        // masken kom inn i nøkkelen. Etterpå ga den samme lokasjon flere ganger,
+        // med hver sin delmengde av observasjonene — og siden sorteringen og Take
+        // kommer etter, kunne en travel lokasjon falle ut av taket på delsummer.
+        // Det ufiltrerte kallet var verst rammet: én bøtte og ingen maske, altså
+        // både det vanligste kallet og det som slipper flest maskerader gjennom.
+        //
+        // Aggregatet er billig nettopp fordi masken er skjev: multiplikatoren for
+        // lokasjonsbufferen er målt til 1,06, så de aller fleste gruppene har én
+        // rad. Se FilterMask.
+        //
         // MIN AV MIN, MAX AV MAX
         // Registreringsstatusen per lokalitet utledes av ytterpunktene, ikke av
         // tellere, nettopp fordi ytterpunktene lar seg slå sammen på tvers av
         // bøtter og maskerader uten å dedupliseres. Se kolonnene på
         // LocationCountCacheLevel1.
-        var topp = enBoette
-            ? query.Select(r => new
+        var topp = query
+            .GroupBy(r => r.LocationId)
+            .Select(g => new
             {
-                r.LocationId,
-                Count = r.ObservationCount,
-                MinStatus = r.MinRegistrationStatusId,
-                MaxStatus = r.MaxRegistrationStatusId
-            })
-            : query
-                .GroupBy(r => r.LocationId)
-                .Select(g => new
-                {
-                    LocationId = g.Key,
-                    Count = g.Sum(r => r.ObservationCount),
-                    MinStatus = g.Min(r => r.MinRegistrationStatusId),
-                    MaxStatus = g.Max(r => r.MaxRegistrationStatusId)
-                });
+                LocationId = g.Key,
+                Count = g.Sum(r => r.ObservationCount),
+                MinStatus = g.Min(r => r.MinRegistrationStatusId),
+                MaxStatus = g.Max(r => r.MaxRegistrationStatusId)
+            });
 
         return await topp
             .OrderByDescending(x => x.Count)

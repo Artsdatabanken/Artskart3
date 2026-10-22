@@ -1367,10 +1367,35 @@ public class SearchRepository : ISearchRepository
             // Taket er MaxLocationCount + 1 fordi én over grensen er nok til å
             // vite at den er passert. Over taket er Truncated svaret, og det
             // eksakte tallet uinteressant.
+            // RECOMPILE, FORDI ET BOOL-FILTER ER TO HELT ULIKE SPØRRINGER
+            //
+            // Bool-filtrene er ekstremt skjeve: 9 739 rader har Sensitive = 1 og
+            // 134 695 602 har 0. Planen som er riktig for den ene verdien er
+            // katastrofal for den andre, og EF sender verdien som parameter — så
+            // den første kjøringen etter oppstart bestemmer planen for begge.
+            //
+            // Målt på sensitivitet, samme spørring, bare ulik plan:
+            //
+            //   plan kompilert for Sensitive = 1 (sjelden)     32 ms
+            //   SAMME plan gjenbrukt for Sensitive = 0       3 603 ms
+            //   egen plan for Sensitive = 0                    86 ms
+            //
+            // Hverken statistikk eller indeks hjelper mot dette — det er ikke et
+            // estimatproblem, men gjenbruk av en plan for en annen verdi. Prøvd og
+            // forkastet: FULLSCAN-statistikk på de fire bool-kolonnene (de var
+            // samplet på 0,54 %, og det var en reell feil å rette, men tiden endret
+            // seg ikke), og en egen indeks med LocationId som ledende nøkkel
+            // (optimizeren valgte den aldri — 0 seeks, 0 scans — og columnstore
+            // gjør samme jobb i 105 ms når planen først er riktig).
+            //
+            // Samme avveining som listevisningen gjør: ~20 ms per kall for å
+            // kompilere, mot sekunder når planen er feil. Tellingen kjøres ved hver
+            // filterendring, så den dyre enden er den som merkes.
             var antall = await indexQuery
                 .GroupBy(idx => idx.LocationId!.Value)
                 .Select(g => g.Key)
                 .Take(SearchConstants.MaxLocationCount + 1)
+                .TagWith(QueryHintInterceptor.RecompileTag)
                 .CountAsync(cancellationToken);
 
             var truncated = antall > SearchConstants.MaxLocationCount;

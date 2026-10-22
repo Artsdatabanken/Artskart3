@@ -109,6 +109,63 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         await AssertSameAsCountingAsync(new LocationSearchFilterDto());
     }
 
+    /// <summary>
+    /// FLERE MASKEVERDIER PÅ SAMME LOKASJON
+    ///
+    /// Masken er tredje nøkkel på en bufferrad, så en celle har én rad per
+    /// maskeverdi som faktisk forekommer der. L1 har tre observasjoner, én av dem
+    /// med bilder, altså to rader: mask 0 med to observasjoner og mask 16 med én.
+    ///
+    /// Er ingen bool satt, utelates maskepredikatet, og BEGGE radene matcher.
+    /// Oppslaget må da summere cellen. Leser det i stedet én rad per lokasjon,
+    /// kommer L1 ut TO ganger med to og én observasjon i stedet for én gang med
+    /// tre — og sorteringen før Take ser 2 og 1 der den skulle sett 3, så en travel
+    /// lokasjon kan falle ut av taket helt.
+    ///
+    /// Det ufiltrerte kallet er verstefallet her, ikke et særtilfelle: det er både
+    /// det vanligste kallet endepunktet får og det som slipper alle maskeradene
+    /// gjennom.
+    /// </summary>
+    [Fact]
+    public async Task Flere_maskeverdier_i_samme_celle_summeres()
+    {
+        await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+        // Vakt: uten to maskeverdier på samme lokasjon beviser testen ingenting,
+        // og den ville bestått stille om seedet en dag mistet bildeflagget.
+        var maskerPaaL1 = await _context.Set<LocationCountCacheLevel1>()
+            .Where(r => r.DimensionId == LocationCountCacheService.NoFilterDimensionId && r.LocationId == _l1.Id)
+            .Select(r => r.Mask)
+            .ToListAsync();
+
+        maskerPaaL1.Should().HaveCount(2, "seedet skal gi L1 både mask 0 og mask 16");
+
+        await AssertSameAsCountingAsync(new LocationSearchFilterDto());
+    }
+
+    /// <summary>
+    /// Registreringsstatusen skal komme RIKTIG ut av bufferen, ikke bare likt.
+    ///
+    /// Sammenligningen mot tellingen fanger avvik mellom de to stiene, men begge
+    /// kunne vært enige om feil svar — standardverdien på LocationModel er Found,
+    /// så en utledning som aldri slo til ville sett riktig ut for alle de
+    /// lokalitetene som faktisk ER Found. Derfor pinnes de tre utfallene her.
+    /// </summary>
+    [Fact]
+    public async Task Registreringsstatus_leses_av_ytterpunktene_i_bufferen()
+    {
+        await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+        var resultat = await WithCache().GetLocationsAsync(new LocationSearchFilterDto());
+        var status = resultat.ToDictionary(x => x.Id, x => x.RegistrationStatus);
+
+        status[_l1.Id].Should().Be(RegistrationStatus.Found, "alle funnene på L1 er funnet");
+        status[_l2.Id].Should().Be(RegistrationStatus.NotRecovered, "L2 har både ikke gjenfunnet og ikke funnet");
+        status[_l3.Id].Should().Be(RegistrationStatus.Absent, "L3 har bare ikke funnet");
+
+        await AssertSameAsCountingAsync(new LocationSearchFilterDto());
+    }
+
     [Fact]
     public async Task Ett_filter_gir_samme_lokasjoner_som_telling()
     {
@@ -474,8 +531,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         var medBuffer = await WithCache().GetLocationsAsync(filter);
         var utenBuffer = await WithoutCache().GetLocationsAsync(filter);
 
-        medBuffer.Select(x => (x.Id, x.ObservationCount)).OrderBy(x => x.Id)
-            .Should().Equal(utenBuffer.Select(x => (x.Id, x.ObservationCount)).OrderBy(x => x.Id));
+        medBuffer.Select(x => (x.Id, x.ObservationCount, x.RegistrationStatus)).OrderBy(x => x.Id)
+            .Should().Equal(utenBuffer.Select(x => (x.Id, x.ObservationCount, x.RegistrationStatus)).OrderBy(x => x.Id));
     }
 
     private async Task ClearCacheAsync()
@@ -533,9 +590,10 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                 Bucket: bucketOf(r) ?? AreaCountCacheDimensions.NullBucket,
                 LocationId: r.LocationId!.Value,
                 r.ObservationId,
-                r.RegistrationStatusId))
+                r.RegistrationStatusId,
+                Mask: MaskeFor(r)))
             .Where(x => x.Bucket != AreaCountCacheDimensions.NullBucket)
-            .GroupBy(x => (x.Bucket, x.LocationId))
+            .GroupBy(x => (x.Bucket, x.LocationId, x.Mask))
             .Select(g => new LocationCountCacheLevel1
             {
                 DimensionId = dimensionId,
@@ -543,6 +601,7 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                 LocationId = g.Key.LocationId,
                 East = koordinater[g.Key.LocationId].East,
                 North = koordinater[g.Key.LocationId].North,
+                Mask = g.Key.Mask,
                 ObservationCount = g.Select(x => x.ObservationId).Distinct().Count(),
                 MinRegistrationStatusId = g.Min(x => x.RegistrationStatusId),
                 MaxRegistrationStatusId = g.Max(x => x.RegistrationStatusId),
@@ -607,9 +666,10 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                     : AreaCountCacheDimensions.NullBucket,
                 LocationId: r.LocationId!.Value,
                 r.ObservationId,
-                r.RegistrationStatusId))
+                r.RegistrationStatusId,
+                Mask: MaskeFor(r)))
             .Where(x => x.Bucket != AreaCountCacheDimensions.NullBucket)
-            .GroupBy(x => (x.Bucket, x.LocationId))
+            .GroupBy(x => (x.Bucket, x.LocationId, x.Mask))
             .Select(g => new LocationCountCacheLevel1
             {
                 DimensionId = GeografiDimensjon,
@@ -617,6 +677,7 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
                 LocationId = g.Key.LocationId,
                 East = koordinater[g.Key.LocationId].East,
                 North = koordinater[g.Key.LocationId].North,
+                Mask = g.Key.Mask,
                 ObservationCount = g.Select(x => x.ObservationId).Distinct().Count(),
                 MinRegistrationStatusId = g.Min(x => x.RegistrationStatusId),
                 MaxRegistrationStatusId = g.Max(x => x.RegistrationStatusId),
@@ -676,20 +737,40 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         Rad(obs[0], Havomraade, HavA, TaksongruppeA, KategoriA);
         Rad(obs[0], Verneomraade, VerneA, TaksongruppeA, KategoriA);
 
-        Rad(obs[1], Kommune, KommuneA, TaksongruppeB, KategoriA);
+        // Observasjon 1 har bilder, 0 og 2 har det ikke. L1 får dermed TO
+        // maskeverdier i samme celle — mask 0 og mask 16 — og det er tilfellet et
+        // oppslag som leser én rad per lokasjon i stedet for å summere cellen
+        // svarer for lavt på, og med lokasjonen oppført to ganger.
+        Rad(obs[1], Kommune, KommuneA, TaksongruppeB, KategoriA, harBilder: true);
         Rad(obs[2], Kommune, KommuneA, TaksongruppeA, KategoriB);
 
-        // Observasjon 3 har tre områderader, denne gangen på L2.
-        Rad(obs[3], Kommune, KommuneB, TaksongruppeA, KategoriA);
-        Rad(obs[3], Fylke, FylkeA, TaksongruppeA, KategoriA);
-        Rad(obs[3], Havomraade, HavA, TaksongruppeA, KategoriA);
+        // REGISTRERINGSSTATUS VARIERER MELLOM LOKASJONENE
+        //
+        // Statusen per lokalitet utledes av MIN og MAX over observasjonene, og
+        // bufferen bærer ytterpunktene per celle. Var alt «funnet», ville begge
+        // stier svart Found uansett hva utledningen gjorde, og sammenligningen
+        // bevist ingenting. Her gir de tre lokasjonene hver sin verdi:
+        //
+        //   L1  alle funnet                  -> Found
+        //   L2  ikke gjenfunnet + ikke funnet -> NotRecovered  (MIN 2, MAX 3)
+        //   L3  bare ikke funnet              -> Absent        (MIN 2, MAX 2)
+        //
+        // Statusen hører til OBSERVASJONEN, så alle områderadene til obs 3 får
+        // samme verdi.
+        const byte IkkeFunnet = (byte)RegistrationStatus.Absent;
+        const byte IkkeGjenfunnet = (byte)RegistrationStatus.NotRecovered;
 
-        Rad(obs[4], Kommune, KommuneB, TaksongruppeB, KategoriB);
-        Rad(obs[5], Kommune, KommuneB, TaksongruppeB, KategoriB);
+        // Observasjon 3 har tre områderader, denne gangen på L2.
+        Rad(obs[3], Kommune, KommuneB, TaksongruppeA, KategoriA, status: IkkeGjenfunnet);
+        Rad(obs[3], Fylke, FylkeA, TaksongruppeA, KategoriA, status: IkkeGjenfunnet);
+        Rad(obs[3], Havomraade, HavA, TaksongruppeA, KategoriA, status: IkkeGjenfunnet);
+
+        Rad(obs[4], Kommune, KommuneB, TaksongruppeB, KategoriB, status: IkkeFunnet);
+        Rad(obs[5], Kommune, KommuneB, TaksongruppeB, KategoriB, status: IkkeFunnet);
 
         // Observasjon 6 ligger på den fjerne lokasjonen — der for at
         // kartutsnittet skal ha noe å utelate.
-        Rad(obs[6], Kommune, KommuneB, TaksongruppeA, KategoriA);
+        Rad(obs[6], Kommune, KommuneB, TaksongruppeA, KategoriA, status: IkkeFunnet);
 
         // Observasjon 7 får BEVISST ingen indeksrad. Den ligger på L3 som nummer
         // 6, men uten områdetilknytning — slik de 211 ugeorefererte lokasjonene i
@@ -697,6 +778,18 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
 
         await _context.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// Maskeverdien for en indeksrad, samme avbildning som FilterMask.SqlExpression
+    /// gjør i byggeskriptene. Går de to fra hverandre, bøttes det etter én definisjon
+    /// og leses etter en annen.
+    /// </summary>
+    private static byte MaskeFor(ObservationEntityIndex r) => (byte)(
+        (r.ChangedByAnnotation ? FilterMask.ChangedByAnnotation : 0)
+        + (r.Sensitive ? FilterMask.Sensitive : 0)
+        + (r.UncertainIdentification ? FilterMask.UncertainIdentification : 0)
+        + (r.Introduced ? FilterMask.Introduced : 0)
+        + (r.HasMediaFiles ? FilterMask.HasMediaFiles : 0));
 
     private async Task<Location> EnsureLocationAsync(string lookupId, int east, int north)
     {
@@ -722,7 +815,15 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         return ny;
     }
 
-    private void Rad(Observation obs, int entityTypeId, int entityId, int taxonGroupId, int categoryId) =>
+    /// <summary>
+    /// harBilder setter HasMediaFiles, som er ett av de fem bitene i FilterMask.
+    /// Flagget hører til OBSERVASJONEN, så alle områderadene til samme observasjon
+    /// må få samme verdi — ellers beskriver seedet en tilstand backfillen ikke kan
+    /// produsere.
+    /// </summary>
+    private void Rad(
+        Observation obs, int entityTypeId, int entityId, int taxonGroupId, int categoryId,
+        bool harBilder = false, byte status = 1) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
             ObservationId = obs.Id,
@@ -732,7 +833,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
             TaxonGroupId = taxonGroupId,
             CategoryId = categoryId,
             BasisOfRecordId = 985400,
-            RegistrationStatusId = 1,
+            RegistrationStatusId = status,
+            HasMediaFiles = harBilder,
         });
 
     private static Observation NewObservation(

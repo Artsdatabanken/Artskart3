@@ -650,6 +650,21 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     /// Forfedrene leses fra ObservationTaxonHierarchy, som er nøyaktig det
     /// GetObservationIdsByTaxonHierarchy filtrerer mot. Hadde vi i stedet
     /// utledet dem fra takson-treet, kunne de to stiene divergert.
+    ///
+    /// HIERARKIET JOINES MED LEFT JOIN, OG DET ER IKKE LIKEGYLDIG
+    /// Den tette taksonindeksen denne bygger brukes til TO ting: å slå opp
+    /// forfedre (etterkommer-inklusivt filter), og å treffe observasjonens EGET
+    /// takson (uten underliggende taksa). Bare det første trenger en hierarkirad.
+    ///
+    /// Med INNER JOIN fikk en observasjon uten hierarkirad ingen taksonindeks, og
+    /// det eksakte treffet forkastet den stille — mens databasestien finner den,
+    /// for den ser bare på Observation.TaxonId. Minnelageret svarte da tomt der
+    /// databasen svarte med lokaliteten.
+    ///
+    /// Det etterkommer-inklusive filteret er uendret: uten hierarkirad får
+    /// taksonet ingen forfedre, så det havner ikke i _taksaUnder og treffes ikke
+    /// av et forfedreoppslag — akkurat som databasestien, som filtrerer mot samme
+    /// tabell og heller ikke finner den.
     /// </summary>
     private async Task<Dictionary<int, int>> LastTaksonomiAsync(IArtsKartDbContext context, CancellationToken ct)
     {
@@ -663,7 +678,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 h.SectionTaxonId, h.SpeciesTaxonId, h.SubspeciesTaxonId, h.VarietyTaxonId,
                 h.FormTaxonId, h.NotSetTaxonId
             FROM dbo.Observation o
-            JOIN dbo.ObservationTaxonHierarchy h ON h.ObservationId = o.Id
+            LEFT JOIN dbo.ObservationTaxonHierarchy h ON h.ObservationId = o.Id
             JOIN dbo.Location l ON l.Id = o.LocationId
             WHERE l.GeometryTypeId IN (2,3,4,5)
             """;

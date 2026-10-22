@@ -290,6 +290,43 @@ public class AreaCountCacheDimensionsTests
         Select("Takson", new LocationSearchFilterDto { TaxonIds = [123] }, new Taxa([])).IsCacheable.Should().BeFalse();
     }
 
+
+    /// <summary>
+    /// UTEN UNDERLIGGENDE TAKSA KAN BUFFEREN IKKE SVARE
+    ///
+    /// Bøtta er OrderTaxonId, altså ordenen observasjonen ligger under, og den
+    /// teller alltid etterkommerne med. Ber filteret om BARE det valgte taksonet,
+    /// finnes det ingen bøtte som uttrykker det.
+    ///
+    /// Taksonet her ER en orden, så det ville ellers vært et perfekt bøttetreff —
+    /// det er nettopp derfor denne testen trengs: uten vakten svarer bufferen
+    /// ordenens tall, altså for høyt, og raskt. Det er feilen hele tripwire-testen
+    /// over handler om.
+    /// </summary>
+    [Fact]
+    public void Takson_uten_underliggende_taksa_kan_ikke_besvares()
+    {
+        var taxa = new Taxa(new Dictionary<int, int> { [700] = 11 });
+
+        Select("Takson", new LocationSearchFilterDto
+        {
+            TaxonIds = [700],
+            IncludeDescendantTaxa = false,
+        }, taxa).IsCacheable.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Flagget alene betyr ingenting: uten valgte taksa er dimensjonen inaktiv, og
+    /// et kall uten taksonfilter skal fortsatt besvares fra bufferen.
+    /// </summary>
+    [Fact]
+    public void Flagget_uten_taksonfilter_gjoer_ingen_forskjell()
+    {
+        var selection = Select("Takson", new LocationSearchFilterDto { IncludeDescendantTaxa = false });
+
+        selection.IsActive.Should().BeFalse();
+        selection.IsCacheable.Should().BeTrue();
+    }
     // -----------------------------------------------------------------------
     // Intervaller
     // -----------------------------------------------------------------------
