@@ -289,6 +289,57 @@ public class SearchControllerObservationTests
     }
 
     // -----------------------------------------------------------------------
+    // GetObservationImages
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetObservationImages_WithoutPagination_ReturnsBadRequest()
+    {
+        var sut = CreateSut();
+
+        var result = await sut.GetObservationImages(new ObservationSearchFilterDto());
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _serviceMock.Verify(s => s.GetObservationImagesAsync(It.IsAny<ObservationSearchFilterDto>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetObservationImages_WithPageNumberZero_ReturnsBadRequest()
+    {
+        var sut = CreateSut();
+
+        var result = await sut.GetObservationImages(new ObservationSearchFilterDto { PageNumber = 0, ResultsPerPage = 10 });
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Theory]
+    [InlineData(7, 2, 2, 3, false)]  // 7 bilder i et vindu på 8 → 3 sider til, ingen flere
+    [InlineData(8, 2, 2, 3, true)]   // fullt vindu (2 * 4) → kan finnes flere sider
+    [InlineData(1, 2, 1, 0, false)]  // færre enn én side
+    [InlineData(0, 2, 0, 0, false)]  // tomt resultat
+    public async Task GetObservationImages_WithPagination_ReturnsFirstPageAndLookahead(
+        int totalItems, int resultsPerPage, int expectedItems, int expectedLookahead, bool expectedHasMore)
+    {
+        var sut = CreateSut();
+        _serviceMock
+            .Setup(s => s.GetObservationImagesAsync(It.IsAny<ObservationSearchFilterDto>()))
+            .ReturnsAsync(Enumerable.Range(1, totalItems)
+                .Select(i => new ObservationImageDto { ObservationId = i, Image = new ObservationMediaDto { Id = i } })
+                .ToList());
+
+        var result = await sut.GetObservationImages(new ObservationSearchFilterDto { PageNumber = 3, ResultsPerPage = resultsPerPage });
+
+        var pagedResult = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeOfType<PagedObservationImageResponseDto>().Subject;
+        pagedResult.Items!.Select(i => i.Image.Id).Should().Equal(Enumerable.Range(1, expectedItems));
+        pagedResult.PageNumber.Should().Be(3);
+        pagedResult.ResultsPerPage.Should().Be(resultsPerPage);
+        pagedResult.LookaheadCount.Should().Be(expectedLookahead);
+        pagedResult.HasMorePages.Should().Be(expectedHasMore);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

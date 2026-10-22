@@ -6,15 +6,50 @@ dialog {
   max-width: calc(100vw - 2rem);
   max-height: calc(100dvh - 2rem);
   width: max-content;
-  padding: 1rem;
-  border: 1px solid var(--adb-border-base-primary);
-  border-radius: 1rem;
-  background: var(--adb-surface-base-primary);
+  padding: 0;
+  border: none;
+  overflow: visible;
+  background: transparent;
   color: var(--adb-text-base-primary);
+}
+
+dialog[open] {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-md);
+
+  @media (max-width: 480px) {
+    gap: var(--adb-spacing-xsm);
+  }
+}
+
+/* Full width while browsing, so the step buttons stay put as image sizes change. */
+dialog.browsing {
+  width: min(100%, 72rem);
 }
 
 dialog::backdrop {
   background: #0009;
+}
+.panel {
+  min-width: 0;
+  margin-inline: auto;
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 1rem;
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: 1rem;
+  background: var(--adb-surface-base-primary);
+}
+.step {
+  flex-shrink: 0;
+}
+.previous adb-icon {
+  transform: rotate(90deg);
+}
+.next adb-icon {
+  transform: rotate(-90deg);
 }
 img {
   display: block;
@@ -23,13 +58,13 @@ img {
   object-fit: contain;
   margin: 1rem auto;
 }
-p {
-  max-width: 70ch;
-  overflow-wrap: anywhere;
-}
 .close {
   display: block;
   margin-left: auto;
+}
+.original {
+  display: inline-block;
+  margin-top: var(--adb-spacing-sm);
 }
 button {
   font: inherit;
@@ -40,11 +75,7 @@ button {
   border: 1px solid currentColor;
   border-radius: 2rem;
 }
-a {
-  color: var(--adb-text-accent-primary);
-}
-button:focus-visible,
-a:focus-visible {
+button:focus-visible {
   outline: 3px solid var(--adb-text-accent-primary);
   outline-offset: 3px;
 }

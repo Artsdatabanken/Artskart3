@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Microsoft.Extensions.Caching.Memory;
@@ -65,6 +66,29 @@ public class SearchService : ISearchService
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
         return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
+    }
+
+    public async Task<List<ObservationImageDto>> GetObservationImagesAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        // «Uten bilder» gir alltid tomt galleri, men spørringen ville skannet alle funn i filteret for å finne det ut.
+        if (filter.WithImages == false)
+        {
+            return [];
+        }
+
+        var images = await _searchRepository.GetObservationImagesAsync(filter, cancellationToken);
+        foreach (var item in images)
+        {
+            if (item.Point is not null && !ObservationPointValidator.IsUsable(item.Point))
+            {
+                item.Point = null;
+            }
+            if (item.Image.Origin is not null && !WebUrl.IsValid(item.Image.Origin))
+            {
+                item.Image.Origin = null;
+            }
+        }
+        return images;
     }
 
     public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)

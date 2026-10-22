@@ -1,0 +1,127 @@
+.gallery-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--adb-spacing-md) var(--adb-spacing-lg);
+  box-sizing: border-box;
+  overflow: hidden;
+
+  @media (max-width: 480px) {
+    padding: var(--adb-spacing-sm) var(--adb-spacing-xsm);
+  }
+}
+
+.status-message {
+  padding: var(--adb-spacing-lg);
+  text-align: center;
+  color: var(--adb-text-base-secondary);
+
+  &.error {
+    color: var(--adb-text-brand-1);
+  }
+}
+
+.gallery-container {
+  flex: 1;
+  overflow: auto;
+  padding-bottom: calc(var(--adb-spacing-lg) * 3);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+  gap: var(--adb-spacing-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--adb-border-base-primary);
+  border-radius: var(--adb-radius-md);
+  overflow: hidden;
+  background: var(--adb-surface-base-primary);
+}
+
+.photo {
+  position: relative;
+
+  img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+}
+
+.enlarge {
+  position: absolute;
+  right: var(--adb-spacing-sm);
+  bottom: var(--adb-spacing-sm);
+}
+
+.unavailable {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  margin: 0;
+  color: var(--adb-text-base-secondary);
+}
+
+.metadata {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--adb-spacing-xsm);
+  padding: var(--adb-spacing-sm) var(--adb-spacing-md) var(--adb-spacing-md);
+  font-size: var(--adb-font-size-3);
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0;
+  }
+}
+
+.species-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--adb-text-accent-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  adb-icon {
+    flex-shrink: 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--adb-text-accent-primary);
+    outline-offset: 2px;
+  }
+}
+
+.species {
+  border-bottom: 2px solid currentColor;
+}
+
+.popular-name,
+.label {
+  font-weight: var(--adb-font-weight-heavy);
+}
+
+.show-observation {
+  margin-top: auto;
+}
+
+.pagination {
+  padding-top: var(--adb-spacing-md);
+  margin-bottom: var(--adb-spacing-md);
+}

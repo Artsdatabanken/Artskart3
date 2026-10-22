@@ -1195,6 +1195,115 @@ public class SearchRepository : ISearchRepository
         }).ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Høyeste antall valgte områder der galleriet henter funn med én spørring per område.
+    ///
+    /// Fylker og kommuner går fortere med den generelle spørringen, verne- og havområder
+    /// mye tregere. Med to som tak ble det verste tilfellet lavest.
+    /// </summary>
+    private const int MaxGalleryAreaBranches = 2;
+
+    /// <summary>
+    /// Høyeste antall funn-ID-er galleriet holder i minnet. Dypere sider sorteres og
+    /// pagineres i databasen.
+    /// </summary>
+    private const int MaxGalleryObservationIds = 10_000;
+
+    public async Task<List<ObservationImageDto>> GetObservationImagesAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var cadastralLocationIds = await ResolveCadastralLocationIdsAsync(filter, cancellationToken);
+
+        var take = filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier;
+        var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
+
+        // FUNNENE FØRST, SÅ BILDENE
+        //
+        // Som i listevisningen hentes de nyeste funnene med mediefiler først, og bildene
+        // deretter bare for dem. Da kan sorteringen stoppe så snart siden er fylt.
+        //
+        // Hvert funn med bilder har minst ett, så de skip + take nyeste funnene rommer
+        // siden. HasMediaFiles teller også lyd og slettede filer, så blir siden kort mens
+        // det kan finnes flere funn, hentes dobbelt så mange. Hjelper ikke det, eller er
+        // siden for dyp til å holde ID-ene i minnet, sorterer og paginerer databasen
+        // bildene selv: alltid riktig, men tregere.
+        var medMediefiler = filter.WithMediaFilesOnly();
+        var perOmraade = SelectedAreaCount(filter) is > 0 and <= MaxGalleryAreaBranches;
+        var trengs = skip + take;
+        var maksFunn = Math.Min(4 * trengs, MaxGalleryObservationIds);
+
+        for (var funnTrengs = trengs; funnTrengs <= maksFunn; funnTrengs *= 2)
+        {
+            var ids = perOmraade
+                ? await GetAreaFilteredObservationIdsAsync(medMediefiler, cadastralLocationIds, 0, funnTrengs, cancellationToken)
+                : await ApplyCommonFilters(
+                        _context.Set<Observation>().AsNoTracking().TagWith(QueryHintInterceptor.RecompileTag),
+                        medMediefiler,
+                        cadastralLocationIds)
+                    .OrderByDescending(o => o.DateTimeCollected)
+                    .ThenByDescending(o => o.Id)
+                    .Take(funnTrengs)
+                    .Select(o => o.Id)
+                    .ToListAsync(cancellationToken);
+            if (ids.Count == 0)
+            {
+                return [];
+            }
+
+            var side = await ImagesPageAsync(
+                _context.Set<Observation>().AsNoTracking().Where(o => ids.Contains(o.Id)), skip, take, cancellationToken);
+            if (side.Count == take || ids.Count < funnTrengs)
+            {
+                return side;
+            }
+        }
+
+        var funn = ApplyCommonFilters(
+            _context.Set<Observation>().AsNoTracking().TagWith(QueryHintInterceptor.RecompileTag),
+            medMediefiler,
+            cadastralLocationIds);
+        return await ImagesPageAsync(funn, skip, take, cancellationToken);
+    }
+
+    private static int SelectedAreaCount(IObservationFilter filter) =>
+        (filter.MunicipalityIds?.Length ?? 0) +
+        (filter.CountyIds?.Length ?? 0) +
+        (filter.RestrictedAreaIds?.Length ?? 0) +
+        (filter.OceanAreaIds?.Length ?? 0);
+
+    private async Task<List<ObservationImageDto>> ImagesPageAsync(
+        IQueryable<Observation> observations, int skip, int take, CancellationToken cancellationToken)
+    {
+        // Slettede funn utelates fordi detaljvisningen ikke kan åpne dem.
+        var query = from o in observations
+                    join m in _context.Set<MediaFile>().AsNoTracking().Where(MediaFileQueries.IsViewableImage)
+                        on (int?)o.Id equals m.ObservationId
+                    where !o.IsDeleted
+                    orderby o.DateTimeCollected descending, o.Id descending, m.Id
+                    select new ObservationImageDto
+                    {
+                        ObservationId = o.Id,
+                        PopularName = o.Taxon.PreferredPopularName,
+                        ScientificName = o.Taxon.ValidScientificName != null
+                            ? o.Taxon.ValidScientificName.Replace("<i>", "").Replace("</i>", "") : null,
+                        Author = o.Taxon.ValidScientificNameAuthorship,
+                        Point = new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North),
+                        CoordinatePrecision = o.CoordinatePrecisionInMeters,
+                        Image = new ObservationMediaDto
+                        {
+                            Id = m.Id, Origin = m.Origin, MimeType = m.MediaFileType.MimeType!,
+                            HasStoredImage = m.Image != null && m.Image.Length > 0,
+                            Description = m.Description, RightsHolder = m.RightsHolder, License = m.License,
+                        },
+                    };
+
+        if (skip > 0)
+        {
+            query = query.Skip(skip);
+        }
+
+        return await query.Take(take).ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
     {
         var filter = request.Filter ?? new ObservationSearchFilterDto();

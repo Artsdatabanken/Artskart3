@@ -47,4 +47,14 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public bool? UncertainIdentification { get; set; }
 
     public bool? Introduced { get; set; }
+
+    /// <summary>
+    /// Samme filter, begrenset til funn med mediefiler.
+    /// </summary>
+    public ObservationSearchFilterDto WithMediaFilesOnly()
+    {
+        var copy = (ObservationSearchFilterDto)MemberwiseClone();
+        copy.WithImages = true;
+        return copy;
+    }
 }

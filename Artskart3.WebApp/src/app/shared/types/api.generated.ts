@@ -1264,6 +1264,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Search/ObservationImages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ObservationSearchFilterDto"];
+                    "text/json": components["schemas"]["ObservationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["ObservationSearchFilterDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PagedObservationImageResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Search/ObservationList": {
         parameters: {
             query?: never;
@@ -1946,6 +1987,7 @@ export interface components {
             id?: number;
             popularName?: null | string;
             scientificName?: null | string;
+            author?: null | string;
             /** Format: int32 */
             externalTaxonId?: number;
             categoryCode?: null | string;
@@ -1990,6 +2032,17 @@ export interface components {
             dateTimeCollected?: null | string;
             /** Format: int32 */
             coordinatePrecisionInMeters?: null | number;
+        };
+        ObservationImageDto: {
+            /** Format: int32 */
+            observationId?: number;
+            popularName?: null | string;
+            scientificName?: null | string;
+            author?: null | string;
+            point?: components["schemas"]["ObservationPointDto"];
+            /** Format: int32 */
+            coordinatePrecision?: null | number;
+            image?: components["schemas"]["ObservationMediaDto"];
         };
         ObservationListInfoDto: {
             /** Format: int32 */
@@ -2084,6 +2137,16 @@ export interface components {
             name?: string;
             /** Format: int32 */
             observationCount?: null | number;
+        };
+        PagedObservationImageResponseDto: {
+            items?: null | components["schemas"]["ObservationImageDto"][];
+            /** Format: int32 */
+            pageNumber?: number;
+            /** Format: int32 */
+            resultsPerPage?: number;
+            /** Format: int32 */
+            lookaheadCount?: number;
+            hasMorePages?: boolean;
         };
         PagedObservationResponseDto: {
             items?: null | components["schemas"]["ObservationDto"][];
