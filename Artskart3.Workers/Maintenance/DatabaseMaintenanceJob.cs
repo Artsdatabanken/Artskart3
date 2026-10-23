@@ -18,9 +18,9 @@ namespace Artskart3.Workers.Maintenance;
 /// En buffer oppslaget avviser er ufarlig men permanent: hvert kall faller tilbake
 /// til aggregering, svarer riktig, og er tregt helt til noen kjører
 /// Scripts/BuildAreaCountCache.sql og deretter BuildLocationCountCache.sql for
-/// hånd — rundt 16 minutter på prodlik datamengde. Ingenting rydder opp av seg
-/// selv: BuildCountCaches er en migrasjon, og en anvendt migrasjon kjøres aldri
-/// igjen.
+/// hånd — målt 24 minutter (827 s + 632 s) på prodlik datamengde. Ingenting rydder
+/// opp av seg selv: førstegangsbygget ligger i migrasjonen RebuildCountCaches, og en
+/// anvendt migrasjon kjøres aldri igjen.
 ///
 /// To ting utløser en avvisning, og begge er normale hendelser:
 ///
@@ -31,7 +31,44 @@ namespace Artskart3.Workers.Maintenance;
 ///
 /// Jobben bør oppdage begge (tilstandsraden mot AreaCountCacheDimensions.SchemaVersion
 /// og mot CountCacheSourceRows.Sql) og bygge på nytt. Da blir utfallet «tregt i
-/// ~16 minutter», ikke «tregt til noen oppdager det».
+/// ~24 minutter», ikke «tregt til noen oppdager det».
+///
+/// NATTLIG KJØRING: BYGG PÅ NYTT NÅR DATA HAR KOMMET TIL, ELLER NÅR TILSTANDEN IKKE
+/// ER READY
+/// Jobben skal kjøre hver natt og bygge begge bufferne på nytt dersom ett av to er
+/// sant:
+///
+///   Status er ikke 'Ready'  bufferen er tom, halvbygget eller avvist. Dette er blant
+///                           annet tilstanden etter en deploy som tar med
+///                           AddFilterMaskToCountCaches: den tømmer tabellene og
+///                           setter Status = 'Building'.
+///   SourceRows avviker      det har kommet til — eller forsvunnet — rader i
+///                           ObservationEntityIndex siden bufferen ble bygget. Dette
+///                           er signalet «det er importert data».
+///
+/// Er ingen av dem sanne, har ingenting endret seg og bufferen er gyldig: hopp over.
+/// 24 minutter IO hver natt uten grunn er ikke gratis, og ombyggingen konkurrerer med
+/// spørringene mens den går.
+///
+/// Rekkefølgen er et krav også her: områdebufferen FØRST, fordi lokasjonsbufferen
+/// slår opp flerverdi-bøttene sine i AreaCountCacheBucketMember.
+///
+/// NÅR DENNE JOBBEN ER PÅ PLASS, SKAL MIGRASJONEN OG VAKTEN FJERNES
+/// Førstegangsbygget ligger i dag i 20261023114735_RebuildCountCaches, som MÅ være
+/// den siste migrasjonen: den leser byggeskriptene slik de ser ut nå, og havner den
+/// bak en migrasjon som legger til en kolonne skriptene bruker, stopper hver nye
+/// database på «Invalid column name». Vakten
+/// CountCacheBuildMigrationTests.Byggemigrasjonen_er_den_siste finnes for å fange
+/// nettopp det.
+///
+/// Overtar denne jobben førstegangsbygget, skal BEGGE bort — migrasjonen og den
+/// testen, i samme endring. Et nyoppsatt miljø starter da med tomme buffere til
+/// første nattlige kjøring: riktige svar, tregere, og ingen migrasjon som kan stoppe
+/// på en kolonne skriptene ennå ikke har.
+///
+/// Den andre testen i samme fil, Den_gamle_byggemigrasjonen_bygger_ingenting, skal
+/// BLI STÅENDE. Den vokter at 20261007134334_BuildCountCaches forblir tom, og den
+/// migrasjonen ligger i historikken for alltid.
 ///
 /// TRE KRAV, OG DET FØRSTE AVGJØR OM DETTE ER MULIG I DET HELE TATT
 ///

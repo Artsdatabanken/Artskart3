@@ -26,7 +26,7 @@ public class HealthCheckExtensionsTests
     public void AddCustomHealthChecks_WithDbConnectionString_RegistersDatabaseHealthCheck()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
@@ -80,7 +80,7 @@ public class HealthCheckExtensionsTests
     public void AddCustomHealthChecks_WithDbConnectionString_RegistersColumnstoreHealthCheck()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
@@ -105,7 +105,7 @@ public class HealthCheckExtensionsTests
     public void AddCustomHealthChecks_ColumnstoreCheck_HasExpectedTags()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 
@@ -119,7 +119,7 @@ public class HealthCheckExtensionsTests
     public void AddCustomHealthChecks_DatabaseCheck_HasExpectedTags()
     {
         var services = new ServiceCollection().AddLogging();
-        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartDb"] = "Server=test;Database=test" });
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
 
         services.AddCustomHealthChecks(config, CreateLogger());
 

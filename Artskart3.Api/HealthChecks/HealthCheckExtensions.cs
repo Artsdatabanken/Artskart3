@@ -17,7 +17,7 @@ public static class HealthCheckExtensions
 
         logger.LogInformation("Configuring Health Checks for Dependencies");
 
-        var dbConnectionString = configuration.GetConnectionString("ArtskartDb");
+        var dbConnectionString = configuration.GetConnectionString("ArtskartIndex");
         if (!string.IsNullOrEmpty(dbConnectionString))
         {
             logger.LogInformation("Database connection string configured");

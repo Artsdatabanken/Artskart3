@@ -144,6 +144,24 @@ public class SearchService : ISearchService
         if (_cache.TryGetValue(cacheKey, out AreaMarkersPayloadDto? cached))
             return cached!;
 
+        // DTO-ENE HENTES FØR LÅSEN TAS, OG DET ER IKKE EN DETALJ
+        //
+        // Går via GetAreaMarkersAsync slik at DTO-cachen deles med den vanlige stien —
+        // to bufre over samme data ville kunne komme i utakt.
+        //
+        // Men det kallet tar SIN EGEN lås, på «areas_zoom_{z}». Låsene er 16 stripes
+        // valgt med hash av nøkkelen, og SemaphoreSlim er ikke reentrant: lå dette
+        // kallet inne i låsen under, ville forespørselen vente på en lås den selv
+        // holdt hver gang de to nøklene havnet på samme stripe. Det er ~1 av 16 per
+        // zoomnivå, og string.GetHashCode er randomisert per prosess — så det slo
+        // til ved noen oppstarter og ikke andre, og den hengte forespørselen holdt
+        // én av samtidighetstillatelsene for alltid.
+        //
+        // Å flytte kallet ut hit koster ingenting: GetAreaMarkersAsync har egen lås
+        // og dobbeltsjekk, så DTO-ene bygges fortsatt bare én gang. Låsen under
+        // dekker det dyre — serialisering og gzip.
+        var areas = (await GetAreaMarkersAsync(zoomLevel, null, cancellationToken)).ToArray();
+
         // Låses: dette er det dyreste byggearbeidet i tjenesten — 20,7 MB
         // serialisering pluss gzip på Optimal — og uten låsen gjør N samtidige kall
         // på en kald buffer det N ganger.
@@ -153,10 +171,6 @@ public class SearchService : ISearchService
         {
             if (_cache.TryGetValue(cacheKey, out cached))
                 return cached!;
-
-            // Går via GetAreaMarkersAsync slik at DTO-cachen deles med den vanlige stien —
-            // to bufre over samme data ville kunne komme i utakt.
-            var areas = (await GetAreaMarkersAsync(zoomLevel, null, cancellationToken)).ToArray();
 
             var raw = JsonSerializer.SerializeToUtf8Bytes(areas, PayloadJsonOptions);
 

@@ -126,10 +126,14 @@ WHERE idx.ChangedByAnnotation <> o.ChangedByAnnotation
 
 IF @Avvik > 0
 BEGIN
-    DECLARE @Msg NVARCHAR(300) = CONCAT(
+    DECLARE @Msg NVARCHAR(800) = CONCAT(
         'Verifisering FEILET: ', FORMAT(@Avvik,'N0'),
-        ' indeksrader stemmer ikke med Observation. Kjoer migrasjonen paa nytt - ',
-        'UPDATE-ene er oppfyllbare og gjentar bare det som gjenstaar.');
+        ' indeksrader stemmer ikke med Observation. MERK at en ny kjoering bare retter EN ',
+        'retning: UPDATE-ene setter 0 til 1, aldri 1 til 0. Indeksrader som mangler flagget ',
+        'rettes av en ny kjoering. Indeksrader som HAR flagget satt der Observation har 0 ',
+        'gjoer det ikke - de maa nullstilles manuelt, ellers feiler denne verifiseringen likt ',
+        'ved hver deploy. Observation settes aldri fra 1 til 0 av migrasjonene, saa et slikt ',
+        'avvik betyr at noe utenfor migrasjonene har skrevet til kolonnen.');
     RAISERROR(@Msg, 16, 1) WITH NOWAIT;
 END
 ELSE

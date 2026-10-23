@@ -135,7 +135,7 @@ END
         migrationBuilder.Sql(@"
 SET NOCOUNT ON;
 
-DECLARE @AvvikKilde INT, @AvvikIndeks INT, @Msg NVARCHAR(400);
+DECLARE @AvvikKilde INT, @AvvikIndeks INT, @Msg NVARCHAR(900);
 
 SELECT @AvvikKilde = COUNT(*)
 FROM dbo.Observation o
@@ -157,7 +157,11 @@ BEGIN
     SET @Msg = CONCAT(
         'Verifisering FEILET: ', FORMAT(@AvvikKilde,'N0'), ' rader paa Observation stemmer ikke ',
         'med taggene, og ', FORMAT(@AvvikIndeks,'N0'), ' indeksrader stemmer ikke med Observation. ',
-        'Kjoer migrasjonen paa nytt - UPDATE-ene er oppfyllbare og gjentar bare det som gjenstaar.');
+        'MERK at en ny kjoering bare retter EN retning: UPDATE-ene setter 0 til 1, aldri 1 til 0. ',
+        'Rader som mangler flagget der taggen finnes rettes av en ny kjoering. Rader som HAR ',
+        'flagget satt uten at taggen finnes gjoer det ikke - de maa nullstilles manuelt, ellers ',
+        'feiler denne verifiseringen likt ved hver eneste deploy og migrasjonen blir aldri ',
+        'registrert. Avviksretningen maa altsaa undersoekes foer du kjoerer paa nytt.');
     RAISERROR(@Msg, 16, 1) WITH NOWAIT;
 END
 ELSE

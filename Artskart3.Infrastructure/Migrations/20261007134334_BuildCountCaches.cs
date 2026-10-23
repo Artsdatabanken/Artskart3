@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,68 +5,63 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Artskart3.Infrastructure.Migrations;
 
 /// <summary>
-/// Bygger områdebufferen og lokasjonsbufferen — kjører Scripts/BuildAreaCountCache.sql
-/// og Scripts/BuildLocationCountCache.sql, som er bygget inn som ressurser.
+/// BYGGER IKKE LENGER NOE. FØRSTEGANGSBYGGET AV BUFFERNE ER EN DRIFTSOPPGAVE.
 ///
-/// HVORFOR SOM MIGRASJON
-/// Bufferne betjener de tregeste spørringene vi har: det ufiltrerte lokasjonsoppslaget
-/// lå rundt to sekunder for Oslo-utsnittet før bufferen. Tabellene opprettes av
-/// migrasjoner, tjenestene leser dem, men ingenting fyller dem — så et nytt miljø har
-/// tomme buffere og aggregerer alt. Det virker (oppslaget faller tilbake til tellingen
-/// når bufferen ikke er klar), men det er tregt, og forskjellen er hele poenget med
-/// tabellene.
+/// Migrasjonen kjørte Scripts/BuildAreaCountCache.sql og BuildLocationCountCache.sql,
+/// lest som innebygde ressurser. Det var feil, og det er rettet her.
 ///
-/// Samme form som BackfillAll: avledede data fylt av en migrasjon, og senere vedlikeholdt
-/// av importjobben. Når den finnes, er det den som bygger bufferne på nytt etter hver
-/// import — se MERK i ImportJob. Denne migrasjonen er førstegangsbygget.
+/// HVORFOR DET VAR FEIL
+/// En migrasjonskropp må være frosset på tidsstempelet sitt. Denne leste skriptfilene
+/// slik de ser ut I DAG, og skriptene vedlikeholdes videre sammen med skjemaet. De
+/// refererer nå kolonner som opprettes av SENERE migrasjoner:
 ///
-/// REKKEFØLGEN ER ET KRAV, IKKE EN PREFERANSE
-/// Lokasjonsbufferen slår opp flerverdi-bøtter (dimensjon 12 geografi, 13 prosjekt) i
-/// AreaCountCacheBucketMember, som områdebufferen eier. Bygges den ikke først, stopper
-/// det andre skriptet med en tydelig feil — og det er riktig, for alternativet var en
-/// buffer der et fylkesvalg stille ga et tomt kart. Derfor ligger begge i samme
-/// migrasjon, i rekkefølge: da kan de ikke kjøres i feil orden.
+///   Mask                                    20261021125247_AddFilterMaskToCountCaches
+///   UncertainIdentification, Introduced     20261020131641_AddObservationIdentification…
+///   Min/MaxRegistrationStatusId             20261022115207_AddRegistrationStatusTo…
 ///
-/// KJØRETID: målt 592 s for områdebufferen og 351 s for lokasjonsbufferen over
-/// 134 705 341 indeksrader, altså omtrent 16 minutter til sammen. I et lite miljø går
-/// den på sekunder — kostnaden følger datamengden, akkurat som gevinsten. Krever hevet
-/// CommandTimeout (satt til 6 timer i ArtskartDbContextFactory) og at pipeline-jobben
-/// har tilsvarende timeoutInMinutes.
+/// På en tom database nådde «dotnet ef database update» hit og stoppet med
+/// «Invalid column name 'Mask'». EF registrerer ikke en migrasjon som feilet, så
+/// INGENTING etter denne ble anvendt heller. Eksisterende miljøer har allerede
+/// historikkraden og merket det ikke — feilen traff bare nye miljøer, gjenoppbygde
+/// testdatabaser og katastrofegjenoppretting. Integrasjonstestene fanget den ikke
+/// fordi de bygger skjemaet med EnsureCreatedAsync fra modellen, som har alle
+/// kolonnene.
 ///
-/// AVBRUDD ER TRYGT
-/// Begge skriptene setter Status = 'Building' før de tømmer og bygger. Blir kjøringen
-/// avbrutt, står bufferen igjen tom og ikke-klar, og oppslaget aggregerer som før —
-/// riktige svar, bare tregere. EF registrerer ikke en migrasjon som feilet, så neste
-/// forsøk bygger på nytt fra scratch. Det er nettopp derfor et skript uten resumering
-/// er forsvarlig her.
+/// HVORFOR VI IKKE BARE FRØS DEN GAMLE SQL-EN INN
+/// Den ville bygget bufferne etter skjemaet fra 07.10 — og 20261021125247 TRUNKERER
+/// alle tre buffertabellene to uker senere i samme kjøring. Et nytt miljø ville brukt
+/// de målte 16 minuttene på rader som garantert ble slettet før migreringen var ferdig.
+/// Migrasjonens formål kan ikke lenger oppfylles fra plasseringen den har.
 ///
-/// suppressTransaction: skriptene tømmer med TRUNCATE og setter inn rundt 75 millioner
-/// rader i lokasjonsbufferen alene. Samme resonnement som i BackfillAll — alt i én
-/// transaksjon ville sprengt loggen, og en feil ville gitt en like lang rollback.
-/// MERK at TRUNCATE krever ALTER-rettighet på tabellen, ikke bare DELETE.
+/// HVORDAN BUFFERNE FYLLES NÅ
+/// Kjør de to skriptene etter at migrasjonene er ferdige — områdebufferen FØRST:
 ///
-/// BEGGE SKRIPTENE KJØRER PÅ SAMME TILKOBLING
-/// EF sender dem som to kommandoer over én connection, og #temp-tabeller lever ut
-/// SESJONEN — ikke batchen. Skriptene deler sju temptabellnavn, og første forsøk
-/// feilet derfor på «There is already an object named '#dim'» etter at områdebufferen
-/// var ferdig bygget. Begge skriptene rydder nå sine egne temptabeller først.
+///   sqlcmd -S {server} -d {database} -E -t 0 -i Scripts/BuildAreaCountCache.sql
+///   sqlcmd -S {server} -d {database} -E -t 0 -i Scripts/BuildLocationCountCache.sql
 ///
-/// Uten transaksjon er delvis anvendelse mulig, som advarselen fra EF sier: området
-/// kan være bygget mens lokasjonen ikke er. Det er ufarlig her — en ikke-klar buffer
-/// aggregeres bare rundt — og migrasjonen registreres ikke, så neste forsøk bygger
-/// begge på nytt.
+/// REKKEFØLGEN ER ET KRAV, IKKE EN PREFERANSE. Lokasjonsbufferen slår opp
+/// flerverdi-bøtter (dimensjon 12 geografi, 13 prosjekt) i AreaCountCacheBucketMember,
+/// som områdebufferen eier. Kjøres den først, stopper skriptet med en tydelig feil —
+/// og det er riktig, for alternativet var en buffer der et fylkesvalg stille ga et
+/// tomt kart.
+///
+/// Målt 23.10.2026: 827 s for områdebufferen og 632 s for lokasjonsbufferen over
+/// 134 705 341 indeksrader, altså omtrent 24 minutter til sammen. Krever hevet
+/// kommandotimeout (-t 0 over sqlcmd).
+///
+/// AT DE ER TOMME ER TRYGT, BARE TREGT
+/// Begge tjenestene avviser en buffer som ikke er «Ready» og aggregerer som før —
+/// riktige svar, målbart tregere. Se nødbryterne i AreaCountCacheOptions og
+/// LocationCountCacheOptions, og MERK i ImportJob om hvem som eier ombyggingen når
+/// importen kommer.
 /// </summary>
 public partial class BuildCountCaches : Migration
 {
-    private const string AreaScript = "Artskart3.Infrastructure.Scripts.BuildAreaCountCache.sql";
-    private const string LocationScript = "Artskart3.Infrastructure.Scripts.BuildLocationCountCache.sql";
-
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Områdebufferen først — den eier AreaCountCacheBucketMember.
-        migrationBuilder.Sql(ReadScript(AreaScript), suppressTransaction: true);
-        migrationBuilder.Sql(ReadScript(LocationScript), suppressTransaction: true);
+        // Bevisst tom. Se klassekommentaren: skriptene kan ikke spilles av herfra,
+        // og rader bygget her ville blitt trunkert av 20261021125247 uansett.
     }
 
     /// <inheritdoc />
@@ -76,17 +70,5 @@ public partial class BuildCountCaches : Migration
         // Bevisst tom. Dette er avledede data, ikke skjema. Å tømme bufferne ved en
         // nedmigrering ville bare gjort spørringene tregere — tabellene slippes av
         // migrasjonene som opprettet dem.
-    }
-
-    private static string ReadScript(string resource)
-    {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(resource)
-            ?? throw new InvalidOperationException(
-                $"Fant ikke den innebygde ressursen '{resource}'. " +
-                "Er EmbeddedResource-oppføringen for skriptet fjernet fra csproj-en?");
-
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
     }
 }
