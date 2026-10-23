@@ -30,8 +30,33 @@ namespace Artskart3.Infrastructure.Migrations;
 /// for 61 millioner. Samme mønster og samme begrunnelse som
 /// IX_Observation_RegistrationStatusRare; se kommentarblokken der.
 ///
-/// Å legge til kolonnene er en ren metadataoperasjon, og indeksene opprettes
-/// tomme. Selve utfyllingen skjer i BackfillObservationAnnotationAndSensitive.
+/// Indeksene opprettes tomme. Selve utfyllingen skjer i
+/// BackfillObservationAnnotationAndSensitive.
+///
+/// Å LEGGE TIL KOLONNENE ER IKKE EN METADATAOPERASJON — HER STO DET FEIL
+/// Det burde det vært fra og med SQL Server 2012, men er det ikke på Observation.
+/// Tre uavhengige målinger i dette prosjektet sier det samme:
+///
+///   AddObservationDenormalisedFilterColumns   ~8 min for tre kolonner, 61M rader
+///   AddObservationIdentificationAndOriginColumns  ~6 min PER kolonne, 61M rader
+///   AddRegistrationStatusToLocationCountCache  2 tinyint paa 73,7M PAGE-
+///       komprimerte rader gikk forbi 8 min, og avbruddet kostet 14 min rollback
+///
+/// Den første gjetter på at beregnede kolonner (MonthCollected, YearCollected) er
+/// grunnen. Uansett årsak: regn med minutter per kolonne, ikke millisekunder.
+///
+/// OG DA ER TRANSAKSJONEN VERDT EN TANKE
+/// migrationBuilder.AddColumn kan ikke kjøre utenfor migrasjonstransaksjonen —
+/// bare migrationBuilder.Sql tar suppressTransaction. Denne migrasjonen holder
+/// derfor skjemalåser på Observation så lenge ALTER-en varer, og en feil ruller
+/// alt tilbake. AddObservationDenormalisedFilterColumns skriver ALTER-en som rå
+/// SQL nettopp for å slippe unna det, og forklarer hvorfor under
+/// «suppressTransaction ER AVGJØRENDE». Skal dette gjøres om igjen på en stor
+/// tabell, bruk det mønsteret.
+///
+/// Det er levelig her fordi ArtskartDbContextFactory setter kommandotimeout til
+/// 6 timer, så arbeidet rekker å bli ferdig. Det er timeouten som redder dette,
+/// ikke at operasjonen er billig.
 ///
 /// QUOTED_IDENTIFIER
 /// Filtrerte indekser krever SET QUOTED_IDENTIFIER ON ved både lesing og

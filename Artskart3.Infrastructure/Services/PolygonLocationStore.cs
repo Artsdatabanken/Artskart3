@@ -661,10 +661,49 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     /// for den ser bare på Observation.TaxonId. Minnelageret svarte da tomt der
     /// databasen svarte med lokaliteten.
     ///
-    /// Det etterkommer-inklusive filteret er uendret: uten hierarkirad får
-    /// taksonet ingen forfedre, så det havner ikke i _taksaUnder og treffes ikke
-    /// av et forfedreoppslag — akkurat som databasestien, som filtrerer mot samme
-    /// tabell og heller ikke finner den.
+    /// FORFEDRENE ER PER TAKSON, MENS DATABASEN FILTRERER PER OBSERVASJON
+    /// Her ligger en kjent divergens, og den er verdt å lese før noen endrer dette.
+    ///
+    /// <c>forfedre</c> er nøklet på TaxonId og blir UNIONEN av forfedrene til alle
+    /// observasjoner som deler taksonet — spørringen er DISTINCT over (TaxonId,
+    /// forfedre), så flere rader for samme takson slås sammen her. Matcher slår så
+    /// opp observasjonens eget takson (<c>_taksonIdx</c>). Databasestien,
+    /// GetObservationIdsByTaxonHierarchy, filtrerer derimot rader i
+    /// ObservationTaxonHierarchy og velger ObservationId — altså PER OBSERVASJON.
+    ///
+    /// To observasjoner deler takson T. Bare den ene har en hierarkirad, som peker
+    /// på klassen C. Da inneholder forfedre[T] likevel C, _taksaUnder[C] peker på
+    /// tett[T], og et etterkommer-inklusivt filter på C treffer BEGGE i
+    /// minnelageret. Databasen finner bare den med rad. Resultatet er en lokalitet
+    /// for mye og et for høyt antall — og siden minnelageret svarer på alt etter
+    /// oppstart, er det dette svaret brukeren ser.
+    ///
+    /// EN TIDLIGERE UTGAVE AV DENNE KOMMENTAREN SA DET MOTSATTE — at et takson uten
+    /// hierarkirad ikke havner i _taksaUnder. Det holder bare når INGEN observasjon
+    /// av taksonet har en rad.
+    ///
+    /// IKKE LUKKET, FORDI MENGDEN ER TOM. Målt 23.10.2026 mot
+    /// Artskart3IndexProdLikeTestMigrations: 0 av 3 946 488 observasjoner på
+    /// polygonlokalitet mangler hierarkirad, og 0 i hele Observation-tabellen gjør
+    /// det. Invarianten «hver observasjon har en hierarkirad» holder overalt, og da
+    /// kan ingen arve en forfader fra et søsken. Avgjør om det fortsatt stemmer med:
+    ///
+    ///     SELECT COUNT_BIG(*) FROM dbo.Observation o
+    ///     WHERE NOT EXISTS (SELECT 1 FROM dbo.ObservationTaxonHierarchy h
+    ///                       WHERE h.ObservationId = o.Id);
+    ///
+    /// Å lukke hullet krever at LastObservasjonerAsync også joiner
+    /// ObservationTaxonHierarchy, for å vite per observasjon om raden finnes — en
+    /// join mot en stor tabell i en laster som i dag bruker 46 sekunder.
+    /// PolygonLocationStoreIntegrationTests.Delt_takson_der_bare_den_ene_har_hierarkirad_behandles_likt
+    /// reproduserer divergensen og står avskrudd med denne begrunnelsen. Slå den på
+    /// hvis spørringen over gir noe annet enn 0.
+    ///
+    /// DET SAMME GJELDER ULIKE FORFEDRE FOR SAMME TAKSON. Har to observasjoner av
+    /// takson T hver sin hierarkirad med ULIKE forfedre — for eksempel etter en
+    /// taksonomirevisjon der gamle rader ikke er utledet på nytt — blir unionen
+    /// {C1, C2}, og et filter på C1 treffer begge her. Det hjelper ikke å spore
+    /// hvilke observasjoner som HAR en rad; bare per-observasjon-oppslag løser det.
     /// </summary>
     private async Task<Dictionary<int, int>> LastTaksonomiAsync(IArtsKartDbContext context, CancellationToken ct)
     {

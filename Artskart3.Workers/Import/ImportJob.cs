@@ -21,8 +21,42 @@ namespace Artskart3.Workers.Import;
 /// kun én gang i migrasjon 20260702113806. Den må også vedlikeholdes herfra,
 /// ellers blir taksonfiltrering stående på et frosset øyeblikksbilde.
 ///
+/// DE DENORMALISERTE KOLONNENE MÅ OGSÅ TØMMES, IKKE BARE FYLLES
+/// ObservationEntityIndex bærer kopier av verdier fra Observation — LocationId,
+/// MonthCollected, RegistrationStatusId, HasMediaFiles, de fire bool-flaggene,
+/// rangnivå-kolonnene. Importen eier å holde dem i takt, og den retningen som er
+/// lett å glemme er den fra en verdi til NULL.
+///
+/// Nulles en observasjons lokalitet, må idx.LocationId nulles med den. Blir den
+/// stående, teller lokasjonssøket observasjonen på en lokalitet den ikke hører til
+/// lenger. Samme for MonthCollected: raden blir stående i sin gamle periodebøtte.
+///
+/// OG DET ER IKKE NOE SIKKERHETSNETT FOR DETTE
+/// Både spørringen og bufferen leser idx-kolonnen, så de er ENIGE om det gale
+/// svaret. Sammenligningen «buffer skal gi nøyaktig det tellingen gir», som fanger
+/// nesten alt annet, er blind her. SourceRows-vakten er det også: radantallet
+/// endrer seg ikke av en UPDATE.
+///
+/// Backfill-migrasjonen hjelper heller ikke. 20260920125459 fyller bare der
+/// indeksen er NULL, og BÅDE kontrollen og etterpassen er avgrenset med
+/// «o.LocationId IS NOT NULL» — altså ser ingen av dem den motsatte retningen. Det
+/// er riktig for et førstegangsbygg, der indeksraden starter som NULL og en foreldet
+/// verdi ikke kan finnes, men det betyr at ingenting oppdager drift etterpå.
+///
+/// Sammenligningen må derfor være NULL-sikker begge veier. I T-SQL er INTERSECT den
+/// korteste formen som behandler NULL som en verdi:
+///
+///     WHERE NOT EXISTS (
+///         SELECT idx.LocationId, idx.MonthCollected
+///         INTERSECT
+///         SELECT o.LocationId, CAST(o.MonthCollected AS TINYINT))
+///
+/// MERK samtidig at en UPDATE mot columnstore er dyr, se punktet over om append
+/// fremfor UPDATE: det er en grunn til å skrive hele raden på nytt ved revisjon
+/// heller enn å oppdatere kolonne for kolonne.
+///
 /// TELLEBUFFERNE MÅ UGYLDIGGJØRES FØR FØRSTE RAD SKRIVES, IKKE BARE BYGGES ETTERPÅ
-/// Område- og lokasjonsbufferen er førstegangsbygget av migrasjonen BuildCountCaches.
+/// Område- og lokasjonsbufferen er førstegangsbygget av migrasjonen RebuildCountCaches.
 /// Herfra er det importen som eier dem, og rekkefølgen er det som avgjør om de er
 /// trege eller FEIL:
 ///

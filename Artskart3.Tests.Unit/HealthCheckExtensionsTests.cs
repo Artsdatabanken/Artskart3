@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Artskart3.Api.HealthChecks;
+using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -143,6 +144,115 @@ public class HealthCheckExtensionsTests
         kvCheck.Tags.Should().Contain("dependencies").And.Contain("security");
     }
 
+    /// <summary>
+    /// Tellebuffersjekken henger på samme tilkoblingsstreng som de andre. Uten den
+    /// er en tom buffer helt stille: oppslaget returnerer null uten en logglinje når
+    /// Status ikke er 'Ready', og det er tilstanden etter hver deploy.
+    /// </summary>
+    [Fact]
+    public void AddCustomHealthChecks_WithDbConnectionString_RegistersCountCachesHealthCheck()
+    {
+        var services = new ServiceCollection().AddLogging();
+        var config = BuildConfig(new() { ["ConnectionStrings:ArtskartIndex"] = "Server=test;Database=test" });
+
+        services.AddCustomHealthChecks(config, CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().ContainSingle(r => r.Name == "CountCaches");
+    }
+
+    [Fact]
+    public void AddCustomHealthChecks_WithoutDbConnectionString_DoesNotRegisterCountCachesHealthCheck()
+    {
+        var services = new ServiceCollection().AddLogging();
+
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().NotContain(r => r.Name == "CountCaches");
+    }
+
+    // -----------------------------------------------------------------------
+    // PolygonStore — registreres bare når lageret finnes i containeren
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Sjekken resolver IPolygonLocationStore fra containeren. Er lageret ikke
+    /// registrert — Workers kaller ikke AddApplicationServices — skal sjekken ikke
+    /// registreres i det hele tatt, ellers kaster den når /hc kjøres.
+    /// </summary>
+    [Fact]
+    public void AddCustomHealthChecks_UtenPolygonlager_RegistrererIkkePolygonStoreSjekken()
+    {
+        var services = new ServiceCollection().AddLogging();
+
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().NotContain(r => r.Name == "PolygonStore");
+    }
+
+    [Fact]
+    public void AddCustomHealthChecks_MedPolygonlager_RegistrererPolygonStoreSjekken()
+    {
+        var services = new ServiceCollection().AddLogging();
+        services.AddSingleton(Mock.Of<IPolygonLocationStore>());
+
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var options = services.BuildServiceProvider()
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>();
+        options.Value.Registrations.Should().ContainSingle(r => r.Name == "PolygonStore");
+    }
+
+    /// <summary>
+    /// Et lager som ikke er klart skal gi Degraded og ikke Unhealthy: databasestien
+    /// gir riktige svar, bare tregere, og Unhealthy gir 503 på /hc. Beskrivelsen fra
+    /// lageret skal med, for det er den som skiller «bygger nå» fra «feilet».
+    /// </summary>
+    [Fact]
+    public async Task PolygonStoreSjekken_NaarLageretIkkeErKlart_GirDegraded()
+    {
+        var lager = new Mock<IPolygonLocationStore>();
+        lager.SetupGet(l => l.IsReady).Returns(false);
+        lager.Setup(l => l.Describe()).Returns("ikke bygget");
+
+        var services = new ServiceCollection().AddLogging();
+        services.AddSingleton(lager.Object);
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var report = await services.BuildServiceProvider()
+            .GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync(r => r.Name == "PolygonStore");
+
+        var entry = report.Entries["PolygonStore"];
+        entry.Status.Should().Be(HealthStatus.Degraded);
+        entry.Description.Should().Contain("ikke bygget");
+    }
+
+    [Fact]
+    public async Task PolygonStoreSjekken_NaarLageretErKlart_GirHealthy()
+    {
+        var lager = new Mock<IPolygonLocationStore>();
+        lager.SetupGet(l => l.IsReady).Returns(true);
+        lager.Setup(l => l.Describe()).Returns("75 990 lokasjoner, 3 946 488 observasjoner");
+
+        var services = new ServiceCollection().AddLogging();
+        services.AddSingleton(lager.Object);
+        services.AddCustomHealthChecks(BuildConfig(new()), CreateLogger());
+
+        var report = await services.BuildServiceProvider()
+            .GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync(r => r.Name == "PolygonStore");
+
+        var entry = report.Entries["PolygonStore"];
+        entry.Status.Should().Be(HealthStatus.Healthy);
+        entry.Description.Should().Contain("75 990 lokasjoner");
+    }
+
     // -----------------------------------------------------------------------
     // Key Vault helsesjekk — utførelse
     // -----------------------------------------------------------------------
@@ -175,6 +285,40 @@ public class HealthCheckExtensionsTests
             .CheckHealthAsync(r => r.Name == "Key Vault");
 
         report.Entries["Key Vault"].Status.Should().Be(HealthStatus.Unhealthy);
+    }
+
+    /// <summary>
+    /// UNNTAKSTEKST SKAL IKKE UT I SVARET
+    ///
+    /// Description havner i JSON-kroppen (WriteJsonResponse), og /hc er kartlagt
+    /// uten RequireAuthorization — altså anonymt. En SqlException navngir
+    /// rutinemessig server, instans, database og pålogging, og tidligere ble hele
+    /// meldingen lagt rett i Description.
+    ///
+    /// Key Vault-sjekken er den som er testbar deterministisk: en URL uten skjema gir
+    /// et unntak
+    /// der URL-en står i meldingen. Finner vi ikke URL-en igjen i Description, går
+    /// heller ikke en tilkoblingsstreng eller et databasenavn den veien.
+    /// </summary>
+    [Fact]
+    public async Task Helsesjekk_lekker_ikke_unntaksteksten_til_svaret()
+    {
+        // Uten skjema er den ikke en absolutt URI, saa sjekken kaster — og meldingen
+        // bærer verdien med seg. Det er nettopp den lekkasjen testen maaler.
+        const string hemmelig = "hemmelig-server.vault.azure.net";
+
+        var sp = BuildServiceProviderWithKeyVault(hemmelig);
+        var report = await sp.GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync(r => r.Name == "Key Vault");
+
+        var entry = report.Entries["Key Vault"];
+
+        entry.Status.Should().NotBe(HealthStatus.Healthy,
+            "testen måler bare noe hvis sjekken faktisk feiler");
+        entry.Description.Should().NotContain(hemmelig,
+            "unntaksteksten navngir infrastruktur og serveres anonymt fra /hc");
+        entry.Description.Should().Contain("see logs",
+            "den som feilsøker skal ledes til loggen, der hele unntaket står");
     }
 
     private static ServiceProvider BuildServiceProviderWithKeyVault(string url)

@@ -396,6 +396,24 @@ public class SearchRepository : ISearchRepository
         }
 
         var trengs = skip + take;
+
+        // SAMME BUDSJETT SOM OMRÅDEGRENENE — DET MANGLET HER
+        //
+        // Minnebruken er grener × (skip + take), ikke (skip + take): hver gren
+        // henter TOP(trengs), og alt flettes i kandidater-listen under. Takene hver
+        // for seg ser rimelige ut — 8 grener, 100 000 i offset, 10 000 per side —
+        // men PRODUKTET hadde ingen vakt: side 11 à 10 000 med åtte organisasjoner
+        // er 8 × 110 000 = 880 000 rader, 1,76 ganger budsjettet, fra ett anonymt
+        // kall. Rate limiteren tillater 32 slike samtidig.
+        //
+        // Vakten fantes allerede og var i bruk for områdegrenene; den var bare ikke
+        // koblet inn her. Over budsjettet returnerer vi null, og kalleren faller
+        // gjennom til den vanlige stien: tregere per spørring, men den sorterer og
+        // paginerer i databasen og holder ingenting i minnet. Normale brukerreiser
+        // ligger langt under — side 1 med 10 per side er 8 × 50 = 400 rader.
+        if (BrukEllerFormen(verdier.Length, trengs))
+            return null;
+
         var kandidater = new List<(int ObservationId, DateTime? Dato)>();
 
         foreach (var verdi in verdier)

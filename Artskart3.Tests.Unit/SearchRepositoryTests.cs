@@ -931,6 +931,11 @@ public class SearchRepositoryTests
     /// Valget mellom grenformen og ELLER-formen. Grenformen henter TOP(skip + take)
     /// PER gren og fletter i minnet, så det er produktet som må begrenses — ikke
     /// grenantallet alene, som er det eneste taket som fantes.
+    ///
+    /// Regelen brukes av BEGGE grenformene: områdegrenene (opptil
+    /// MaxAreaBranches = 64) og organisasjons-/taksongruppegrenene (opptil
+    /// MaxBranches = 8). Den siste manglet kallet en periode, og casene merket
+    /// «organisasjonsgrenene» under er det verste den stien slipper gjennom.
     /// </summary>
     [Theory]
     // Normale brukerreiser: side 1 med 10 per side gir take 40 med lookahead.
@@ -946,6 +951,12 @@ public class SearchRepositoryTests
     // Nøyaktig på budsjettet er innenfor; én rad over er utenfor.
     [InlineData(50, 10_000, false)]
     [InlineData(50, 10_001, true)]
+    // Organisasjonsgrenene, verste lovlige kall: 8 organisasjoner, side 11 à 10 000
+    // per side. MaxObservationSkip er 100 000 og MaxObservationResults 10 000, så
+    // trengs blir 110 000 og produktet 880 000 rader — 1,76 x budsjettet.
+    [InlineData(8, 110_000, true)]
+    // Og den normale reisen gjennom samme sti skal fortsatt bruke grenformen.
+    [InlineData(8, 50, false)]
     public void BrukEllerFormen_BegrenserBaadeGrenerOgProdukt(int grener, int trengs, bool forventet) =>
         SearchRepository.BrukEllerFormen(grener, trengs).Should().Be(forventet);
 

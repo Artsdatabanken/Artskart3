@@ -31,6 +31,28 @@ namespace Artskart3.Infrastructure.Migrations;
 /// dbo.BackfillProgress, så et avbrudd fortsetter der det slapp. Tabellen slippes
 /// av CleanupCompleteFilterSchema og opprettes her på nytt hvis den mangler.
 ///
+/// LØKKENE HER ER IKKE MØNSTERET Å KOPIERE — SE 20260920125459 I STEDET
+/// Hver løkke kjører «UPDATE TOP (@BatchSize) ... WHERE kolonnen IS NULL» uten noe
+/// ID-område. Det er KORREKT og trygt å avbryte: predikatet utelukker radene som
+/// alt er fylt, så en ny kjøring konvergerer mot samme tilstand. Men de fylte
+/// radene må fortsatt traverseres for å finne de ufylte, så hver av de ~34
+/// iterasjonene går lenger inn i joinen enn den forrige.
+///
+/// Og vannmerket skrives bare ETTER at hele løkken er ferdig. Avbrytes den på
+/// batch 30, er arbeidet bevart — hver UPDATE committer for seg, se
+/// suppressTransaction under — men vannmerket står på 0, så neste forsøk
+/// retraverserer hele joinen for å oppdage at det er lite igjen å gjøre.
+///
+/// To dager senere gjør 20260920125459_BackfillObservationEntityIndexLocationIdAndMonth
+/// det riktig: den avgrenser hver batch med «ObservationId BETWEEN @CurrentId AND
+/// @BatchEnd» og MERGE-r vannmerket PER BATCH. Kommentaren der forklarer også
+/// hvorfor NULL-sjekken står på indeksraden alene — «en batch som allerede er fylt
+/// filtreres bort billig og en gjenopptagelse koster nesten ingenting».
+///
+/// Dette er ikke rettet her fordi migrasjonen er anvendt overalt den betyr noe, og
+/// kostnaden betales én gang per miljø. Skal du skrive en ny backfill: kopier den
+/// nyere, ikke denne.
+///
 /// MERK: vannmerket registrerer at ID-området er behandlet, ikke at dataene er
 /// riktige. Verifiseringen nederst er det som avgjør — og den leser mot kildene,
 /// ikke mot vannmerkene. Slår den til, nullstilles vannmerkene før feilen heves,

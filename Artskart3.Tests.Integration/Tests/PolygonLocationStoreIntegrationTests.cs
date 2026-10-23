@@ -53,6 +53,15 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// </summary>
     private const int TaksonUtenHierarki = 986102;
 
+    /// <summary>
+    /// Takson som DELES av to observasjoner: én med hierarkirad, én uten. Se
+    /// <see cref="Delt_takson_der_bare_den_ene_har_hierarkirad_behandles_likt"/>.
+    /// </summary>
+    private const int TaksonDelt = 986103;
+
+    /// <summary>Forfaderen hierarkiraden peker paa.</summary>
+    private const int TaksonForfader = 986104;
+
     private const int Rutenett = 25833;
 
     /// <summary>Rektangel: fem koordinatpar, altså en rutenettrute.</summary>
@@ -198,6 +207,56 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         });
     }
 
+    /// <summary>
+    /// DELT TAKSON DER BARE ÉN AV OBSERVASJONENE HAR HIERARKIRAD
+    ///
+    /// De to stiene grupperer på ulikt nivå, og det er her det får følger:
+    ///
+    ///   databasestien   GetObservationIdsByTaxonHierarchy filtrerer rader i
+    ///                   ObservationTaxonHierarchy og velger ObservationId. Altså
+    ///                   PER OBSERVASJON — har observasjonen ingen rad, treffer den
+    ///                   aldri.
+    ///   minnelageret    LastTaksonomiAsync bygger forfedre PER TAKSON, som unionen
+    ///                   av forfedrene til alle observasjoner som deler taksonet.
+    ///                   Matcher slår så opp observasjonens eget takson.
+    ///
+    /// To observasjoner deler TaksonDelt. Bare den ene har en rad som peker på
+    /// TaksonForfader. Et etterkommer-inklusivt filter på TaksonForfader treffer
+    /// derfor BEGGE i minnelageret — den andre arver forfaderen via søskenet — mens
+    /// databasen bare finner den med rad.
+    ///
+    /// Utfallet på kartet er en lokalitet for mye og et for høyt antall, avhengig av
+    /// hvilken sti som svarte. Og siden minnelageret svarer på alt etter oppstart, er
+    /// det minnelagerets svar brukeren ser.
+    ///
+    /// HVORFOR DEN STÅR AVSKRUDD
+    /// Divergensen er reell i koden — denne testen reproduserte den — men den er
+    /// utilgjengelig i dagens data. Målt 23.10.2026 mot
+    /// Artskart3IndexProdLikeTestMigrations:
+    ///
+    ///   observasjoner på polygonlokalitet            3 946 488
+    ///   av dem uten rad i ObservationTaxonHierarchy          0
+    ///   observasjoner i HELE tabellen uten rad               0
+    ///
+    /// Invarianten «hver observasjon har en hierarkirad» holder altså overalt, og da
+    /// kan ingen observasjon arve en forfader fra et søsken. Å lukke hullet krever at
+    /// LastObservasjonerAsync også joiner ObservationTaxonHierarchy for å vite per
+    /// observasjon om raden finnes — en join mot en stor tabell i en laster som i dag
+    /// bruker 46 sekunder. Det er en reell kostnad for en tom mengde.
+    ///
+    /// SLÅ DEN PÅ IGJEN hvis en import etterlater observasjoner uten hierarkirad.
+    /// Spørringen som avgjør det står i klassekommentaren til
+    /// PolygonLocationStore.LastTaksonomiAsync.
+    /// </summary>
+    [Fact(Skip = "Reproduserer en reell divergens som er utilgjengelig i dagens data: 0 observasjoner mangler hierarkirad (maalt 23.10.2026). Se doc-kommentaren.")]
+    public async Task Delt_takson_der_bare_den_ene_har_hierarkirad_behandles_likt()
+    {
+        await AssertSammeSomDatabasenAsync(new LocationSearchFilterDto
+        {
+            TaxonIds = [TaksonForfader],
+        });
+    }
+
     // -----------------------------------------------------------------------
     // Oppsett
     // -----------------------------------------------------------------------
@@ -274,7 +333,7 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         // Egne taksa, ellers kan ikke et eksakt taksonfilter skille observasjonene
         // fra hverandre. Rang, gruppe og navn lånes fra et takson som alt finnes,
         // slik at fremmednøklene holder uten å seede hele takson-treet.
-        foreach (var taksonId in new[] { TaksonA, TaksonB, TaksonUtenHierarki })
+        foreach (var taksonId in new[] { TaksonA, TaksonB, TaksonUtenHierarki, TaksonDelt, TaksonForfader })
         {
             if (await _context.Set<Taxon>().AnyAsync(t => t.Id == taksonId)) continue;
 
@@ -308,7 +367,16 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var paaMyraB = NyObservasjon(_myr, TaksonB, taxon, taxonName);
         var utenHierarki = NyObservasjon(_myr, TaksonUtenHierarki, taxon, taxonName);
 
-        _context.Set<Observation>().AddRange(paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki);
+        // DELT TAKSON, BARE ÉN AV DEM MED HIERARKIRAD
+        //
+        // Begge har TaksonDelt. deltMedRad får en rad som peker på TaksonForfader;
+        // deltUtenRad får ingen rad. De ligger på ULIKE lokaliteter, slik at et
+        // avvik viser seg som en lokalitet for mye og ikke bare som et for høyt tall.
+        var deltMedRad = NyObservasjon(_myr, TaksonDelt, taxon, taxonName);
+        var deltUtenRad = NyObservasjon(_sensitivRute, TaksonDelt, taxon, taxonName);
+
+        _context.Set<Observation>().AddRange(
+            paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki, deltMedRad, deltUtenRad);
         await _context.SaveChangesAsync();
 
         // Hierarkiraden er observasjonens egen takson som forfader av seg selv —
@@ -318,6 +386,10 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
                  {
                      (paaRuten, TaksonA), (paaSensitiv, TaksonA),
                      (paaMyraA, TaksonA), (paaMyraB, TaksonB),
+
+                     // Forfaderen, ikke taksonet sitt eget: det er dette som gjør
+                     // TaksonForfader til et etterkommer-inklusivt treff på TaksonDelt.
+                     (deltMedRad, TaksonForfader),
                  })
         {
             Hierarki(obs.Id, taksonId);
