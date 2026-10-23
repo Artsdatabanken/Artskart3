@@ -455,7 +455,6 @@ describe('MapComponent', () => {
       component['clearMarkerHover']();
       expect(source('location-highlights').getFeatures()).toEqual([]);
       expect(source('location-polygon-highlights').getFeatures()).toEqual([]);
-      locationsRedraw.mockClear();
       select([1]);
       TestBed.tick();
       expect(source('location-highlights').getFeatures()).toEqual([point]);

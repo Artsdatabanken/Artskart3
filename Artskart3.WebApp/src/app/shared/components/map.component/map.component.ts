@@ -772,7 +772,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.featureStyles) return;
     // Clusters are few enough to restyle in place. Unclustered points have a fixed WebGL style,
     // so they and the polygons get their hover and selection styles from overlay layers.
-    this.map.getLayerById(MAP_CONSTANTS.LOCATIONS_LAYER_ID)?.changed();
     this.map.getLayerById(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.changed();
     if (this.clusteringEnabled()) this.map.getLayerById(MAP_CONSTANTS.LOCATIONS_LAYER_ID)?.changed();
     this.refreshLocationHighlights();
