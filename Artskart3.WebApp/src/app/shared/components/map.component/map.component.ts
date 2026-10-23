@@ -72,10 +72,17 @@ import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
+import ImageLayer from 'ol/layer/Image';
+import ImageWMS from 'ol/source/ImageWMS';
+import type ImageWrapper from 'ol/Image';
+import type Tile from 'ol/Tile';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState, registrationStatusOf } from './map-feature-styles';
+import {
+  MAP_CONSTANTS
+} from '@core/constants/map-constants';
 
 @Component({
   selector: 'app-map',
@@ -84,13 +91,13 @@ import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState, registr
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
+
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
   private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
-  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
   readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
     new Observable((subscriber) => {
       const controller = new AbortController();
@@ -111,16 +118,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setZoom(place.zoomLevel);
   }
 
-  private readonly MAP_TYPE_PREFIX = 'map-type:';
-  private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
-  private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
-  private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
-  private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
-  private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
-  private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
-  private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
-  private readonly HIT_TOLERANCE_PX = 5;
-  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS> | ImageLayer<ImageWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
@@ -332,14 +330,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (generation !== this.locationsLayerGeneration || !this.mapReady || !styles) return;
 
     this.disposeWebglLocationsLayer();
-    this.map.removeLayer(this.LOCATIONS_LAYER_ID);
+    this.map.removeLayer(MAP_CONSTANTS.LOCATIONS_LAYER_ID);
     if (webgl) {
       this.webglLocationsLayer = new webgl.default({
         source: new VectorSource<Feature>(),
         style: styles.webglLocationMarker(),
         disableHitDetection: true,
       });
-      this.map.adoptLayer(this.LOCATIONS_LAYER_ID, this.webglLocationsLayer, { zIndex: 100, pickable: false });
+      this.map.adoptLayer(MAP_CONSTANTS.LOCATIONS_LAYER_ID, this.webglLocationsLayer, { zIndex: 100, pickable: false });
     } else {
       this.addClusteredLocationsLayer(styles);
     }
@@ -434,7 +432,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.mapVisible) return;
     const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
     this.map.updateGeoJSONLayer(
-      this.OBSERVATION_HIGHLIGHT_ID,
+      MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       JSON.stringify({
         type: 'FeatureCollection',
         features: coordinates
@@ -575,7 +573,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (extent) this.map.fitExtent(extent, 0);
   }
 
-  private readonly CLICK_ANIMATION_DURATION_MS = 300;
+
 
   private handleAreaMarkerClick(features: PointerClickFeature[] | null): void {
     if (!features?.length) return;
@@ -599,8 +597,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private zoomTargetForLayer(layerId: string): number | null {
-    if (layerId === this.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
-    if (layerId === this.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
+    if (layerId === MAP_CONSTANTS.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
+    if (layerId === MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
     return null;
   }
 
@@ -615,7 +613,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // nbic-map-component exposes no fly-to; use the OL view via the adopted zoom control.
     const view = this.zoomControl?.getMap()?.getView();
     if (view) {
-      view.animate({ center: centroid, zoom, duration: this.CLICK_ANIMATION_DURATION_MS });
+      view.animate({ center: centroid, zoom, duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS });
       return;
     }
     this.map?.setCenter(centroid);
@@ -647,12 +645,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       view.animate({
         center: [minX, minY],
         zoom: Math.min(currentZoom + ZoomConfig.CLUSTER_CLICK_ZOOM_STEP, MAP_CONFIG.maxZoom),
-        duration: this.CLICK_ANIMATION_DURATION_MS,
+        duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS,
       });
     } else {
       view.fit([minX, minY, maxX, maxY], {
         padding: [80, 80, 80, 80],
-        duration: this.CLICK_ANIMATION_DURATION_MS,
+        duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS,
         maxZoom: MAP_CONFIG.maxZoom,
       });
     }
@@ -703,21 +701,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     let hovered = false;
     let locationIds: number[] = [];
-    let areaKey: string | null = null;
+    const areaKey: string | null = null;
     let pointerHit = false;
     const zoomCursor = olMap.forEachFeatureAtPixel(
       pixel,
       (feature, layer): string | undefined => {
         const layerId = layer?.get('id') as string | undefined;
-        const isLocation = layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID;
+        const isLocation = layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID;
         const isAreaMarker = !isLocation && feature.get('centroid') != null;
         if (!hovered && (isLocation || isAreaMarker)) {
           hovered = true;
           if (isLocation) locationIds = this.locationIdsForFeature(feature);
-          else if (layerId) areaKey = this.areaMarkerKey(layerId, feature);
+          else if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID) {
+            locationIds = this.locationIdsForFeature(feature);
+          }
         }
         if (isAreaMarker) return 'zoom-in';
-        if (layerId === this.LOCATIONS_LAYER_ID) {
+        if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID) {
           const members = feature.get('features') as Feature<Point>[] | undefined;
           if ((members?.length ?? 1) > ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS && !this.isAtMaxZoom()) return 'zoom-in';
         }
@@ -725,7 +725,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         return undefined;
       },
       {
-        hitTolerance: this.HIT_TOLERANCE_PX,
+        hitTolerance: MAP_CONSTANTS.HIT_TOLERANCE_PX,
         layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) && layer !== this.webglLocationsLayer,
       },
     );
@@ -734,10 +734,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private isInteractiveLayer(id: unknown): boolean {
     return (
-      id === this.COUNTIES_LAYER_ID ||
-      id === this.MUNICIPALITIES_LAYER_ID ||
-      id === this.LOCATIONS_LAYER_ID ||
-      id === this.LOCATION_POLYGONS_LAYER_ID
+      id === MAP_CONSTANTS.COUNTIES_LAYER_ID ||
+      id === MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID ||
+      id === MAP_CONSTANTS.LOCATIONS_LAYER_ID ||
+      id === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID
     );
   }
 
@@ -754,8 +754,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.hoveredAreaKey = areaKey;
     this.redrawLocationStyles();
     if (areaChanged && this.mapReady && this.featureStyles) {
-      this.map.getLayerById(this.COUNTIES_LAYER_ID)?.changed();
-      this.map.getLayerById(this.MUNICIPALITIES_LAYER_ID)?.changed();
+      this.map.getLayerById(MAP_CONSTANTS.COUNTIES_LAYER_ID)?.changed();
+      this.map.getLayerById(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID)?.changed();
     }
   }
 
@@ -772,16 +772,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.featureStyles) return;
     // Clusters are few enough to restyle in place. Unclustered points have a fixed WebGL style,
     // so they and the polygons get their hover and selection styles from overlay layers.
-    if (this.clusteringEnabled()) this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
+    this.map.getLayerById(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.changed();
+    if (this.clusteringEnabled()) this.map.getLayerById(MAP_CONSTANTS.LOCATIONS_LAYER_ID)?.changed();
     this.refreshLocationHighlights();
   }
 
   private refreshLocationHighlights(): void {
     if (!this.mapReady) return;
     const ids = [...new Set([...this.hoveredLocationIds, ...this.selectedLocationIds()])];
-    const pointsLayerId = this.clusteringEnabled() ? null : this.LOCATIONS_LAYER_ID;
-    this.fillHighlightLayer(this.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
-    this.fillHighlightLayer(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, this.LOCATION_POLYGONS_LAYER_ID, ids);
+    const pointsLayerId = this.clusteringEnabled() ? null : MAP_CONSTANTS.LOCATIONS_LAYER_ID;
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, ids);
   }
 
   private fillHighlightLayer(highlightLayerId: string, sourceLayerId: string | null, ids: number[]): void {
@@ -808,7 +809,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private webglLocationHits(coordinate: Coordinate | null, resolution: number | undefined): Feature[] {
     const source = this.webglLocationsSource();
     if (!source || !coordinate || !resolution) return [];
-    const radius = (UNCLUSTERED_LOCATION_RADIUS + this.HIT_TOLERANCE_PX) * resolution;
+    const radius = (UNCLUSTERED_LOCATION_RADIUS + MAP_CONSTANTS.HIT_TOLERANCE_PX) * resolution;
     const [x, y] = coordinate;
     const squaredDistance = (feature: Feature) => {
       const [featureX, featureY] = (feature.getGeometry() as Point).getCoordinates();
@@ -859,7 +860,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const styles = this.featureStyles;
     if (!styles) throw new Error('Map feature styles must be initialized before adding layers');
     this.map.addLayer({
-      id: this.OBSERVATION_HIGHLIGHT_ID,
+      id: MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -871,18 +872,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       },
     });
     this.map.addLayer({
-      id: this.COUNTIES_LAYER_ID,
+      id: MAP_CONSTANTS.COUNTIES_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
       zIndex: 50,
       zIndexPinned: true,
       maxZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
-      style: this.areaMarkerStyle(this.COUNTIES_LAYER_ID, styles),
+      style: this.areaMarkerStyle(MAP_CONSTANTS.COUNTIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
-      id: this.MUNICIPALITIES_LAYER_ID,
+      id: MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -890,11 +891,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
       maxZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
-      style: this.areaMarkerStyle(this.MUNICIPALITIES_LAYER_ID, styles),
+      style: this.areaMarkerStyle(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
-      id: this.SELECTED_AREAS_OVERLAY_ID,
+      id: MAP_CONSTANTS.SELECTED_AREAS_OVERLAY_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -905,7 +906,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     else void this.replaceLocationsLayer();
 
     this.map.addLayer({
-      id: this.LOCATION_POLYGONS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -915,7 +916,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
 
     this.map.addLayer({
-      id: this.LOCATION_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -931,7 +932,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
 
     this.map.addLayer({
-      id: this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -948,7 +949,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // Synlighet styres manuelt i rebuildWithExtent (ikke minZoom) slik at
     // direkte klustermodus kan vise laget på alle zoomnivåer.
     this.map.addLayer({
-      id: this.LOCATIONS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATIONS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -1100,12 +1101,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     // Lagene har ingen minZoom — synlighet styres her. Fylke-/kommunelagene
     // har egne zoomterskler som begrenser dem når de er satt synlige.
-    this.map.setLayerVisibility(this.LOCATIONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_POLYGONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.COUNTIES_LAYER_ID, !locationsAtAllZooms);
-    this.map.setLayerVisibility(this.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATIONS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.COUNTIES_LAYER_ID, !locationsAtAllZooms);
+    this.map.setLayerVisibility(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
 
     // Oppdater overlay
     this.updateSelectedAreaOverlays();
@@ -1185,7 +1186,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ? this.webglLocationHits(payload.clickCoordinate, this.zoomControl?.getMap()?.getView().getResolution())
       : [];
     const features: Pick<PointerClickFeature, 'feature' | 'layerId'>[] = [
-      ...pointHits.map((feature) => ({ feature, layerId: this.LOCATIONS_LAYER_ID })),
+      ...pointHits.map((feature) => ({ feature, layerId: MAP_CONSTANTS.LOCATIONS_LAYER_ID })),
       ...((payload.features as PointerClickFeature[] | null) ?? []),
     ];
     if (!features.length) {
@@ -1194,7 +1195,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     const hasRelevantFeature = features.some(
-      ({ layerId }) => layerId === this.LOCATIONS_LAYER_ID || layerId === this.LOCATION_POLYGONS_LAYER_ID,
+      ({ layerId }) => layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID,
     );
 
     if (!hasRelevantFeature) {
@@ -1208,7 +1209,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ...(pointHits.length ? [pointHits as Feature<Point>[]] : []),
       ...features
         .slice(pointHits.length)
-        .filter(({ layerId }) => layerId === this.LOCATIONS_LAYER_ID)
+        .filter(({ layerId }) => layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID)
         .map(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature as Feature<Point>]),
     ];
 
@@ -1223,7 +1224,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .map((member) => (member.getProperties() as LocationFeatureProperties).id);
 
     const polygonLocationIds = features
-      .filter(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .filter(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)
       .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
 
     const ids = [...new Set([...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined))];
@@ -1232,7 +1233,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const projection = this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection;
-    const polygon = features.find(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)?.feature;
+    const polygon = features.find(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.feature;
     const singleFeature = ids.length === 1 ? (polygon ?? memberGroups.flat()[0]) : undefined;
     const geometry = singleFeature?.getGeometry();
     const isPolygon = geometry?.getType() === 'Polygon' || geometry?.getType() === 'MultiPolygon';
@@ -1390,7 +1391,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             tap(({ geojson, count }) => {
               if (this.mapVisible && generation === this.fetchGeneration) {
                 this.clearMarkerHover();
-                this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+                this.map.updateGeoJSONLayer(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
                 this.refreshLocationHighlights();
                 underLimit.polygons = count < ZoomConfig.MAX_POLYGONS_PER_FETCH;
                 recordCoverage();
@@ -1604,7 +1605,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       features: [...countyFeatures, ...municipalityFeatures],
     });
 
-    this.map.updateGeoJSONLayer(this.SELECTED_AREAS_OVERLAY_ID, combined, { mode: 'replace' });
+    this.map.updateGeoJSONLayer(MAP_CONSTANTS.SELECTED_AREAS_OVERLAY_ID, combined, { mode: 'replace' });
   }
 
   private applyGeoJsonToLayer(apiZoomLevel: number, geojson: string): void {
@@ -1613,8 +1614,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return;
 
     this.clearMarkerHover();
-    const layerId = apiZoomLevel >= ApiZoomLevel.Municipalities ? this.MUNICIPALITIES_LAYER_ID : this.COUNTIES_LAYER_ID;
-    this.map.updateGeoJSONLayer(layerId, geojson, { mode: 'replace' });
+    const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
+    const layerId = isLocationPoints
+      ? MAP_CONSTANTS.LOCATIONS_LAYER_ID
+      : apiZoomLevel >= ApiZoomLevel.Municipalities
+        ? MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID
+        : MAP_CONSTANTS.COUNTIES_LAYER_ID;
+    this.map.updateGeoJSONLayer(layerId, geojson, {
+      mode: 'replace', ...(isLocationPoints && {dataProjection: 'EPSG:4326'})});
   }
 
   // Bypasses updateGeoJSONLayer: serializing and reparsing tens of thousands of points as GeoJSON is slow.
@@ -1623,7 +1630,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return false;
 
     this.clearMarkerHover();
-    const source = this.vectorSourceOf(this.LOCATIONS_LAYER_ID);
+    const source = this.vectorSourceOf(MAP_CONSTANTS.LOCATIONS_LAYER_ID);
     const pointSource = source instanceof Cluster ? source.getSource() : source;
     if (!pointSource) return false;
 
@@ -1640,12 +1647,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   onIconClick(iconName: string): void {
-    if (!iconName.startsWith(this.MAP_TYPE_PREFIX)) {
+    if (!iconName.startsWith(MAP_CONSTANTS.MAP_TYPE_PREFIX)) {
       return;
     }
-    const layerId = iconName.slice(this.MAP_TYPE_PREFIX.length);
+    const layerId = iconName.slice(MAP_CONSTANTS.MAP_TYPE_PREFIX.length);
     if (!this.map || !layerId) return;
     this.map.setLayerVisibility(layerId, true);
+  }
+
+  private scaleDenominatorToResolution(scaleDenominator: number): number {
+    return scaleDenominator * MAP_CONSTANTS.OGC_PIXEL_SIZE_METERS;
   }
 
   onMapToolbarMenuItemChange({ layer, visible }: MapToolbarMenuItemChange): void {
@@ -1658,23 +1669,75 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
     if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
 
-    const overlay = new TileLayer({
-      source: new TileWMS({
-        url: layer.url,
-        params: {
-          LAYERS: layer.layers ?? undefined,
-          FORMAT: layer.format ?? 'image/png',
-          VERSION: layer.version ?? '1.3.0',
-        },
-        attributions: layer.attribution ?? undefined,
-      }),
-    });
-    const source = overlay.getSource()!;
-    this.mapOverlayLoadKeys.push(
-      source.on('tileloaderror', () => {
-        if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
-      }),
-    );
+    const params = {
+      LAYERS: layer.layers ?? undefined,
+      FORMAT: layer.format ?? 'image/png',
+      VERSION: layer.version ?? '1.3.0',
+    };
+    const useSingleImage = layer.useSingleImage ?? false;
+    const retryDelayMs = Math.max(0, layer.retryAfterSeconds ?? 0) * 1000;
+    let retryAt = 0;
+    const loadImageElement = (imageElement: HTMLImageElement, src: string) => {
+      if (retryDelayMs > 0 && Date.now() < retryAt) {
+        imageElement.onload = null;
+        imageElement.onerror = null;
+        imageElement.src = MAP_CONSTANTS.TRANSPARENT_PIXEL_DATA_URI;
+        return;
+      }
+      imageElement.onload = () => {
+        retryAt = 0;
+        this.mapLayerService.setLayerFailed(layer.id, false);
+      };
+      imageElement.onerror = () => {
+        if (retryDelayMs === 0) return;
+        retryAt = Date.now() + retryDelayMs;
+        this.mapLayerService.setLayerFailed(layer.id, true);
+      };
+      imageElement.src = src;
+    };
+    const loadSingleImage = (image: ImageWrapper, src: string) => loadImageElement(image.getImage() as HTMLImageElement, src);
+    const loadTileImage = (tile: Tile, src: string) => loadImageElement((tile as ImageTile).getImage() as HTMLImageElement, src);
+    const commonOptions = {
+      opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
+      minResolution:
+        layer.minScaleDenominator != null ? this.scaleDenominatorToResolution(layer.minScaleDenominator) : undefined,
+      maxResolution:
+        layer.maxScaleDenominator != null ? this.scaleDenominatorToResolution(layer.maxScaleDenominator) : undefined,
+    };
+    const overlay = useSingleImage
+      ? new ImageLayer({
+          ...commonOptions,
+          source: new ImageWMS({
+            url: layer.url,
+            params,
+            attributions: layer.attribution ?? undefined,
+            imageLoadFunction: loadSingleImage,
+          }),
+        })
+      : new TileLayer({
+          ...commonOptions,
+          source: new TileWMS({
+            url: layer.url,
+            params,
+            attributions: layer.attribution ?? undefined,
+            tileLoadFunction: loadTileImage,
+          }),
+        });
+    if (useSingleImage) {
+      const source = overlay.getSource() as ImageWMS;
+      this.mapOverlayLoadKeys.push(
+        source.on('imageloaderror', () => {
+          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+        }),
+      );
+    } else {
+      const source = overlay.getSource() as TileWMS;
+      this.mapOverlayLoadKeys.push(
+        source.on('tileloaderror', () => {
+          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+        }),
+      );
+    }
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
   }
