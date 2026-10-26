@@ -1,5 +1,5 @@
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.BusinessModels;
+using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,22 +25,11 @@ public class NotificationsController : ControllerBase
     /// </summary>
     [HttpGet]
     [Produces("application/json")]
-    public async Task<ActionResult<IEnumerable<NotificationModel>>> GetNotifications(CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<Notification>>> GetNotifications(
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var notifications = await _notificationsService.GetAllNotificationsAsync();
-            return Ok(notifications);
-        }
-        catch (ApplicationException ex)
-        {
-            _logger.LogWarning(ex, "Application error retrieving notifications");
-            return StatusCode(503, new { error = "An error occurred while retrieving notifications. Please try again later." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error retrieving notifications");
-            return StatusCode(500, new { error = "An unexpected error occurred. Please try again later." });
-        }
+        var notifications = await _notificationsService.GetAllNotificationsAsync();
+        return Ok(notifications);
     }
+
 }
