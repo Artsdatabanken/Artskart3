@@ -145,4 +145,9 @@ export class ListViewComponent {
     if (!fid) return '';
     return this.areaNameMap().get(fid) ?? fid;
   }
+
+  getCategory(id: number | null | undefined): { name: string; code: string | null | undefined } | undefined {
+    if (id === null || id === undefined) return undefined;
+    return this.categoryById().get(id);
+  }
 }
