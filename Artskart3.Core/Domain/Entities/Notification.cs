@@ -3,7 +3,7 @@ using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Domain.Entities;
 
-public class Notification : BaseEntity
+public class Notification : BaseEntity<Guid>
 {
     public AlertType AlertType { get; set; }
     public required string Heading { get; set; }

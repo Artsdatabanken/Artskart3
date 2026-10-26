@@ -14,8 +14,7 @@ public partial class AddNotificationsDatabase : Migration
             name: "Notifications",
             columns: table => new
             {
-                Id = table.Column<int>(type: "int", nullable: false)
-                    .Annotation("SqlServer:Identity", "1, 1"),
+                Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                 AlertType = table.Column<int>(type: "int", nullable: false),
                 Heading = table.Column<string>(type: "nvarchar(max)", nullable: false),
                 Description = table.Column<string>(type: "nvarchar(max)", nullable: false),

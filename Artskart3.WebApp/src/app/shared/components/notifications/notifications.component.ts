@@ -1,5 +1,6 @@
 import '@artsdatabanken/components';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DateRangePipe } from '../../pipes/date-range.pipe';
 import { AlertVariant } from '../../services/alert/alert.service';
@@ -26,12 +27,13 @@ export class NotificationsComponent {
   protected readonly notificationsService = inject(NotificationsService);
   protected readonly translate = inject(TranslateService);
   private readonly dismissalService = inject(NotificationDismissalService);
+  private readonly notifications = toSignal(this.notificationsService.getNotifications(), { initialValue: [] });
   protected readonly visibleNotifications = computed(() =>
-    this.notificationsService.activeNotifications().filter(notification => !this.dismissalService.isDismissed(notification))
+    this.notifications().filter(notification => !this.dismissalService.isDismissed(notification))
   );
 
   protected variant(notification: NotificationModel): AlertVariant {
-    return ALERT_TYPE_VARIANT[notification.type ?? 0] ?? 'info';
+    return ALERT_TYPE_VARIANT[notification.alertType ?? 0] ?? 'info';
   }
 
   protected dismiss(notification: NotificationModel): void {

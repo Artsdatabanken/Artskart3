@@ -13,7 +13,7 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261026113435_AddNotificationsDatabase")]
+    [Migration("20261026123225_AddNotificationsDatabase")]
     partial class AddNotificationsDatabase
     {
         /// <inheritdoc />
@@ -1179,11 +1179,9 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Notification", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AlertType")
                         .HasColumnType("int");

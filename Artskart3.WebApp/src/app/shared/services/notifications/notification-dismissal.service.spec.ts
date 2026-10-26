@@ -11,6 +11,7 @@ interface CookieInformationTestWindow {
 const notification: NotificationModel = {
   id: '11111111-1111-1111-1111-111111111111',
   heading: 'Planned maintenance',
+  description: 'Planned maintenance',
   startDisplayDate: '2026-01-01',
   endDisplayDate: '2026-01-31',
 };
@@ -79,7 +80,7 @@ describe('NotificationDismissalService', () => {
     setConsent(true);
     service.dismiss(notification);
 
-    const other: NotificationModel = { ...notification, id: '22222222-2222-2222-2222-222222222222' };
+    const other: NotificationModel = { ...notification, id: '22222222-2222-2222-2222-222222222222';
     expect(service.isDismissed(other)).toBe(false);
   });
 
