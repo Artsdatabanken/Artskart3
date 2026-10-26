@@ -18,6 +18,11 @@ public class NotificationsRepository : INotificationsRepository
 
     public async Task<IEnumerable<Notification>> GetAllNotificationsAsync()
     {
-        return await _context.Set<Notification>().ToListAsync();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        return await _context.Set<Notification>()
+            .Where(n => n.StartDisplayDate == null || n.StartDisplayDate <= today)
+            .Where(n => n.EndDisplayDate == null || n.EndDisplayDate >= today)
+            .ToListAsync();
     }
 }

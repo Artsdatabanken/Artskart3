@@ -1,7 +1,7 @@
 @for (notification of visibleNotifications(); track notification) {
   <adb-alert
     [attr.variant]="variant(notification)"
-    [attr.heading]="notification.heading ?? null"
+    [attr.heading]="notification.heading"
     [attr.closable]="notification.canClose ?? true ? '' : null"
     (adb-close)="dismiss(notification)"
   >

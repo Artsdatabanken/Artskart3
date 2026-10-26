@@ -1,4 +1,6 @@
 using Artskart3.Core.Application.Services.Implementations;
+using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
 using Moq;
@@ -16,23 +18,27 @@ public class NotificationsServiceTests
         _sut = new NotificationsService(_repositoryMock.Object);
     }
 
-    // -----------------------------------------------------------------------
-    // GetAllNotificationsAsync
-    // -----------------------------------------------------------------------
+    [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenRepositoryIsNull()
+    {
+        var act = () => new NotificationsService(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("notificationsRepository");
+    }
 
     [Fact]
     public async Task GetAllNotificationsAsync_ReturnsResultFromRepository()
     {
-        // var expected = new List<NotificationModel>
-        // {
-        //     new() { Type = AlertType.Warning, Heading = "Planlagt vedlikehold", CanClose = true },
-        //     new() { Type = AlertType.Info,    Heading = "Ny versjon",           CanClose = true }
-        // };
-        // _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ReturnsAsync(expected);
-        //
-        // var result = await _sut.GetAllNotificationsAsync();
-        //
-        // result.Should().BeEquivalentTo(expected);
+        var expected = new List<Notification>
+        {
+            new() { Id = Guid.NewGuid(), AlertType = AlertType.Warning, Heading = "Planlagt vedlikehold", Description = "Fredag kl. 22", CanClose = true },
+            new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
+        };
+        _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ReturnsAsync(expected);
+
+        var result = await _sut.GetAllNotificationsAsync();
+
+        result.Should().BeEquivalentTo(expected);
     }
 
     [Fact]
@@ -48,25 +54,26 @@ public class NotificationsServiceTests
     [Fact]
     public async Task GetAllNotificationsAsync_WhenRepositoryThrowsApplicationException_RethrowsIt()
     {
-        var original = new ApplicationException("Fil ikke tilgjengelig");
+        var original = new ApplicationException("Databasen er utilgjengelig");
         _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ThrowsAsync(original);
 
         var act = () => _sut.GetAllNotificationsAsync();
 
-        await act.Should().ThrowAsync<ApplicationException>()
-            .WithMessage("Fil ikke tilgjengelig");
+        (await act.Should().ThrowAsync<ApplicationException>())
+            .Which.Should().BeSameAs(original);
     }
 
     [Fact]
     public async Task GetAllNotificationsAsync_WhenRepositoryThrowsUnexpectedException_WrapsInApplicationException()
     {
+        var inner = new InvalidOperationException("Uventet feil");
         _repositoryMock
             .Setup(r => r.GetAllNotificationsAsync())
-            .ThrowsAsync(new InvalidOperationException("Uventet feil"));
+            .ThrowsAsync(inner);
 
         var act = () => _sut.GetAllNotificationsAsync();
 
-        await act.Should().ThrowAsync<ApplicationException>()
-            .Where(e => e.InnerException is InvalidOperationException);
+        (await act.Should().ThrowAsync<ApplicationException>())
+            .Which.InnerException.Should().BeSameAs(inner);
     }
 }

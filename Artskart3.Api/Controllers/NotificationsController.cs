@@ -20,8 +20,7 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// Returns all configured notifications.
-    /// The client filters by startDisplayDate / endDisplayDate to determine which notifications to show.
+    /// Returns the notifications whose display period (startDisplayDate / endDisplayDate) includes today.
     /// </summary>
     [HttpGet]
     [Produces("application/json")]

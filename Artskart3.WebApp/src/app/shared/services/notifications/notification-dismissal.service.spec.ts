@@ -80,7 +80,7 @@ describe('NotificationDismissalService', () => {
     setConsent(true);
     service.dismiss(notification);
 
-    const other: NotificationModel = { ...notification, id: '22222222-2222-2222-2222-222222222222';
+    const other: NotificationModel = { ...notification, id: '22222222-2222-2222-2222-222222222222' };
     expect(service.isDismissed(other)).toBe(false);
   });
 
