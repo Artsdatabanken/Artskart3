@@ -32,7 +32,7 @@
               <td>{{ obs.author }}</td>
               <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
               <td>
-                @let category = obs.categoryId != null ? categoryById().get(obs.categoryId) : undefined;
+                @let category = obs.categoryId !== null && obs.categoryId !== undefined ? categoryById().get(obs.categoryId) : undefined;
                 @if (category) {
                   <span class="risk-category-cell">
                     @if (category.code) {
