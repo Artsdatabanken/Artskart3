@@ -1,3 +1,4 @@
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
@@ -20,11 +21,13 @@ describe('NotificationsService', () => {
     httpTesting.verify();
   });
 
+  const settle = () => TestBed.inject(ApplicationRef).whenStable();
+
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should call GET /api/Notifications and return the notifications', () => {
+  it('should call GET /api/Notifications and expose the notifications', async () => {
     const mockResponse: NotificationModel[] = [
       {
         id: '11111111-1111-1111-1111-111111111111',
@@ -34,31 +37,47 @@ describe('NotificationsService', () => {
         canClose: true,
       },
     ];
-    let result: NotificationModel[] | undefined;
 
-    service.getNotifications().subscribe((notifications) => (result = notifications));
-
+    TestBed.tick();
     const req = httpTesting.expectOne('/api/Notifications');
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
-    expect(result).toEqual(mockResponse);
+    await settle();
+
+    expect(service.notifications()).toEqual(mockResponse);
   });
 
-  it('should return an empty list when there are no notifications', () => {
-    let result: NotificationModel[] | undefined;
+  it('should be empty before the request has completed', () => {
+    TestBed.tick();
+    httpTesting.expectOne('/api/Notifications');
 
-    service.getNotifications().subscribe((notifications) => (result = notifications));
+    expect(service.notifications()).toEqual([]);
+  });
 
+  it('should return an empty list when there are no notifications', async () => {
+    TestBed.tick();
     httpTesting.expectOne('/api/Notifications').flush([]);
-    expect(result).toEqual([]);
+    await settle();
+
+    expect(service.notifications()).toEqual([]);
   });
 
-  it('should propagate http errors to the subscriber', () => {
-    let status: number | undefined;
-
-    service.getNotifications().subscribe({ error: (error) => (status = error.status) });
-
+  it('should fall back to an empty list on http errors', async () => {
+    TestBed.tick();
     httpTesting.expectOne('/api/Notifications').flush('error', { status: 500, statusText: 'Server Error' });
-    expect(status).toBe(500);
+    await settle();
+
+    expect(service.notifications()).toEqual([]);
+  });
+
+  it('should only fetch once for multiple reads', async () => {
+    TestBed.tick();
+    httpTesting.expectOne('/api/Notifications').flush([]);
+    await settle();
+
+    service.notifications();
+    service.notifications();
+
+    httpTesting.expectNone('/api/Notifications');
   });
 });

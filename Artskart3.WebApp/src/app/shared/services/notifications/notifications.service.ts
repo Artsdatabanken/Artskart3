@@ -1,16 +1,12 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { httpResource } from '@angular/common/http';
+import { Injectable, computed } from '@angular/core';
 import { NotificationModel } from '../../types/api.types';
 
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationsService {
-  private readonly http = inject(HttpClient);
-  private readonly notificationEndpoint = '/api/Notifications';
+  private readonly resource = httpResource<NotificationModel[]>(() => '/api/Notifications');
 
-  getNotifications(): Observable<NotificationModel[]> {
-    return this.http.get<NotificationModel[]>(this.notificationEndpoint);
-  }
+  readonly notifications = computed(() => (this.resource.hasValue() ? this.resource.value() : []));
 }

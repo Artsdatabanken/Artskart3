@@ -30,10 +30,11 @@ describe('NotificationsComponent', () => {
     document.cookie = 'artskart.notifications.dismissed=; max-age=0; path=/';
   });
 
-  function render(notifications: NotificationModel[]) {
+  async function render(notifications: NotificationModel[]) {
     const fixture = TestBed.createComponent(NotificationsComponent);
     fixture.detectChanges();
     httpTesting.expectOne('/api/Notifications').flush(notifications);
+    await fixture.whenStable();
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
     return { fixture, element, alerts: () => Array.from(element.querySelectorAll('adb-alert')) };
@@ -47,8 +48,8 @@ describe('NotificationsComponent', () => {
     httpTesting.expectOne('/api/Notifications').flush([]);
   });
 
-  it('renders heading and description for each notification', () => {
-    const { alerts } = render([
+  it('renders heading and description for each notification', async () => {
+    const { alerts } = await render([
       notification({ id: ID_ONE, heading: 'First', description: 'First description' }),
       notification({ id: ID_TWO, heading: 'Second', description: 'Second description' }),
     ]);
@@ -65,20 +66,20 @@ describe('NotificationsComponent', () => {
     [2, 'info'],
     [3, 'success'],
     [4, 'info'],
-  ])('maps alertType %i to variant %s', (alertType, variant) => {
-    const { alerts } = render([notification({ alertType: alertType as NotificationModel['alertType'] })]);
+  ])('maps alertType %i to variant %s', async (alertType, variant) => {
+    const { alerts } = await render([notification({ alertType: alertType as NotificationModel['alertType'] })]);
 
     expect(alerts()[0].getAttribute('variant')).toBe(variant);
   });
 
-  it('falls back to the danger variant when alertType is missing', () => {
-    const { alerts } = render([notification({ alertType: undefined })]);
+  it('falls back to the danger variant when alertType is missing', async () => {
+    const { alerts } = await render([notification({ alertType: undefined })]);
 
     expect(alerts()[0].getAttribute('variant')).toBe('danger');
   });
 
-  it('makes the alert closable unless canClose is false', () => {
-    const { alerts } = render([
+  it('makes the alert closable unless canClose is false', async () => {
+    const { alerts } = await render([
       notification({ id: ID_ONE, canClose: true }),
       notification({ id: ID_TWO, canClose: false }),
     ]);
@@ -87,8 +88,8 @@ describe('NotificationsComponent', () => {
     expect(alerts()[1].hasAttribute('closable')).toBe(false);
   });
 
-  it('shows the date range only when a display date is set', () => {
-    const { alerts } = render([
+  it('shows the date range only when a display date is set', async () => {
+    const { alerts } = await render([
       notification({ id: ID_ONE, startDisplayDate: '2026-01-01', endDisplayDate: '2026-01-31' }),
       notification({ id: ID_TWO }),
     ]);
@@ -97,10 +98,10 @@ describe('NotificationsComponent', () => {
     expect(alerts()[1].querySelector('.alert-date-range')).toBeNull();
   });
 
-  it('hides notifications that have already been dismissed', () => {
+  it('hides notifications that have already been dismissed', async () => {
     TestBed.inject(NotificationDismissalService).dismiss(notification({ id: ID_ONE }));
 
-    const { alerts } = render([
+    const { alerts } = await render([
       notification({ id: ID_ONE, heading: 'Dismissed' }),
       notification({ id: ID_TWO, heading: 'Visible' }),
     ]);
@@ -109,8 +110,8 @@ describe('NotificationsComponent', () => {
     expect(alerts()[0].getAttribute('heading')).toBe('Visible');
   });
 
-  it('removes a notification when its alert is closed', () => {
-    const { fixture, alerts } = render([
+  it('removes a notification when its alert is closed', async () => {
+    const { fixture, alerts } = await render([
       notification({ id: ID_ONE, heading: 'First' }),
       notification({ id: ID_TWO, heading: 'Second' }),
     ]);

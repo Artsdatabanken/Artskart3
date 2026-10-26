@@ -13,19 +13,8 @@ public class NotificationsService : INotificationsService
         _notificationsRepository = notificationsRepository ?? throw new ArgumentNullException(nameof(notificationsRepository));
     }
 
-    public async Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync()
+    public async Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            return await _notificationsRepository.GetAllNotificationsAsync();
-        }
-        catch (ApplicationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw new ApplicationException("An error occurred while retrieving notifications.", ex);
-        }
+        return await _notificationsRepository.GetAllNotificationsAsync(cancellationToken);
     }
 }

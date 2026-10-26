@@ -4,5 +4,5 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces;
 
 public interface INotificationsRepository
 {
-    Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync();
+    Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync(CancellationToken cancellationToken = default);
 }

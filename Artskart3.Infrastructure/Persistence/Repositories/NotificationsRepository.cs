@@ -14,11 +14,13 @@ public class NotificationsRepository : INotificationsRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync()
+    public async Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync(CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
 
         return await _context.Set<Notification>()
+            .AsNoTracking()
+            .OrderBy(n => n.AlertType)
             .Where(n => n.StartDisplayDate == null || n.StartDisplayDate <= today)
             .Where(n => n.EndDisplayDate == null || n.EndDisplayDate >= today)
             .Where(n => !n.IsDeleted)
@@ -34,6 +36,6 @@ public class NotificationsRepository : INotificationsRepository
                 EndDisplayDate = n.EndDisplayDate,
                 CanClose = n.CanClose
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 }

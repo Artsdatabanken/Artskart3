@@ -27,8 +27,7 @@ public class NotificationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(
         CancellationToken cancellationToken = default)
     {
-        var notifications = await _notificationsService.GetAllNotificationsAsync();
+        var notifications = await _notificationsService.GetAllNotificationsAsync(cancellationToken);
         return Ok(notifications);
     }
-
 }
