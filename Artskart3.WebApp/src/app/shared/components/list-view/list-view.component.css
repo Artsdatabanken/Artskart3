@@ -87,6 +87,12 @@
   padding: var(--adb-spacing-lg);
 }
 
+.risk-category-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+}
+
 .pagination {
   padding-top: var(--adb-spacing-md);
   margin-bottom: var(--adb-spacing-md);

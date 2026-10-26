@@ -31,7 +31,17 @@
               <td [innerHTML]="obs.scientificName"></td>
               <td>{{ obs.author }}</td>
               <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
-              <td>{{ obs.categoryId | lookupName: categoryNameMap() }}</td>
+              <td>
+                @let category = obs.categoryId != null ? categoryById().get(obs.categoryId) : undefined;
+                @if (category) {
+                  <span class="risk-category-cell">
+                    @if (category.code) {
+                      <app-risk-category-badge [code]="category.code" />
+                    }
+                    {{ category.name }}
+                  </span>
+                }
+              </td>
               <td>{{ obs.institution }}</td>
               <td>{{ obs.dateTimeCollected | localeDate:translate.currentLang }}</td>
               <td>{{ obs.locality }}</td>

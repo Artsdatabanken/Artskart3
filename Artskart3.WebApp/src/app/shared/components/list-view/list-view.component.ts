@@ -11,10 +11,11 @@ import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, Tax
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe],
+  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe, RiskCategoryBadgeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './list-view.component.html',
   styleUrl: './list-view.component.css',
@@ -36,12 +37,12 @@ export class ListViewComponent {
     stream: () => this.taxonGroupService.getTaxonGroups(),
   });
 
-  readonly categoryNameMap = computed(() => {
-    const map = new Map<number, string>();
+  readonly categoryById = computed(() => {
+    const map = new Map<number, { name: string; code: string | null | undefined }>();
     for (const type of this.categoriesResource.value() ?? []) {
-      for (const cat of type.categories ?? []) {
-        if (cat.id != null && cat.name) {
-          map.set(cat.id, cat.name);
+      for (const category of type.categories ?? []) {
+        if (category.id != null && category.name) {
+          map.set(category.id, { name: category.name, code: category.code });
         }
       }
     }
