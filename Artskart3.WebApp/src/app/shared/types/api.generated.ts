@@ -875,7 +875,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Notification"][];
+                        "application/json": components["schemas"]["NotificationDto"][];
                     };
                 };
             };
@@ -1880,16 +1880,9 @@ export interface components {
             version?: null | string;
             attribution?: null | string;
         };
-        Notification: {
+        NotificationDto: {
             /** Format: uuid */
             id?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-            isDeleted?: boolean;
-            /** Format: date-time */
-            deletedAt?: null | string;
             alertType?: components["schemas"]["AlertType"];
             heading: string;
             description: string;

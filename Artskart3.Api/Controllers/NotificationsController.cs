@@ -1,5 +1,5 @@
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,7 +24,7 @@ public class NotificationsController : ControllerBase
     /// </summary>
     [HttpGet]
     [Produces("application/json")]
-    public async Task<ActionResult<IEnumerable<Notification>>> GetNotifications(
+    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(
         CancellationToken cancellationToken = default)
     {
         var notifications = await _notificationsService.GetAllNotificationsAsync();

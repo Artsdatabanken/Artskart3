@@ -1,6 +1,6 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +41,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task GetNotifications_ReturnsOkWithNotifications()
     {
-        var notifications = new List<Notification>
+        var notifications = new List<NotificationDto>
         {
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Danger, Heading = "Tjenesten er nede", Description = "Prøv igjen senere", CanClose = false },
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
@@ -62,7 +62,7 @@ public class NotificationsControllerTests
         var result = await _sut.GetNotifications();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeAssignableTo<IEnumerable<Notification>>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<NotificationDto>>()
             .Which.Should().BeEmpty();
     }
 

@@ -1,5 +1,5 @@
 using Artskart3.Core.Application.Services.Implementations;
-using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using FluentAssertions;
@@ -29,7 +29,7 @@ public class NotificationsServiceTests
     [Fact]
     public async Task GetAllNotificationsAsync_ReturnsResultFromRepository()
     {
-        var expected = new List<Notification>
+        var expected = new List<NotificationDto>
         {
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Warning, Heading = "Planlagt vedlikehold", Description = "Fredag kl. 22", CanClose = true },
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
