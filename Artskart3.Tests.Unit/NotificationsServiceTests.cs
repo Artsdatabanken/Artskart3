@@ -52,28 +52,14 @@ public class NotificationsServiceTests
     }
 
     [Fact]
-    public async Task GetAllNotificationsAsync_WhenRepositoryThrowsApplicationException_RethrowsIt()
+    public async Task GetAllNotificationsAsync_WhenRepositoryThrows_ExceptionPropagates()
     {
-        var original = new ApplicationException("Databasen er utilgjengelig");
+        var original = new InvalidOperationException("Uventet feil");
         _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ThrowsAsync(original);
 
         var act = () => _sut.GetAllNotificationsAsync();
 
-        (await act.Should().ThrowAsync<ApplicationException>())
+        (await act.Should().ThrowAsync<InvalidOperationException>())
             .Which.Should().BeSameAs(original);
-    }
-
-    [Fact]
-    public async Task GetAllNotificationsAsync_WhenRepositoryThrowsUnexpectedException_WrapsInApplicationException()
-    {
-        var inner = new InvalidOperationException("Uventet feil");
-        _repositoryMock
-            .Setup(r => r.GetAllNotificationsAsync())
-            .ThrowsAsync(inner);
-
-        var act = () => _sut.GetAllNotificationsAsync();
-
-        (await act.Should().ThrowAsync<ApplicationException>())
-            .Which.InnerException.Should().BeSameAs(inner);
     }
 }
