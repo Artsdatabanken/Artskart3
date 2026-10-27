@@ -93,6 +93,11 @@
   gap: var(--adb-spacing-xsm);
 }
 
+/* The 26px badge is taller than the text line; -3px each side keeps the row the same height as rows without a badge. */
+.risk-category-cell app-risk-category-badge {
+  margin-block: -3px;
+}
+
 .pagination {
   padding-top: var(--adb-spacing-md);
   margin-bottom: var(--adb-spacing-md);
