@@ -11,12 +11,10 @@ namespace Artskart3.Api.Controllers;
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationsService _notificationsService;
-    private readonly ILogger<NotificationsController> _logger;
 
-    public NotificationsController(INotificationsService notificationsService, ILogger<NotificationsController> logger)
+    public NotificationsController(INotificationsService notificationsService)
     {
         _notificationsService = notificationsService ?? throw new ArgumentNullException(nameof(notificationsService));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -27,7 +25,7 @@ public class NotificationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications(
         CancellationToken cancellationToken = default)
     {
-        var notifications = await _notificationsService.GetAllNotificationsAsync(cancellationToken);
+        var notifications = await _notificationsService.GetAllActiveNotificationsAsync(cancellationToken);
         return Ok(notifications);
     }
 }

@@ -19,13 +19,13 @@ public class NotificationsControllerTests
     {
         _serviceMock = new Mock<INotificationsService>();
         _loggerMock = new Mock<ILogger<NotificationsController>>();
-        _sut = new NotificationsController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new NotificationsController(_serviceMock.Object);
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenServiceIsNull()
     {
-        var act = () => new NotificationsController(null!, _loggerMock.Object);
+        var act = () => new NotificationsController(null!);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("notificationsService");
     }
@@ -33,7 +33,7 @@ public class NotificationsControllerTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new NotificationsController(_serviceMock.Object, null!);
+        var act = () => new NotificationsController(_serviceMock.Object);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
@@ -46,7 +46,7 @@ public class NotificationsControllerTests
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Danger, Heading = "Tjenesten er nede", Description = "Prøv igjen senere", CanClose = false },
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
         };
-        _serviceMock.Setup(s => s.GetAllNotificationsAsync()).ReturnsAsync(notifications);
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync(notifications);
 
         var result = await _sut.GetNotifications();
 
@@ -57,7 +57,7 @@ public class NotificationsControllerTests
     [Fact]
     public async Task GetNotifications_WhenServiceReturnsEmptyList_ReturnsOkWithEmptyList()
     {
-        _serviceMock.Setup(s => s.GetAllNotificationsAsync()).ReturnsAsync([]);
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync([]);
 
         var result = await _sut.GetNotifications();
 
@@ -69,18 +69,18 @@ public class NotificationsControllerTests
     [Fact]
     public async Task GetNotifications_CallsServiceOnce()
     {
-        _serviceMock.Setup(s => s.GetAllNotificationsAsync()).ReturnsAsync([]);
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync([]);
 
         await _sut.GetNotifications();
 
-        _serviceMock.Verify(s => s.GetAllNotificationsAsync(), Times.Once);
+        _serviceMock.Verify(s => s.GetAllActiveNotificationsAsync(), Times.Once);
     }
 
     [Fact]
     public async Task GetNotifications_WhenServiceThrowsApplicationException_ExceptionPropagates()
     {
         _serviceMock
-            .Setup(s => s.GetAllNotificationsAsync())
+            .Setup(s => s.GetAllActiveNotificationsAsync())
             .ThrowsAsync(new ApplicationException("Databasen er utilgjengelig"));
 
         var act = () => _sut.GetNotifications();
@@ -93,7 +93,7 @@ public class NotificationsControllerTests
     public async Task GetNotifications_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
     {
         _serviceMock
-            .Setup(s => s.GetAllNotificationsAsync())
+            .Setup(s => s.GetAllActiveNotificationsAsync())
             .ThrowsAsync(new InvalidOperationException("Uventet feil"));
 
         var act = () => _sut.GetNotifications();

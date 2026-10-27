@@ -34,9 +34,9 @@ public class NotificationsServiceTests
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Warning, Heading = "Planlagt vedlikehold", Description = "Fredag kl. 22", CanClose = true },
             new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
         };
-        _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ReturnsAsync(expected);
+        _repositoryMock.Setup(r => r.GetAllActiveNotificationsAsync()).ReturnsAsync(expected);
 
-        var result = await _sut.GetAllNotificationsAsync();
+        var result = await _sut.GetAllActiveNotificationsAsync();
 
         result.Should().BeEquivalentTo(expected);
     }
@@ -44,9 +44,9 @@ public class NotificationsServiceTests
     [Fact]
     public async Task GetAllNotificationsAsync_WhenRepositoryReturnsEmpty_ReturnsEmpty()
     {
-        _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ReturnsAsync([]);
+        _repositoryMock.Setup(r => r.GetAllActiveNotificationsAsync()).ReturnsAsync([]);
 
-        var result = await _sut.GetAllNotificationsAsync();
+        var result = await _sut.GetAllActiveNotificationsAsync();
 
         result.Should().BeEmpty();
     }
@@ -55,9 +55,9 @@ public class NotificationsServiceTests
     public async Task GetAllNotificationsAsync_WhenRepositoryThrows_ExceptionPropagates()
     {
         var original = new InvalidOperationException("Uventet feil");
-        _repositoryMock.Setup(r => r.GetAllNotificationsAsync()).ThrowsAsync(original);
+        _repositoryMock.Setup(r => r.GetAllActiveNotificationsAsync()).ThrowsAsync(original);
 
-        var act = () => _sut.GetAllNotificationsAsync();
+        var act = () => _sut.GetAllActiveNotificationsAsync();
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .Which.Should().BeSameAs(original);

@@ -14,16 +14,17 @@ public class NotificationsRepository : INotificationsRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<IEnumerable<NotificationDto>> GetAllNotificationsAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<NotificationDto>> GetAllActiveNotificationsAsync(CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTime.Now);
 
         return await _context.Set<Notification>()
             .AsNoTracking()
-            .OrderBy(n => n.AlertType)
             .Where(n => n.StartDisplayDate == null || n.StartDisplayDate <= today)
             .Where(n => n.EndDisplayDate == null || n.EndDisplayDate >= today)
             .Where(n => !n.IsDeleted)
+            .OrderBy(n => n.AlertType)
+            .ThenBy(n => n.CreatedAt)
             .Select(n => new NotificationDto
             {
                 Id = n.Id,

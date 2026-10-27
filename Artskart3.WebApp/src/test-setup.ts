@@ -7,7 +7,8 @@ class ResizeObserverStub {
 
 globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 
-// Newer Node versions ship a global localStorage that shadows jsdom's and is undefined without --localstorage-file.
+// Newer Node versions ship a global localStorage that shadows jsdom's and is undefined without --localstorage-file
+// Required if running Node version 26
 if (typeof globalThis.localStorage === 'undefined') {
   const items = new Map<string, string>();
   const memoryStorage: Storage = {
