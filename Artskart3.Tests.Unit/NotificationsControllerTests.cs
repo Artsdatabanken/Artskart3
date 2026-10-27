@@ -4,7 +4,6 @@ using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -12,13 +11,11 @@ namespace Artskart3.Tests.Unit;
 public class NotificationsControllerTests
 {
     private readonly Mock<INotificationsService> _serviceMock;
-    private readonly Mock<ILogger<NotificationsController>> _loggerMock;
     private readonly NotificationsController _sut;
 
     public NotificationsControllerTests()
     {
         _serviceMock = new Mock<INotificationsService>();
-        _loggerMock = new Mock<ILogger<NotificationsController>>();
         _sut = new NotificationsController(_serviceMock.Object);
     }
 
@@ -28,14 +25,6 @@ public class NotificationsControllerTests
         var act = () => new NotificationsController(null!);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("notificationsService");
-    }
-
-    [Fact]
-    public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
-    {
-        var act = () => new NotificationsController(_serviceMock.Object);
-
-        act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
     [Fact]
