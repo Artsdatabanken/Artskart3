@@ -16,10 +16,10 @@ namespace Artskart3.Infrastructure.Import;
 /// importen, mens en <c>DbContext</c> er scoped og ikke skal holdes åpen så lenge.
 /// Samme mønster som <c>AreaHierarchyService</c> bruker.
 ///
-/// GJELDENDE OG HISTORISKE OMRÅDER. Artskart 2s områdeoppslag filtrerer ikke på
-/// <c>IsCurrent</c>, og <c>LocationAreas</c> inneholder derfor også kommunen som fantes
-/// da observasjonen ble gjort. Det er den avledede indeksen (<c>BackfillAll</c> seksjon
-/// A) som filtrerer på gjeldende.
+/// LASTER BÅDE GJELDENDE OG HISTORISKE OMRÅDER, men de brukes til ulike ting:
+/// koordinatoppslaget i <c>GeographyService</c> filtrerer bort de historiske, mens
+/// sentroidtabellen beholder dem som reserve for en post som navngir en kommune som
+/// ikke finnes lenger. Derfor filtreres det ikke her.
 /// </summary>
 public class EfAreaGeometrySource : IAreaGeometrySource
 {

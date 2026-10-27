@@ -21,6 +21,29 @@ public static class TaxonomyHelper
     private static readonly string[] UsikkerStart = ["aff ", "aff. ", "cf ", "cf. "];
 
     /// <summary>
+    /// Verdier som ikke er navn, men plassholdere for «ubestemt». Lista er Artskart 2s
+    /// (<c>Nothings</c> i <c>ImportTaxonomy</c>, og den samme i
+    /// <c>TaxonSearchService.SciName</c>).
+    /// </summary>
+    private static readonly string[] Plassholdere = ["sp", "indet", "var", "spp", "ssp", "subsp", "agg", "×"];
+
+    /// <summary>
+    /// Gir <c>null</c> hvis verdien bare er en rangforkortelse eller et
+    /// «ubestemt»-ord — ellers verdien uendret. Port av Artskart 2s <c>StripIt</c>.
+    ///
+    /// Brukes to steder: når rangen skal utledes av hvilke rangfelt som er utfylt, og
+    /// når et navn i taksonomien skal legges i navneoppslaget.
+    /// </summary>
+    public static string? StripRankPlaceholder(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+
+        var nøkkel = value.ToLowerInvariant().Trim().Replace(".", string.Empty);
+
+        return Plassholdere.Contains(nøkkel) ? null : value;
+    }
+
+    /// <summary>
     /// Forfatterstrengen, lowercase.
     ///
     /// Mangler <c>ScientificNameAuthor</c>, GJETTES den: første ledd etter posisjon 0 i

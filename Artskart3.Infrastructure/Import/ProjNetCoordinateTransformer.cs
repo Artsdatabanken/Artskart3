@@ -21,10 +21,22 @@ namespace Artskart3.Infrastructure.Import;
 /// <item>ED50 → WGS 84: identisk til niende desimal</item>
 /// </list>
 ///
-/// Index lagrer øst/nord som hele meter og lengde-/breddegrad med seks desimaler
-/// (~11 cm), så forskjellen kan ikke uttrykkes i en kolonne. Den er likevel ikke
-/// null, og gullsettene i fase 4 er stedet den eventuelt viser seg — på et punkt som
-/// ligger nøyaktig på en avrundingsgrense.
+/// MEN MÅLINGEN OVER ER NÆR MIDTMERIDIANEN, OG DEN ER IKKE HELE BILDET. Avviket er
+/// null på 15°Ø og vokser med avstanden derfra, fordi de to versjonenes rekkeutvikling
+/// for Transverse Mercator divergerer utenfor sonen. Målt 14. oktober 2026, avvik i
+/// østverdi: 0,001 m ved 21°Ø, 0,08 m ved 27°Ø og 0,4 m ved 30°Ø. Nordverdiene er
+/// upåvirket.
+///
+/// DET BETYR AT ØST-FINNMARK FÅR ANDRE TALL ENN ARTSKART 2 SKREV. Målt på node 43 fikk
+/// 93 av 8 658 poster — alle rundt 29,3°Ø — én meter større <c>East</c>, fordi avviket
+/// på 0,26 m krysset avrundingsgrensen. Lengde- og breddegrad var bit-identiske.
+///
+/// VI BEHOLDER 2.1. Avviket er null på midtmeridianen og vokser med avstanden, som er
+/// signaturen til en avkortet rekke i 1.2 — så 2.1 er den riktigere av de to, og
+/// Artskart 3 skriver bedre koordinater enn Artskart 2 gjorde. Konsekvensen er at
+/// paritetsriggen ikke kan kreve bit-identiske koordinater øst for ~26°Ø. Se
+/// CacheToIndexPlan 7.2 punkt 11 — beslutningen om å akseptere endringen i publiserte
+/// tall ligger hos ledelsen, ikke her.
 ///
 /// Transformasjonene er tråd-trygge etter opprettelse og bufres per (kilde, mål)-par,
 /// slik Artskart 2 også gjør det.

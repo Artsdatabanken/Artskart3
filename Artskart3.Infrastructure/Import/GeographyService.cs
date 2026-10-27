@@ -93,14 +93,33 @@ public class GeographyService : IGeographyService
 
         // Søketreet gir kandidater ut fra omsluttende rektangler; omrisset må testes
         // presist etterpå.
+        //
+        // BARE GJELDENDE OMRÅDER. Artskart 2s oppslag filtrerer ikke — verken
+        // `TryAreasForCoordinate`, `ImportGeometry` eller `StoreLocation` — men dataene
+        // dens inneholder likevel bare gjeldende områder i `LocationAreas`. Uten
+        // filteret her skrev importen 444 ekstra rader for node 43s 133 lokaliteter
+        // (219 historiske kommuner, 225 historiske fylker), og `Area.ObservationCount`
+        // ble 48 629 mot Artskart 2s 20 160 for samme node.
+        //
+        // Det er bare tellingen som ser forskjellen: `ObservationEntityIndex` filtrerer
+        // på `IsCurrent = 1` selv, og stemte rad for rad begge veier. Filteret ligger
+        // derfor her, ved kilden, slik at `LocationAreas` og tellingene blir enige.
+        //
+        // Sentroidtabellen under laster fortsatt historiske områder med vilje: en post
+        // som navngir en kommune som ikke finnes lenger skal fortsatt kunne plasseres.
         var treff = tre.Query(punkt.EnvelopeInternal)
             .Where(x => x.Inneholder(punkt))
             .Select(x => x.Område)
+            .Where(x => x.IsCurrent)
             .ToList();
 
         // Ingen påkrevd områdetype blant treffene betyr utenfor Norge, og da skal
         // ingenting returneres — heller ikke verneområdet koordinaten tilfeldigvis
         // ligger i.
+        //
+        // SJEKKEN KOMMER ETTER FILTERET, så kravet er at posten ligger i et *gjeldende*
+        // påkrevd område. En koordinat som bare treffer en historisk kommune er utenfor
+        // dagens Norge, og det er riktig svar.
         if (!treff.Any(x => x.IsRequired)) return [];
 
         return treff
@@ -206,12 +225,22 @@ public class GeographyService : IGeographyService
             return false;
         }
 
-        // IsValid er NTS sin vurdering, ikke SQL Servers STIsValid som Artskart 2
-        // bruker. De to er enige om det meste, men ikke om alt — selvkryssende
-        // polygoner behandles ulikt. Avvik her gir en post som avvises i den ene
-        // løsningen og ikke i den andre, og hører i avviksregisteret hvis riggen finner
-        // det.
-        if (geometri.IsEmpty || !geometri.IsValid) return false;
+        // TOPOLOGISK UGYLDIGE OMRISS SKAL BEHOLDES, IKKE AVVISES.
+        //
+        // Her sto tidligere `|| !geometri.IsValid`. Det er NTS sin vurdering, ikke SQL
+        // Servers `STIsValid` som Artskart 2 bruker, og de er ikke enige om
+        // selvkryssende polygoner. Paritetsriggen målte følgen på gullsett medium:
+        // 37 lokaliteter endte med et PUNKT i Artskart 3 der Artskart 2 har et polygon
+        // på opptil 4 994 koordinater. Omrisset falt bort, og lokaliteten ble stedfestet
+        // av koordinaten alene — uten at noe ble logget.
+        //
+        // Artskart 2 avviser ikke; den reparerer. For de 39 omrissene Artskart 3 lagret
+        // som ugyldige er `MakeValid()` byte-identisk med det Artskart 2 har lagret, i
+        // alle 39. Reparasjonen gjøres derfor på skrivesiden, av SQL Server, der den
+        // reproduserer Artskart 2 eksakt — se `PublishSql`.
+        //
+        // Et tomt omriss er fortsatt ingen geometri og gir `false`.
+        if (geometri.IsEmpty) return false;
 
         GeoPoint? sentroide = null;
 

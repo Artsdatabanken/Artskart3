@@ -463,6 +463,74 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("CsvExportJob", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.DataSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GbifApiQuery")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("GbifDataSetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GbifDoi")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("GbifIptArchiveName")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("GbifPublisherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HarvestPropertyOverrides")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImportPropertyOverrides")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEditedNameOrNotes")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSensitive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("NonValidOccuranceIds")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RecordsBatchSize")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RemoteDataSourceAdress")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("RemoteDataSourceType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RemoteDataSourceV")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UpdateFrequencyInDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataSource", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.DeletedItem", b =>
                 {
                     b.Property<int>("Id")
@@ -1890,6 +1958,10 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("ParentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SourceDatasetId")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1900,9 +1972,28 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "OrganizationTypeId" }, "IX_OrganizationTypeId");
 
+                    b.HasIndex(new[] { "ParentId", "SourceDatasetId" }, "IX_Organization_SourceDatasetId");
+
                     b.HasIndex(new[] { "ParentId" }, "IX_ParentId");
 
                     b.ToTable("Organization", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationAlias", b =>
+                {
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Alias")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("OrganizationId", "Alias");
+
+                    b.HasIndex(new[] { "Alias" }, "IX_OrganizationAlias_Alias")
+                        .IsUnique();
+
+                    b.ToTable("OrganizationAlias", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationType", b =>
@@ -3026,6 +3117,18 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.OrganizationAlias", b =>
+                {
+                    b.HasOne("Artskart3.Core.Domain.Entities.Organization", "Organization")
+                        .WithMany("Aliases")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_OrganizationAlias_Organization");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ProcessRecordResult", b =>
                 {
                     b.HasOne("Artskart3.Core.Domain.Entities.RejectedRecord", "RejectedRecord")
@@ -3217,6 +3320,8 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Organization", b =>
                 {
+                    b.Navigation("Aliases");
+
                     b.Navigation("InverseParent");
                 });
 

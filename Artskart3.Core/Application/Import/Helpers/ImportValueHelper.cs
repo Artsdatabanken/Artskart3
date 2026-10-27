@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Artskart3.Core.Application.Import.Models;
 
@@ -10,6 +11,44 @@ namespace Artskart3.Core.Application.Import.Helpers;
 /// </summary>
 public static class ImportValueHelper
 {
+    /// <summary>
+    /// Leser et JSON-objekt som streng-par, med den samme typekonverteringen
+    /// <c>JavaScriptSerializer</c> gjorde: tall og bool blir tekst, mens nøstede
+    /// objekter og arrayer ikke kan bli det — og da kastes det.
+    ///
+    /// Bool skrives som <c>True</c>/<c>False</c>, slik .NETs
+    /// <c>Convert.ToString(bool)</c> gjør det, ikke som JSON-ens <c>true</c>.
+    ///
+    /// Brukes både på <c>dynamicProperties</c> fra kilden og på
+    /// <c>ImportPropertyOverrides</c> fra datakilderegisteret — begge er JSON skrevet
+    /// mot <c>JavaScriptSerializer</c>.
+    /// </summary>
+    /// <param name="json">JSON-objektet.</param>
+    /// <param name="kilde">Feltnavnet, som brukes i feilmeldingen.</param>
+    public static Dictionary<string, string?> ReadJsonAsTextPairs(string json, string kilde)
+    {
+        var lest = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)
+                   ?? throw new JsonException($"{kilde} deserialiserte til null.");
+
+        var resultat = new Dictionary<string, string?>();
+
+        foreach (var par in lest)
+        {
+            resultat.Add(par.Key, par.Value.ValueKind switch
+            {
+                JsonValueKind.String => par.Value.GetString(),
+                JsonValueKind.Number => par.Value.GetRawText(),
+                JsonValueKind.True => "True",
+                JsonValueKind.False => "False",
+                JsonValueKind.Null => null,
+                _ => throw new JsonException(
+                    $"{kilde}-nøkkelen '{par.Key}' er {par.Value.ValueKind} og kan ikke bli tekst.")
+            });
+        }
+
+        return resultat;
+    }
+
     /// <summary>
     /// «2 meter», «ca 50», «12.7» → tall. Brukes på
     /// <c>CoordinateUncertaintyInMeters</c> og høyde-/dybdefeltene.

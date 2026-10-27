@@ -43,6 +43,19 @@ public class ImportedLocation
     /// <summary>
     /// Områdene lokaliteten ligger i, fra <c>GeographyService.GetAreasForCoordinate</c>.
     /// Ingen treff betyr at posten avvises med <c>NoHitOnRequiredAreadatasets</c>.
+    ///
+    /// Navnet er med fordi Jan Mayen-regelen i <c>ImportGeometryStep</c> slår opp på
+    /// det. Geometrien er ikke med — den ville ligget på hver enkelt lokalitet i en
+    /// batch på 250 000.
     /// </summary>
-    public List<int> AreaIds { get; } = [];
+    public List<LocationArea> Areas { get; } = [];
 }
+
+/// <summary>
+/// Et område en lokalitet ligger i, slik det følger med inn i <c>LocationAreas</c>.
+/// </summary>
+/// <param name="AreaId">Primærnøkkelen <c>LocationAreas</c> peker på.</param>
+/// <param name="AreaTypeId">1 kommune, 2 fylke, 3 verneområde, 4 havområde, 5 marine områder, 6 Svalbard.</param>
+/// <param name="Fid">Områdets kode i kilden.</param>
+/// <param name="Name">Områdenavnet.</param>
+public sealed record LocationArea(int AreaId, int AreaTypeId, string Fid, string? Name);

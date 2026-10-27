@@ -37,5 +37,15 @@ public enum RecordValidationCode
     SensitiveSpecies = 16,
 
     NoDatetime = 17,
-    Annotation = 18
+    Annotation = 18,
+
+    /// <summary>
+    /// Organisasjonen posten viser til finnes ikke, og opprettelse er slått av.
+    ///
+    /// NY KODE I ARTSKART 3. Artskart 2 oppretter alltid en ukjent samling eller et
+    /// ukjent datasett og har derfor ingen tilsvarende kode. Denne brukes bare i
+    /// opprett-ikke-modus under parallellverifiseringen (plan 4.8), der et avvik her er
+    /// et hull i speilingen av registeret.
+    /// </summary>
+    OrganizationNotCreated = 19
 }

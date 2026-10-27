@@ -97,8 +97,23 @@ public class GeographyServiceTests
         Tjeneste(kilde).GetAreasForCoordinate(50, 50).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// BARE GJELDENDE OMRÅDER. Artskart 2s oppslag filtrerer ikke — verken
+    /// <c>TryAreasForCoordinate</c>, <c>ImportGeometry</c> eller <c>StoreLocation</c> —
+    /// men dataene dens inneholder likevel bare gjeldende områder i
+    /// <c>LocationAreas</c>.
+    ///
+    /// MÅLT PÅ NODE 43: uten filteret skrev importen 747 rader der Artskart 2 har 305,
+    /// og de 444 ekstra pekte alle på historiske kommuner og fylker.
+    /// <c>Area.ObservationCount</c> ble da 48 629 mot Artskart 2s 20 160. Med filteret
+    /// er begge 20 160.
+    ///
+    /// SENTROIDTABELLEN BEHOLDER DE HISTORISKE — se
+    /// <see cref="Gjeldende_omrade_vinner_over_historisk"/>: en post som navngir en
+    /// kommune som ikke finnes lenger skal fortsatt kunne plasseres.
+    /// </summary>
     [Fact]
-    public void Tar_med_historiske_omrader()
+    public void Utelater_historiske_omrader()
     {
         var kilde = new FakeKilde(
             Område(1, "0301", "Oslo", 1, true, Rute(0, 0, 100, 100)),
@@ -106,7 +121,22 @@ public class GeographyServiceTests
 
         var treff = Tjeneste(kilde).GetAreasForCoordinate(50, 50);
 
-        treff.Should().HaveCount(2, "en observasjon fra 1950 hører til kommunen som fantes da");
+        treff.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Treffer koordinaten bare et historisk påkrevd område, ligger den utenfor dagens
+    /// Norge — og da skal ingenting returneres, heller ikke verneområdet den tilfeldigvis
+    /// ligger i. Filteret må altså komme før påkrevd-sjekken.
+    /// </summary>
+    [Fact]
+    public void Gir_ingen_omrader_naar_bare_et_historisk_pakrevd_omrade_treffer()
+    {
+        var kilde = new FakeKilde(
+            Område(1, "0101_2019", "Halden gammel", 1, true, Rute(0, 0, 100, 100), isCurrent: false),
+            Område(2, "Naturbase VV123", "Et verneområde", 3, false, Rute(0, 0, 100, 100)));
+
+        Tjeneste(kilde).GetAreasForCoordinate(50, 50).Should().BeEmpty();
     }
 
     [Fact]
@@ -244,6 +274,30 @@ public class GeographyServiceTests
 
         ok.Should().BeTrue();
         resultat!.Geometry.Coordinates.Should().HaveCount(4);
+    }
+
+    /// <summary>
+    /// Et selvkryssende polygon — et «timeglass» — er topologisk ugyldig etter NTS, men
+    /// Artskart 2 avviser det ikke: den reparerer og beholder flaten. Porten gjorde det
+    /// motsatt, og paritetsriggen målte at 37 lokaliteter på gullsett medium endte med et
+    /// punkt der Artskart 2 har et polygon. Reparasjonen skjer på skrivesiden
+    /// (<c>PublishSql</c> kaller <c>MakeValid()</c>), så her skal omrisset slippe inn.
+    /// </summary>
+    [Fact]
+    public void Beholder_et_selvkryssende_omriss_i_stedet_for_aa_avvise_det()
+    {
+        var tjeneste = Tjeneste(new FakeKilde());
+
+        const string timeglass =
+            "POLYGON ((260000 6640000, 262000 6642000, 262000 6640000, 260000 6642000, 260000 6640000))";
+
+        new WKTReader().Read(timeglass).IsValid
+            .Should().BeFalse("testen er meningsløs hvis NTS mener omrisset er gyldig");
+
+        var ok = tjeneste.TryValidateFootprint(timeglass, null, decimals: 2, out var resultat);
+
+        ok.Should().BeTrue();
+        resultat!.PrecisionInMeters.Should().Be(1414, "halve diagonalen i et omriss på 2 000 × 2 000 meter");
     }
 
     [Theory]

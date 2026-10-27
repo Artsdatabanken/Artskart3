@@ -16,9 +16,10 @@ namespace Artskart3.Core.Application.Import.Models;
 /// utenfor Norge og posten avvises — se <c>IGeographyService.GetAreasForCoordinate</c>.
 /// </param>
 /// <param name="IsCurrent">
-/// Om området gjelder i dag. Historiske områder er med i oppslaget: en observasjon fra
-/// 1950 hører til kommunen som fantes da, og <c>LocationAreas</c> i Artskart 2
-/// inneholder begge. Det er den avledede indeksen som filtrerer på gjeldende.
+/// Om området gjelder i dag. Koordinatoppslaget returnerer bare gjeldende områder —
+/// se <c>GeographyService.GetAreasForCoordinate</c> for hvorfor — mens de historiske
+/// er med i sentroidtabellen, slik at en post som navngir en kommune som ikke finnes
+/// lenger fortsatt kan plasseres.
 /// </param>
 /// <param name="ParentFid">Fylkets <c>Fid</c> for en kommune. Brukes til kommunesentroidene.</param>
 /// <param name="Geometry">Omrisset, merket 25833 etter <c>RelabelGeometrySridTo25833</c>.</param>

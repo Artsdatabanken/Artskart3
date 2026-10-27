@@ -1,9 +1,20 @@
+using Artskart3.Core.Application.Import.Writing;
+
 namespace Artskart3.Workers.Import;
 
 /// <summary>
-/// Hangfire continuation/recurring job — entry point for import.
-/// Leser fra cache-databasen, prosesserer og skriver til index-databasen.
-/// TODO: Implementeres i neste fase.
+/// Hangfire-inngangen til importen. Tynn med vilje: alt arbeidet ligger i
+/// <see cref="ImportService"/>, og denne klassen finnes for at Hangfire skal ha noe å
+/// kalle.
+///
+/// IKKE REGISTRERT SOM TILBAKEVENDENDE JOBB. Planen (4.6) vil ha harvest → import →
+/// vedlikehold som en kjede, men importen skriver, og maskeringen av sensitive arter
+/// (fase 8) finnes ikke ennå. Fram til den gjør det, startes jobben med vilje — fra
+/// Hangfire-dashbordet eller fra en test — og aldri av en cron.
+///
+/// KØEN SKAL HA ÉN ARBEIDER, som <c>import_service_process</c> i Artskart 2. To
+/// samtidige kjøringer ville skrevet til samme staging-navn og delt lokalitetsbuffer
+/// uten lås.
 ///
 /// VIKTIG — ObservationEntityIndex har en columnstore-indeks (IX_OEI_Columnstore).
 /// Det legger noen føringer på hvordan daglige batcher må skrives:
@@ -18,8 +29,9 @@ namespace Artskart3.Workers.Import;
 /// - Kjør DatabaseMaintenanceJob (REORGANIZE) etter importen, se den klassen.
 ///
 /// MERK: ObservationTaxonHierarchy har i dag ingen oppdateringssti — den populeres
-/// kun én gang i migrasjon 20260702113806. Den må også vedlikeholdes herfra,
-/// ellers blir taksonfiltrering stående på et frosset øyeblikksbilde.
+/// kun én gang i migrasjon 20260702113806. Den må også vedlikeholdes herfra, og det
+/// er fase 7 (<c>DerivedTableMaintainer</c>); ellers blir taksonfiltrering stående på
+/// et frosset øyeblikksbilde.
 /// </summary>
 public class ImportJob
 {
@@ -32,20 +44,52 @@ public class ImportJob
         _logger = logger;
     }
 
-    public Task ExecuteAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Den ordinære importen: alle nodene konfigurasjonen peker på, hver av dem fullt
+    /// ut.
+    /// </summary>
+    public async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("ImportJob er ikke implementert ennå");
-        return Task.CompletedTask;
+        var resultater = await _importService.ImportActiveNodesAsync(cancellationToken);
+
+        foreach (var resultat in resultater)
+        {
+            _logger.LogInformation(
+                "Node {Node}: {Lest} lest, {Importerte} importert, {Avviste} avvist, {Slettede} slettet, "
+                + "{Ødelagte} ulesbare, {Runder} runder, {Sekunder} s",
+                resultat.NodeId,
+                resultat.Read,
+                resultat.Imported,
+                resultat.Rejected,
+                resultat.Deleted,
+                resultat.Malformed,
+                resultat.Rounds,
+                Math.Round(resultat.Elapsed.TotalSeconds, 1));
+        }
     }
+
+    /// <summary>
+    /// Én node. Egen inngang fordi det er den vanligste operasjonelle situasjonen —
+    /// å reimportere én datakilde uten å røre resten — og fordi det er slik en node
+    /// verifiseres mot Artskart 2.
+    /// </summary>
+    /// <param name="nodeId">Noden.</param>
+    /// <param name="changedAfter">
+    /// Vannmerke for inkrementell lesing. <c>null</c> leser hele noden.
+    /// </param>
+    /// <param name="cancellationToken">Avbrytes mellom poster, ikke midt i en runde.</param>
+    public async Task<ImportNodeResult> ImportNodeAsync(
+        int nodeId,
+        DateTime? changedAfter,
+        CancellationToken cancellationToken) =>
+        await _importService.ImportNodeAsync(nodeId, changedAfter, cancellationToken);
 
     /// <summary>
     /// Leser én node fra cachen og logger hva som finnes der. Skriver ingenting.
     ///
-    /// Egen inngang, og ikke en del av <see cref="ExecuteAsync"/>, fordi den hører til
-    /// verifiseringen av lesestien: den kjøres manuelt mot en node (enqueues fra
-    /// Hangfire-dashbordet eller kalles direkte), mens <see cref="ExecuteAsync"/> blir
-    /// den ordinære importen når den finnes. Når importen er på plass, er denne
-    /// fortsatt den billigste måten å se om cachen svarer som forventet.
+    /// Egen inngang fordi den hører til verifiseringen av lesestien: den kjøres manuelt
+    /// mot en node, og er fortsatt den billigste måten å se om cachen svarer som
+    /// forventet.
     /// </summary>
     public async Task ReadNodeAsync(int nodeId, int? maxRecords, CancellationToken cancellationToken)
     {

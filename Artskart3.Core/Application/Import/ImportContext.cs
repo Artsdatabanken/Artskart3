@@ -25,6 +25,16 @@ public class ImportContext
     public List<TaxonPropertyInfo> TaxonProperties { get; set; } = [];
 
     /// <summary>
+    /// Lokaliteten posten hører til, satt av <c>ImportGeometryStep</c>. Samme instans
+    /// som <c>ImportedObservation.Location</c>.
+    ///
+    /// Ligger også her fordi maskeringen i fase 8 bytter den ut med en rutelokasjon, og
+    /// fordi <c>ImportStatusForRegion</c> leser områdene fra den. Byttes den her, ser
+    /// alle senere steg den maskerte posisjonen — og det er meningen.
+    /// </summary>
+    public ImportedLocation? Location { get; set; }
+
+    /// <summary>
     /// Nøkler og verdier som serialiseres til <c>ObservationDetail.DynamicProperties</c>
     /// til slutt — sortert på nøkkel, slik Artskart 2 gjør det.
     /// </summary>

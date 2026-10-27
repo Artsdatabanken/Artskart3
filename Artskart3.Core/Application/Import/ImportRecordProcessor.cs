@@ -41,11 +41,19 @@ public class ImportRecordProcessor
 
         var alle = steps.ToArray();
 
+        Steps = alle;
+
         _preSteps = alle.Where(x => x.StepType == ImportStepType.Pre).ToArray();
         _parallelSteps = alle.Where(x => x.StepType == ImportStepType.Parallel).ToArray();
         _postSteps = alle.Where(x => x.StepType == ImportStepType.Post).ToArray();
         _identityStep = alle.OfType<IImportIdentityStep>().FirstOrDefault();
     }
+
+    /// <summary>
+    /// Stegene i kjeden, i den rekkefølgen de ble gitt. Rekkefølgen er en del av
+    /// tolkningen, så den er verdt å kunne lese ut — til logg og til test.
+    /// </summary>
+    public IReadOnlyList<IImportStep> Steps { get; }
 
     public ImportRecordOutcome Process(CacheRecord record, ImportRunSettings settings)
     {

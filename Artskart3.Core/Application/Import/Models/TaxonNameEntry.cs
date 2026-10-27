@@ -15,10 +15,6 @@ public class TaxonNameEntry
 {
     private static readonly Regex HtmlTagg = new("<[^>]*>", RegexOptions.Compiled);
 
-    /// <summary>
-    /// Navn som bare er en rangforkortelse sier ingenting og skal ikke kunne slås opp.
-    /// </summary>
-    private static readonly string[] BarePrefiks = ["sp", "indet", "var", "spp", "ssp", "subsp", "agg", "×"];
 
     public required int NameId { get; init; }
 
@@ -54,19 +50,7 @@ public class TaxonNameEntry
     /// komme, ikke for dem som er der. Artskart 2 har ingen nullsjekk her og ville
     /// kastet ved oppbyggingen av oppslaget.
     /// </summary>
-    public string? ScientificName
-    {
-        get
-        {
-            var navn = ScientificNameFull;
-
-            if (string.IsNullOrWhiteSpace(navn)) return navn;
-
-            var nøkkel = navn.ToLowerInvariant().Trim().Replace(".", string.Empty);
-
-            return BarePrefiks.Contains(nøkkel) ? null : navn;
-        }
-    }
+    public string? ScientificName => TaxonomyHelper.StripRankPlaceholder(ScientificNameFull);
 
     /// <summary>
     /// Navn og forfatter satt sammen, slik kilder ofte oppgir det:

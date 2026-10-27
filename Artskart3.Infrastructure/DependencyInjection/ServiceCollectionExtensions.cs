@@ -1,15 +1,20 @@
 using Artskart3.Core.Application.Import;
+using Artskart3.Core.Application.Import.Writing;
+using Artskart3.Core.Application.Maintenance;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Cache;
 using Artskart3.Infrastructure.Import;
+using Artskart3.Infrastructure.Import.Writing;
+using Artskart3.Infrastructure.Maintenance;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Persistence.Services;
 using Artskart3.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Artskart3.Infrastructure.DependencyInjection;
 
@@ -99,6 +104,42 @@ public static class ServiceCollectionExtensions
         // grunn som geografitjenesten.
         services.AddSingleton<ITaxonomySource, EfTaxonomySource>();
         services.AddSingleton<ITaxonNameResolver, TaxonNameResolver>();
+
+        // 15 rader, lastet ved første bruk.
+        services.AddSingleton<ICategoryLookup, EfCategoryLookup>();
+
+        // Organisasjonsregisteret er 25 943 rader og slås opp per post. Singleton av
+        // samme grunn som de to over.
+        services.AddSingleton<IOrganizationRegistry, EfOrganizationRegistry>();
+
+        // Datakilderegisteret er derimot scoped og ubufret: 39 rader, lest per
+        // nodekjøring, fordi konfigurasjonen endres utenfor importen.
+        services.AddScoped<IDataSourceRegistry, EfDataSourceRegistry>();
+
+        // Opprettelsen av manglende organisasjoner skriver, og er derfor scoped.
+        // Registreringen gjør den tilgjengelig; om den faktisk brukes avgjøres der
+        // stegkjeden bygges per nodekjøring — uten den kjører importen i
+        // opprett-ikke-modus (plan 4.8).
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<IOrganizationCreator, EfOrganizationCreator>();
+
+        // Funntyper og atferder: 20 rader til sammen, lastet ved første bruk.
+        services.AddSingleton<IReferenceValueRegistry, EfReferenceValueRegistry>();
+
+        // Etterarbeidet: tellingene på oppslagstabellene (plan 4.5 punkt 12).
+        services.AddScoped<IObservationCountService, ObservationCountService>();
+
+        // Skrivingen eier sin egen tilkobling: staging-tabellene lever i sesjonen, så
+        // den kan ikke dele EFs. Innstillingene registreres der workeren starter.
+        services.AddSingleton<IObservationWriter, ObservationWriter>();
+
+        // Variantskrivingen er bokføring, ikke data posten trenger — kan utelates fra
+        // kjeden uten at utfallet for posten endres.
+        services.AddScoped<IReferenceVariantWriter, EfReferenceVariantWriter>();
+
+        // Kjedefabrikken og nodekjøringen. Kjeden bygges per node fordi to av stegene
+        // har tilstand som hører til én kjøring; fabrikken selv er tilstandsløs.
+        services.AddSingleton<ImportStepChainFactory>();
 
         return services;
     }

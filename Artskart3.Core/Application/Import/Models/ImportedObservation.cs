@@ -101,6 +101,13 @@ public class ImportedObservation
     public int? CoordinatePrecisionInMeters { get; set; }
 
     /// <summary>
+    /// Omrisset fra <c>footprintWKT</c>, som tekst. Mellomlager på vei til lokalitetens
+    /// geometri — i Artskart 2 er dette <c>Observation.Geometry</c>, en
+    /// <c>[NotMapped]</c>-egenskap som aldri lagres på observasjonen.
+    /// </summary>
+    public string? GeometryWkt { get; set; }
+
+    /// <summary>
     /// Lokaliteten posten hører til. Deles på tvers av observasjoner og skrives først
     /// — <c>LocationId</c> settes når den er lagret (fase 6).
     /// </summary>

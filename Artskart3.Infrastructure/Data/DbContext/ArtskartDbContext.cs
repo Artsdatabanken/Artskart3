@@ -30,6 +30,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<CommandLog> CommandLogs { get; set; }
 
+    public virtual DbSet<DataSource> DataSources { get; set; }
+
     public virtual DbSet<DeletedItem> DeletedItems { get; set; }
 
     public virtual DbSet<CsvExportJob> CsvExportJobs { get; set; }
@@ -73,6 +75,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
     public virtual DbSet<ObservationQualityType> ObservationQualityTypes { get; set; }
 
     public virtual DbSet<Organization> Organizations { get; set; }
+
+    public virtual DbSet<OrganizationAlias> OrganizationAliases { get; set; }
 
 
     public virtual DbSet<OrganizationType> OrganizationTypes { get; set; }
@@ -374,6 +378,25 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.Property(e => e.SeverityDescription).HasMaxLength(100);
             entity.Property(e => e.Subject).HasMaxLength(250);
+        });
+
+        modelBuilder.Entity<DataSource>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.ToTable("DataSource");
+
+            // Nodenummeret settes av kilden, ikke av databasen — det er den samme Id-en
+            // som ImportState.Id og Observation.NodeId.
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(500);
+            entity.Property(e => e.RemoteDataSourceAdress).HasMaxLength(1000);
+            entity.Property(e => e.GbifIptArchiveName).HasMaxLength(500);
+            entity.Property(e => e.GbifDoi).HasMaxLength(255);
+
+            // Notes og de to overstyringsfeltene er fritekst og JSON uten lengdegrense
+            // i RavenDB. De får ingen her heller.
         });
 
         modelBuilder.Entity<ImportState>(entity =>
@@ -731,12 +754,16 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => e.ParentId, "IX_ParentId");
 
+            // Oppslaget fra DwC-datasetID går alltid under en kjent forelder.
+            entity.HasIndex(e => new { e.ParentId, e.SourceDatasetId }, "IX_Organization_SourceDatasetId");
+
             entity.Property(e => e.Code).HasMaxLength(100);
             entity.Property(e => e.DateCreated).HasColumnType("datetime");
             entity.Property(e => e.DateModified).HasColumnType("datetime");
             entity.Property(e => e.Description).HasMaxLength(2000);
             entity.Property(e => e.ExternalId).HasMaxLength(100);
             entity.Property(e => e.Name).HasMaxLength(500);
+            entity.Property(e => e.SourceDatasetId).HasMaxLength(250);
 
             entity.HasOne(d => d.OrganizationType).WithMany(p => p.Organizations)
                 .HasForeignKey(d => d.OrganizationTypeId)
@@ -747,6 +774,23 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .HasConstraintName("FK_dbo.Organization_dbo.Organization_ParentId");
         });
 
+
+        modelBuilder.Entity<OrganizationAlias>(entity =>
+        {
+            entity.HasKey(e => new { e.OrganizationId, e.Alias });
+
+            entity.ToTable("OrganizationAlias");
+
+            entity.Property(e => e.Alias).HasMaxLength(100);
+
+            // Unikhetsindeksen er poenget: oppslaget går fra alias til organisasjon, og
+            // to institusjoner kan ikke dele et alias.
+            entity.HasIndex(e => e.Alias, "IX_OrganizationAlias_Alias").IsUnique();
+
+            entity.HasOne(d => d.Organization).WithMany(p => p.Aliases)
+                .HasForeignKey(d => d.OrganizationId)
+                .HasConstraintName("FK_OrganizationAlias_Organization");
+        });
 
         modelBuilder.Entity<OrganizationType>(entity =>
         {

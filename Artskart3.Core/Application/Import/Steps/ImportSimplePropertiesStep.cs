@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Artskart3.Core.Application.Import.Helpers;
 using Artskart3.Core.Application.Import.Models;
@@ -368,7 +367,7 @@ public class ImportSimplePropertiesStep : IImportStep
 
         try
         {
-            var lest = LesJsonSomTekstpar(tekst);
+            var lest = ImportValueHelper.ReadJsonAsTextPairs(tekst, "dynamicProperties");
 
             foreach (var par in lest)
             {
@@ -389,39 +388,6 @@ public class ImportSimplePropertiesStep : IImportStep
         {
             observation.AppendNotes(" NonValid dynamicProperties: " + tekst);
         }
-    }
-
-    /// <summary>
-    /// Leser et JSON-objekt som streng-par, med den samme typekonverteringen
-    /// <c>JavaScriptSerializer</c> gjorde: tall og bool blir tekst, mens nøstede
-    /// objekter og arrayer ikke kan bli det — og da kastes det, slik Artskart 2 ender
-    /// i «NonValid dynamicProperties».
-    ///
-    /// Bool skrives som <c>True</c>/<c>False</c>, slik .NETs
-    /// <c>Convert.ToString(bool)</c> gjør det, ikke som JSON-ens <c>true</c>.
-    /// </summary>
-    private static Dictionary<string, string?> LesJsonSomTekstpar(string json)
-    {
-        var lest = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)
-                   ?? throw new JsonException("dynamicProperties deserialiserte til null.");
-
-        var resultat = new Dictionary<string, string?>();
-
-        foreach (var par in lest)
-        {
-            resultat.Add(par.Key, par.Value.ValueKind switch
-            {
-                JsonValueKind.String => par.Value.GetString(),
-                JsonValueKind.Number => par.Value.GetRawText(),
-                JsonValueKind.True => "True",
-                JsonValueKind.False => "False",
-                JsonValueKind.Null => null,
-                _ => throw new JsonException(
-                    $"dynamicProperties-nøkkelen '{par.Key}' er {par.Value.ValueKind} og kan ikke bli tekst.")
-            });
-        }
-
-        return resultat;
     }
 
     private static void SkrivKortefelt(CacheRecord record, ImportedObservation observation)
@@ -528,7 +494,7 @@ public class ImportSimplePropertiesStep : IImportStep
 
             if (!tekst.Contains('{')) tekst = "{" + tekst + "}";
 
-            var lest = LesJsonSomTekstpar(tekst);
+            var lest = ImportValueHelper.ReadJsonAsTextPairs(tekst, "dynamicProperties");
 
             if (lest.TryGetValue("same occurrence as", out var samme))
             {

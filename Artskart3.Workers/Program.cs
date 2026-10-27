@@ -11,6 +11,12 @@ using Artskart3.Workers.Export;
 using Artskart3.Workers.Import;
 using Artskart3.Workers.Configuration;
 using Artskart3.Infrastructure.DependencyInjection;
+using Artskart3.Core.Application.Import.Writing;
+using Artskart3.Infrastructure.Import.Writing;
+using Artskart3.Infrastructure.Maintenance;
+using Artskart3.Workers.Maintenance;
+using Artskart3.Workers.Taxonomy;
+using Artskart3.Core.Application.Taxonomy;
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -65,6 +71,34 @@ if (string.IsNullOrWhiteSpace(cacheConnectionString))
         "ConnectionStrings:ArtskartCache er ikke satt. Importjobber kan ikke lese fra cache-databasen.");
 }
 
+// Importens egne innstillinger. Standardverdiene er trygge: 250 000 poster per runde,
+// alle aktive noder, og maskeringssperren slått på — se ImportOptions.
+var importOptions = builder.Configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>()
+                    ?? new ImportOptions();
+builder.Services.AddSingleton(importOptions);
+
+// Skrivingen har sin egen tilkobling fordi staging-tabellene lever i sesjonen og
+// derfor ikke kan dele EFs. Samme database, egen forbindelse.
+builder.Services.AddSingleton(new ObservationWriterOptions
+{
+    ConnectionString = workerConnectionString ?? string.Empty,
+    BatchSize = importOptions.BatchSize
+});
+
+// Etterarbeidet — tellinger og columnstore-vedlikehold — bruker samme base, men sine
+// egne tidsgrenser: setningene skanner hele Observation.
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection(MaintenanceOptions.SectionName).Get<MaintenanceOptions>()
+    ?? new MaintenanceOptions { ConnectionString = workerConnectionString ?? string.Empty });
+
+if (importOptions.AllowImportWithoutMasking)
+{
+    logger.LogWarning(
+        "Import:AllowImportWithoutMasking er satt. Importen skriver eksakte koordinater også for "
+        + "sensitive arter, fordi maskeringen (fase 8) ikke er implementert. Dette skal bare være "
+        + "satt mot testdata.");
+}
+
 // Hangfire
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -90,6 +124,25 @@ builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<ImportJob>();
+builder.Services.AddScoped<ObservationCountJob>();
+builder.Services.AddScoped<DatabaseMaintenanceJob>();
+
+// Taksonomispeilingen. MIDLERTIDIG: den leser fra Artskart 2s RavenDB, og hele
+// Artskart3.Workers/Taxonomy skal slettes når harvest-delen flytter dokumentene til
+// SQL Server. Derfor er alt samlet her — én HttpClient, ett sett innstillinger, én jobb.
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection("Taxonomy").Get<TaxonomyOptions>() ?? new TaxonomyOptions());
+builder.Services.AddHttpClient<ITaxonomySource, RavenTaxonomySource>((sp, klient) =>
+{
+    var innstillinger = sp.GetRequiredService<TaxonomyOptions>();
+
+    klient.BaseAddress = new Uri(innstillinger.BaseAddress);
+
+    // 180 000 taksoner i én strøm. Standardtimeouten på 100 sekunder holder ikke.
+    klient.Timeout = TimeSpan.FromMinutes(30);
+});
+builder.Services.AddScoped<TaxonomyRefreshService>();
+builder.Services.AddScoped<TaxonomyRefreshJob>();
 builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
 
 // Taksonhierarki. Workeren trenger dette fordi taksonfilteret må utvides hierarkisk
