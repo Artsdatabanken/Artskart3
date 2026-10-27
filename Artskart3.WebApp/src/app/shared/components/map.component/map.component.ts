@@ -79,7 +79,15 @@ import type Tile from 'ol/Tile';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
-import { UNCLUSTERED_LOCATION_RADIUS, MapFeatureStyles, MapFeatureState, registrationStatusOf } from './map-feature-styles';
+import {
+  UNCLUSTERED_LOCATION_RADIUS,
+  UNCLUSTERED_POLYGON_MARKER_REACH,
+  MapFeatureStyles,
+  MapFeatureState,
+  hasPolygonMarker,
+  popOuts,
+  registrationStatusOf,
+} from './map-feature-styles';
 import {
   MAP_CONSTANTS
 } from '@core/constants/map-constants';
@@ -707,7 +715,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pixel,
       (feature, layer): string | undefined => {
         const layerId = layer?.get('id') as string | undefined;
-        const isLocation = layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID;
+        const isLocation = this.isLocationLayer(layerId);
         const isAreaMarker = !isLocation && feature.get('centroid') != null;
         if (!hovered && (isLocation || isAreaMarker)) {
           hovered = true;
@@ -716,6 +724,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             locationIds = this.locationIdsForFeature(feature);
           }
         }
+        // A popped out polygon marker covers whatever lies under it.
+        if (layerId === this.LOCATION_HIGHLIGHTS_LAYER_ID) return 'pointer';
         if (isAreaMarker) return 'zoom-in';
         if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID) {
           const members = feature.get('features') as Feature<Point>[] | undefined;
@@ -733,12 +743,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private isInteractiveLayer(id: unknown): boolean {
-    return (
-      id === MAP_CONSTANTS.COUNTIES_LAYER_ID ||
-      id === MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID ||
-      id === MAP_CONSTANTS.LOCATIONS_LAYER_ID ||
-      id === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID
-    );
+    return id === this.COUNTIES_LAYER_ID || id === this.MUNICIPALITIES_LAYER_ID || this.isLocationLayer(id);
+  }
+
+  private isLocationLayer(id: unknown): boolean {
+    return this.isLocationPointLayer(id) || id === this.LOCATION_POLYGONS_LAYER_ID;
+  }
+
+  /** Popped out polygon points are drawn on the highlights layer, so it is clickable like the clusters. */
+  private isLocationPointLayer(id: unknown): boolean {
+    return id === this.LOCATIONS_LAYER_ID || id === this.LOCATION_HIGHLIGHTS_LAYER_ID;
   }
 
   private setMarkerHover(locationIds: number[], areaKey: string | null): void {
@@ -772,24 +786,30 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.featureStyles) return;
     // Clusters are few enough to restyle in place. Unclustered points have a fixed WebGL style,
     // so they and the polygons get their hover and selection styles from overlay layers.
-    this.map.getLayerById(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.changed();
-    if (this.clusteringEnabled()) this.map.getLayerById(MAP_CONSTANTS.LOCATIONS_LAYER_ID)?.changed();
+    if (this.locationPoints().clustered) this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
     this.refreshLocationHighlights();
   }
 
   private refreshLocationHighlights(): void {
     if (!this.mapReady) return;
     const ids = [...new Set([...this.hoveredLocationIds, ...this.selectedLocationIds()])];
-    const pointsLayerId = this.clusteringEnabled() ? null : MAP_CONSTANTS.LOCATIONS_LAYER_ID;
-    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, pointsLayerId, ids);
-    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, ids);
+    // Clusters show their own hover and selection, but a selected polygon's point pops out of its cluster.
+    const { source, clustered } = this.locationPoints();
+    const points = clustered
+      ? this.featuresById(source, [...this.selectedLocationIds()]).filter(hasPolygonMarker)
+      : this.featuresById(source, ids);
+    const polygons = this.featuresById(this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID), ids);
+    this.fillHighlightLayer(this.LOCATION_HIGHLIGHTS_LAYER_ID, points);
+    this.fillHighlightLayer(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, polygons);
   }
 
-  private fillHighlightLayer(highlightLayerId: string, sourceLayerId: string | null, ids: number[]): void {
+  private featuresById(source: VectorSource<Feature> | null, ids: number[]): Feature[] {
+    return source ? ids.map((id) => source.getFeatureById(id)).filter((feature) => feature instanceof Feature) : [];
+  }
+
+  private fillHighlightLayer(highlightLayerId: string, features: Feature[]): void {
     const target = this.vectorSourceOf(highlightLayerId);
     if (!target) return;
-    const source = sourceLayerId ? this.vectorSourceOf(sourceLayerId) : null;
-    const features = source ? ids.map((id) => source.getFeatureById(id)).filter((feature) => feature instanceof Feature) : [];
     target.clear(true);
     target.addFeatures(features);
   }
@@ -809,7 +829,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private webglLocationHits(coordinate: Coordinate | null, resolution: number | undefined): Feature[] {
     const source = this.webglLocationsSource();
     if (!source || !coordinate || !resolution) return [];
-    const radius = (UNCLUSTERED_LOCATION_RADIUS + MAP_CONSTANTS.HIT_TOLERANCE_PX) * resolution;
+    const markerReach = (feature: Feature) => (hasPolygonMarker(feature) ? UNCLUSTERED_POLYGON_MARKER_REACH : UNCLUSTERED_LOCATION_RADIUS);
+    const radius = (Math.max(UNCLUSTERED_POLYGON_MARKER_REACH, UNCLUSTERED_LOCATION_RADIUS) + this.HIT_TOLERANCE_PX) * resolution;
     const [x, y] = coordinate;
     const squaredDistance = (feature: Feature) => {
       const [featureX, featureY] = (feature.getGeometry() as Point).getCoordinates();
@@ -817,7 +838,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
     return source
       .getFeaturesInExtent([x - radius, y - radius, x + radius, y + radius])
-      .filter((feature) => squaredDistance(feature) <= radius ** 2)
+      .filter((feature) => squaredDistance(feature) <= ((markerReach(feature) + this.HIT_TOLERANCE_PX) * resolution) ** 2)
       .sort((a, b) => squaredDistance(a) - squaredDistance(b));
   }
 
@@ -831,6 +852,27 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const layer = this.map.getLayerById(layerId);
     const source: unknown = layer instanceof Layer ? layer.getSource() : null;
     return source instanceof VectorSource ? (source as VectorSource<Feature>) : null;
+  }
+
+  /** Follows the layer itself rather than the clustering setting, which changes before the WebGL layer has loaded. */
+  private locationPoints(): { source: VectorSource<Feature> | null; clustered: boolean } {
+    const source = this.vectorSourceOf(this.LOCATIONS_LAYER_ID);
+    return source instanceof Cluster ? { source: source.getSource(), clustered: true } : { source, clustered: false };
+  }
+
+  private drawnPolygonIds(): Set<string | number | undefined> {
+    return new Set(this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID)?.getFeatures().map((polygon) => polygon.getId()));
+  }
+
+  private markPolygonLocationPoints(): void {
+    const { source: points, clustered } = this.locationPoints();
+    if (!points) return;
+    const polygonIds = this.drawnPolygonIds();
+    points.forEachFeature((point) => {
+      const isPolygon = polygonIds.has(point.getId());
+      // A cluster source would recluster on every change, so its points change silently and are redrawn once.
+      if (point.get('isPolygon') !== isPolygon) point.set('isPolygon', isPolygon, clustered);
+    });
   }
 
   private locationIdsForFeature(feature: FeatureLike): number[] {
@@ -919,14 +961,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       id: MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
-      pickable: false,
+      pickable: true,
       zIndex: 105,
       zIndexPinned: true,
       style: {
         type: 'raw',
         options: {
-          instance: (feature: FeatureLike) =>
-            styles.marker('unclusteredLocation', this.locationFeatureState(feature), '', registrationStatusOf(feature)),
+          instance: (feature: FeatureLike, resolution: number) => {
+            const state = this.locationFeatureState(feature);
+            if (!hasPolygonMarker(feature)) return styles.marker('unclusteredLocation', state, '', registrationStatusOf(feature));
+            return this.locationPoints().clustered
+              ? this.poppedOutPolygonMarker(styles, feature, state, resolution)
+              : styles.polygonMarker('unclusteredLocation', state);
+          },
         },
       },
     });
@@ -963,7 +1010,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       },
       cluster: {
         enabled: true,
-        distance: 60,
+        distance: this.CLUSTER_DISTANCE_PX,
         keepSingleAsCluster: true,
         countField: 'observationCount',
         style: {
@@ -993,10 +1040,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private createLocationClusterStyleFn(styles: MapFeatureStyles): (feature: Feature) => Style[] {
     return (feature: Feature): Style[] => {
       const members = (feature.get('features') as Feature[] | undefined) ?? [];
-      const total = members.reduce((sum, member) => {
-        const value = Number(member.get('observationCount'));
-        return sum + (Number.isFinite(value) ? value : 1);
-      }, 0) || members.length || 1;
+      if (members.length === 1 && hasPolygonMarker(members[0])) {
+        return this.polygonLocationMarker(styles, members[0], this.locationFeatureState(feature));
+      }
+      const total = members.reduce((sum, member) => sum + this.observationCountOf(member), 0) || members.length || 1;
       if (members.length === 1 && total === 1) {
         return styles.marker('location', this.locationFeatureState(feature), '', registrationStatusOf(members[0]));
       }
@@ -1005,6 +1052,46 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
       return styles.marker('cluster', this.locationFeatureState(feature), label);
     };
+  }
+
+  private polygonLocationMarker(styles: MapFeatureStyles, point: FeatureLike, state: MapFeatureState): Style[] {
+    return styles.polygonMarker('location', state, this.polygonCountLabel(point));
+  }
+
+  /** A selected polygon's point pops out of a cluster it shares with unselected locations. */
+  private poppedOutPolygonMarker(styles: MapFeatureStyles, point: FeatureLike, state: MapFeatureState, resolution: number): Style[] {
+    const location = point.getGeometry();
+    if (!(location instanceof Point)) return [];
+    const cluster = this.clusterContaining(point, location.getCoordinates(), resolution);
+    const clusterCenter = cluster?.getGeometry();
+    if (!cluster || !(clusterCenter instanceof Point)) return this.polygonLocationMarker(styles, point, state);
+    // The cluster already shows the selection, also when the point is alone in it.
+    if (this.locationFeatureState(cluster) === 'selected') return [];
+    // Laid out together with the cluster's other popped out points, so that they don't cover each other.
+    const highlights = this.vectorSourceOf(this.LOCATION_HIGHLIGHTS_LAYER_ID);
+    const poppedOut = (cluster.get('features') as Feature[]).filter((member) => member === point || highlights?.hasFeature(member));
+    const locations = poppedOut.map((member) => (member.getGeometry() as Point).getCoordinates());
+    const rotation = this.zoomControl?.getMap()?.getView().getRotation();
+    const layout = popOuts(locations, clusterCenter.getCoordinates(), resolution, rotation);
+    return styles.poppedOutPolygonMarker(state, this.polygonCountLabel(point), layout[poppedOut.findIndex((member) => member === point)]);
+  }
+
+  private clusterContaining(point: FeatureLike, [x, y]: Coordinate, resolution: number): Feature | undefined {
+    // Members lie within the cluster distance of the cluster's first member, so its center is at most twice that away.
+    const reach = 2 * this.CLUSTER_DISTANCE_PX * resolution;
+    return this.vectorSourceOf(this.LOCATIONS_LAYER_ID)
+      ?.getFeaturesInExtent([x - reach, y - reach, x + reach, y + reach])
+      .find((cluster) => (cluster.get('features') as FeatureLike[] | undefined)?.includes(point));
+  }
+
+  private polygonCountLabel(point: FeatureLike): string {
+    const count = this.observationCountOf(point);
+    return count > 1 ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '';
+  }
+
+  private observationCountOf(point: FeatureLike): number {
+    const count = Number(point.get('observationCount'));
+    return Number.isFinite(count) ? count : 1;
   }
 
   private setupCameraChangePipeline(): void {
@@ -1185,20 +1272,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const pointHits = this.webglLocationsSource()
       ? this.webglLocationHits(payload.clickCoordinate, this.zoomControl?.getMap()?.getView().getResolution())
       : [];
-    const features: Pick<PointerClickFeature, 'feature' | 'layerId'>[] = [
-      ...pointHits.map((feature) => ({ feature, layerId: MAP_CONSTANTS.LOCATIONS_LAYER_ID })),
+    const hits: Pick<PointerClickFeature, 'feature' | 'layerId'>[] = [
+      ...pointHits.map((feature) => ({ feature, layerId: this.LOCATIONS_LAYER_ID })),
       ...((payload.features as PointerClickFeature[] | null) ?? []),
     ];
+    // A popped out polygon marker covers whatever lies under it.
+    const poppedOut = hits.find(({ layerId }) => layerId === this.LOCATION_HIGHLIGHTS_LAYER_ID);
+    const features = poppedOut && this.locationPoints().clustered ? [poppedOut] : hits;
     if (!features.length) {
       this.closeObservationList();
       return;
     }
 
-    const hasRelevantFeature = features.some(
-      ({ layerId }) => layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID,
-    );
-
-    if (!hasRelevantFeature) {
+    if (!features.some(({ layerId }) => this.isLocationLayer(layerId))) {
       this.closeObservationList();
       return;
     }
@@ -1209,7 +1295,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ...(pointHits.length ? [pointHits as Feature<Point>[]] : []),
       ...features
         .slice(pointHits.length)
-        .filter(({ layerId }) => layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID)
+        .filter(({ layerId }) => this.isLocationPointLayer(layerId))
         .map(({ feature }) => (feature.get('features') as Feature<Point>[] | undefined) ?? [feature as Feature<Point>]),
     ];
 
@@ -1233,7 +1319,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const projection = this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection;
-    const polygon = features.find(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.feature;
+    // A location drawn as a polygon is described by its polygon, also when only its point was clicked.
+    const polygon =
+      features.find(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)?.feature ??
+      (ids.length === 1 ? this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID)?.getFeatureById(ids[0]) : null);
     const singleFeature = ids.length === 1 ? (polygon ?? memberGroups.flat()[0]) : undefined;
     const geometry = singleFeature?.getGeometry();
     const isPolygon = geometry?.getType() === 'Polygon' || geometry?.getType() === 'MultiPolygon';
@@ -1391,8 +1480,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             tap(({ geojson, count }) => {
               if (this.mapVisible && generation === this.fetchGeneration) {
                 this.clearMarkerHover();
-                this.map.updateGeoJSONLayer(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
-                this.refreshLocationHighlights();
+                this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+                this.markPolygonLocationPoints();
+                this.redrawLocationStyles();
                 underLimit.polygons = count < ZoomConfig.MAX_POLYGONS_PER_FETCH;
                 recordCoverage();
               }
@@ -1630,13 +1720,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return false;
 
     this.clearMarkerHover();
-    const source = this.vectorSourceOf(MAP_CONSTANTS.LOCATIONS_LAYER_ID);
-    const pointSource = source instanceof Cluster ? source.getSource() : source;
+    const pointSource = this.locationPoints().source;
     if (!pointSource) return false;
 
     const toView = getTransform('EPSG:4326', this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection);
+    const polygonIds = this.drawnPolygonIds();
     const features = points.map(({ id, longitude, latitude, observationCount, registrationStatus }) => {
-      const feature = new Feature({ geometry: new Point(toView([longitude, latitude])), id, observationCount, registrationStatus });
+      const geometry = new Point(toView([longitude, latitude]));
+      const feature = new Feature({ geometry, id, observationCount, registrationStatus, isPolygon: polygonIds.has(id) });
       feature.setId(id);
       return feature;
     });

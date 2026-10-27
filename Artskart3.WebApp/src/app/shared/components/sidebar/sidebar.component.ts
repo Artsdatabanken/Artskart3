@@ -7,7 +7,16 @@ import { InstitutionService } from '../../services/institution/institution.servi
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { BehaviorDto, BasisOfRecordDto, CategoryTypeDto, InstitutionDto, TaxonGroupDto, CategoryDto } from '../../types/api.types';
+import {
+  BehaviorDto,
+  BasisOfRecordDto,
+  CategoryTypeDto,
+  InstitutionDto,
+  TaxonGroupDto,
+  CategoryDto,
+  OrganizationDto,
+  CatalogNumberMatchDto,
+} from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
@@ -28,11 +37,7 @@ import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
-import type { components } from '../../types/api.generated';
 import { LoggingService } from '../../logging.service';
-
-type OrganizationDto = components['schemas']['OrganizationDto'];
-type CatalogNumberMatchDto = components['schemas']['CatalogNumberMatchDto'];
 
 // adb-radio-group can't select an empty value, so "Alle" (id null) needs a value of its own.
 const ALL_REGISTRATION_STATUSES = 'all';

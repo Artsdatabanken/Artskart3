@@ -1,16 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { components } from '../../types/api.generated';
 import { Observable } from 'rxjs';
+import { CatalogNumberMatchDto, OrganizationDto } from '../../types/api.types';
 
-/**
- * Oppslag mot Lookup-endepunktene for filtre som sender ID, ikke tekst.
- *
- * Samling, prosjekt og katalognummer filtreres på ID. Brukeren skriver fritekst
- * her, velger et treff, og filteret får IDen. Selve søket mot 61M observasjoner
- * slipper dermed strengsammenligning — det var `LIKE '%x%'` som gjorde
- * katalognummer-filteret 18-21 sekunder.
- */
 @Injectable({
   providedIn: 'root',
 })
@@ -20,45 +12,37 @@ export class OrganizationService {
   private readonly datasetsEndpoint = '/api/Lookup/Datasets';
   private readonly projectsEndpoint = '/api/Lookup/Projects';
   private readonly catalogNumbersEndpoint = '/api/Lookup/CatalogNumbers';
+  /** Backendens maks (SearchConstants.MaxOrganizationCount). */
+  private readonly typeaheadMaxCount = 50;
 
-  searchOrganizations(search: string): Observable<components['schemas']['OrganizationDto'][]> {
-    return this.http.get<components['schemas']['OrganizationDto'][]>(this.endpoint, { params: { search } });
+  searchOrganizations(search: string): Observable<OrganizationDto[]> {
+    return this.http.get<OrganizationDto[]>(this.endpoint, { params: { search } });
   }
 
-  /** Datasett (OrganizationTypeId = 2). Treffet legges til i datasetOrgIds. */
-  searchDatasets(search: string): Observable<components['schemas']['OrganizationDto'][]> {
-    return this.http.get<components['schemas']['OrganizationDto'][]>(this.datasetsEndpoint, {
-      params: { search },
+  searchDatasets(search: string): Observable<OrganizationDto[]> {
+    return this.http.get<OrganizationDto[]>(this.datasetsEndpoint, {
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
-  /** Prosjekt (OrganizationTypeId = 3). Treffet legges til i projectOrgIds. */
-  searchProjects(search: string): Observable<components['schemas']['OrganizationDto'][]> {
-    return this.http.get<components['schemas']['OrganizationDto'][]>(this.projectsEndpoint, {
-      params: { search },
+  searchProjects(search: string): Observable<OrganizationDto[]> {
+    return this.http.get<OrganizationDto[]>(this.projectsEndpoint, {
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
-  /**
-   * Katalognummer. PREFIKSSØK — hvert treff kommer med ObservationId-ene det
-   * peker på, så filteret kan sende IDer direkte uten et ekstra kall.
-   */
-  searchCatalogNumbers(search: string): Observable<components['schemas']['CatalogNumberMatchDto'][]> {
-    return this.http.get<components['schemas']['CatalogNumberMatchDto'][]>(this.catalogNumbersEndpoint, {
-      params: { search },
+  /** Prefikssøk, i motsetning til delstrengsøket for datasett og prosjekt. */
+  searchCatalogNumbers(search: string): Observable<CatalogNumberMatchDto[]> {
+    return this.http.get<CatalogNumberMatchDto[]>(this.catalogNumbersEndpoint, {
+      params: { search, maxCount: this.typeaheadMaxCount },
     });
   }
 
-  /** Én organisasjon på id, uansett type. Gir navnet til et datasett- eller prosjektfilter. */
-  getOrganization(id: number): Observable<components['schemas']['OrganizationDto']> {
-    return this.http.get<components['schemas']['OrganizationDto']>(`${this.endpoint}/${id}`);
+  getOrganization(id: number): Observable<OrganizationDto> {
+    return this.http.get<OrganizationDto>(`${this.endpoint}/${id}`);
   }
 
-  /** Katalognummeret et sett ObservationId-er kom fra. Den omvendte veien av `searchCatalogNumbers`. */
-  getCatalogNumberForObservations(observationIds: number[]): Observable<components['schemas']['CatalogNumberMatchDto']> {
-    return this.http.post<components['schemas']['CatalogNumberMatchDto']>(
-      `${this.catalogNumbersEndpoint}/ByObservationIds`,
-      observationIds,
-    );
+  getCatalogNumberForObservations(observationIds: number[]): Observable<CatalogNumberMatchDto> {
+    return this.http.post<CatalogNumberMatchDto>(`${this.catalogNumbersEndpoint}/ByObservationIds`, observationIds);
   }
 }
