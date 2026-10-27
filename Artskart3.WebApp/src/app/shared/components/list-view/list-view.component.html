@@ -36,7 +36,7 @@
                 @if (category) {
                   <span class="risk-category-cell">
                     @if (category.code) {
-                      <app-risk-category-badge [code]="category.code" />
+                      <app-risk-category-badge [code]="category.code" aria-hidden="true" />
                     }
                     {{ category.name }}
                   </span>
