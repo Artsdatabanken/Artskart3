@@ -709,7 +709,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     let hovered = false;
     let locationIds: number[] = [];
-    const areaKey: string | null = null;
+    let areaKey: string | null = null;
     let pointerHit = false;
     const zoomCursor = olMap.forEachFeatureAtPixel(
       pixel,
@@ -720,6 +720,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (!hovered && (isLocation || isAreaMarker)) {
           hovered = true;
           if (isLocation) locationIds = this.locationIdsForFeature(feature);
+          else if (isAreaMarker && layerId) areaKey = this.areaMarkerKey(layerId, feature);
           else if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID) {
             locationIds = this.locationIdsForFeature(feature);
           }
