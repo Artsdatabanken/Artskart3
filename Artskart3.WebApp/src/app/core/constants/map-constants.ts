@@ -12,4 +12,5 @@
   LOCATION_HIGHLIGHTS_LAYER_ID: 'location-highlights',
   LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID: 'location-polygon-highlights',
   HIT_TOLERANCE_PX: 5,
+  CLUSTER_DISTANCE_PX: 60,
 }
