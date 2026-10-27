@@ -6,6 +6,7 @@ using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Infrastructure.Persistence.Services;
 using Artskart3.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Artskart3.Infrastructure.DependencyInjection;
 
@@ -13,6 +14,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<ISearchRepository, SearchRepository>();
         services.AddScoped<IObservationDetailsRepository, ObservationDetailsRepository>();
         services.AddScoped<INotificationsRepository, NotificationsRepository>();

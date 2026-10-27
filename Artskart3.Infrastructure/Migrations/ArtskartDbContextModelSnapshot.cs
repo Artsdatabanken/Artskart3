@@ -1196,11 +1196,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("EndDateTime")
+                    b.Property<DateTime?>("EventEnd")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateOnly?>("EndDisplayDate")
-                        .HasColumnType("date");
+                    b.Property<DateTime?>("EventStart")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Heading")
                         .IsRequired()
@@ -1209,11 +1209,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime?>("StartDateTime")
+                    b.Property<DateTime?>("PublishFrom")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateOnly?>("StartDisplayDate")
-                        .HasColumnType("date");
+                    b.Property<DateTime?>("PublishUntil")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
