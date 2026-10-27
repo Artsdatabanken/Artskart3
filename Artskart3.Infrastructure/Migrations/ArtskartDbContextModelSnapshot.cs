@@ -1174,6 +1174,55 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("__MigrationHistory", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AlertType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("CanClose")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EndDateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("EndDisplayDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("StartDateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("StartDisplayDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Observation", b =>
                 {
                     b.Property<int>("Id")

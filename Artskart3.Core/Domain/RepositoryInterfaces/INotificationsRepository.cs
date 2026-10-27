@@ -1,8 +1,8 @@
-using Artskart3.Core.Domain.BusinessModels;
+using Artskart3.Core.Application.DTOs;
 
 namespace Artskart3.Core.Domain.RepositoryInterfaces;
 
 public interface INotificationsRepository
 {
-    Task<IEnumerable<NotificationModel>> GetAllNotificationsAsync();
+    Task<IEnumerable<NotificationDto>> GetAllActiveNotificationsAsync(CancellationToken cancellationToken = default);
 }
