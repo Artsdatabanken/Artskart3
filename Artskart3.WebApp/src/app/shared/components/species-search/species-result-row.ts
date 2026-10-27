@@ -11,6 +11,7 @@ export interface SpeciesResultRow {
   species: SpeciesDto;
   vernacularName: string;
   scientificNameMarkup: string;
+  showAuthor: boolean;
 }
 
 /** The match line for a row, following the term as it is typed, like the highlighting. */
@@ -21,11 +22,17 @@ export class SpeciesMatchLinePipe implements PipeTransform {
   }
 }
 
-export function toResultRow(species: SpeciesDto): SpeciesResultRow {
+export function toResultRows(list: SpeciesDto[]): SpeciesResultRow[] {
+  const sharesName = (species: SpeciesDto) => list.filter((s) => s.scientificName === species.scientificName).length > 1;
+  return list.map((species) => toResultRow(species, sharesName(species)));
+}
+
+export function toResultRow(species: SpeciesDto, sharesName = false): SpeciesResultRow {
   return {
     species,
     vernacularName: getVernacularName(species),
     scientificNameMarkup: species.scientificNameFormatted || species.scientificName || '',
+    showAuthor: sharesName && !!species.author,
   };
 }
 
@@ -36,7 +43,7 @@ export function getVernacularName(species: SpeciesDto): string {
   return (nbName ?? names[0])?.name ?? '';
 }
 
-export function getMatchLine({ species, vernacularName }: SpeciesResultRow, term: string): SpeciesMatchLine | null {
+export function getMatchLine({ species, vernacularName, showAuthor }: SpeciesResultRow, term: string): SpeciesMatchLine | null {
   if (/^\d+$/.test(term)) {
     return species.taxonId == null ? null : { kind: 'id', text: String(species.taxonId), isMarkup: false };
   }
@@ -50,7 +57,7 @@ export function getMatchLine({ species, vernacularName }: SpeciesResultRow, term
     const vernacularSynonym = species.vernacularNameSynonyms?.find((s) => matches(s.name));
     if (vernacularSynonym?.name) return { kind: 'synonym', text: vernacularSynonym.name, isMarkup: false };
   }
-  if (species.author && matches(species.author)) {
+  if (!showAuthor && species.author && matches(species.author)) {
     return { kind: 'author', text: species.author, isMarkup: false };
   }
   return null;
