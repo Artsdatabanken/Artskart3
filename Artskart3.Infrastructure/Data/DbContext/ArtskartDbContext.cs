@@ -113,6 +113,8 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<Notification> Notifications { get; set; }
+
     // Removed OnConfiguring to use DI-based configuration from Program.cs
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

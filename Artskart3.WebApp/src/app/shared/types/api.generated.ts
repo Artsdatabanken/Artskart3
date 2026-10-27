@@ -875,7 +875,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["NotificationModel"][];
+                        "application/json": components["schemas"]["NotificationDto"][];
                     };
                 };
             };
@@ -1885,11 +1885,12 @@ export interface components {
             retryAfterSeconds?: number;
             opacity?: number;
         };
-        NotificationModel: {
+        NotificationDto: {
+            /** Format: uuid */
             id?: string;
-            type?: components["schemas"]["AlertType"];
-            heading?: string;
-            description?: string;
+            alertType?: components["schemas"]["AlertType"];
+            heading: string;
+            description: string;
             /** Format: date-time */
             startDateTime?: null | string;
             /** Format: date-time */
