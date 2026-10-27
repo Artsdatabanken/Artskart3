@@ -1887,13 +1887,13 @@ export interface components {
             heading: string;
             description: string;
             /** Format: date-time */
-            startDateTime?: null | string;
+            publishFrom?: null | string;
             /** Format: date-time */
-            endDateTime?: null | string;
-            /** Format: date */
-            startDisplayDate?: null | string;
-            /** Format: date */
-            endDisplayDate?: null | string;
+            publishUntil?: null | string;
+            /** Format: date-time */
+            eventStart?: null | string;
+            /** Format: date-time */
+            eventEnd?: null | string;
             canClose?: boolean;
         };
         ObservationDetailDto: {

@@ -88,9 +88,9 @@ describe('NotificationsComponent', () => {
     expect(alerts()[1].hasAttribute('closable')).toBe(false);
   });
 
-  it('shows the date range only when a display date is set', async () => {
+  it('shows the event period only when an event start or end is set', async () => {
     const { alerts } = await render([
-      notification({ id: ID_ONE, startDisplayDate: '2026-01-01', endDisplayDate: '2026-01-31' }),
+      notification({ id: ID_ONE, eventStart: '2026-01-01T08:00:00', eventEnd: '2026-01-31T20:00:00' }),
       notification({ id: ID_TWO }),
     ]);
 
