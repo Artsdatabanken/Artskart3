@@ -88,9 +88,7 @@ import {
   popOuts,
   registrationStatusOf,
 } from './map-feature-styles';
-import {
-  MAP_CONSTANTS
-} from '@core/constants/map-constants';
+import { MAP_CONSTANTS } from '@core/constants/map-constants';
 
 @Component({
   selector: 'app-map',
@@ -99,7 +97,6 @@ import {
   styleUrl: './map.component.css',
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
-
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
@@ -581,8 +578,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (extent) this.map.fitExtent(extent, 0);
   }
 
-
-
   private handleAreaMarkerClick(features: PointerClickFeature[] | null): void {
     if (!features?.length) return;
 
@@ -720,10 +715,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (!hovered && (isLocation || isAreaMarker)) {
           hovered = true;
           if (isLocation) locationIds = this.locationIdsForFeature(feature);
-          else if (isAreaMarker && layerId) areaKey = this.areaMarkerKey(layerId, feature);
-          else if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID || layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID) {
-            locationIds = this.locationIdsForFeature(feature);
-          }
+          else if (layerId) areaKey = this.areaMarkerKey(layerId, feature);
         }
         // A popped out polygon marker covers whatever lies under it.
         if (layerId === MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID) return 'pointer';
@@ -1705,14 +1697,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return;
 
     this.clearMarkerHover();
-    const isLocationPoints = apiZoomLevel === ApiZoomLevel.LocationPoints;
-    const layerId = isLocationPoints
-      ? MAP_CONSTANTS.LOCATIONS_LAYER_ID
-      : apiZoomLevel >= ApiZoomLevel.Municipalities
-        ? MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID
-        : MAP_CONSTANTS.COUNTIES_LAYER_ID;
-    this.map.updateGeoJSONLayer(layerId, geojson, {
-      mode: 'replace', ...(isLocationPoints && {dataProjection: 'EPSG:4326'})});
+    const layerId = apiZoomLevel >= ApiZoomLevel.Municipalities ? MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID : MAP_CONSTANTS.COUNTIES_LAYER_ID;
+    this.map.updateGeoJSONLayer(layerId, geojson, { mode: 'replace' });
   }
 
   // Bypasses updateGeoJSONLayer: serializing and reparsing tens of thousands of points as GeoJSON is slow.
