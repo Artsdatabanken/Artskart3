@@ -7,14 +7,15 @@ import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
-import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
+import { CategoryDto, CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe],
+  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe, RiskCategoryBadgeComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './list-view.component.html',
   styleUrl: './list-view.component.css',
@@ -36,12 +37,12 @@ export class ListViewComponent {
     stream: () => this.taxonGroupService.getTaxonGroups(),
   });
 
-  readonly categoryNameMap = computed(() => {
-    const map = new Map<number, string>();
+  readonly categoryById = computed(() => {
+    const map = new Map<number, CategoryDto>();
     for (const type of this.categoriesResource.value() ?? []) {
-      for (const cat of type.categories ?? []) {
-        if (cat.id != null && cat.name) {
-          map.set(cat.id, cat.name);
+      for (const category of type.categories ?? []) {
+        if (category.id !== undefined) {
+          map.set(category.id, category);
         }
       }
     }
@@ -143,5 +144,10 @@ export class ListViewComponent {
   getAreaName(fid: string | null | undefined): string {
     if (!fid) return '';
     return this.areaNameMap().get(fid) ?? fid;
+  }
+
+  getCategory(id: number | null | undefined): CategoryDto | undefined {
+    if (id === null || id === undefined) return undefined;
+    return this.categoryById().get(id);
   }
 }
