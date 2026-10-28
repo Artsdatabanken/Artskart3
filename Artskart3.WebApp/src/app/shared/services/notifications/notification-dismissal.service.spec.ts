@@ -11,8 +11,9 @@ interface CookieInformationTestWindow {
 const notification: NotificationModel = {
   id: '11111111-1111-1111-1111-111111111111',
   heading: 'Planned maintenance',
-  startDisplayDate: '2026-01-01',
-  endDisplayDate: '2026-01-31',
+  description: 'Planned maintenance',
+  eventStart: '2026-01-01T08:00:00',
+  eventEnd: '2026-01-31T20:00:00',
 };
 
 function setConsent(given: boolean): void {

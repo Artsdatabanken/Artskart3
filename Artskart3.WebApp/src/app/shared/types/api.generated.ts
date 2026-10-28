@@ -875,7 +875,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["NotificationModel"][];
+                        "application/json": components["schemas"]["NotificationDto"][];
                     };
                 };
             };
@@ -1880,19 +1880,20 @@ export interface components {
             version?: null | string;
             attribution?: null | string;
         };
-        NotificationModel: {
+        NotificationDto: {
+            /** Format: uuid */
             id?: string;
-            type?: components["schemas"]["AlertType"];
-            heading?: string;
-            description?: string;
+            alertType?: components["schemas"]["AlertType"];
+            heading: string;
+            description: string;
             /** Format: date-time */
-            startDateTime?: null | string;
+            publishFrom?: null | string;
             /** Format: date-time */
-            endDateTime?: null | string;
-            /** Format: date */
-            startDisplayDate?: null | string;
-            /** Format: date */
-            endDisplayDate?: null | string;
+            publishUntil?: null | string;
+            /** Format: date-time */
+            eventStart?: null | string;
+            /** Format: date-time */
+            eventEnd?: null | string;
             canClose?: boolean;
         };
         ObservationDetailDto: {

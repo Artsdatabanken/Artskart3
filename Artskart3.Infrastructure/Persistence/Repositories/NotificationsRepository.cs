@@ -1,59 +1,47 @@
-using Artskart3.Core.Domain.BusinessModels;
+using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
 
 public class NotificationsRepository : INotificationsRepository
 {
-    private readonly string _filePath;
-    private readonly ILogger<NotificationsRepository> _logger;
+    private static readonly TimeZoneInfo NorwegianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private readonly IArtsKartDbContext _context;
+    private readonly TimeProvider _timeProvider;
+
+    public NotificationsRepository(IArtsKartDbContext context, TimeProvider timeProvider)
     {
-        PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
-    public NotificationsRepository(IHostEnvironment hostEnvironment, IConfiguration configuration, ILogger<NotificationsRepository> logger)
-    {
-        ArgumentNullException.ThrowIfNull(hostEnvironment);
-        ArgumentNullException.ThrowIfNull(configuration);
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        var relativePath = configuration["JsonDb:NotificationsPath"]
-            ?? throw new InvalidOperationException("JsonDb:NotificationsPath is not configured.");
-
-        _filePath = Path.GetFullPath(Path.Combine(hostEnvironment.ContentRootPath, relativePath));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
-    public async Task<IEnumerable<NotificationModel>> GetAllNotificationsAsync()
+    public async Task<IEnumerable<NotificationDto>> GetAllActiveNotificationsAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            if (!File.Exists(_filePath))
+        var nowNorway = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), NorwegianTimeZone).DateTime;
+
+        return await _context.Set<Notification>()
+            .AsNoTracking()
+            .Where(n => n.PublishFrom == null || n.PublishFrom <= nowNorway)
+            .Where(n => n.PublishUntil == null || n.PublishUntil >= nowNorway)
+            .Where(n => !n.IsDeleted)
+            .OrderBy(n => n.AlertType)
+            .ThenBy(n => n.CreatedAt)
+            .Select(n => new NotificationDto
             {
-                _logger.LogWarning("Notifications file not found at: {FilePath}", _filePath);
-                return Enumerable.Empty<NotificationModel>();
-            }
-
-            var json = await File.ReadAllTextAsync(_filePath);
-            var result = JsonSerializer.Deserialize<NotificationsFile>(json, JsonOptions);
-            return result?.Notifications ?? Enumerable.Empty<NotificationModel>();
-        }
-        catch (Exception ex) when (ex is not ApplicationException)
-        {
-            _logger.LogError(ex, "Error reading notifications file at: {FilePath}", _filePath);
-            throw new ApplicationException("An error occurred while reading the notifications file.", ex);
-        }
-    }
-
-    private sealed class NotificationsFile
-    {
-        public List<NotificationModel> Notifications { get; set; } = [];
+                Id = n.Id,
+                AlertType = n.AlertType,
+                Heading = n.Heading,
+                Description = n.Description,
+                PublishFrom = n.PublishFrom,
+                PublishUntil = n.PublishUntil,
+                EventStart = n.EventStart,
+                EventEnd = n.EventEnd,
+                CanClose = n.CanClose
+            })
+            .ToListAsync(cancellationToken);
     }
 }
