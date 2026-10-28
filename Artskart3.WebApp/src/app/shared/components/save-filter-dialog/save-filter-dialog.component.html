@@ -3,7 +3,7 @@
   [title]="'savedFilters.modalTitle' | translate"
   variant="prompt"
   [confirmLabel]="saving() ? ('savedFilters.saving' | translate) : ('savedFilters.saveConfirm' | translate)"
-  [cancelLabel]="'savedFilters.cancel' | translate"
+  [cancelLabel]="'common.cancel' | translate"
   [confirmDisabled]="!name().trim() || saving()"
   [loading]="saving()"
   (modalConfirm)="onConfirm()"
@@ -11,7 +11,7 @@
 >
   <label class="name-label" for="save-filter-name-input">
     <span class="name-label-text">{{ 'savedFilters.nameLabel' | translate }}</span>
-    <span class="name-required">{{ 'savedFilters.nameRequired' | translate }}</span>
+    <span class="name-required">{{ 'common.required' | translate }}</span>
   </label>
   <input
     id="save-filter-name-input"
