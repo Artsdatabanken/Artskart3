@@ -138,6 +138,7 @@
       }
       @if (!isMenuOpen) {
         @if (authService.isAnonymous()) {
+          <a routerLink="/mittartskart" class="header-btn language-btn">{{ 'mittArtskart.title' | translate }}</a>
           <button class="header-btn language-btn" [attr.aria-label]="'header.loginAriaLabel' | translate" (click)="authService.login()">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path
@@ -257,6 +258,7 @@
           <adb-dark-mode-toggle></adb-dark-mode-toggle>
           <div class="user-control">
             @if (authService.isAnonymous()) {
+              <a routerLink="/mittartskart" class="header-btn language-btn" (click)="closeBurgerMenu()">{{ 'mittArtskart.title' | translate }}</a>
               <button class="header-btn language-btn" [attr.aria-label]="'header.loginAriaLabel' | translate" (click)="authService.login()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path

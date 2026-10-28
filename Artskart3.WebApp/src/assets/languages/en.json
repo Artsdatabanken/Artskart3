@@ -130,7 +130,8 @@
     "closeButton": "Close",
     "exceedsLimitTitle": "Export not possible",
     "exceedsLimitMessage": "The result contains {{totalRows}} rows, which exceeds the limit of {{hardLimit}} rows for export. Please narrow down your filter to reduce the number of results.",
-    "summaryFailed": "Could not check export size. Please try again later."
+    "summaryFailed": "Could not check export size. Please try again later.",
+    "notLoggedIn": "Not logged in"
   },
   "mittArtskart": {
     "title": "My Artskart",
@@ -155,6 +156,7 @@
     "cancelled": "The export was cancelled.",
     "cancelledLabel": "Cancelled",
     "cancelFailed": "Could not cancel the export. It may already have finished.",
+    "savedFiltersLoginPrompt": "Log in to save and manage filters.",
     "tabsAriaLabel": "My Artskart tabs"
   },
   "listView": {

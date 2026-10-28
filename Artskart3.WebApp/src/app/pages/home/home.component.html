@@ -48,11 +48,9 @@
         {{ 'tabs.list' | translate }}
       </adb-tab>
 
-      @if (authService.isAuthenticated()) {
-        <adb-button slot="actions" variant="secondary" size="sm" [disabled]="exporting()" (click)="onExport()">
-          {{ 'export.button' | translate }}
-        </adb-button>
-      }
+      <adb-button slot="actions" variant="secondary" size="sm" [disabled]="exporting()" (click)="onExport()">
+        {{ 'export.button' | translate }}
+      </adb-button>
     </adb-tabs>
   </div>
 

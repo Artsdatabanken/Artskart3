@@ -8,6 +8,7 @@ import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applica
 import { routes } from './app.routes';
 import { languageInterceptor } from './shared/interceptors/language.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
+import { anonymousUserInterceptor } from './shared/interceptors/anonymous-user.interceptor';
 import { unauthorizedInterceptor } from './shared/interceptors/unauthorized.interceptor';
 import { LanguageService } from './shared/services/languages/language.service';
 import { LoggingService } from './shared/logging.service';
@@ -36,7 +37,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withXhr(), withInterceptors([languageInterceptor, csrfInterceptor, unauthorizedInterceptor])),
+    provideHttpClient(withXhr(), withInterceptors([languageInterceptor, csrfInterceptor, anonymousUserInterceptor, unauthorizedInterceptor])),
     provideTranslateService({
       fallbackLang: 'no',
       loader: {

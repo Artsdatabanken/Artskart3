@@ -42,3 +42,13 @@ adb-tab-panel[active] {
   font-weight: var(--adb-font-weight-medium);
   margin-right: var(--adb-spacing-2xsm);
 }
+
+.log-in {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+
+  p {
+    margin: 0;
+  }
+}

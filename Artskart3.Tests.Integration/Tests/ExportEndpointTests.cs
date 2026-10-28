@@ -250,4 +250,65 @@ public class ExportEndpointTests : IAsyncLifetime
             Filter = new ObservationSearchFilterDto(),
             SelectedColumns = []
         });
+
+    // -----------------------------------------------------------------------
+    // Anonyme brukere
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Anonyme brukere identifiseres med en klientgenerert GUID i
+    /// X-Anonymous-User-Id-headeren, lagret i localStorage i nettleseren.
+    /// </summary>
+    [Fact]
+    public async Task StartExport_WithAnonymousUserHeader_Returns200()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        var response = await StartExportAsync(client, "anonym-eksport");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetHistory_AnonymousUsers_DoNotSeeEachOthersExports()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        using var otherAnonymousClient = _factory.CreateClient();
+        otherAnonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        otherAnonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        await StartExportAsync(anonymousClient, "anonym-eksport");
+
+        var response = await otherAnonymousClient.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+
+        response.Should().NotBeNull();
+        response!.Should().NotContain(job => job.Name == "anonym-eksport");
+    }
+
+    /// <summary>
+    /// Når brukeren er innlogget vinner sub-claimet over en eventuell
+    /// anonym header, slik at eksporten havner på den innloggede kontoen.
+    /// </summary>
+    [Fact]
+    public async Task StartExport_LoggedInWithAnonymousHeader_UsesSubClaim()
+    {
+        var userId = Guid.NewGuid().ToString();
+
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Test-UserId", userId);
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        await StartExportAsync(client, "innlogget-eksport");
+
+        var history = await client.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+
+        history.Should().NotBeNull();
+        history!.Should().Contain(job => job.Name == "innlogget-eksport");
+    }
 }

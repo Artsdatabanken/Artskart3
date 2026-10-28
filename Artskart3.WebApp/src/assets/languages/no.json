@@ -130,7 +130,8 @@
     "closeButton": "Lukk",
     "exceedsLimitTitle": "Eksport ikke mulig",
     "exceedsLimitMessage": "Resultatet inneholder {{totalRows}} rader, som overskrider grensen på {{hardLimit}} rader for eksport. Vennligst avgrens filteret ditt for å redusere antall treff.",
-    "summaryFailed": "Kunne ikke sjekke eksportstørrelse. Prøv igjen senere."
+    "summaryFailed": "Kunne ikke sjekke eksportstørrelse. Prøv igjen senere.",
+    "notLoggedIn": "Ikke logget inn"
   },
   "mittArtskart": {
     "title": "Mitt Artskart",
@@ -155,6 +156,7 @@
     "cancelled": "Eksporten ble avbrutt.",
     "cancelledLabel": "Avbrutt",
     "cancelFailed": "Kunne ikke avbryte eksporten. Den kan allerede være ferdig.",
+    "savedFiltersLoginPrompt": "Logg inn for å lagre og administrere filtre.",
     "tabsAriaLabel": "Mitt Artskart-faner"
   },
   "listView": {
