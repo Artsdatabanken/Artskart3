@@ -44,7 +44,7 @@
       "quality": "Kvalitet",
       "county": "Fylke",
       "municipality": "Kommune",
-      "locality": "Lokalitetsnavn",
+      "locality": "Navn",
       "latitude": "Breddegrad",
       "longitude": "Lengdegrad",
       "precision": "Koordinatpresisjon",
@@ -132,7 +132,7 @@
   },
   "mittArtskart": {
     "title": "Mitt Artskart",
-    "exportJobs": "Eksportjobber",
+    "exportJobs": "Eksport",
     "loadError": "Kunne ikke laste eksporthistorikk.",
     "exportName": "Navn på eksport",
     "fileSize": "Filstørrelse",

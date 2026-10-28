@@ -44,7 +44,7 @@
       "quality": "Quality",
       "county": "County",
       "municipality": "Municipality",
-      "locality": "Place name",
+      "locality": "Name",
       "latitude": "Latitude",
       "longitude": "Longitude",
       "precision": "Coordinate precision",
@@ -132,7 +132,7 @@
   },
   "mittArtskart": {
     "title": "My Artskart",
-    "exportJobs": "Export jobs",
+    "exportJobs": "Exports",
     "loadError": "Could not load export history.",
     "exportName": "Export name",
     "fileSize": "File size",
