@@ -20,14 +20,14 @@ describe('FormatFileSizePipe', () => {
   });
 
   it('should return "-" for null', () => {
-    expect(pipe.transform(null)).toBe('-');
+    expect(pipe.transform(null, 'no')).toBe('-');
   });
 
   it('should return "-" for undefined', () => {
-    expect(pipe.transform(undefined)).toBe('-');
+    expect(pipe.transform(undefined, 'no')).toBe('-');
   });
 
   it('should return "-" for zero', () => {
-    expect(pipe.transform(0)).toBe('-');
+    expect(pipe.transform(0, 'no')).toBe('-');
   });
 });

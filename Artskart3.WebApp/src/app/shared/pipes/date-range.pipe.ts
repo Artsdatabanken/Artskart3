@@ -1,11 +1,12 @@
 import { Pipe, PipeTransform } from '@angular/core';
+import { localeFromLanguage } from '@shared/helpers/locale/locale';
 
 @Pipe({
   name: 'dateRange',
 })
 export class DateRangePipe implements PipeTransform {
-  transform(startDate?: string | null, endDate?: string | null, lang?: string): string {
-    const locale = lang === 'no' ? 'nb-NO' : 'en-GB';
+  transform(startDate: string | null | undefined, endDate: string | null | undefined, lang: string): string {
+    const locale = localeFromLanguage(lang);
     const dateFormatter = new Intl.DateTimeFormat(locale, {
       day: '2-digit',
       month: 'long',
