@@ -22,14 +22,25 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     public const string RecompileTag = "listview-search";
 
     /// <summary>
+    /// Slår av minnetilbakemelding (memory grant feedback) i både batch- og
+    /// radmodus. Query Store tar vare på tilbakemeldingen også på tvers av
+    /// RECOMPILE, og etter noen kjøringer med ulike verdier krymper den grantet
+    /// mot det de minste kallene brukte. De største spiller da til tempdb.
+    ///
+    /// Brukes av lokasjonstellingen, der Flow Distinct under TOP da mister den
+    /// tidlige utgangen. Målt 27.–28.10.2026 mot Artskart3TestMigrations:
+    /// atferd:tung + opprinnelse:tung 0,2 → 4 s. Radmodus var årsaken; med begge
+    /// slått av holder den ~0,2 s. Prisen er at grantet blir stående på estimatet.
+    /// De andre spørringene får også krympet grant uten å bli tregere, og skal ikke
+    /// ha taggen.
+    /// </summary>
+    public const string NoGrantFeedbackTag = "no-grant-feedback";
+
+    /// <summary>
     /// Tagg → hintet den utløser. Rekkefølgen her blir rekkefølgen i OPTION-leddet.
     ///
-    /// MED ÉN TAGG ER SAMMENSLÅINGEN UTESTET. Dedupliseringen og kommaskillingen i
-    /// <see cref="Rewrite"/> kan ikke nås med bare ett hint registrert, så testene
-    /// dekker dem ikke — de dekker at ukjente tagger ignoreres. Legges et ANDRE
-    /// hint til her, er den som gjør det den første som kjører den koden: skriv en
-    /// test for to ulike hint i samme OPTION-ledd samtidig, for to ledd i én
-    /// setning er en syntaksfeil.
+    /// Flere hint på samme spørring slås sammen til ett OPTION-ledd, for to ledd i
+    /// én setning er en syntaksfeil. QueryHintInterceptorTests vokter det.
     ///
     /// POLYGONHENTINGEN HADDE EN GANG SITT EGET HINT — DEN ER BORTE MED VILJE
     /// Den ble drevet fra Location med tvungen loop join, og det var en stor
@@ -46,6 +57,7 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     private static readonly (string Tag, string Hint)[] Hints =
     [
         (RecompileTag, "RECOMPILE"),
+        (NoGrantFeedbackTag, "USE HINT('DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK', 'DISABLE_ROW_MODE_MEMORY_GRANT_FEEDBACK')"),
     ];
 
     public override InterceptionResult<DbDataReader> ReaderExecuting(

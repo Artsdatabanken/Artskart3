@@ -1414,6 +1414,7 @@ public class SearchRepository : ISearchRepository
                 .Select(g => g.Key)
                 .Take(SearchConstants.MaxLocationCount + 1)
                 .TagWith(QueryHintInterceptor.RecompileTag)
+                .TagWith(QueryHintInterceptor.NoGrantFeedbackTag)
                 .CountAsync(cancellationToken);
 
             var truncated = antall > SearchConstants.MaxLocationCount;
