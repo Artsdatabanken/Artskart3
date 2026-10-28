@@ -35,6 +35,9 @@ describe('MittArtskartComponent', () => {
     httpTesting = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(MittArtskartComponent);
     component = fixture.componentInstance;
+
+    // AuthService henter sesjonen når komponenten opprettes.
+    httpTesting.expectOne('bff/user').flush(null);
   });
 
   afterEach(() => {
