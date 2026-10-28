@@ -38,6 +38,9 @@ To ting:
 | `PerfLib.psm1` | Delt bibliotek: API-kall, måling, sammenligning, analyse. |
 | `Fixtures.ps1` | Oppdagelse og lagring av testdata. |
 | `Cases.ps1` | Genererer testmatrisen. |
+| `Kartverket.ps1` | Stubbe for Kartverkets Eiendom API, brukt av matrikkelcasene. |
+| `Record-Kartverket.ps1` | Tar opp Kartverkets svar til stubben. Rører verken API eller database. |
+| `Kartverket/` | Opptakene stubben svarer med, ett per matrikkelnummer. |
 
 Generert data ligger **utenfor arbeidstreet**, i `PerfTestResults/` ved siden av
 sjekkutene:
@@ -84,6 +87,9 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 ```json
 "ConnectionStrings:DefaultConnection": "data source=localhost;initial catalog=Artskart3IndexProdLikeTestMigrations;Integrated Security=true;MultipleActiveResultSets=True;TrustServerCertificate=True"
 ```
+
+API-et må også startes mot Kartverket-stubben, ellers stopper kjøringen før den
+måler noe. Se [Matrikkelenheter og Kartverket-stubben](#matrikkelenheter-og-kartverket-stubben).
 
 ```powershell
 # Se hva matrisen dekker uten å måle noe
@@ -169,6 +175,7 @@ fortsatt er brukbar:
 | `trippel` | Deterministisk utvalg av tre dimensjoner |
 | `kvadruppel` | Deterministisk utvalg av fire |
 | `reise` | Håndplukkede, realistiske brukerflyter med 3–8 filtre |
+| `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` side 1 og side 50,
@@ -312,6 +319,74 @@ Frysingen finnes fordi oppdagede data kan bytte identitet når databasen vokser.
 Utsnittene er faste konstanter i `Fixtures.ps1`, og leses de fra den lagrede
 JSON-en i stedet, blir en endring stille ignorert til noen kjører
 `-RefreshFixtures` — som samtidig forkaster alle baselinjer.
+
+## Matrikkelenheter og Kartverket-stubben
+
+Matrikkelfilteret (`cadastralUnitIds`) har et eget lag, `matrikkel`, bygget på sju
+håndplukkede eiendommer i `$PerfCadastralUnits` i `Fixtures.ps1`. De er konstanter,
+som kartutsnittene, fordi databasen ikke har noe å oppdage dem fra. De holdes
+utenfor `fixtures.dimensions`, slik at par, tripler og kvadrupler — og alle
+case-nøklene deres — er de samme som før, og gamle baselinjer fortsatt kan
+sammenlignes.
+
+| Nivå | Eiendom | Lokasjoner | Observasjoner |
+|---|---|---|---|
+| `tung` | Østensjøvannet, 0301-147/378 | 801 | 174 919 |
+| `stor` | Østmarka i Lørenskog, 3222-91/1, 34 km² | 5 357 | 31 643 |
+| `median` | Gård i Ås, 3218-55/1 | 172 | 999 |
+| `lett` | Tomt på Ullevål hageby, 0301-41/223 | 4 | 4 |
+| `x2` | `tung` + `lett` | | |
+| `x5` | Fem eiendommer i tre kommuner | | |
+| `ukjent` | 0301-9999/9999, som ikke finnes | 0 | 0 |
+
+Tallene er målt mot `Artskart3TestMigrations` 28.10.2026. `stor` er den eneste med
+flere lokasjoner enn de 5 000 ID-ene `katalognr` er begrenset til, og måler hvordan
+en lang lokasjonsliste går til databasen. Listen sendes alltid som én JSON-parameter
+(`OPENJSON`), uansett lengde, så alle eiendommene gir samme spørringstekst.
+
+Laget har 20 case: hvert nivå alene, og kombinasjoner valgt etter kodestiene
+filteret treffer — med områdefilter (eiendommen som egen gren ved siden av
+områdene), lette filtre der `TOP` må lese langt, kombinasjoner bufferne ellers ville
+svart på, og to institusjoner. `Quick` tar bare `tung` og `lett` alene. `Locations` og
+`LocationPolygons` kjører laget bare på `oslo`, der alle eiendommene ligger. Det gir
+7 nye målinger på `Quick`, 121 på `Standard` og 161 på `Full`.
+
+### API-et må peke på stubben
+
+Omrisset til eiendommene kommer fra Kartverkets Eiendom API. Suiten svarer selv,
+med opptak i `Kartverket/`, så målingene ikke avhenger av nettet, av at tjenesten
+svarer eller av at Matrikkelen endrer seg. Bare nettverkskallet byttes ut: parsing,
+sammenslåing av teiger, `STIntersects` og bufring kjører som i produksjon.
+
+`Run.ps1` starter stubben på port 5099 (`-KartverketPort`) når matrisen har
+matrikkelcase, og stopper den etterpå. API-et må startes slik:
+
+```bash
+# macOS/Linux
+KartverketEiendom__BaseUrl=http://localhost:5099/ dotnet run -c Release --project Artskart3.Api --launch-profile Artskart3.Api
+```
+
+```powershell
+# Windows
+$env:KartverketEiendom__BaseUrl = 'http://localhost:5099/'
+dotnet run -c Release --project Artskart3.Api --launch-profile Artskart3.Api
+```
+
+Før noe måles, slår `Run.ps1` opp `9999-1/1`, som bare stubben kjenner. Svarer
+API-et 404, spør det den ekte tjenesten, og kjøringen stopper.
+
+Stubben svarer 500 på numre den ikke har opptak av, i stedet for en tom samling
+slik Kartverket gjør. Et glemt opptak skal gi feilede målinger, ikke stille måle et
+filter uten treff. Legger du til eller bytter en eiendom, kjør
+`Record-Kartverket.ps1`. `Test-Matrix.ps1` feiler hvis et opptak mangler.
+
+### STIntersects synes bare i kald tid
+
+`CadastralUnitService` bufrer lokasjonene til en eiendom i en time. Oppslaget med
+`STIntersects` skjer derfor bare i det første kallet per eiendom, altså i den kalde
+tiden til det første caset som bruker den. Enkeltcasene kjøres først av den grunn.
+`Compare.ps1` sammenligner varm tid og ser det ikke. For `stor` tok oppslaget
+133 ms i API-et 28.10.2026.
 
 ## Indekssporing
 
