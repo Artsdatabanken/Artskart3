@@ -29,10 +29,64 @@ public class QueryHintInterceptorTests
         SELECT 1
         """;
 
+    private const string LokasjonstellingSql = """
+        -- listview-search
+        -- no-grant-feedback
+
+        SELECT COUNT(*) FROM (SELECT TOP(@p) 1 AS empty FROM [ObservationEntityIndex] AS [o]) AS [o0]
+        """;
+
+    private const string BeggeHintene =
+        "OPTION (RECOMPILE, USE HINT('DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK', 'DISABLE_ROW_MODE_MEMORY_GRANT_FEEDBACK'))";
+
     [Fact]
     public void Listevisningen_faar_recompile()
     {
         QueryHintInterceptor.Rewrite(ListevisningsSql).Should().EndWith("OPTION (RECOMPILE)");
+    }
+
+    [Fact]
+    public void Listevisningen_faar_ikke_hintet_mot_minnetilbakemelding()
+    {
+        QueryHintInterceptor.Rewrite(ListevisningsSql).Should().NotContain("USE HINT");
+    }
+
+    /// <summary>
+    /// To hint på samme spørring skal bli ett OPTION-ledd med begge, kommaskilt.
+    /// To ledd i én setning er en syntaksfeil.
+    /// </summary>
+    [Fact]
+    public void To_tagger_gir_begge_hintene_i_ett_ledd()
+    {
+        var resultat = QueryHintInterceptor.Rewrite(LokasjonstellingSql);
+
+        resultat.Should().EndWith(BeggeHintene);
+        resultat.Split("OPTION (").Should().HaveCount(2);
+    }
+
+    /// <summary>
+    /// Rekkefølgen i OPTION-leddet kommer fra hinttabellen, ikke fra rekkefølgen
+    /// taggene ble lagt på i LINQ.
+    /// </summary>
+    [Fact]
+    public void Taggenes_rekkefoelge_endrer_ikke_OPTION_leddet()
+    {
+        const string omvendt = """
+            -- no-grant-feedback
+            -- listview-search
+
+            SELECT 1
+            """;
+
+        QueryHintInterceptor.Rewrite(omvendt).Should().EndWith(BeggeHintene);
+    }
+
+    [Fact]
+    public void To_hint_kjoert_to_ganger_gir_samme_resultat()
+    {
+        var en = QueryHintInterceptor.Rewrite(LokasjonstellingSql);
+
+        QueryHintInterceptor.Rewrite(en).Should().Be(en);
     }
 
     [Fact]
@@ -46,9 +100,8 @@ public class QueryHintInterceptorTests
 
     /// <summary>
     /// Ett OPTION-ledd per setning, uansett hvor mange tagger spørringen bærer.
-    /// Legges det en dag til et andre hint, MÅ de to slås sammen i ett ledd — to
-    /// ledd er en syntaksfeil, og det er hele grunnen til at hintene står i én
-    /// tabell i én interceptor.
+    /// Flere hint MÅ slås sammen i ett ledd — to ledd er en syntaksfeil, og det er
+    /// hele grunnen til at hintene står i én tabell i én interceptor.
     /// </summary>
     [Fact]
     public void Aldri_mer_enn_ett_OPTION_ledd()
