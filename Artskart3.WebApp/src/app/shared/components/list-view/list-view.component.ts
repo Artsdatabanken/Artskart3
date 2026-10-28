@@ -7,7 +7,7 @@ import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
-import { CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
+import { CategoryDto, CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
@@ -38,11 +38,11 @@ export class ListViewComponent {
   });
 
   readonly categoryById = computed(() => {
-    const map = new Map<number, { name: string; code: string | null | undefined }>();
+    const map = new Map<number, CategoryDto>();
     for (const type of this.categoriesResource.value() ?? []) {
       for (const category of type.categories ?? []) {
-        if (category.id != null && category.name) {
-          map.set(category.id, { name: category.name, code: category.code });
+        if (category.id !== undefined) {
+          map.set(category.id, category);
         }
       }
     }
@@ -146,7 +146,7 @@ export class ListViewComponent {
     return this.areaNameMap().get(fid) ?? fid;
   }
 
-  getCategory(id: number | null | undefined): { name: string; code: string | null | undefined } | undefined {
+  getCategory(id: number | null | undefined): CategoryDto | undefined {
     if (id === null || id === undefined) return undefined;
     return this.categoryById().get(id);
   }
