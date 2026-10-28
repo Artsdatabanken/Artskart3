@@ -109,11 +109,16 @@ skal dokumenteres eller en baselinje settes.
 |---|---|---|---|
 | `Quick` | Enkeltfiltre + oppslag. 6 lokasjonsutsnitt, ett fra hvert tetthetsnivå, med 6 faste filtre | 383 | **1 min** |
 | `Standard` | + alle dimensjonspar på tunge nivåer, 60 tripler, 30 kvadrupler, brukerreiser. Alle 16 lokasjonsutsnitt; `oslo` får hele `enkelt`-laget, resten de 10 faste | 1 802 | **5 min** |
-| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 9 087 | **28 min** |
+| `Full` | + par også på lette nivåer, 300 tripler, 120 kvadrupler. `oslo` får hele matrisen | 9 087 | **31 min** |
 
-`Quick` og `Full` er målt 22.10.2026 mot `Artskart3IndexProdLikeTestMigrations`, med
-begge tellebufferne nybygget og `LocationCount` i matrisen. `Full` brukte 16 316
-kall, og 199 av 9 087 målinger lå over ett sekund.
+`Quick` er målt 22.10.2026 og `Full` 28.10.2026, mot
+`Artskart3IndexProdLikeTestMigrations` med begge tellebufferne nybygget og
+`LocationCount` i matrisen. `Full` brukte 16 316 kall.
+
+Antallet målinger over ett sekund er ikke ett fast tall, og skal ikke leses som
+ett. Tre `Full`-kjøringer ga 234, 225 og 216 — de to siste av identisk kode —
+mens p99 lå på 1 568, 1 514 og 1 552 ms og summen av varm tid på 961, 937 og
+957 sekunder. Spennet er støy, ikke utvikling. Se «Støygulvet» nedenfor.
 
 `Standard`-raden står fortsatt med tallene fra 07.10.2026 — det nivået er ikke
 kjørt siden. Matrisen har vokst i mellomtiden, så anslaget er for lavt: `Quick` gikk
@@ -344,6 +349,10 @@ Forbehold:
 - Den sier hvilken indeks, ikke hvorfor. Til planen trengs Query Store.
 - Databasen må være den samme API-et peker på — ellers måles en annen instans
   enn den som svarer.
+- Den koster vegg-tid. Samme `Full`-matrise tok 31 minutter uten sporing og
+  71 med, målt 28.10.2026. Lesningene skjer etter at stoppeklokka er stoppet, så
+  måletallene er sammenlignbare på tvers — men skal du bare ha tallene, la
+  sporingen stå av.
 
 ## Støygulvet: les aggregatet, ikke case-lista
 
@@ -363,6 +372,23 @@ selv. Terskelen ligger under suitens egen varians: hver case måles to ganger �
 
 **Aggregatet skiller derimot fint.** −8,4 % mot et støygulv på −1,2 % er rundt
 sju ganger støyen, over 6 758 case. Medianen flyttet seg 19 → 17 ms.
+
+Målt igjen 28.10.2026 på `Full`, og mønsteret var da enda tydeligere:
+
+| Sammenligning | Regresjoner | Forbedringer | Sum varm tid |
+|---|---|---|---|
+| `7ab7067` → `6f7ac85` (**identisk kode**) | 121 | 81 | +2,1 % |
+| `18401a7` → `6f7ac85` (ekte endring) | 111 | 112 | −0,4 % |
+
+Identisk kode flagget altså FLERE regresjoner (121) enn den ekte endringen (111),
+og de samme case sto øverst på begge listene med de samme etter-tallene:
+`atferd:tung+regstatus:tung` på 4 319 ms og
+`havomraade:tung+institusjon:tung+verneomraade:tung` på 2 781 ms. Halen er nesten
+utelukkende `Locations oslo` — de fem tregeste i kjøringen var alle det utsnittet.
+
+Aggregatet sa her riktig «ingen endring»: medianen sto stille på alle sju
+endepunkter, og p99 gikk 1 514 → 1 552 ms. Endringen var reell nok, men ikke
+målbar på denne maskinen, siden case den retter opp aldri var trege her.
 
 Så:
 
