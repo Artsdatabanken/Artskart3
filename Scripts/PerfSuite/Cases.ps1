@@ -18,6 +18,7 @@
       trippel    - deterministisk utvalg av tre dimensjoner
       kvadruppel - deterministisk utvalg av fire
       reise      - haandplukkede, realistiske brukerflyter med mange filtre
+      matrikkel  - matrikkelenheter, alene og med utvalgte filtre
       oppslag    - typeahead-endepunktene, som ikke tar filterkropp
 
     Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
@@ -252,6 +253,66 @@ function New-PerfCaseMatrix {
         }
     }
 
+    # --- Lag 6: matrikkelenheter -------------------------------------------
+    # Eget lag, ikke en dimensjon i parene - se New-PerfCadastralDimension.
+    #
+    # Matrikkelfilteret gaar utenom begge tellebufferne, og OR-es med
+    # omraadefiltrene paa LocationId. Kombinasjonene er valgt etter kodestiene det
+    # treffer:
+    #   omraade     eiendommen blir en egen gren ved siden av omraadene: UNION
+    #               ALL mot indekstabellen, en ekstra gren i listevisningen, og
+    #               omraadetellingene fra bufferen pluss eiendommens treff
+    #               utenfor omraadene
+    #   listedybde  lette filtre, der TOP-en maa lese langt foer den er fylt
+    #   buffer      kombinasjoner bufferne ellers ville svart paa
+    #   grening     to institusjoner gaar gjennom GetBranchedObservationIdsAsync
+    #
+    # Enkeltcasene kjoeres foerst. Lokasjonene til en eiendom bufres i en time, saa
+    # STIntersects-kostnaden havner i den kalde tiden til foerste case per eiendom.
+    $matrikkel = $Fixtures.matrikkel
+    if ($matrikkel) {
+        $matrikkelCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('matrikkel:tung') }, @{ Keys = @('matrikkel:lett') })
+        }
+        else {
+            @($matrikkel.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # omraade
+                @{ Keys = @('matrikkel:tung', 'kommune:tung') },
+                @{ Keys = @('matrikkel:tung', 'fylke:tung') },
+                @{ Keys = @('matrikkel:tung', 'verneomraade:tung') },
+                @{ Keys = @('matrikkel:lett', 'kommune:mange') },
+                @{ Keys = @('matrikkel:stor', 'kommune:tung') },
+                # listedybde
+                @{ Keys = @('matrikkel:tung', 'periode:lett') },
+                @{ Keys = @('matrikkel:tung', 'taksongruppe:lett') },
+                @{ Keys = @('matrikkel:lett', 'takson:Order') },
+                @{ Keys = @('matrikkel:stor', 'periode:lett') },
+                # buffer
+                @{ Keys = @('matrikkel:tung', 'taksongruppe:tung') },
+                @{ Keys = @('matrikkel:tung', 'kategori:tung') },
+                # grening
+                @{ Keys = @('matrikkel:tung', 'institusjon:x2-tung-lett') },
+                # En grunneier som ser hvilke fugler som er sett paa gaarden.
+                @{ Keys = @('matrikkel:median', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:eiendom' }
+            )
+        }
+
+        $alleDims = @($dims) + @($matrikkel)
+        foreach ($m in $matrikkelCase) {
+            $tiers = @($m.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            # Samme grunn som for reisene: et delvis filter ville faatt samme noekkel
+            # som det fulle i baselinen.
+            if ($tiers.Count -ne $m.Keys.Count) {
+                Write-Warning "$($m.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'matrikkel' -Tiers $tiers -KeyOverride $m.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
     # --- Lag 5: oppslag (typeahead) ----------------------------------------
     # Strengsoeket forsvant ikke fra loesningen, det flyttet hit da filtrene gikk
     # over til aa ta IDer. Maales derfor for seg: gevinsten i filterspoerringen er
@@ -268,6 +329,14 @@ function New-PerfCaseMatrix {
         @{ Key = 'oppslag:artstre-rot';     Path = '/api/Lookup/TaxonTree'                  },
         @{ Key = 'oppslag:omraader';        Path = '/api/Lookup/Areas'                      }
     )
+
+    # Omrisset til den stoerste eiendommen, som WKT. Kjoeres etter matrikkel-laget,
+    # saa geometrien er bufret og det er serialiseringen som maales.
+    $stor = if ($matrikkel) { Get-PerfTierByKey -Dimensions @($matrikkel) -Key 'matrikkel:stor' }
+    if ($stor) {
+        $id = [uri]::EscapeDataString(@($stor.filter.cadastralUnitIds)[0])
+        $oppslag += @{ Key = 'oppslag:matrikkel'; Path = "/api/Lookup/CadastralUnit?id=$id" }
+    }
 
     foreach ($o in $oppslag) {
         $cases.Add([PSCustomObject]@{
@@ -432,7 +501,9 @@ function New-PerfEndpointMatrix {
     $lokasjonsUtsnitt = @(
         # De fire store. Paa Quick er oslo (over taket) og kristiansand (under)
         # med; de to andre foerst fra Standard.
-        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt') }; Full=@{} }
+        #
+        # Matrikkel-laget kjoerer bare paa oslo, der alle eiendommene ligger.
+        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel') }; Full=@{} }
         @{ Navn='trondheim';    Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt','par') } }
         @{ Navn='trollheimen';  Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt') } }
         @{ Navn='kristiansand'; Quick=$qQuick; Standard=$qStige; Full=@{ Layers=@('enkelt') } }
