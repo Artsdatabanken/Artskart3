@@ -46,7 +46,16 @@ adb-tab-panel[active] {
 .log-in {
   display: flex;
   align-items: center;
-  gap: var(--adb-spacing-xsm);
+  gap: var(--adb-spacing-md);
+  margin: 0 0 var(--adb-spacing-xl);
+
+  p {
+    margin: 0;
+  }
+}
+
+.temporary-export-message {
+  margin: var(--adb-spacing-md) 0;
 
   p {
     margin: 0;
