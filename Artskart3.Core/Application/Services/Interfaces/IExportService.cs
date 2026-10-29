@@ -12,4 +12,5 @@ public interface IExportService
     Task<string?> GetCsvBlobPathAsync(int jobId, Guid userId, CancellationToken cancellationToken = default);
     Task<string?> GetExcelBlobPathAsync(int jobId, Guid userId, CancellationToken cancellationToken = default);
     Task<List<CsvExportJobDto>> GetUserExportHistoryAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> ClaimAnonymousExportsAsync(Guid userId, Guid anonymousUserId, CancellationToken cancellationToken = default);
 }
