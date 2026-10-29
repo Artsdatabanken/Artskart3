@@ -13,9 +13,18 @@
     <adb-tab slot="tab">{{ 'mittArtskart.exportJobs' | translate }}</adb-tab>
     <adb-tab slot="tab">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
 
+
     <adb-tab-panel>
       @if (historyResource.isLoading() && !historyResource.hasValue()) {
         <p class="status-message">{{ 'common.loading' | translate }}</p>
+      }
+
+      @if(this.authService.isAnonymous()) {
+        <div class="temporary-export-message">
+          <h3>{{ 'export.modalTitle' | translate }}</h3>
+          <p>{{ 'export.exportsNotSaved' | translate }}</p>
+          <p>{{ 'export.downloadExportToSave' | translate }}</p>
+        </div>
       }
 
       @if (historyResource.error() && !historyResource.hasValue()) {

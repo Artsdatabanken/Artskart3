@@ -131,7 +131,9 @@
     "exceedsLimitTitle": "Eksport ikke mulig",
     "exceedsLimitMessage": "Resultatet inneholder {{totalRows}} rader, som overskrider grensen på {{hardLimit}} rader for eksport. Vennligst avgrens filteret ditt for å redusere antall treff.",
     "summaryFailed": "Kunne ikke sjekke eksportstørrelse. Prøv igjen senere.",
-    "notLoggedIn": "Ikke logget inn"
+    "notLoggedIn": "Ikke logget inn",
+    "exportsNotSaved": "Eksporter som ikke er knyttet til en bruker er kun midlertidig tilgjengelig",
+    "downloadExportToSave": "Last ned eksporten for å ta vare på den"
   },
   "mittArtskart": {
     "title": "Mitt Artskart",
