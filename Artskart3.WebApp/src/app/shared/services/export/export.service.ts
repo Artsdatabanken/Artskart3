@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, Subscription, timer, switchMap, takeWhile, last } from 'rxjs';
+import { Observable, Subscription, timer, switchMap, takeWhile, last, of, map, tap, finalize, shareReplay } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
 import { CsvExportJobDto, CSV_EXPORT_STATUS, ExportSummaryDto, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable({
   providedIn: 'root',
@@ -12,8 +13,11 @@ export class ExportService {
   private readonly http = inject(HttpClient);
   private readonly alertService = inject(AlertService);
   private readonly translate = inject(TranslateService);
+  private readonly authService = inject(AuthService);
   private readonly baseUrl = '/api/export/csv';
   private readonly activePolls = new Map<number, Subscription>();
+  private anonymousExportClaimed = false;
+  private anonymousExportClaim$: Observable<void> | null = null;
 
   /** Incremented when an export completes — use as a dependency to trigger refetch. */
   readonly historyVersion = signal(0);
@@ -108,7 +112,31 @@ export class ExportService {
   }
 
   getHistory(): Observable<CsvExportJobDto[]> {
-    return this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`);
+    return this.authService.getSession().pipe(
+      switchMap((session) => {
+        const historyRequest = () => this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`);
+        return session
+          ? this.claimAnonymousExports().pipe(switchMap(() => historyRequest()))
+          : historyRequest();
+      }),
+    );
+  }
+
+  private claimAnonymousExports(): Observable<void> {
+    if (this.anonymousExportClaimed) return of(undefined);
+
+    if (!this.anonymousExportClaim$) {
+      this.anonymousExportClaim$ = this.http
+        .post<{ claimedCount: number }>(`${this.baseUrl}/claim-anonymous`, {})
+        .pipe(
+          map(() => undefined),
+          tap(() => (this.anonymousExportClaimed = true)),
+          finalize(() => (this.anonymousExportClaim$ = null)),
+          shareReplay({ bufferSize: 1, refCount: false }),
+        );
+    }
+
+    return this.anonymousExportClaim$;
   }
 
   downloadFile(jobId: number): Observable<Blob> {

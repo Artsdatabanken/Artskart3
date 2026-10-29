@@ -134,6 +134,20 @@ public class ExportController : ControllerBase
         return Ok(history);
     }
 
+    [HttpPost("claim-anonymous")]
+    public async Task<ActionResult<object>> ClaimAnonymousExports(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+
+        var anonymousIdValue = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (!Guid.TryParse(anonymousIdValue, out var anonymousUserId) || anonymousUserId == Guid.Empty)
+            return BadRequest(new { error = $"Mangler gyldig {AnonymousUserHeader}-header." });
+
+        var claimedCount = await _exportService.ClaimAnonymousExportsAsync(userId, anonymousUserId, cancellationToken);
+        return Ok(new { claimedCount });
+    }
+
     /// <summary>
     /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere får en
     /// klientgenerert GUID i localStorage, sendt som X-Anonymous-User-Id-header.

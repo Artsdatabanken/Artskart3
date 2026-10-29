@@ -190,6 +190,19 @@ public class ExportService : IExportService
         return jobs.Select(MapToDto).ToList();
     }
 
+    public async Task<int> ClaimAnonymousExportsAsync(Guid userId, Guid anonymousUserId, CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty || anonymousUserId == Guid.Empty)
+            throw new ArgumentException("Export owner IDs must be valid GUIDs.");
+
+        if (userId == anonymousUserId)
+            return 0;
+
+        return await _context.Set<CsvExportJob>()
+            .Where(j => j.UserId == anonymousUserId)
+            .ExecuteUpdateAsync(update => update.SetProperty(j => j.UserId, userId), cancellationToken);
+    }
+
     private IQueryable<Observation> BuildFilteredQuery(ObservationSearchFilterDto filter)
     {
         var query = _context.Set<Observation>().AsNoTracking();

@@ -24,6 +24,7 @@ public class ExportControllerTests
 {
     // Med hex-bokstaver, slik at store/små bokstaver faktisk er en forskjell å teste.
     private static readonly Guid UserId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static readonly Guid AnonymousUserId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
     [Fact]
     public async Task StartExport_WithValidSubClaim_UsesSubAsUserId()
@@ -124,6 +125,51 @@ public class ExportControllerTests
         exportService.Verify(
             s => s.GetUserExportHistoryAsync(UserId, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task ClaimAnonymousExports_WithAuthenticatedUser_TransfersToSub()
+    {
+        var exportService = new Mock<IExportService>();
+        exportService
+            .Setup(s => s.ClaimAnonymousExportsAsync(UserId, AnonymousUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+
+        var controller = CreateController(exportService, new Claim("sub", UserId.ToString()));
+        controller.Request.Headers["X-Anonymous-User-Id"] = AnonymousUserId.ToString();
+
+        var result = await controller.ClaimAnonymousExports(CancellationToken.None);
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        exportService.Verify(
+            s => s.ClaimAnonymousExportsAsync(UserId, AnonymousUserId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ClaimAnonymousExports_WithoutSubClaim_ReturnsUnauthorized()
+    {
+        var exportService = new Mock<IExportService>(MockBehavior.Strict);
+        var controller = CreateController(exportService);
+        controller.Request.Headers["X-Anonymous-User-Id"] = AnonymousUserId.ToString();
+
+        var result = await controller.ClaimAnonymousExports(CancellationToken.None);
+
+        result.Result.Should().BeOfType<UnauthorizedObjectResult>();
+        exportService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ClaimAnonymousExports_WithInvalidAnonymousHeader_ReturnsBadRequest()
+    {
+        var exportService = new Mock<IExportService>(MockBehavior.Strict);
+        var controller = CreateController(exportService, new Claim("sub", UserId.ToString()));
+        controller.Request.Headers["X-Anonymous-User-Id"] = "not-a-guid";
+
+        var result = await controller.ClaimAnonymousExports(CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        exportService.VerifyNoOtherCalls();
     }
 
     /// <summary>
