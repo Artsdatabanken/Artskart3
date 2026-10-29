@@ -141,6 +141,20 @@ public class ExportController : ControllerBase
         return Ok(history);
     }
 
+    [HttpPost("claim-anonymous")]
+    public async Task<ActionResult<object>> ClaimAnonymousExports(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+
+        var anonymousIdValue = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (!Guid.TryParse(anonymousIdValue, out var anonymousUserId) || anonymousUserId == Guid.Empty)
+            return BadRequest(new { error = $"Mangler gyldig {AnonymousUserHeader}-header." });
+
+        var claimedCount = await _exportService.ClaimAnonymousExportsAsync(userId, anonymousUserId, cancellationToken);
+        return Ok(new { claimedCount });
+    }
+
     /// <summary>
     /// Samme filterregler som søket. Eksporten gikk tidligere rett i
     /// ObservationQueryBuilder uten validering, og der smalnes RegistrationStatusId
