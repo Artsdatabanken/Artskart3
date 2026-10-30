@@ -122,9 +122,9 @@ export class ObservationDetailsComponent {
       {
         id: 'place',
         rows: [
-          row('county', d?.counties?.join(', ')),
-          row('municipality', d?.municipalities?.join(', ')),
           row('locality', d?.locality),
+          row('municipality', d?.municipalities?.join(', ')),
+          row('county', d?.counties?.join(', ')),
           row('latitude', d?.point?.latitude),
           row('longitude', d?.point?.longitude),
           row('precision', d?.coordinatePrecision != null ? `${d.coordinatePrecision} m` : null),
