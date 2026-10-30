@@ -1,4 +1,5 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, input, signal, OnInit } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { TaxonTreeService } from '../../services/taxon-tree/taxon-tree.service';
 import { TaxonSelectionService, TaxonCheckboxState } from '../../services/taxon-selection/taxon-selection.service';
 import { TaxonTreeNodeDto } from '../../types/api.types';
@@ -16,6 +17,7 @@ export class TaxonTreeComponent implements OnInit {
   private readonly taxonTreeService = inject(TaxonTreeService);
   private readonly taxonSelection = inject(TaxonSelectionService);
   private readonly logger = inject(LoggingService);
+  protected readonly translate = inject(TranslateService);
 
   readonly parentTaxonId = input<number | undefined>(undefined);
   readonly autoLoad = input(true);

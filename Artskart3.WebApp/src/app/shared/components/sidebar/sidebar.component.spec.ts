@@ -448,9 +448,9 @@ describe('SidebarComponent', () => {
 
       const options = [...fixture.nativeElement.querySelectorAll('.other-properties-filter .autocomplete-item')] as HTMLElement[];
       expect(options.map((option) => option.textContent?.trim())).toEqual([
-        'Kartlegging (1,234)',
+        'Kartlegging (1\u00a0234)',
         'Tom (0)',
-        'Kartlegging (1,234)',
+        'Kartlegging (1\u00a0234)',
         'Tom (0)',
       ]);
     });

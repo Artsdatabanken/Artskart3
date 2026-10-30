@@ -42,6 +42,8 @@ import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import type { Coordinate } from 'ol/coordinate';
 import Point from 'ol/geom/Point';
+import DragRotate from 'ol/interaction/DragRotate';
+import PinchRotate from 'ol/interaction/PinchRotate';
 import WKT from 'ol/format/WKT';
 import { getTransform, transform } from 'ol/proj';
 import { unByKey } from 'ol/Observable';
@@ -494,6 +496,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // See Artsobservasjoner3's shared-map.component.ts for reference implementation.
   }
 
+  /** nbic-map-component has no rotation option, so alt+shift-drag and pinch rotation are toggled on the underlying OL interaction. */
+  private setRotationEnabled(enabled: boolean): void {
+    this.zoomControl
+      ?.getMap()
+      ?.getInteractions()
+      .forEach((interaction) => {
+        if (interaction instanceof DragRotate || interaction instanceof PinchRotate) interaction.setActive(enabled);
+      });
+  }
+
   private adoptZoomControl(): void {
     if (!this.map) return;
     this.zoomControl = new ArtskartZoomControl({
@@ -558,6 +570,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map) return;
     this.setupAreaMarkerLayers();
     this.highlightObservation(this.activeObservationPoint);
+    this.setRotationEnabled(false);
     this.setupMarkerCursor();
     this.setupCountsFetchPipeline();
     this.setupLocationsFetchPipeline();

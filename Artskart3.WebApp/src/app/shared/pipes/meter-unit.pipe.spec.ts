@@ -8,11 +8,11 @@ describe('MeterUnitPipe', () => {
   });
 
   it('should return empty string for null', () => {
-    expect(pipe.transform(null)).toBe('');
+    expect(pipe.transform(null, 'no')).toBe('');
   });
 
   it('should return empty string for undefined', () => {
-    expect(pipe.transform(undefined)).toBe('');
+    expect(pipe.transform(undefined, 'no')).toBe('');
   });
 
   it('should format number with meter unit in Norwegian', () => {

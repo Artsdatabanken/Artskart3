@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { TranslateModule } from '@ngx-translate/core';
 import { TaxonTreeComponent } from './taxon-tree.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { TaxonSelectionService } from '../../services/taxon-selection/taxon-selection.service';
@@ -30,7 +31,7 @@ describe('TaxonTreeComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TaxonTreeComponent],
+      imports: [TaxonTreeComponent, TranslateModule.forRoot()],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
