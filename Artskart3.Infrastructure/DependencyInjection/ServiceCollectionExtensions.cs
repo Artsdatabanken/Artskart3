@@ -1,3 +1,4 @@
+using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
@@ -52,6 +53,21 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPolygonLocationStore, PolygonLocationStore>();
         services.AddHostedService<PolygonLocationStoreBuilder>();
         // Add other application services here
+        return services;
+    }
+
+    /// <summary>
+    /// Brukes av både API-et og workeren, fordi CSV-eksporten også må kunne filtrere på
+    /// matrikkelenhet.
+    /// </summary>
+    public static IServiceCollection AddCadastralUnitService(this IServiceCollection services, KartverketEiendomOptions options)
+    {
+        services.AddMemoryCache();
+        services.AddHttpClient<ICadastralUnitService, CadastralUnitService>(client =>
+        {
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
         return services;
     }
 }

@@ -12,7 +12,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-marker.model';
-import { AreaMarkerDto, LocationCountResult } from '@shared/types/api.types';
+import { AreaMarkerDto, CadastralUnitDto, LocationCountResult } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { RegistrationStatus, registrationStatusFromId } from '@shared/helpers/registration-status/registration-status';
@@ -292,6 +292,7 @@ export interface LocationSearchFilter {
   municipalityIds?: string[];
   restrictedAreaIds?: string[];
   oceanAreaIds?: string[];
+  cadastralUnitIds?: string[];
   coordinatePrecisionFrom?: number | null;
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
@@ -459,30 +460,35 @@ export class AreasService {
     if (!selectedFids.length || !areas.length) return [];
 
     const fidSet = new Set(selectedFids);
-    const features: unknown[] = [];
+    return areas
+      .filter((area) => area.fid && fidSet.has(area.fid))
+      .flatMap((area) => this.buildOutlineFeature(area.wktsPolygon, { id: area.id, name: area.name, fid: area.fid }, 1.5) ?? []);
+  }
 
-    for (const area of areas) {
-      if (!area.fid || !fidSet.has(area.fid)) continue;
-      const parsed = parseWkt(area.wktsPolygon);
-      if (!parsed) continue;
+  /**
+   * Bredere strek enn for områdene, siden en eiendom er liten og omrisset ellers forsvinner
+   * i kartbakgrunnen.
+   */
+  buildCadastralUnitOverlayFeatures(cadastralUnits: CadastralUnitDto[]): unknown[] {
+    return cadastralUnits.flatMap((unit) => this.buildOutlineFeature(unit.wktPolygon, { name: unit.id, fid: unit.id }, 3) ?? []);
+  }
 
-      features.push({
-        type: 'Feature',
-        geometry: { type: parsed.type, coordinates: parsed.coordinates },
-        properties: {
-          id: area.id,
-          name: area.name,
-          fid: area.fid,
-          'nbic:style': {
-            strokeColor: 'rgba(10, 109, 188, 0.6)',
-            strokeWidth: 1.5,
-            fillColor: 'rgba(0, 0, 0, 0)',
-          },
+  private buildOutlineFeature(wkt: string | null | undefined, properties: Record<string, unknown>, strokeWidth: number): unknown {
+    const parsed = parseWkt(wkt);
+    if (!parsed) return null;
+
+    return {
+      type: 'Feature',
+      geometry: { type: parsed.type, coordinates: parsed.coordinates },
+      properties: {
+        ...properties,
+        'nbic:style': {
+          strokeColor: 'rgba(10, 109, 188, 0.6)',
+          strokeWidth,
+          fillColor: 'rgba(0, 0, 0, 0)',
         },
-      });
-    }
-
-    return features;
+      },
+    };
   }
 
   private buildFilterBody(filter?: LocationSearchFilter, extent?: [number, number, number, number]): Record<string, unknown> {
@@ -501,6 +507,7 @@ export class AreasService {
       if (filter.municipalityIds?.length) body['municipalityIds'] = filter.municipalityIds;
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
       if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
+      if (filter.cadastralUnitIds?.length) body['cadastralUnitIds'] = filter.cadastralUnitIds;
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }

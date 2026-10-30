@@ -21,6 +21,13 @@ public interface IObservationFilter
     string[]? CountyIds { get; }
     string[]? RestrictedAreaIds { get; }
     string[]? OceanAreaIds { get; }
+
+    /// <summary>
+    /// Matrikkelnummer (f.eks. 1101-1/2). OR-es med de andre områdefiltrene.
+    /// Slås opp mot Kartverket og blir til lokasjoner via ICadastralUnitService.
+    /// </summary>
+    string[]? CadastralUnitIds { get; }
+
     int[]? BehaviorIds { get; }
     int[]? BasisOfRecordIds { get; }
     int? RegistrationStatusId { get; }

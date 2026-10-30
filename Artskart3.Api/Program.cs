@@ -104,7 +104,7 @@ try
     // eldste postene forsvinner framfor at prosessen vokser.
     //
     // MERK: med SizeLimit satt MÅ hver Set oppgi Size, ellers kaster den. Alle Set-ene
-    // på denne bufferen ligger i SearchService.
+    // på denne bufferen ligger i SearchService og CadastralUnitService.
     builder.Services.AddMemoryCache(options => options.SizeLimit = 128 * 1024 * 1024);
     builder.Services.AddRateLimiter(options =>
     {
@@ -273,6 +273,8 @@ try
         client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
     });
+    builder.Services.AddCadastralUnitService(
+        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

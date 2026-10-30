@@ -132,11 +132,17 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     // =======================================================================
 
     /// <inheritdoc />
-    public IReadOnlyList<LocationPolygonDto>? TryQuery(LocationSearchFilterDto filter, int maxResults)
+    public IReadOnlyList<LocationPolygonDto>? TryQuery(
+        LocationSearchFilterDto filter, int maxResults, IReadOnlySet<int>? cadastralLocationIds = null)
     {
         if (!IsReady) return null;
 
-        var p = BuildPredicate(filter);
+        // Matrikkelenhetene slås opp mot Kartverket av kalleren. Uten lokasjonene kan
+        // filteret ikke evalueres her.
+        var eiendom = filter.CadastralUnitIds?.Length > 0 ? cadastralLocationIds : null;
+        if (filter.CadastralUnitIds?.Length > 0 && eiendom is null) return null;
+
+        var p = BuildPredicate(filter, harEiendom: eiendom is not null);
 
         // Et filter som ikke kan treffe noe. Tomt, aldri ufiltrert.
         if (p.AlltidTomt) return [];
@@ -164,10 +170,16 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 if (n < minY || n > maxY) continue;
             }
 
+            // Matrikkelenhetene OR-es med områdene: en observasjon på en lokasjon i
+            // eiendommen slipper geografisjekken. Uten områdevalg er eiendommen hele
+            // geografifilteret, og andre lokasjoner hoppes over.
+            var iEiendom = eiendom?.Contains(_locId[loc]) == true;
+            if (eiendom is not null && p.GeoBucket is null && !iEiendom) continue;
+
             var slutt = _obsStart[loc + 1];
             var antall = 0;
             for (var i = _obsStart[loc]; i < slutt; i++)
-                if (Matcher(i, in p)) antall++;
+                if (Matcher(i, in p, iEiendom)) antall++;
 
             if (antall > 0) treff.Add((antall, _locId[loc], loc));
         }
@@ -275,7 +287,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public bool[]? ProjBucket { get; init; }
     }
 
-    private bool Matcher(int i, in Predikat p)
+    private bool Matcher(int i, in Predikat p, bool iEiendom)
     {
         if (p.TaksongruppeSet is { } tg && !tg.Contains(_taksongruppe[i])) return false;
 
@@ -350,7 +362,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             if (t == Ingen || !tax[t]) return false;
         }
 
-        if (p.GeoBucket is { } geo)
+        if (p.GeoBucket is { } geo && !iEiendom)
         {
             var b = _geoBucketIdx[i];
             if (b == Ingen || !geo[b]) return false;
@@ -370,7 +382,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     /// inkludert vaktene der, som at atferds-ID-er utenfor tinyint gir tomt og
     /// ikke ufiltrert.
     /// </summary>
-    private Predikat BuildPredicate(LocationSearchFilterDto f)
+    private Predikat BuildPredicate(LocationSearchFilterDto f, bool harEiendom)
     {
         var tomt = false;
 
@@ -459,7 +471,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 foreach (var b in buckets) geo[b] = true;
                 noen = true;
             }
-            if (!noen) tomt = true;
+            // Med en matrikkelenhet i tillegg kan treffene fortsatt komme derfra.
+            if (!noen && !harEiendom) tomt = true;
         }
 
         bool[]? proj = null;

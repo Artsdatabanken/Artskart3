@@ -111,6 +111,9 @@ export class FilterChipsComponent {
     if (oceanAreas.length > 0) {
       chips.push(countChip('areas:ocean', 'sidebar.areaSection.oceanAreas', oceanAreas.length, () => this.filterState.clearOceanAreas()));
     }
+    for (const id of this.filterState.selectedCadastralUnitIds()) {
+      chips.push(namedChip(`cadastralUnit:${id}`, 'sidebar.cadastralUnit', id, () => this.filterState.removeCadastralUnit(id)));
+    }
 
     const precFrom = this.filterState.coordinatePrecisionFrom();
     const precTo = this.filterState.coordinatePrecisionTo();
