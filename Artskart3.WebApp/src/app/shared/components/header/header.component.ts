@@ -1,6 +1,6 @@
 import { Component, input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -47,6 +47,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private readonly languageService = inject(LanguageService);
   private readonly cookieWindow = inject(DOCUMENT).defaultView as (Window & CookieConsentWindow) | null;
+  private readonly router = inject(Router);
   readonly authService = inject(AuthService);
 
   ngOnInit(): void {
@@ -108,6 +109,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   closeUserMenu(): void {
     this.isUserMenuOpen = false;
+  }
+
+  onAnonymousMenuSelect(event: Event): void {
+    const value = (event as CustomEvent<{ value: string }>).detail.value;
+    if (value === 'mitt-artskart') {
+      void this.router.navigate(['/mittartskart']);
+    } else if (value === 'login') {
+      this.authService.login();
+    }
+
+    this.closeBurgerMenu();
   }
 
   changeLanguage(lang: SupportedLanguage): void {

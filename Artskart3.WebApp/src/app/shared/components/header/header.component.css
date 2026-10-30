@@ -484,3 +484,12 @@
     gap: var(--adb-spacing-2xsm);
   }
 }
+
+.user-control {
+  adb-dropdown {
+    --adb-surface-base-subtle: var(--adb-background-primary);
+    --adb-surface-base-subtle-hover: var(--adb-background-primary);
+    --adb-surface-base-subtle-active: var(--adb-background-primary);
+    --adb-text-base-primary: var(--adb-text-accent-primary);
+  }
+}
