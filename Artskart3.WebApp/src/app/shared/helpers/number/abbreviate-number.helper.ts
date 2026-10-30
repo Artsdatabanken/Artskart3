@@ -1,6 +1,8 @@
+import { localeFromLanguage } from '@shared/helpers/locale/locale';
+
 export class AbbreviateNumberHelper {
-  static format(num: number, lang?: string): string {
-    const isNorwegian = lang === 'no';
+  static format(num: number, lang: string): string {
+    const isNorwegian = localeFromLanguage(lang) === 'nb-NO';
     const decimalSeparator = isNorwegian ? ',' : '.';
     const unitSeparator = isNorwegian ? ' ' : '';
     if (num >= 1000000) {
