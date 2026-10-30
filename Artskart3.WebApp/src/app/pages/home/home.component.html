@@ -98,8 +98,8 @@
   [open]="showNameModal()"
   [title]="'export.modalTitle' | translate"
   variant="prompt"
-  [confirmLabel]="summaryLoading() ? ('export.loadingButton' | translate) : ('export.startButton' | translate)"
-  [cancelLabel]="'export.cancelButton' | translate"
+  [confirmLabel]="summaryLoading() ? ('common.loading' | translate) : ('export.startButton' | translate)"
+  [cancelLabel]="'common.cancel' | translate"
   [confirmDisabled]="!exportName().trim() || summaryLoading()"
   [loading]="summaryLoading()"
   (modalConfirm)="onNameModalConfirm()"
@@ -107,7 +107,7 @@
 >
   <label class="export-name-label" for="export-name-input">
     <span class="export-name-label-text">{{ 'export.nameLabel' | translate }}</span>
-    <span class="export-name-required">{{ 'export.nameRequired' | translate }}</span>
+    <span class="export-name-required">{{ 'common.required' | translate }}</span>
   </label>
   <input
     id="export-name-input"
@@ -124,7 +124,7 @@
   [open]="showInfoModal()"
   [title]="'export.startedTitle' | translate"
   variant="info"
-  [confirmLabel]="'export.closeButton' | translate"
+  [confirmLabel]="'common.close' | translate"
   (modalConfirm)="onInfoModalClose()"
   (modalCancel)="onInfoModalClose()"
 >
@@ -143,7 +143,7 @@
   [open]="showLimitModal()"
   [title]="'export.exceedsLimitTitle' | translate"
   variant="info"
-  [confirmLabel]="'export.closeButton' | translate"
+  [confirmLabel]="'common.close' | translate"
   (modalConfirm)="onLimitModalClose()"
   (modalCancel)="onLimitModalClose()"
 >
