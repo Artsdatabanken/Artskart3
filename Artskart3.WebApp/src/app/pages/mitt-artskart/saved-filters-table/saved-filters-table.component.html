@@ -12,7 +12,7 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>{{ 'savedFilters.date' | translate }}</th>
+        <th>{{ 'common.date' | translate }}</th>
         <th>{{ 'savedFilters.name' | translate }}</th>
         <th>{{ 'savedFilters.link' | translate }}</th>
         <th>{{ 'savedFilters.defaultColumn' | translate }}</th>
@@ -71,7 +71,7 @@
   confirmColor="danger"
   cancelVariant="secondary"
   [confirmLabel]="'savedFilters.delete' | translate"
-  [cancelLabel]="'savedFilters.cancel' | translate"
+  [cancelLabel]="'common.cancel' | translate"
   [loading]="deleting()"
   (modalConfirm)="onConfirmDelete()"
   (modalCancel)="closeDeleteModal()"
