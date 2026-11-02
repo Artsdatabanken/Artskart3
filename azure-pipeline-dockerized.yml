@@ -21,6 +21,69 @@ steps:
     env:
       DOCKER_HUB_NAMESPACE: $(dockerHubNamespace)
 
+  # ---------------------------
+  # Frontend (Angular) lint og test
+  #
+  # Selve Angular-bygget skjer i Dockerfile. Her kjoerer vi bare kvalitetsportene,
+  # slik at vi ikke pusher images fra en gren som ikke er groenn.
+  # ---------------------------
+
+  - task: NodeTool@0
+    displayName: "Install Node.js"
+    inputs:
+      versionSpec: '24.x'
+
+  - script: |
+      cd Artskart3.WebApp
+      npm ci
+    displayName: "Install Angular dependencies"
+
+  - script: |
+      cd Artskart3.WebApp
+      npm run lint
+    displayName: "Lint Angular app"
+
+  - script: |
+      cd Artskart3.WebApp
+      npm test -- --watch=false
+    displayName: "Run Angular tests"
+    continueOnError: false
+
+  # ---------------------------
+  # .NET restore/build/test
+  # ---------------------------
+
+  - task: UseDotNet@2
+    displayName: "Install .NET SDK"
+    inputs:
+      packageType: 'sdk'
+      version: '10.x'
+
+  - task: DotNetCoreCLI@2
+    displayName: "Restore .NET dependencies"
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
+
+  - task: DotNetCoreCLI@2
+    displayName: "Build .NET solution"
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
+      arguments: '--configuration Release'
+
+  - task: DotNetCoreCLI@2
+    displayName: "Run .NET tests"
+    inputs:
+      command: 'test'
+      projects: '**/*Tests*.csproj'
+      arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
+      publishTestResults: true
+
+  # ---------------------------
+  # Container images
+  # ---------------------------
+
   - task: Docker@2
     displayName: Build and push web image
     inputs:
