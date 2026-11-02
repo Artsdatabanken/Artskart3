@@ -57,6 +57,15 @@ server {
         return 200 "ok\n";
     }
 
+    # Miljøinnstillinger for frontend, satt per miljø med APP_-variabler. Samme
+    # image kan dermed brukes i alle miljøer. Må ikke caches, ellers henger gamle
+    # verdier igjen etter en ny revisjon.
+    location = /env.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-store";
+        return 200 'window.artskartEnv = { environmentName: "${APP_ENVIRONMENT_NAME}" };\n';
+    }
+
     # API-stiene først. Regex-locations matches i rekkefølge, og asset-regelen
     # under ville ellers stjålet en API-sti som tilfeldigvis endte på .js.
     location ~ ^/(api|bff|signin-oidc|signout-callback-oidc|signout-oidc|swagger|hc|robots\.txt)(/|$) {

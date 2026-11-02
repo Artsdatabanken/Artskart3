@@ -61,6 +61,9 @@ toppnivå-endepunkt i API-et, må det inn der.
 | --- | --- | --- |
 | `API_ORIGIN` | API-ets interne adresse. Bare opphav, ingen sti: `http://<api-intern>:8080` | Nei |
 | `TLS_ENABLED` | `0` i Azure. Gateway/ingress terminerer TLS; containeren skal ikke gjøre det igjen | Nei |
+| `APP_ENVIRONMENT_NAME` | Miljømerket i headeren: `test`, `staging`, `beta` eller `local`. Tom gir `beta`, verdien fra Angular-bygget | Nei |
+
+`APP_`-variablene sendes til nettleseren via `/env.js`, så de må aldri inneholde hemmeligheter.
 
 Web-containeren trenger ingen hemmeligheter, ingen databasetilgang og ingen identitet.
 

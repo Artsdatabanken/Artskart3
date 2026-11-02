@@ -60,6 +60,7 @@ services:
       # montert på /etc/nginx/certs. I Azure skal denne være 0 - der terminerer
       # gateway/ingress TLS.
       TLS_ENABLED: "1"
+      APP_ENVIRONMENT_NAME: local
     depends_on:
       api:
         condition: service_started
