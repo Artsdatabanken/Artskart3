@@ -28,7 +28,7 @@ jobs:
       - task: NodeTool@0
         displayName: "Install Node.js"
         inputs:
-          versionSpec: '24.x'
+          versionSpec: "24.x"
 
       - script: |
           cd Artskart3.WebApp
@@ -53,29 +53,49 @@ jobs:
       - task: UseDotNet@2
         displayName: "Install .NET SDK"
         inputs:
-          packageType: 'sdk'
-          version: '10.x'
+          packageType: "sdk"
+          version: "10.x"
 
       - task: DotNetCoreCLI@2
         displayName: "Restore .NET dependencies"
         inputs:
-          command: 'restore'
-          projects: '**/*.csproj'
+          command: "restore"
+          projects: "**/*.csproj"
 
       - task: DotNetCoreCLI@2
         displayName: "Build .NET solution"
         inputs:
-          command: 'build'
-          projects: '**/*.csproj'
-          arguments: '--configuration Release'
+          command: "build"
+          projects: "**/*.csproj"
+          arguments: "--configuration Release"
 
       - task: DotNetCoreCLI@2
         displayName: "Run .NET tests"
         inputs:
-          command: 'test'
-          projects: '**/*Tests*.csproj'
-          arguments: '--configuration Release --no-build --settings coverage.runsettings --logger trx'
+          command: "test"
+          projects: "**/*Tests*.csproj"
+          arguments: "--configuration Release --no-build --settings coverage.runsettings --logger trx"
           publishTestResults: true
+
+      - script: |
+          dotnet tool install --global dotnet-ef --version 10.0.7
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations bundle \
+            --project Artskart3.Infrastructure \
+            --startup-project Artskart3.Api \
+            --context ArtskartDbContext \
+            --configuration Release \
+            --self-contained --target-runtime linux-x64 \
+            --output $(Build.ArtifactStagingDirectory)/migrations/efbundle \
+            --force
+        env:
+          ConnectionStrings__ArtskartIndex: "Server=placeholder;Database=placeholder;"
+        displayName: "Build EF migration bundle"
+
+      - publish: $(Build.ArtifactStagingDirectory)/migrations
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/AK3ToContainerApps'))
+        displayName: "Publish migration bundle artifact"
+        artifact: migrations
 
   # ---------------------------
   # Container images
