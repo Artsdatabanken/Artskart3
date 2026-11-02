@@ -29,13 +29,17 @@ FROM nginx:stable-alpine AS final
 
 # Bare disse variablene settes inn i konfigurasjonen. Uten filteret ville envsubst
 # også kunne rote med nginx sine egne variabler.
-ENV NGINX_ENVSUBST_FILTER='API_|APP_|NGINX_LOCAL_RESOLVERS'
+ENV NGINX_ENVSUBST_FILTER='API_|APP_|ALLOW_INDEXING|NGINX_LOCAL_RESOLVERS'
 ENV API_ORIGIN=http://api:8080
 
 # Vises som miljømerket i headeren. Tom verdi gir verdien fra Angular-bygget
 # (environment.ts). Variabelen må finnes, ellers blir den stående urørt i
 # nginx-konfigurasjonen og nginx starter ikke.
 ENV APP_ENVIRONMENT_NAME=
+
+# Sidene får noindex til denne settes til true, bare på produksjon og samtidig med
+# Application__AllowRobotsInProduction på API-et. Se nginx/default.conf.template.
+ENV ALLOW_INDEXING=false
 
 # Får imaget sitt entrypoint til å lese nameserverne fra /etc/resolv.conf og
 # eksportere dem som NGINX_LOCAL_RESOLVERS. Uten dette kan ikke konfigurasjonen

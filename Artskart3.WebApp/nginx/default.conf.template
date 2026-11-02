@@ -27,6 +27,18 @@ map $http_x_original_host $fwd_host {
     ''      $http_host;
 }
 
+# Sidene får noindex til ALLOW_INDEXING=true, som bare skal settes på produksjon
+# etter lanseringen. robots.txt og API-svarene styres av API-et
+# (AddRobotsConfiguration i Program.cs). Det stenger bare /api/, slik at
+# søkemotorene kan hente sidene og se headeren.
+#
+# Headeren må legges til i hver location som har egne add_header, fordi de da ikke
+# arver fra server-nivå.
+map "${ALLOW_INDEXING}" $robots_tag {
+    ~*^true$ "";
+    default  "noindex";
+}
+
 server {
     # Portene settes av 25-tls.sh: alltid http, og i tillegg https når
     # TLS_ENABLED=1. Ligger utenfor denne fila slik at stilista under bare finnes
@@ -63,6 +75,7 @@ server {
     location = /env.js {
         default_type application/javascript;
         add_header Cache-Control "no-store";
+        add_header X-Robots-Tag $robots_tag always;
         return 200 'window.artskartEnv = { environmentName: "${APP_ENVIRONMENT_NAME}" };\n';
     }
 
@@ -96,6 +109,7 @@ server {
     # Hashede filnavn kan caches for alltid.
     location ~* \.(?:js|css|woff2?|ttf|eot|png|jpe?g|svg|gif|ico|webp|avif|json)$ {
         add_header Cache-Control "public, immutable, max-age=31536000";
+        add_header X-Robots-Tag $robots_tag always;
         try_files $uri =404;
     }
 
@@ -103,9 +117,11 @@ server {
     # en utrulling.
     location = /index.html {
         add_header Cache-Control "no-cache";
+        add_header X-Robots-Tag $robots_tag always;
     }
 
     location / {
+        add_header X-Robots-Tag $robots_tag always;
         try_files $uri $uri/ /index.html;
     }
 }

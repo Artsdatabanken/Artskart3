@@ -363,6 +363,7 @@ return;
 void AddRobotsConfiguration(ConfigurationManager configuration, WebApplication webApplication)
 {
     // After the beta, set Application:AllowRobotsInProduction=true on the production app only, not in appsettings.json.
+    // In Container Apps the web container serves the pages and adds its own noindex header, so set ALLOW_INDEXING=true there at the same time.
     var allowIndexing = !webApplication.Environment.IsDevelopment()
         && !webApplication.Environment.IsEnvironment("Test")
         && Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);
