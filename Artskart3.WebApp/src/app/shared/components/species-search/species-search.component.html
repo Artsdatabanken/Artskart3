@@ -18,6 +18,9 @@
             ><app-highlight-text [text]="row.scientificNameMarkup" [term]="term" [markup]="true"
           /></span>
         </span>
+        @if (row.showAuthor) {
+          <span class="autocomplete-match"><app-highlight-text [text]="row.species.author" [term]="term" /></span>
+        }
         @if (row | speciesMatchLine: term; as matchLine) {
           <span class="autocomplete-match">
             @if (matchLine.kind === 'id') {

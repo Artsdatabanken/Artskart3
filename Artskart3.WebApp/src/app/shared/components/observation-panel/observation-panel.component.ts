@@ -4,12 +4,15 @@ import { afterNextRender, Component, computed, ElementRef, inject, Injector, inp
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, concat, map, merge, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { LoggingService } from '@shared/logging.service';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ObservationDetailDto, ObservationListInfoDto, ObservationPointDto } from '@shared/types/api.types';
 import { ObservationListComponent } from '../observation-list.component/observation-list.component';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { ObservationDetailsComponent, DetailState } from '../observation-details/observation-details.component';
+
+export type ActiveObservationPoint = ObservationPointDto & { readonly registrationStatus: RegistrationStatus };
 
 @Component({
   imports: [ObservationListComponent, ObservationDetailsComponent],
@@ -22,7 +25,7 @@ export class ObservationPanelComponent {
   readonly selection = input<ObservationSelection | null>(null);
   readonly requestState = input<ObservationRequestState>('ready');
   readonly retry = output<void>();
-  readonly activePoint = output<ObservationPointDto | null>();
+  readonly activePoint = output<ActiveObservationPoint | null>();
   readonly detailsOpened = output<void>();
   readonly closed = output<void>();
   readonly list = viewChild(ObservationListComponent);
@@ -105,7 +108,7 @@ export class ObservationPanelComponent {
       .subscribe(({ state, detail }) => {
         this.state.set(state);
         this.detail.set(detail);
-        this.activePoint.emit(detail?.point ?? null);
+        this.activePoint.emit(detail?.point ? { ...detail.point, registrationStatus: registrationStatusFromTags(detail.tags) } : null);
       });
   }
 

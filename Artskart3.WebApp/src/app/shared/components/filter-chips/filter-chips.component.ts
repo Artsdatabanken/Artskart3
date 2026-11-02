@@ -59,6 +59,11 @@ export class FilterChipsComponent {
       chips.push(countChip('taxons', 'sidebar.species', taxons.length, () => this.filterState.clearTaxons()));
     }
 
+    if (this.filterState.excludesDescendantTaxa()) {
+      const text = t('sidebar.excludesDescendantTaxa');
+      chips.push({ id: 'includeDescendantTaxa', text, label: text, clear: () => this.filterState.setIncludeDescendantTaxa(true) });
+    }
+
     const selectedCategories = this.filterState.selectedCategoryIds();
     if (selectedCategories.length > 0) {
       const typeNameById = this.categoryService.categoryTypeNameById();

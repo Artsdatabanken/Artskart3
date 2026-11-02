@@ -8,6 +8,13 @@ public interface IObservationFilter
 {
     int[]? TaxonGroupIds { get; }
     int[]? TaxonIds { get; }
+
+    /// <summary>
+    /// Om TaxonIds også treffer underliggende taksa. Av: bare observasjoner bestemt
+    /// til nøyaktig det valgte taksonet.
+    /// </summary>
+    bool IncludeDescendantTaxa { get; }
+
     int[]? CategoryIds { get; }
     int[]? OrganizationIds { get; }
     string[]? MunicipalityIds { get; }

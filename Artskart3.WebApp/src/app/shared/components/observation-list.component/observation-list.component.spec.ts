@@ -36,7 +36,7 @@ describe('Observation grouping', () => {
   it('groups by IDs, preserves all records, and orders statuses and dates', () => {
     const result = tree([
       record(1, { registrationType: ['Absent', 'NotRecovered'] }),
-      record(2, { registrationType: ['NotRecovered'] }),
+      record(2, { registrationType: ['Absent'] }),
       record(3, { dateTimeCollected: null }),
       record(4, { dateTimeCollected: '2025-01-01' }),
       record(5, { taxonId: 2 }),

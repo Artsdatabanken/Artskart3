@@ -10,13 +10,17 @@
           (click)="$event.stopPropagation()"
           (change)="onTaxonToggle(node.id)"
         >
-          <span [innerHTML]="node.preferredPopularName ?? node.validScientificName"></span>
+          <span [innerHTML]="displayName(node)"></span>
           @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
-            <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
+            <span slot="counter">{{ node.cumulativeObservationCount | formatNumber: translate.currentLang }}</span>
           }
         </adb-checkbox>
         @if (isNodeExpanded(node.id)) {
-          <app-taxon-tree [parentTaxonId]="node.id" [ancestorIds]="childAncestorIds(node.id)" />
+          <app-taxon-tree
+            [parentTaxonId]="node.id"
+            [ancestorIds]="childAncestorIds(node.id)"
+            [showScientificNames]="showScientificNames()"
+          />
         }
       </adb-accordion-item>
     </adb-accordion>
@@ -27,9 +31,9 @@
         [attr.indeterminate]="state === 'indeterminate' ? '' : null"
         (change)="onTaxonToggle(node.id)"
       >
-        <span [innerHTML]="node.preferredPopularName ?? node.validScientificName"></span>
+        <span [innerHTML]="displayName(node)"></span>
         @if (node.cumulativeObservationCount !== null && node.cumulativeObservationCount !== undefined) {
-          <span slot="counter">{{ node.cumulativeObservationCount | formatNumber }}</span>
+          <span slot="counter">{{ node.cumulativeObservationCount | formatNumber: translate.currentLang }}</span>
         }
       </adb-checkbox>
     </div>

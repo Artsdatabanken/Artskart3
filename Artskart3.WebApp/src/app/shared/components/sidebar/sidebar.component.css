@@ -59,6 +59,15 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-xsm);
 }
 
+/* Same inline start as the taxon tree's accordion summaries, so the switches line up with its expand icons */
+.taxon-tree-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-sm);
+  padding-inline-start: var(--adb-spacing-3xsm);
+  padding-block-end: var(--adb-spacing-sm);
+}
+
 /* Coordinate precision filter */
 .coordinate-precision-filter {
   display: flex;

@@ -283,6 +283,26 @@ describe('FilterChipsComponent', () => {
     });
   });
 
+  describe('underliggende taksa', () => {
+    it('viser chip bare når den er av og det er valgt taksa', () => {
+      flushLookups();
+      filterState.setIncludeDescendantTaxa(false);
+      expect(component.chips().find((c) => c.id === 'includeDescendantTaxa')).toBeUndefined();
+
+      filterState.setTaxons([1]);
+      expect(component.chips().find((c) => c.id === 'includeDescendantTaxa')!.text).toBe('sidebar.excludesDescendantTaxa');
+    });
+
+    it('slår underliggende taksa på igjen når chip lukkes', () => {
+      flushLookups();
+      filterState.setTaxons([1]);
+      filterState.setIncludeDescendantTaxa(false);
+      component.chips().find((c) => c.id === 'includeDescendantTaxa')!.clear();
+      expect(filterState.includeDescendantTaxa()).toBe(true);
+      expect(filterState.selectedTaxonIds()).toEqual([1]);
+    });
+  });
+
   describe('til/fra-chips', () => {
     it('viser chip for koordinatpresisjon og fjerner den', () => {
       flushLookups();

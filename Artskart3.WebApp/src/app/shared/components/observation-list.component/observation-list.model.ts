@@ -1,8 +1,9 @@
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
+import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
+import { localeFromLanguage } from '@shared/helpers/locale/locale';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 
 export type ObservationGrouping = 'taxonGroup' | 'location' | 'redList' | 'alienSpecies';
-export type RegistrationStatus = 'found' | 'notRecovered' | 'absent';
 export type ObservationRequestState = 'loading' | 'ready' | 'error';
 
 export interface ObservationSelection {
@@ -42,8 +43,7 @@ const CATEGORY_TYPES = { redList: 1, alienSpecies: 2 } as const;
 type TranslateLabel = (key: string) => string;
 
 export function registrationStatus(observation: ObservationListInfoDto): RegistrationStatus {
-  if (observation.registrationType?.includes('Absent')) return 'absent';
-  return observation.registrationType?.includes('NotRecovered') ? 'notRecovered' : 'found';
+  return registrationStatusFromTags(observation.registrationType);
 }
 
 export function hasUnknownCategory(observation: ObservationListInfoDto): boolean {
@@ -61,7 +61,7 @@ export function buildObservationTree(
   formatDate: (value: string | null | undefined) => string,
 ): ObservationTreeNode[] {
   const t = (key: string) => translate(`observationList.${key}`);
-  const locale = language === 'no' ? 'nb-NO' : 'en-GB';
+  const locale = localeFromLanguage(language);
   const collator = new Intl.Collator(locale);
   const categoryLabel = (code: string) => t(`categories.${code}`);
   const categoryRank = (code: string) => CATEGORY_ORDER.indexOf(code);

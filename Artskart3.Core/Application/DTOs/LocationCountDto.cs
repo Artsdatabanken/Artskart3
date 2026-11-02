@@ -2,7 +2,7 @@ namespace Artskart3.Core.Application.DTOs;
 
 /// <summary>
 /// Antall distinkte lokasjoner som matcher et søkefilter, cappet til
-/// <see cref="Artskart3.Core.Constants.SearchConstants.MaxLocationResults"/>.
+/// <see cref="Artskart3.Core.Constants.SearchConstants.MaxLocationCount"/>.
 /// Truncated er true når det faktiske antallet overstiger grensen.
 /// </summary>
 public class LocationCountDto

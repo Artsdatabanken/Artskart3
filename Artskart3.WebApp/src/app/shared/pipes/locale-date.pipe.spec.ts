@@ -8,19 +8,19 @@ describe('LocaleDatePipe', () => {
   });
 
   it('should return empty string for null', () => {
-    expect(pipe.transform(null)).toBe('');
+    expect(pipe.transform(null, 'no')).toBe('');
   });
 
   it('should return empty string for undefined', () => {
-    expect(pipe.transform(undefined)).toBe('');
+    expect(pipe.transform(undefined, 'no')).toBe('');
   });
 
   it('should return empty string for empty string', () => {
-    expect(pipe.transform('')).toBe('');
+    expect(pipe.transform('', 'no')).toBe('');
   });
 
   it('should return empty string for invalid date', () => {
-    expect(pipe.transform('not-a-date')).toBe('');
+    expect(pipe.transform('not-a-date', 'no')).toBe('');
   });
 
   it('should format date in Norwegian when lang is "no"', () => {

@@ -277,4 +277,25 @@ describe('TaxonSelectionService', () => {
     expect(service.isInheritedSelected([2])).toBe(false);
     expect(service.isInheritedSelected([])).toBe(false);
   });
+
+  describe('uten underliggende taksa', () => {
+    beforeEach(() => filterState.setIncludeDescendantTaxa(false));
+
+    it('arver ikke checked fra en valgt forgjenger', () => {
+      filterState.setTaxons([1]);
+      expect(service.checkboxState(1, [])).toBe('checked');
+      expect(service.checkboxState(4, [1, 2])).toBe('unchecked');
+    });
+
+    it('viser fortsatt indeterminate på forgjengere til en valgt node', () => {
+      filterState.setTaxons([4]);
+      expect(service.checkboxState(1, [])).toBe('indeterminate');
+    });
+
+    it('select av en forelder beholder valgte etterkommere', () => {
+      filterState.setTaxons([4, 5]);
+      service.select(2);
+      expect(filterState.selectedTaxonIds()).toEqual([4, 5, 2]);
+    });
+  });
 });

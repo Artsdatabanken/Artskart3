@@ -8,7 +8,7 @@ public static class GeoJsonConverter
     private const int DefaultEpsg = 25833;
 
     /// <summary>
-    /// Skriver lokasjoner direkte til en strøm i kompakt JSON-format: { epsg, locations: [[id, lon, lat, count], ...] }
+    /// Skriver lokasjoner direkte til en strøm i kompakt JSON-format: { epsg, locations: [[id, lon, lat, count, registrationStatus], ...] }
     /// </summary>
     public static async Task WriteLocationsToStreamAsync(
         Stream output,
@@ -32,6 +32,7 @@ public static class GeoJsonConverter
             writer.WriteNumberValue(location.Longitude);
             writer.WriteNumberValue(location.Latitude);
             writer.WriteNumberValue(location.ObservationCount);
+            writer.WriteNumberValue((int)location.RegistrationStatus);
             writer.WriteEndArray();
         }
 

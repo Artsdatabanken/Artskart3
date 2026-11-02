@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
 
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
+import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import { ApiZoomLevel } from './map.types';
@@ -20,13 +21,18 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import VectorLayer from 'ol/layer/Vector';
+import WebGLVectorLayer from 'ol/layer/WebGLVector';
+import type BaseLayer from 'ol/layer/Base';
+import VectorSource from 'ol/source/Vector';
+import Cluster from 'ol/source/Cluster';
+import { get as getProjection, transform } from 'ol/proj';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
-import { MapFeatureStyles } from './map-feature-styles';
+import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
 
 describe('MapComponent lifecycle', () => {
@@ -120,6 +126,50 @@ describe('MapComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('aborts a map place search when the autocomplete unsubscribes', () => {
+    let requestSignal: AbortSignal | undefined;
+    const searchPlaces = vi.fn(
+      (_term: string, options: { signal?: AbortSignal }) =>
+        new Promise<PlaceSearchResult[]>((resolve) => {
+          requestSignal = options.signal;
+          options.signal?.addEventListener('abort', () => resolve([]), { once: true });
+        }),
+    );
+    component.map = { searchPlaces } as unknown as NbicMapComponent;
+
+    const subscription = component.searchPlaces('Alta').subscribe();
+    expect(searchPlaces).toHaveBeenCalledWith('Alta', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+
+    subscription.unsubscribe();
+
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+  it('transforms the selected WGS84 place and centers/zooms the map', () => {
+    const place: PlaceSearchResult = {
+      id: 'alta-name-no',
+      placeId: '10002',
+      name: 'Alta',
+      language: 'Norsk',
+      type: 'By',
+      municipalities: ['Alta'],
+      counties: ['Finnmark'],
+      coordinates: { lat: 69.97, lon: 23.27 },
+      zoomLevel: 11,
+    };
+    const center: [number, number] = [815288.9, 7783951.43];
+    const transformCoordsFrom = vi.fn().mockReturnValue(center);
+    const setCenter = vi.fn();
+    const setZoom = vi.fn();
+    component.map = { transformCoordsFrom, setCenter, setZoom } as unknown as NbicMapComponent;
+
+    component.goToPlace(place);
+
+    expect(transformCoordsFrom).toHaveBeenCalledWith([23.27, 69.97], 'EPSG:4326', MAP_CONFIG.projection);
+    expect(setCenter).toHaveBeenCalledWith(center);
+    expect(setZoom).toHaveBeenCalledWith(place.zoomLevel);
+  });
+
   describe('linked feature styling', () => {
     const location = (id: number, observationCount = 2) => new Feature({ id, geometry: new Point([id, id]), observationCount });
     const polygon = (id: number) => new Feature({ id, geometry: new Polygon([[[0, 0], [10, 0], [10, 10], [0, 0]]]) });
@@ -135,15 +185,18 @@ describe('MapComponent', () => {
         ['--adb-color-neutrals-ocean-10', '#D2DDE0'],
         ['--adb-color-neutrals-ocean-50', '#768083'],
         ['--adb-color-brand-sun-70', '#F8AE00'],
+        ['--adb-color-special-100', '#F34F39'],
+        ['--adb-color-special-110', '#D61900'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
-      const layer = new VectorLayer();
-      redraw = vi.spyOn(layer, 'changed');
+      const clusterLayer = new VectorLayer({ source: new Cluster({ source: new VectorSource<Feature>() }) });
+      redraw = vi.spyOn(clusterLayer, 'changed');
+      const otherLayer = new VectorLayer();
       layers = new Map();
       const map: Partial<NbicMapComponent> = {
         addLayer: (definition) => { layers.set(definition.id, definition); },
-        getLayerById: () => layer,
+        getLayerById: (id) => (id === 'area-markers-locations' ? clusterLayer : otherLayer),
         updateGeoJSONLayer: vi.fn(),
         destroy: vi.fn(),
       };
@@ -169,7 +222,8 @@ describe('MapComponent', () => {
           return undefined;
         },
       };
-      component['updateMarkerHover'](map as OlMap, [0, 0]);
+      const { locationIds, areaKey } = component['hitTestPixel'](map as OlMap, [0, 0]);
+      component['setMarkerHover'](locationIds, areaKey);
     }
 
     function render(layerId: string, feature: Feature, clustered = false): Style[] {
@@ -241,15 +295,194 @@ describe('MapComponent', () => {
       select([1]);
       const styles = component['featureStyles']!;
       expect(render('area-markers-locations', location(1))).toBe(styles.marker('location', 'selected'));
+      expect(render('location-highlights', location(1))).toBe(styles.marker('unclusteredLocation', 'selected'));
       expect(render('area-markers-locations', cluster(1), true)).toBe(styles.marker('cluster', 'selected', '2'));
       const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [location(1, 1)] });
       expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected'));
       const grouped = render('area-markers-locations', cluster(1, 2), true);
       expect(grouped.at(-1)?.getText()?.getText()).toBe('4');
-      expect(render('location-polygons', polygon(1))).toBe(styles.polygon('selected'));
+      expect(render('location-polygons', polygon(1))).toBe(styles.polygon());
+      expect(render('location-polygon-highlights', polygon(1))).toBe(styles.polygonHighlight('selected'));
+      expect(layers.get('location-highlights')?.pickable).toBe(true);
+      expect(layers.get('location-polygon-highlights')?.pickable).toBe(false);
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
       expect(layers.get('observation-details-highlight')?.pickable).toBe(false);
       expect(layers.get('area-markers-locations')?.cluster?.keepSingleAsCluster).toBe(true);
+    });
+
+    it('draws the registration status of single-observation locations and the detail highlight, but not of counted clusters', () => {
+      select([1]);
+      const styles = component['featureStyles']!;
+      const absent = (id: number, observationCount = 1) => {
+        const feature = location(id, observationCount);
+        feature.set('registrationStatus', 'absent');
+        return feature;
+      };
+      expect(render('area-markers-locations', absent(1))).toBe(styles.marker('location', 'selected', '', 'absent'));
+      const singleObservation = new Feature({ geometry: new Point([0, 0]), features: [absent(1)] });
+      expect(render('area-markers-locations', singleObservation, true)).toBe(styles.marker('location', 'selected', '', 'absent'));
+      const counted = new Feature({ geometry: new Point([0, 0]), features: [absent(1, 3)] });
+      expect(render('area-markers-locations', counted, true)).toBe(styles.marker('cluster', 'selected', '3'));
+      expect(render('location-highlights', absent(1))).toBe(styles.marker('unclusteredLocation', 'selected', '', 'absent'));
+      const highlight = new Feature({ geometry: new Point([0, 0]), registrationStatus: 'notRecovered' });
+      expect(render('observation-details-highlight', highlight)).toBe(styles.marker('observation', 'selected', '', 'notRecovered'));
+    });
+
+    it('highlights single points and polygons on overlays without redrawing every location when clustering is off', () => {
+      const olLayers = new Map(
+        ['area-markers-locations', 'location-polygons', 'location-highlights', 'location-polygon-highlights'].map(
+          (id) => [id, new VectorLayer({ source: new VectorSource<Feature>() })] as const,
+        ),
+      );
+      const source = (id: string) => olLayers.get(id)!.getSource()!;
+      const point = location(1);
+      point.setId(1);
+      const outline = polygon(1);
+      outline.setId(1);
+      source('area-markers-locations').addFeatures([point, location(2)]);
+      source('location-polygons').addFeature(outline);
+      component.map = {
+        ...component.map,
+        getLayerById: (id: string) => olLayers.get(id) ?? null,
+        removeLayer: vi.fn(),
+        adoptLayer: vi.fn(),
+      } as unknown as NbicMapComponent;
+      component['clusteringEnabled'].set(false);
+      const locationsRedraw = vi.spyOn(olLayers.get('area-markers-locations')!, 'changed');
+
+      hover([{ feature: outline, layerId: 'location-polygons' }]);
+      expect(source('location-highlights').getFeatures()).toEqual([point]);
+      expect(source('location-polygon-highlights').getFeatures()).toEqual([outline]);
+
+      component['clearMarkerHover']();
+      expect(source('location-highlights').getFeatures()).toEqual([]);
+      expect(source('location-polygon-highlights').getFeatures()).toEqual([]);
+
+      select([1]);
+      TestBed.tick();
+      expect(source('location-highlights').getFeatures()).toEqual([point]);
+      expect(source('location-polygon-highlights').getFeatures()).toEqual([outline]);
+      expect(locationsRedraw).not.toHaveBeenCalled();
+
+      point.set('isPolygon', true);
+      expect(render('location-highlights', point)).toBe(component['featureStyles']!.polygonMarker('unclusteredLocation', 'selected'));
+    });
+
+    it('gives a polygon location alone in its cluster the polygon marker with its count', () => {
+      select([1]);
+      const styles = component['featureStyles']!;
+      const polygonPoint = (observationCount: number, registrationStatus = 'found') =>
+        new Feature({ id: 1, geometry: new Point([0, 0]), observationCount, registrationStatus, isPolygon: true });
+      const alone = (point: Feature) => new Feature({ geometry: new Point([0, 0]), features: [point] });
+
+      expect(render('area-markers-locations', alone(polygonPoint(2)), true)).toBe(styles.polygonMarker('location', 'selected', '2'));
+      expect(render('area-markers-locations', alone(polygonPoint(1)), true)).toBe(styles.polygonMarker('location', 'selected'));
+      expect(render('area-markers-locations', alone(polygonPoint(1, 'absent')), true)).toBe(
+        styles.marker('location', 'selected', '', 'absent'),
+      );
+      const grouped = new Feature({ geometry: new Point([0, 0]), features: [polygonPoint(2), location(2)] });
+      expect(render('area-markers-locations', grouped, true)).toBe(styles.marker('cluster', 'default', '4'));
+    });
+
+    describe('popped out polygon points', () => {
+      let points: VectorSource<Feature>;
+      let clusters: Cluster<Feature>;
+      let polygonPoint: Feature;
+      let point: Feature;
+      let highlights: () => Feature[];
+
+      beforeEach(() => {
+        points = new VectorSource<Feature>();
+        clusters = new Cluster({ source: points });
+        const layer = (source: VectorSource<Feature>) => new VectorLayer({ source });
+        const olLayers = new Map([
+          ['area-markers-locations', layer(clusters)],
+          ['location-polygons', layer(new VectorSource<Feature>())],
+          ['location-highlights', layer(new VectorSource<Feature>())],
+          ['location-polygon-highlights', layer(new VectorSource<Feature>())],
+        ]);
+        polygonPoint = location(1);
+        polygonPoint.setId(1);
+        polygonPoint.set('isPolygon', true);
+        point = location(2);
+        point.setId(2);
+        points.addFeatures([polygonPoint, point]);
+        clusters.loadFeatures([-100, -100, 100, 100], 1, getProjection('EPSG:3857')!);
+        component.map = { ...component.map, getLayerById: (id: string) => olLayers.get(id) ?? null } as unknown as NbicMapComponent;
+        highlights = () => olLayers.get('location-highlights')!.getSource()!.getFeatures();
+      });
+
+      it('pops a selected polygon point out of a cluster it shares with unselected locations', () => {
+        hover([{ feature: polygon(1), layerId: 'location-polygons' }]);
+        expect(highlights()).toEqual([]);
+
+        select([1]);
+        TestBed.tick();
+        expect(highlights()).toEqual([polygonPoint]);
+        const popOut = vi.spyOn(component['featureStyles']!, 'poppedOutPolygonMarker');
+        render('location-highlights', polygonPoint);
+        expect(popOut).toHaveBeenCalledWith('selected', '2', popOuts([[1, 1]], [1.5, 1.5], 1)[0]);
+
+        hover([{ feature: polygonPoint, layerId: 'location-highlights' }]);
+        expect(component['hoveredLocationIds']).toEqual(new Set([1]));
+
+        component.closeObservationList();
+        TestBed.tick();
+        expect(highlights()).toEqual([]);
+      });
+
+      it("lays out a cluster's popped out points together, so that they don't cover each other", () => {
+        const otherPolygonPoint = new Feature({ id: 3, geometry: new Point([1, 1.01]), observationCount: 3, isPolygon: true });
+        otherPolygonPoint.setId(3);
+        points.addFeature(otherPolygonPoint);
+        select([1, 3]);
+        TestBed.tick();
+        expect(highlights()).toEqual([polygonPoint, otherPolygonPoint]);
+
+        const popOut = vi.spyOn(component['featureStyles']!, 'poppedOutPolygonMarker');
+        render('location-highlights', polygonPoint);
+        render('location-highlights', otherPolygonPoint);
+        const clusterCenter = (clusters.getFeatures()[0].getGeometry() as Point).getCoordinates();
+        const [first, second] = popOuts(
+          [
+            [1, 1],
+            [1, 1.01],
+          ],
+          clusterCenter,
+          1,
+        );
+        expect(first.at).not.toEqual(second.at);
+        expect(popOut.mock.calls).toEqual([
+          ['selected', '2', first],
+          ['selected', '3', second],
+        ]);
+      });
+
+      it('leaves a wholly selected cluster to show the selection, also when the polygon point is alone in it', () => {
+        select([1, 2]);
+        TestBed.tick();
+        expect(highlights()).toEqual([polygonPoint]);
+        expect(render('location-highlights', polygonPoint)).toEqual([]);
+
+        select([1]);
+        points.removeFeature(point);
+        expect(render('location-highlights', polygonPoint)).toEqual([]);
+      });
+
+      it('keeps raw points off the highlights while the WebGL layer for unclustered locations loads', () => {
+        const loading = new Promise<never>(() => undefined);
+        vi.spyOn(component as unknown as { loadWebglLayerModule(): Promise<unknown> }, 'loadWebglLayerModule').mockReturnValue(loading);
+        component['clusteringEnabled'].set(false);
+        TestBed.tick();
+
+        hover([{ feature: cluster(1, 2), layerId: 'area-markers-locations' }]);
+        expect(highlights()).toEqual([]);
+
+        // The cluster layer is still the one drawn.
+        const changed = vi.spyOn(component.map.getLayerById('area-markers-locations')!, 'changed');
+        component['redrawLocationStyles']();
+        expect(changed).toHaveBeenCalled();
+      });
     });
 
     it('retains selection through request states, suspends it while details are open, then clears it on dismissal', async () => {
@@ -274,7 +507,7 @@ describe('MapComponent', () => {
     it('styles replacement features and regrouped clusters by current IDs, not object identity', () => {
       select([1, 2]);
       hover([{ feature: location(3), layerId: 'area-markers-locations' }]);
-      component['applyGeoJsonToLayer'](ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection","features":[]}');
+      component['applyLocationPoints']([]);
       expect(component['locationFeatureState'](location(3))).toBe('default');
       expect(component['locationFeatureState'](cluster(1, 2))).toBe('selected');
       expect(component['locationFeatureState'](cluster(1, 3))).toBe('default');
@@ -347,17 +580,17 @@ describe('MapComponent', () => {
         zoomControl: withView ? { getMap: () => ({ getView: () => view, getSize: () => [1000, 800] }) } : undefined,
       });
 
-      for (const [east, north] of [
-        [353063, 7201367],
-        [400000, 7300000],
-      ]) {
-        component.highlightObservation({ east, north });
+      for (const [east, north, registrationStatus] of [
+        [353063, 7201367, 'found'],
+        [400000, 7300000, 'absent'],
+      ] as const) {
+        component.highlightObservation({ east, north, registrationStatus });
         await fixture.whenStable();
         expect(map.updateGeoJSONLayer).toHaveBeenLastCalledWith(
           'observation-details-highlight',
           JSON.stringify({
             type: 'FeatureCollection',
-            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [east, north] }, properties: {} }],
+            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [east, north] }, properties: { registrationStatus } }],
           }),
           { mode: 'replace', dataProjection: 'EPSG:25833' },
         );
@@ -378,7 +611,7 @@ describe('MapComponent', () => {
     it('waits for a ready, visible map before updating the highlight', () => {
       const updateGeoJSONLayer = vi.fn();
       Object.assign(component, { map: { updateGeoJSONLayer }, mapReady: false, mapVisible: true });
-      const point = { east: 353063, north: 7201367 };
+      const point = { east: 353063, north: 7201367, registrationStatus: 'found' } as const;
       component.highlightObservation(point);
       expect(updateGeoJSONLayer).not.toHaveBeenCalled();
       Object.assign(component, { mapReady: true, mapVisible: false });
@@ -400,6 +633,40 @@ describe('MapComponent', () => {
     const point = (id: number) => new Feature({ geometry: new Point([353063, 7201367]), id });
     const click = (features: { layerId: string; feature: Feature }[]) =>
       access().handleLocationClick({ features, clickCoordinate: [353000, 7201300] });
+    let polygons: VectorSource<Feature>;
+
+    beforeEach(() => {
+      polygons = new VectorSource<Feature>();
+      const polygonLayer = new VectorLayer({ source: polygons });
+      component.map = { getLayerById: (id: string) => (id === 'location-polygons' ? polygonLayer : null) } as unknown as NbicMapComponent;
+    });
+
+    it('selects the location of a popped out point and describes a polygon location by its polygon', () => {
+      const outline = new Feature(new Polygon([[[1, 2], [3, 4], [5, 6], [1, 2]]]));
+      outline.setId(1);
+      polygons.addFeature(outline);
+      click([{ layerId: 'location-highlights', feature: point(1) }]);
+      expect(component.observationSelection()?.locationIds).toEqual([1]);
+      expect(component.observationSelection()?.kind).toBe('polygon');
+      expect(component.observationSelection()?.geometryLabel).toBe('POLYGON((1 2,3 4,5 6,1 2))');
+    });
+
+    it('selects only a popped out point, not the large cluster or other polygons under it', () => {
+      const clusterLayer = new VectorLayer({ source: new Cluster({ source: new VectorSource<Feature>() }) });
+      const polygonLayer = component.map.getLayerById('location-polygons');
+      component.map = {
+        getLayerById: (id: string) => ({ 'location-polygons': polygonLayer, 'area-markers-locations': clusterLayer })[id] ?? null,
+      } as unknown as NbicMapComponent;
+      const members = Array.from({ length: ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS + 1 }, (_, id) => point(id + 10));
+      const largeCluster = new Feature({ features: members });
+      const otherPolygon = new Feature({ id: 2, geometry: new Polygon([[[1, 2], [3, 4], [5, 6], [1, 2]]]) });
+      click([
+        { layerId: 'location-highlights', feature: point(1) },
+        { layerId: 'area-markers-locations', feature: largeCluster },
+        { layerId: 'location-polygons', feature: otherPolygon },
+      ]);
+      expect(component.observationSelection()?.locationIds).toEqual([1]);
+    });
 
     it('uses feature coordinates instead of pointer coordinates', () => {
       click([{ layerId: 'area-markers-locations', feature: point(1) }]);
@@ -527,22 +794,62 @@ describe('MapComponent', () => {
       );
     });
 
-    it('should route to locations layer with EPSG:4326 projection for LocationPoints zoom level', () => {
-      applyGeoJsonToLayer(component, ApiZoomLevel.LocationPoints, '{"type":"FeatureCollection"}');
-
-      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
-        'area-markers-locations',
-        '{"type":"FeatureCollection"}',
-        { mode: 'replace', dataProjection: 'EPSG:4326' },
-      );
-    });
-
     it('should not call updateGeoJSONLayer when map is not set', () => {
       component.map = undefined as unknown as NbicMapComponent;
 
       applyGeoJsonToLayer(component, ApiZoomLevel.Counties, '{}');
 
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('applyLocationPoints', () => {
+    it.each([false, true])('replaces location features in the view projection (clustered: %s)', (clustered) => {
+      const points = new VectorSource<Feature>({ features: [new Feature({ id: 99, geometry: new Point([0, 0]) })] });
+      const layer = new VectorLayer({ source: clustered ? new Cluster({ source: points }) : points });
+      component.map = { getLayerById: (id: string) => (id === 'area-markers-locations' ? layer : null) } as unknown as NbicMapComponent;
+
+      component['applyLocationPoints']([{ id: 42, longitude: 10, latitude: 60, observationCount: 7, registrationStatus: 'absent' }]);
+
+      const [feature, ...rest] = points.getFeatures();
+      expect(rest).toHaveLength(0);
+      expect(feature.getId()).toBe(42);
+      expect(feature.get('id')).toBe(42);
+      expect(feature.get('observationCount')).toBe(7);
+      expect(feature.get('registrationStatus')).toBe('absent');
+      const [longitude, latitude] = transform((feature.getGeometry() as Point).getCoordinates(), MAP_CONFIG.projection, 'EPSG:4326');
+      expect(longitude).toBeCloseTo(10);
+      expect(latitude).toBeCloseTo(60);
+    });
+
+    it.each([false, true])('marks the points of drawn polygons, whichever arrive first (clustered: %s)', (clustered) => {
+      const points = new VectorSource<Feature>();
+      const polygons = new VectorSource<Feature>();
+      const layers = new Map([
+        ['area-markers-locations', new VectorLayer({ source: clustered ? new Cluster({ source: points }) : points })],
+        ['location-polygons', new VectorLayer({ source: polygons })],
+      ]);
+      component.map = { getLayerById: (id: string) => layers.get(id) ?? null } as unknown as NbicMapComponent;
+      const outline = (id: number) => {
+        const feature = new Feature(new Polygon([[[0, 0], [10, 0], [10, 10], [0, 0]]]));
+        feature.setId(id);
+        return feature;
+      };
+      const marked = () => Object.fromEntries(points.getFeatures().map((point) => [point.getId(), point.get('isPolygon')]));
+
+      polygons.addFeature(outline(1));
+      const found = (id: number) => ({ id, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' as const });
+      component['applyLocationPoints']([found(1), found(2), found(3)]);
+      expect(marked()).toEqual({ 1: true, 2: false, 3: false });
+
+      // A cluster source reclusters on every change, while the WebGL layer must hear about each one.
+      const changes = vi.fn();
+      points.on('changefeature', changes);
+      polygons.clear();
+      polygons.addFeatures([outline(2), outline(3)]);
+      component['markPolygonLocationPoints']();
+      expect(marked()).toEqual({ 1: false, 2: true, 3: true });
+      expect(changes).toHaveBeenCalledTimes(clustered ? 0 : 3);
     });
   });
 
@@ -578,8 +885,6 @@ describe('MapComponent', () => {
 
     it('should continue processing after a service error', () => {
       vi.useFakeTimers();
-      const geojson = '{"type":"FeatureCollection","features":[]}';
-
       const testExtent: [number, number, number, number] = [0, 0, 1000000, 1000000];
 
       // First call fails (counts fetch with no cached geometries → falls back to getAreaMarkers)
@@ -593,16 +898,17 @@ describe('MapComponent', () => {
       expect(updateGeoJSONLayerSpy).not.toHaveBeenCalled();
 
       // Second call succeeds — pipeline should still be alive
-      vi.spyOn(areasService, 'getLocationsAsGeoJsonString').mockReturnValueOnce(of(geojson));
+      const locations = new VectorSource<Feature>();
+      component.map = {
+        updateGeoJSONLayer: updateGeoJSONLayerSpy,
+        getLayerById: (id: string) => (id === 'area-markers-locations' ? new VectorLayer({ source: locations }) : null),
+      } as unknown as NbicMapComponent;
+      vi.spyOn(areasService, 'getLocations').mockReturnValueOnce(of([{ id: 1, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' }]));
 
       locationsFetch$.next({ extent: testExtent, filter: {} });
       vi.advanceTimersByTime(300);
 
-      expect(updateGeoJSONLayerSpy).toHaveBeenCalledWith(
-        'area-markers-locations',
-        geojson,
-        { mode: 'replace', dataProjection: 'EPSG:4326' },
-      );
+      expect(locations.getFeatures()).toHaveLength(1);
 
       vi.useRealTimers();
     });
@@ -953,42 +1259,154 @@ describe('MapComponent', () => {
       c as unknown as {
         rebuildWithExtent: (filter: Record<string, unknown>, extent: [number, number, number, number]) => void;
         setupLocationsFetchPipeline: () => void;
+        applyLocationPoints: () => boolean;
       };
 
-    it('should not refetch locations when panning within the already fetched extent', () => {
+    const setupFetching = (zoom: number) => {
+      const areasService = TestBed.inject(AreasService);
+      const getPolygons = vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of({ geojson: '{"type":"FeatureCollection","features":[]}', count: 0 }));
+      component.map = {
+        updateGeoJSONLayer: vi.fn(),
+        getCamera: () => ({ zoom }),
+        setLayerVisibility: vi.fn(),
+        getLayerById: () => null,
+      } as unknown as NbicMapComponent;
+      const priv = accessPrivate(component);
+      priv.setupLocationsFetchPipeline();
+      return { priv, getLocations: vi.spyOn(areasService, 'getLocations'), getPolygons };
+    };
+
+    it('should fetch the view plus a margin and refetch only outside it or when the filter changes', () => {
       vi.useFakeTimers();
       try {
-        const areasService = TestBed.inject(AreasService);
-        const getLocations = vi
-          .spyOn(areasService, 'getLocationsAsGeoJsonString')
-          .mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
-        vi.spyOn(areasService, 'getLocationPolygons').mockReturnValue(of('{"type":"FeatureCollection","features":[]}'));
-        component.map = {
-          updateGeoJSONLayer: vi.fn(),
-          getCamera: () => ({ zoom: 12 }),
-          setLayerVisibility: vi.fn(),
-        } as unknown as NbicMapComponent;
-        const priv = accessPrivate(component);
-        priv.setupLocationsFetchPipeline();
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
 
         priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
         vi.advanceTimersByTime(300);
-        expect(getLocations).toHaveBeenCalledTimes(1);
+        expect(getLocations).toHaveBeenLastCalledWith([-250, -250, 1250, 1250], {}, ZoomConfig.MAX_LOCATIONS_PER_FETCH);
 
-        // Pan innenfor det hentede utsnittet — ingen ny henting
-        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
+        // Pan innenfor margen — ingen ny henting
+        priv.rebuildWithExtent({}, [-200, 0, 800, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(1);
 
-        // Utsnittet stikker utenfor — ny henting
-        priv.rebuildWithExtent({}, [-50, 0, 1000, 1000]);
+        // Utsnittet stikker utenfor margen — ny henting
+        priv.rebuildWithExtent({}, [-300, 0, 700, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(2);
 
         // Samme utsnitt med endret filter — ny henting
-        priv.rebuildWithExtent({ taxonIds: [1] }, [0, 0, 1000, 1000]);
+        priv.rebuildWithExtent({ taxonIds: [1] }, [-300, 0, 700, 1000]);
         vi.advanceTimersByTime(300);
         expect(getLocations).toHaveBeenCalledTimes(3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should cap locations when clustering is off and refetch without margin after a capped result', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations } = setupFetching(6);
+        const respondWith = (count: number) =>
+          getLocations.mockReturnValueOnce(of(Array.from({ length: count }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' as const }))));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
+        component['clusteringEnabled'].set(false);
+
+        respondWith(ZoomConfig.MAX_LOCATIONS_PER_FETCH);
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenLastCalledWith([-250, -250, 1250, 1250], {}, ZoomConfig.MAX_LOCATIONS_PER_FETCH);
+
+        respondWith(ZoomConfig.MAX_LOCATIONS_PER_FETCH - 1);
+        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenLastCalledWith([100, 100, 900, 900], {}, ZoomConfig.MAX_LOCATIONS_PER_FETCH);
+
+        priv.rebuildWithExtent({}, [200, 200, 800, 800]);
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should refetch inside the loaded area when the polygons hit their limit', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations, getPolygons } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+        getPolygons.mockReturnValue(of({ geojson: '{"type":"FeatureCollection","features":[]}', count: ZoomConfig.MAX_POLYGONS_PER_FETCH }));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
+
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        vi.advanceTimersByTime(300);
+        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
+        vi.advanceTimersByTime(300);
+
+        expect(getPolygons).toHaveBeenLastCalledWith([100, 100, 900, 900], {}, ZoomConfig.MAX_POLYGONS_PER_FETCH);
+        expect(getLocations).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should mark and restyle the location points when polygons arrive', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
+        const restyle = component as unknown as { markPolygonLocationPoints(): void; redrawLocationStyles(): void };
+        const mark = vi.spyOn(restyle, 'markPolygonLocationPoints');
+        const redraw = vi.spyOn(restyle, 'redrawLocationStyles');
+
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        vi.advanceTimersByTime(300);
+
+        expect(mark).toHaveBeenCalledOnce();
+        expect(mark).toHaveBeenCalledBefore(redraw);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should keep the margin after a capped result for a different filter', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValueOnce(of(Array.from({ length: ZoomConfig.MAX_LOCATIONS_PER_FETCH }, (_, id) => ({ id, longitude: 10, latitude: 60, observationCount: 1, registrationStatus: 'found' as const }))));
+        getLocations.mockReturnValue(of([]));
+        vi.spyOn(priv, 'applyLocationPoints').mockReturnValue(true);
+
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        vi.advanceTimersByTime(300);
+        priv.rebuildWithExtent({ taxonIds: [1] }, [0, 0, 1000, 1000]);
+        vi.advanceTimersByTime(300);
+
+        expect(getLocations).toHaveBeenLastCalledWith([-250, -250, 1250, 1250], { taxonIds: [1] }, ZoomConfig.MAX_LOCATIONS_PER_FETCH);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should refetch after a response that arrived while the map was hidden', () => {
+      vi.useFakeTimers();
+      try {
+        const { priv, getLocations } = setupFetching(12);
+        getLocations.mockReturnValue(of([]));
+
+        priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        component['mapVisible'] = false;
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenCalledTimes(1);
+
+        component['mapVisible'] = true;
+        priv.rebuildWithExtent({}, [100, 100, 900, 900]);
+        vi.advanceTimersByTime(300);
+        expect(getLocations).toHaveBeenCalledTimes(2);
       } finally {
         vi.useRealTimers();
       }
@@ -1034,6 +1452,31 @@ describe('MapComponent', () => {
         expect(priv.locationCountResult()).toEqual({ count: 5, truncated: false });
       } finally {
         TestBed.inject(FilterStateService).clearAll();
+        vi.useRealTimers();
+      }
+    });
+
+    it('should lock clustering on when the count fails, since the selection size is unknown', () => {
+      vi.useFakeTimers();
+      try {
+        const priv = component as unknown as {
+          locationCountFetch$: Subject<LocationSearchFilter>;
+          locationCountResult: { set: (v: LocationCountResult | null) => void };
+          locationFilter: () => LocationSearchFilter;
+          setupLocationCountPipeline: () => void;
+        };
+        vi.spyOn(component as unknown as { rebuildAllLayers(): void }, 'rebuildAllLayers').mockImplementation(() => undefined);
+        vi.spyOn(TestBed.inject(AreasService), 'getLocationCount').mockReturnValue(throwError(() => new Error('503')));
+        priv.setupLocationCountPipeline();
+        priv.locationCountResult.set({ count: 5, truncated: false });
+        component['clusteringEnabled'].set(false);
+
+        priv.locationCountFetch$.next(priv.locationFilter());
+        vi.advanceTimersByTime(200);
+
+        expect(component['clusteringLock']()).toBe('unknownCount');
+        expect(component['clusteringEnabled']()).toBe(true);
+      } finally {
         vi.useRealTimers();
       }
     });
@@ -1085,6 +1528,8 @@ describe('MapComponent', () => {
       accessPrivate(component).rebuildWithExtent({}, testExtent);
 
       expect(setLayerVisibilitySpy).toHaveBeenCalledWith('area-markers-locations', false);
+      expect(setLayerVisibilitySpy).toHaveBeenCalledWith('location-highlights', false);
+      expect(setLayerVisibilitySpy).toHaveBeenCalledWith('location-polygon-highlights', false);
       expect(setLayerVisibilitySpy).toHaveBeenCalledWith('area-markers-counties', true);
       expect(locationsFetched.length).toBe(0);
     });
@@ -1121,15 +1566,171 @@ describe('MapComponent', () => {
 
       expect(locationsFetched.length).toBe(1);
     });
+
+    describe('with clustering disabled', () => {
+      it('should show locations and hide area layers at low zoom when count is above threshold', () => {
+        component['clusteringEnabled'].set(false);
+        accessPrivate(component).locationCountResult.set({ count: ABOVE_THRESHOLD, truncated: false });
+
+        accessPrivate(component).rebuildWithExtent({}, testExtent);
+
+        expect(setLayerVisibilitySpy).toHaveBeenCalledWith('area-markers-locations', true);
+        expect(setLayerVisibilitySpy).toHaveBeenCalledWith('area-markers-counties', false);
+        expect(setLayerVisibilitySpy).toHaveBeenCalledWith('area-markers-municipalities', false);
+        expect(locationsFetched.length).toBe(1);
+      });
+
+      it('should wait for a pending recount before fetching, since it can lock clustering on', () => {
+        const priv = component as unknown as { locationCountPending: boolean };
+        component['clusteringEnabled'].set(false);
+        accessPrivate(component).locationCountResult.set({ count: ABOVE_THRESHOLD, truncated: false });
+        priv.locationCountPending = true;
+
+        accessPrivate(component).rebuildWithExtent({}, testExtent);
+        expect(locationsFetched.length).toBe(0);
+
+        priv.locationCountPending = false;
+        accessPrivate(component).rebuildWithExtent({}, testExtent);
+        expect(locationsFetched.length).toBe(1);
+      });
+
+      it('should lock clustering on while the filter matches more locations than the unclustered limit', () => {
+        component['clusteringEnabled'].set(false);
+
+        accessPrivate(component).locationCountResult.set({ count: ZoomConfig.MAX_LOCATIONS_PER_FETCH, truncated: true });
+        expect(component['clusteringLock']()).toBe('tooManyLocations');
+        expect(component['clusteringEnabled']()).toBe(true);
+
+        accessPrivate(component).locationCountResult.set({ count: ZoomConfig.MAX_LOCATIONS_PER_FETCH, truncated: false });
+        expect(component['clusteringLock']()).toBeNull();
+        expect(component['clusteringEnabled']()).toBe(true);
+        component['clusteringEnabled'].set(false);
+        expect(component['clusteringEnabled']()).toBe(false);
+      });
+
+      it('should swap in a WebGL locations layer without clustering and dispose it when clustering returns', async () => {
+        const layers = new Map<string, LayerDef>();
+        const adopted: { layer: BaseLayer | null } = { layer: null };
+        const adoptLayer = vi.fn((_id: string, layer: BaseLayer) => { adopted.layer = layer; });
+        component.map = {
+          addLayer: (definition: LayerDef) => { layers.set(definition.id, definition); },
+          adoptLayer,
+          removeLayer: vi.fn(() => { adopted.layer = null; }),
+          getLayerById: (id: string) => (id === 'area-markers-locations' ? adopted.layer : null),
+        } as unknown as NbicMapComponent;
+        component['featureStyles'] = { webglLocationMarker: () => ({ 'circle-radius': 8 }) } as unknown as MapFeatureStyles;
+        component['mapReady'] = true;
+        const rebuild = vi.spyOn(component as unknown as { rebuildAllLayers(): void }, 'rebuildAllLayers').mockImplementation(() => undefined);
+
+        component['clusteringEnabled'].set(false);
+        TestBed.tick();
+
+        await vi.waitFor(() => expect(adoptLayer).toHaveBeenCalled());
+        expect(adoptLayer).toHaveBeenCalledWith('area-markers-locations', expect.any(WebGLVectorLayer), { zIndex: 100, pickable: false });
+        expect(rebuild).toHaveBeenCalled();
+
+        const dispose = vi.spyOn(adopted.layer!, 'dispose');
+        component['clusteringEnabled'].set(true);
+        TestBed.tick();
+
+        expect(dispose).toHaveBeenCalled();
+        expect(layers.get('area-markers-locations')?.cluster?.enabled).toBe(true);
+      });
+    });
   });
 
-  describe('resolveCursorAtPixel', () => {
+  describe('WebGL location hit-testing', () => {
+    const near = (id: number, x: number) => {
+      const feature = new Feature({ id, geometry: new Point([x, 0]) });
+      feature.setId(id);
+      return feature;
+    };
+
+    beforeEach(() => {
+      const layer = new WebGLVectorLayer({ source: new VectorSource({ features: [near(1, 10), near(2, 3), near(3, 14)] }), style: {} });
+      component.map = { getLayerById: (id: string) => (id === 'area-markers-locations' ? layer : null) } as unknown as NbicMapComponent;
+      component['webglLocationsLayer'] = layer;
+    });
+
+    it('hovers every point within the marker radius plus tolerance and skips the WebGL layer in canvas hit-testing', () => {
+      const layerFilters: ((layer: unknown) => boolean)[] = [];
+      const olMap = {
+        getCoordinateFromPixel: () => [0, 0],
+        getView: () => ({ getResolution: () => 1 }),
+        forEachFeatureAtPixel: (_pixel: unknown, _callback: unknown, options: { layerFilter: (layer: unknown) => boolean }) => {
+          layerFilters.push(options.layerFilter);
+          return undefined;
+        },
+      };
+
+      const hit = component['hitTestPixel'](olMap as unknown as OlMap, [0, 0]);
+      expect(hit).toEqual({ cursor: 'pointer', locationIds: [2, 1], areaKey: null });
+
+      olMap.getCoordinateFromPixel = () => [100, 0];
+      expect(component['hitTestPixel'](olMap as unknown as OlMap, [0, 0]).cursor).toBe('');
+      expect(layerFilters[0](component.map.getLayerById('area-markers-locations'))).toBe(false);
+    });
+
+    it('opens every point under a click, ignoring points outside the tolerance', () => {
+      component['zoomControl'] = {
+        getMap: () => ({ getView: () => ({ getResolution: () => 1, getProjection: () => MAP_CONFIG.projection }) }),
+      } as unknown as ArtskartZoomControl;
+      vi.spyOn(TestBed.inject(ObservationService), 'getObservationByLocation').mockReturnValue(of([]));
+
+      (component as unknown as { handleLocationClick: (payload: unknown) => void }).handleLocationClick({ features: null, clickCoordinate: [0, 0] });
+
+      expect(component.observationSelection()?.locationIds).toEqual([2, 1]);
+    });
+
+    it('reaches the corners of polygon markers', () => {
+      const polygonPoint = near(4, 18);
+      polygonPoint.set('isPolygon', true);
+      const source = new VectorSource({ features: [polygonPoint, near(5, 18)] });
+      component['webglLocationsLayer'] = new WebGLVectorLayer({ source, style: {} });
+      expect(component['webglLocationHits']([0, 0], 1)).toEqual([polygonPoint]);
+    });
+
+    it('zooms in instead of opening the list when a click covers more points than a small cluster', () => {
+      const dense = Array.from({ length: ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS + 1 }, (_, id) => near(id + 10, id % 5));
+      component['webglLocationsLayer'] = new WebGLVectorLayer({ source: new VectorSource({ features: dense }), style: {} });
+      const fit = vi.fn();
+      component['zoomControl'] = {
+        getMap: () => ({ getView: () => ({ getResolution: () => 1, getZoom: () => 6, fit, animate: vi.fn() }) }),
+      } as unknown as ArtskartZoomControl;
+
+      const olMap = { getCoordinateFromPixel: () => [0, 0], getView: () => ({ getResolution: () => 1 }) };
+      expect(component['hitTestPixel'](olMap as unknown as OlMap, [0, 0]).cursor).toBe('zoom-in');
+
+      (component as unknown as { handleLocationClick: (payload: unknown) => void }).handleLocationClick({ features: null, clickCoordinate: [0, 0] });
+
+      expect(fit).toHaveBeenCalled();
+      expect(component.observationSelection()).toBeNull();
+    });
+  });
+
+  describe('WebGL layer loading', () => {
+    it('turns clustering back on when the WebGL layer fails to load', async () => {
+      component.map = { removeLayer: vi.fn(), adoptLayer: vi.fn(), addLayer: vi.fn(), getLayerById: () => null } as unknown as NbicMapComponent;
+      component['featureStyles'] = {} as MapFeatureStyles;
+      component['mapReady'] = true;
+      vi.spyOn(component as unknown as { rebuildAllLayers(): void }, 'rebuildAllLayers').mockImplementation(() => undefined);
+      vi.spyOn(component as unknown as { loadWebglLayerModule(): Promise<unknown> }, 'loadWebglLayerModule').mockRejectedValue(new Error('chunk failed'));
+
+      component['clusteringEnabled'].set(false);
+      TestBed.tick();
+
+      await vi.waitFor(() => expect(component['clusteringEnabled']()).toBe(true));
+      expect(component.map.adoptLayer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hitTestPixel cursor', () => {
     // Avledet fra konfig slik at justering av terskler ikke brekker testene
     const CLUSTER_MAX = ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS;
 
     const accessPrivate = (c: MapComponent) =>
       c as unknown as {
-        resolveCursorAtPixel: (olMap: unknown, pixel: [number, number]) => string;
+        hitTestPixel: (olMap: unknown, pixel: [number, number]) => { cursor: string };
         zoomControl?: { getMap: () => { getView: () => { getZoom: () => number } } | null };
       };
 
@@ -1153,60 +1754,72 @@ describe('MapComponent', () => {
 
     it('should return zoom-in over a cluster above the click threshold', () => {
       setupZoom(12);
-      const cursor = accessPrivate(component).resolveCursorAtPixel(
+      const cursor = accessPrivate(component).hitTestPixel(
         olMapWith([{ feature: clusterWith(CLUSTER_MAX + 1), layerId: 'area-markers-locations' }]),
         [0, 0],
-      );
+      ).cursor;
       expect(cursor).toBe('zoom-in');
+    });
+
+    it('should return pointer over a popped out polygon marker covering a large cluster', () => {
+      setupZoom(12);
+      const cursor = accessPrivate(component).hitTestPixel(
+        olMapWith([
+          { feature: { get: () => undefined }, layerId: 'location-highlights' },
+          { feature: clusterWith(CLUSTER_MAX + 1), layerId: 'area-markers-locations' },
+        ]),
+        [0, 0],
+      ).cursor;
+      expect(cursor).toBe('pointer');
     });
 
     it('should return pointer over a cluster at or below the threshold', () => {
       setupZoom(12);
-      const cursor = accessPrivate(component).resolveCursorAtPixel(
+      const cursor = accessPrivate(component).hitTestPixel(
         olMapWith([{ feature: clusterWith(CLUSTER_MAX), layerId: 'area-markers-locations' }]),
         [0, 0],
-      );
+      ).cursor;
       expect(cursor).toBe('pointer');
     });
 
     it('should return pointer over a large cluster at max zoom, matching the popover fallback', () => {
       setupZoom(MAP_CONFIG.maxZoom);
-      const cursor = accessPrivate(component).resolveCursorAtPixel(
+      const cursor = accessPrivate(component).hitTestPixel(
         olMapWith([{ feature: clusterWith(CLUSTER_MAX + 1), layerId: 'area-markers-locations' }]),
         [0, 0],
-      );
+      ).cursor;
       expect(cursor).toBe('pointer');
     });
 
     it('should prioritize zoom-in when a large cluster and a polygon are both hit', () => {
       setupZoom(12);
-      const cursor = accessPrivate(component).resolveCursorAtPixel(
+      const cursor = accessPrivate(component).hitTestPixel(
         olMapWith([
           { feature: { get: () => undefined }, layerId: 'location-polygons' },
           { feature: clusterWith(CLUSTER_MAX + 1), layerId: 'area-markers-locations' },
         ]),
         [0, 0],
-      );
+      ).cursor;
       expect(cursor).toBe('zoom-in');
     });
 
     it('should return zoom-in over an area centroid marker but not over its polygon outline', () => {
       setupZoom(8);
-      const marker = accessPrivate(component).resolveCursorAtPixel(
+      const marker = accessPrivate(component).hitTestPixel(
         olMapWith([{ feature: { get: (k: string) => (k === 'centroid' ? { x: 1, y: 2 } : undefined) }, layerId: 'area-markers-counties' }]),
         [0, 0],
-      );
-      const outline = accessPrivate(component).resolveCursorAtPixel(
+      ).cursor;
+      const outline = accessPrivate(component).hitTestPixel(
         olMapWith([{ feature: { get: () => undefined }, layerId: 'area-markers-counties' }]),
         [0, 0],
-      );
+      ).cursor;
       expect(marker).toBe('zoom-in');
       expect(outline).toBe('');
     });
 
     it('should return empty cursor when nothing clickable is hit', () => {
       setupZoom(8);
-      expect(accessPrivate(component).resolveCursorAtPixel(olMapWith([]), [0, 0])).toBe('');
+      expect(accessPrivate(component).hitTestPixel(olMapWith([]), [0, 0]).cursor).toBe('');
     });
   });
 

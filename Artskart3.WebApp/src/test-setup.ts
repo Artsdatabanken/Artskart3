@@ -7,6 +7,23 @@ class ResizeObserverStub {
 
 globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 
+// Newer Node versions ship a global localStorage that shadows jsdom's and is undefined without --localstorage-file
+// Required if running Node version 26
+if (typeof globalThis.localStorage === 'undefined') {
+  const items = new Map<string, string>();
+  const memoryStorage: Storage = {
+    get length() {
+      return items.size;
+    },
+    clear: () => items.clear(),
+    getItem: key => items.get(key) ?? null,
+    key: index => Array.from(items.keys())[index] ?? null,
+    removeItem: key => void items.delete(key),
+    setItem: (key, value) => void items.set(key, String(value)),
+  };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: memoryStorage });
+}
+
 // jsdom has no native dialog top layer. Real focus containment is exercised in browser checks.
 for (const method of ['show', 'showModal'] as const) {
   if (!HTMLDialogElement.prototype[method]) {

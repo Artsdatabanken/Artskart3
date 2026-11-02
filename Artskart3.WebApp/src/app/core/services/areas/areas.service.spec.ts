@@ -20,21 +20,31 @@ describe('AreasService map styling metadata', () => {
     service = TestBed.inject(AreasService);
   });
 
-  it('preserves location IDs, coordinates, and counts without overriding layer styles', async () => {
-    postJson.mockReturnValue(of(JSON.stringify({ locations: [[42, 10, 60, 1234]] })));
-    const collection = JSON.parse(await firstValueFrom(service.getLocationsAsGeoJsonString())) as { features: AreaMarkerFeature[] };
-    const [feature] = collection.features;
-    expect(feature.id).toBe(42);
-    expect(feature.geometry).toEqual({ type: 'Point', coordinates: [10, 60] });
-    expect(feature.properties.id).toBe(42);
-    expect(feature.properties.observationCount).toBe(1234);
-    expect(feature.properties.observationCountDisplay).toBeTruthy();
-    expect(feature.properties['nbic:style']).toBeUndefined();
+  it('reads compact locations into IDs, coordinates, counts and registration status and skips malformed rows', async () => {
+    postJson.mockReturnValue(
+      of(JSON.stringify({ locations: [[42, 10, 60, 1234, 1], [45, 11, 61, 2, 2], [46, 12, 62, 3, 3], [47, 13, 63, 4], [43, 'x', 60, 1], [44, 10]] })),
+    );
+    expect(await firstValueFrom(service.getLocations())).toEqual([
+      { id: 42, longitude: 10, latitude: 60, observationCount: 1234, registrationStatus: 'found' },
+      { id: 45, longitude: 11, latitude: 61, observationCount: 2, registrationStatus: 'absent' },
+      { id: 46, longitude: 12, latitude: 62, observationCount: 3, registrationStatus: 'notRecovered' },
+      { id: 47, longitude: 13, latitude: 63, observationCount: 4, registrationStatus: 'found' },
+    ]);
+  });
+
+  it('sends maxResults for locations only when given', async () => {
+    postJson.mockReturnValue(of(JSON.stringify({ locations: [] })));
+    await firstValueFrom(service.getLocations(undefined, undefined, 20000));
+    await firstValueFrom(service.getLocations());
+    expect(postJson.mock.calls[0][1]).toEqual({ maxResults: 20000 });
+    expect(postJson.mock.calls[1][1]).toEqual({});
   });
 
   it('preserves polygon identity and geometry without overriding layer styles', async () => {
     postJson.mockReturnValue(of([{ locationId: 42, locality: 'Test', observationCount: 1234, wktPolygon: 'POLYGON ((0 0,10 0,10 10,0 0))' }]));
-    const collection = JSON.parse(await firstValueFrom(service.getLocationPolygons())) as { features: AreaMarkerFeature[] };
+    const { geojson, count } = await firstValueFrom(service.getLocationPolygons());
+    const collection = JSON.parse(geojson) as { features: AreaMarkerFeature[] };
+    expect(count).toBe(1);
     const [feature] = collection.features;
     expect(feature.id).toBe(42);
     expect(feature.properties.id).toBe(42);
