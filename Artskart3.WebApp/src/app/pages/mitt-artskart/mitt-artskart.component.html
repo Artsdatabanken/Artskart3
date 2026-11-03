@@ -11,7 +11,7 @@
 
   <adb-tabs [attr.aria-label]="'mittArtskart.tabsAriaLabel' | translate">
     <adb-tab slot="tab">{{ 'mittArtskart.exportJobs' | translate }}</adb-tab>
-    <adb-tab slot="tab">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
+    <adb-tab slot="tab" [disabled]="authService.isAnonymous()">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
 
 
     <adb-tab-panel>
