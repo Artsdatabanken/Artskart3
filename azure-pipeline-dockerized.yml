@@ -1,15 +1,24 @@
 trigger:
   branches:
     include:
-      - AK3ToContainerApps
+      - develop
+      - staging
+      - main
 pr: none
 
 pool:
   vmImage: ubuntu-latest
 
+# Miljøet følger grenen og brukes bare i de flytende taggene (web-test osv.).
+# Utrullingen bruker taggen med BuildId.
 variables:
   dockerHubNamespace: "artsdatabanken"
-  env: "test"
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    env: "prod"
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/staging') }}:
+    env: "staging"
+  ${{ else }}:
+    env: "test"
 
 # To jobber fordi hver jobb faar en ny agent med ren disk. I en felles jobb fyller
 # test-stegene (SQL Server-imaget fra Testcontainers, node_modules, NuGet-cache)
@@ -93,7 +102,7 @@ jobs:
         displayName: "Build EF migration bundle"
 
       - publish: $(Build.ArtifactStagingDirectory)/migrations
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/AK3ToContainerApps'))
+        condition: succeeded()
         displayName: "Publish migration bundle artifact"
         artifact: migrations
 
