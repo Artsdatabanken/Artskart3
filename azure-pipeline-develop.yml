@@ -1,7 +1,6 @@
-trigger:
-  branches:
-    include:
-      - develop
+# Kjører bare som PR-validering. Bygg og utrulling fra develop gjøres av
+# azure-pipeline-dockerized.yml.
+trigger: none
 pr:
   branches:
     include:

@@ -1,0 +1,160 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - staging
+      - main
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+# Miljøet følger grenen og brukes bare i de flytende taggene (web-test osv.).
+# Utrullingen bruker taggen med BuildId.
+variables:
+  dockerHubNamespace: "artsdatabanken"
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    env: "prod"
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/staging') }}:
+    env: "staging"
+  ${{ else }}:
+    env: "test"
+
+# To jobber fordi hver jobb faar en ny agent med ren disk. I en felles jobb fyller
+# test-stegene (SQL Server-imaget fra Testcontainers, node_modules, NuGet-cache)
+# disken foer image-byggene er ferdige.
+jobs:
+  - job: Test
+    displayName: Lint and test
+    steps:
+      # ---------------------------
+      # Frontend (Angular) lint og test
+      #
+      # Selve Angular-bygget skjer i Dockerfile. Her kjoerer vi bare kvalitetsportene,
+      # slik at vi ikke pusher images fra en gren som ikke er groenn.
+      # ---------------------------
+
+      - task: NodeTool@0
+        displayName: "Install Node.js"
+        inputs:
+          versionSpec: "24.x"
+
+      - script: |
+          cd Artskart3.WebApp
+          npm ci
+        displayName: "Install Angular dependencies"
+
+      - script: |
+          cd Artskart3.WebApp
+          npm run lint
+        displayName: "Lint Angular app"
+
+      - script: |
+          cd Artskart3.WebApp
+          npm test -- --watch=false
+        displayName: "Run Angular tests"
+        continueOnError: false
+
+      # ---------------------------
+      # .NET restore/build/test
+      # ---------------------------
+
+      - task: UseDotNet@2
+        displayName: "Install .NET SDK"
+        inputs:
+          packageType: "sdk"
+          version: "10.x"
+
+      - task: DotNetCoreCLI@2
+        displayName: "Restore .NET dependencies"
+        inputs:
+          command: "restore"
+          projects: "**/*.csproj"
+
+      - task: DotNetCoreCLI@2
+        displayName: "Build .NET solution"
+        inputs:
+          command: "build"
+          projects: "**/*.csproj"
+          arguments: "--configuration Release"
+
+      - task: DotNetCoreCLI@2
+        displayName: "Run .NET tests"
+        inputs:
+          command: "test"
+          projects: "**/*Tests*.csproj"
+          arguments: "--configuration Release --no-build --settings coverage.runsettings --logger trx"
+          publishTestResults: true
+
+      - script: |
+          dotnet tool install --global dotnet-ef --version 10.0.7
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations bundle \
+            --project Artskart3.Infrastructure \
+            --startup-project Artskart3.Api \
+            --context ArtskartDbContext \
+            --configuration Release \
+            --self-contained --target-runtime linux-x64 \
+            --output $(Build.ArtifactStagingDirectory)/migrations/efbundle \
+            --force
+        env:
+          ConnectionStrings__ArtskartIndex: "Server=placeholder;Database=placeholder;"
+        displayName: "Build EF migration bundle"
+
+      - publish: $(Build.ArtifactStagingDirectory)/migrations
+        condition: succeeded()
+        displayName: "Publish migration bundle artifact"
+        artifact: migrations
+
+  # ---------------------------
+  # Container images
+  # ---------------------------
+
+  - job: Images
+    displayName: Build and push images
+    dependsOn: Test
+    steps:
+      - bash: |
+          if [ -z "$DOCKER_HUB_NAMESPACE" ]; then
+            echo "##vso[task.logissue type=error]Set the pipeline variable dockerHubNamespace to your Docker Hub user or organization."
+            exit 1
+          fi
+        displayName: Validate Docker Hub configuration
+        env:
+          DOCKER_HUB_NAMESPACE: $(dockerHubNamespace)
+
+      - task: Docker@2
+        displayName: Build and push web image
+        inputs:
+          command: buildAndPush
+          containerRegistry: DockerHub
+          repository: $(dockerHubNamespace)/artskart3
+          Dockerfile: $(Build.SourcesDirectory)/Artskart3.WebApp/Dockerfile
+          buildContext: $(Build.SourcesDirectory)
+          tags: |
+            web-$(Build.BuildId)
+            web-$(env)
+
+      - task: Docker@2
+        displayName: Build and push API image
+        inputs:
+          command: buildAndPush
+          containerRegistry: DockerHub
+          repository: $(dockerHubNamespace)/artskart3
+          Dockerfile: $(Build.SourcesDirectory)/Artskart3.Api/Dockerfile
+          buildContext: $(Build.SourcesDirectory)
+          tags: |
+            api-$(Build.BuildId)
+            api-$(env)
+
+      - task: Docker@2
+        displayName: Build and push workers image
+        inputs:
+          command: buildAndPush
+          containerRegistry: DockerHub
+          repository: $(dockerHubNamespace)/artskart3
+          Dockerfile: $(Build.SourcesDirectory)/Artskart3.Workers/Dockerfile
+          buildContext: $(Build.SourcesDirectory)
+          tags: |
+            workers-$(Build.BuildId)
+            workers-$(env)

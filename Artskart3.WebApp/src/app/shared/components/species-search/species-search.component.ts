@@ -6,7 +6,7 @@ import { FilterStateService } from '../../services/filter-state/filter-state.ser
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
-import { SpeciesMatchLinePipe, SpeciesResultRow, toResultRow } from './species-result-row';
+import { SpeciesMatchLinePipe, SpeciesResultRow, toResultRows } from './species-result-row';
 
 @Component({
   selector: 'app-species-search',
@@ -18,8 +18,7 @@ export class SpeciesSearchComponent {
   private readonly speciesSearchService = inject(SpeciesSearchService);
   private readonly filterState = inject(FilterStateService);
 
-  readonly search: AutocompleteSearch<SpeciesResultRow> = (term) =>
-    this.speciesSearchService.searchSpecies(term).pipe(map((list) => list.map(toResultRow)));
+  readonly search: AutocompleteSearch<SpeciesResultRow> = (term) => this.speciesSearchService.searchSpecies(term).pipe(map(toResultRows));
   readonly trackByTaxonId = (row: SpeciesResultRow) => row.species.taxonId;
 
   onSelected(row: SpeciesResultRow): void {

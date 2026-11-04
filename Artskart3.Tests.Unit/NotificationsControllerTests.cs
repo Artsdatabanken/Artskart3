@@ -1,10 +1,9 @@
 using Artskart3.Api.Controllers;
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -12,29 +11,31 @@ namespace Artskart3.Tests.Unit;
 public class NotificationsControllerTests
 {
     private readonly Mock<INotificationsService> _serviceMock;
-    private readonly Mock<ILogger<NotificationsController>> _loggerMock;
     private readonly NotificationsController _sut;
 
     public NotificationsControllerTests()
     {
         _serviceMock = new Mock<INotificationsService>();
-        _loggerMock = new Mock<ILogger<NotificationsController>>();
-        _sut = new NotificationsController(_serviceMock.Object, _loggerMock.Object);
+        _sut = new NotificationsController(_serviceMock.Object);
     }
 
-    // -----------------------------------------------------------------------
-    // GetNotifications
-    // -----------------------------------------------------------------------
+    [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenServiceIsNull()
+    {
+        var act = () => new NotificationsController(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("notificationsService");
+    }
 
     [Fact]
     public async Task GetNotifications_ReturnsOkWithNotifications()
     {
-        var notifications = new List<NotificationModel>
+        var notifications = new List<NotificationDto>
         {
-            new() { Type = AlertType.Danger, Heading = "Tjenesten er nede", CanClose = false },
-            new() { Type = AlertType.Info,   Heading = "Ny versjon",        CanClose = true  }
+            new() { Id = Guid.NewGuid(), AlertType = AlertType.Danger, Heading = "Tjenesten er nede", Description = "Prøv igjen senere", CanClose = false },
+            new() { Id = Guid.NewGuid(), AlertType = AlertType.Info, Heading = "Ny versjon", Description = "Se hva som er nytt", CanClose = true }
         };
-        _serviceMock.Setup(s => s.GetAllNotificationsAsync()).ReturnsAsync(notifications);
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync(notifications);
 
         var result = await _sut.GetNotifications();
 
@@ -45,38 +46,47 @@ public class NotificationsControllerTests
     [Fact]
     public async Task GetNotifications_WhenServiceReturnsEmptyList_ReturnsOkWithEmptyList()
     {
-        _serviceMock.Setup(s => s.GetAllNotificationsAsync()).ReturnsAsync([]);
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync([]);
 
         var result = await _sut.GetNotifications();
 
         result.Result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeAssignableTo<IEnumerable<NotificationModel>>()
+            .Which.Value.Should().BeAssignableTo<IEnumerable<NotificationDto>>()
             .Which.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetNotifications_WhenServiceThrowsApplicationException_Returns503()
+    public async Task GetNotifications_CallsServiceOnce()
     {
-        _serviceMock
-            .Setup(s => s.GetAllNotificationsAsync())
-            .ThrowsAsync(new ApplicationException("Fil ikke tilgjengelig"));
+        _serviceMock.Setup(s => s.GetAllActiveNotificationsAsync()).ReturnsAsync([]);
 
-        var result = await _sut.GetNotifications();
+        await _sut.GetNotifications();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(503);
+        _serviceMock.Verify(s => s.GetAllActiveNotificationsAsync(), Times.Once);
     }
 
     [Fact]
-    public async Task GetNotifications_WhenServiceThrowsUnexpectedException_Returns500()
+    public async Task GetNotifications_WhenServiceThrowsApplicationException_ExceptionPropagates()
     {
         _serviceMock
-            .Setup(s => s.GetAllNotificationsAsync())
+            .Setup(s => s.GetAllActiveNotificationsAsync())
+            .ThrowsAsync(new ApplicationException("Databasen er utilgjengelig"));
+
+        var act = () => _sut.GetNotifications();
+
+        await act.Should().ThrowAsync<ApplicationException>()
+            .WithMessage("Databasen er utilgjengelig");
+    }
+
+    [Fact]
+    public async Task GetNotifications_WhenServiceThrowsUnexpectedException_ExceptionPropagates()
+    {
+        _serviceMock
+            .Setup(s => s.GetAllActiveNotificationsAsync())
             .ThrowsAsync(new InvalidOperationException("Uventet feil"));
 
-        var result = await _sut.GetNotifications();
+        var act = () => _sut.GetNotifications();
 
-        result.Result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(500);
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 }

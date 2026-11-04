@@ -6,7 +6,7 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SpeciesSearchComponent } from './species-search.component';
-import { SpeciesResultRow, getMatchLine, getVernacularName, toResultRow } from './species-result-row';
+import { SpeciesResultRow, getMatchLine, getVernacularName, toResultRow, toResultRows } from './species-result-row';
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SpeciesDto } from '../../types/api.types';
@@ -58,7 +58,7 @@ describe('SpeciesSearchComponent', () => {
       By.directive(AutocompleteComponent),
     ).componentInstance;
     autocomplete.searchTerm.set(term);
-    autocomplete.results.set(species.map(toResultRow));
+    autocomplete.results.set(toResultRows(species));
     autocomplete.showAutocomplete.set(true);
     fixture.detectChanges();
     return fixture.nativeElement;
@@ -179,6 +179,29 @@ describe('SpeciesSearchComponent', () => {
       const row = toResultRow(coryphellaSynonym);
       expect(row.vernacularName).toBe('Flanellsnegl');
       expect(row.species.taxonGroupName).toBe('Bløtdyr');
+    });
+
+    describe('with the same scientific name', () => {
+      const homonyms: SpeciesDto[] = [
+        { taxonId: 193815, scientificName: 'Tecticeps renoculis', author: 'Gurjanova, 1935' },
+        { taxonId: 193816, scientificName: 'Tecticeps renoculis', author: 'Richardson, 1909' },
+        { taxonId: 193817, scientificName: 'Tecticeps alascensis', author: 'Richardson, 1899' },
+      ];
+
+      it('should show the author only on the rows sharing the name', () => {
+        expect(toResultRows(homonyms).map((row) => row.showAuthor)).toEqual([true, true, false]);
+      });
+
+      it('should not show an empty author', () => {
+        const rows = toResultRows([homonyms[0], { ...homonyms[1], author: '' }]);
+        expect(rows.map((row) => row.showAuthor)).toEqual([true, false]);
+      });
+
+      it('should render the author once on its own line, whether or not it matches', () => {
+        const element = showRows('richardson', homonyms);
+        const lines = [...element.querySelectorAll('.autocomplete-match')].map((line) => line.textContent?.trim());
+        expect(lines).toEqual(['Gurjanova, 1935', 'Richardson, 1909', 'Richardson, 1899']);
+      });
     });
 
     it('should update the match line as the term changes, like the highlighting', () => {
