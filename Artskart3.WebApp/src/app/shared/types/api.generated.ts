@@ -1851,6 +1851,8 @@ export interface components {
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
             sensitive?: null | boolean;
+            uncertainIdentification?: null | boolean;
+            introduced?: null | boolean;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -2029,6 +2031,8 @@ export interface components {
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
             sensitive?: null | boolean;
+            uncertainIdentification?: null | boolean;
+            introduced?: null | boolean;
         };
         OrganizationDto: {
             /** Format: int32 */

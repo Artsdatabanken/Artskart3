@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -35,11 +37,28 @@ public class SearchEndpointTests : IAsyncLifetime
     [Fact]
     public async Task HealthCheck_ReturnsHealthy()
     {
+        // Polygonlageret bygges i bakgrunnen etter oppstart, og sjekken er Degraded til
+        // det er klart. Uten ventingen avgjør maskinens hastighet utfallet.
+        await VentTilPolygonlageretErKlartAsync(TimeSpan.FromSeconds(60));
+
         var response = await _client.GetAsync("/hc");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("Healthy");
+    }
+
+    private async Task VentTilPolygonlageretErKlartAsync(TimeSpan tidsgrense)
+    {
+        var lager = _factory.Services.GetRequiredService<IPolygonLocationStore>();
+        var frist = DateTime.UtcNow + tidsgrense;
+
+        while (!lager.IsReady && DateTime.UtcNow < frist)
+            await Task.Delay(100);
+
+        lager.IsReady.Should().BeTrue(
+            $"polygonlageret skal bygges innen {tidsgrense.TotalSeconds} s etter oppstart ({lager.Describe()}). " +
+            "Står det på «ikke bygget», feilet byggingen — se loggen");
     }
 
     // -----------------------------------------------------------------------
