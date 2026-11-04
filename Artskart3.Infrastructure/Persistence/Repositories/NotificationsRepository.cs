@@ -8,20 +8,25 @@ namespace Artskart3.Infrastructure.Persistence.Repositories;
 
 public class NotificationsRepository : INotificationsRepository
 {
+    private static readonly TimeZoneInfo NorwegianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
     private readonly IArtsKartDbContext _context;
-    public NotificationsRepository(IArtsKartDbContext context)
+    private readonly TimeProvider _timeProvider;
+
+    public NotificationsRepository(IArtsKartDbContext context, TimeProvider timeProvider)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     public async Task<IEnumerable<NotificationDto>> GetAllActiveNotificationsAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var nowNorway = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), NorwegianTimeZone).DateTime;
 
         return await _context.Set<Notification>()
             .AsNoTracking()
-            .Where(n => n.StartDisplayDate == null || n.StartDisplayDate <= today)
-            .Where(n => n.EndDisplayDate == null || n.EndDisplayDate >= today)
+            .Where(n => n.PublishFrom == null || n.PublishFrom <= nowNorway)
+            .Where(n => n.PublishUntil == null || n.PublishUntil >= nowNorway)
             .Where(n => !n.IsDeleted)
             .OrderBy(n => n.AlertType)
             .ThenBy(n => n.CreatedAt)
@@ -31,10 +36,10 @@ public class NotificationsRepository : INotificationsRepository
                 AlertType = n.AlertType,
                 Heading = n.Heading,
                 Description = n.Description,
-                StartDateTime = n.StartDateTime,
-                EndDateTime = n.EndDateTime,
-                StartDisplayDate = n.StartDisplayDate,
-                EndDisplayDate = n.EndDisplayDate,
+                PublishFrom = n.PublishFrom,
+                PublishUntil = n.PublishUntil,
+                EventStart = n.EventStart,
+                EventEnd = n.EventEnd,
                 CanClose = n.CanClose
             })
             .ToListAsync(cancellationToken);

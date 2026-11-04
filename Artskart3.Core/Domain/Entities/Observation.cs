@@ -37,6 +37,29 @@ public partial class Observation : BaseEntity
 
     public int? DatasetOrgId { get; set; }
 
+    // Denormaliserte filterkolonner, speilet fra ObservationEntityIndex.
+    //
+    // De tre var allerede denormalisert på indekstabellen, men manglet her — så
+    // områdetellingene filtrerte på en kolonne mens listevisningen utledet det
+    // samme fra tagger, mediefiler og atferdstabellen, per rad, hver gang.
+    //
+    // Målt på et selektivt filter (RegistrationStatusId = 2, 0,32 % av tabellen):
+    // 1548 ms med tagger mot 89 ms med kolonnen. Kostnaden lå i 193 510 oppslag
+    // i klyngeindeksen, ikke i selve predikatet.
+    //
+    // VEDLIKEHOLD: kolonnene må oppdateres der kildene endres — tagger, medie-
+    // filer og atferd. Gjør de ikke det, driver de stille fra hverandre, og
+    // filtrene svarer feil uten at noe feiler.
+
+    /// <summary>1 = funnet, 2 = ikke påvist (TagId 5), 3 = ikke gjenfunnet (TagId 6).</summary>
+    public byte RegistrationStatusId { get; set; }
+
+    /// <summary>Utledet av MediaFile. Erstatter MediaFiles.Any() i filtrene.</summary>
+    public bool HasMediaFiles { get; set; }
+
+    /// <summary>Verifisert 1:1 mot ObservationBehaviors. Null når observasjonen ikke har atferd.</summary>
+    public byte? BehaviorId { get; set; }
+
     public int BasisOfRecordId { get; set; }
 
     public DateTime? DatetimeIdentified { get; set; }
@@ -74,6 +97,35 @@ public partial class Observation : BaseEntity
     public bool HasErrors { get; set; }
 
     public bool HasAnnotations { get; set; }
+
+    /// <summary>
+    /// Denormalisert fra taggen AnnotatedChanges. Ikke det samme som
+    /// <see cref="HasAnnotations"/>, som også teller annoteringer uten endring.
+    /// </summary>
+    public bool ChangedByAnnotation { get; set; }
+
+    /// <summary>Denormalisert fra taggen Sensitive.</summary>
+    public bool Sensitive { get; set; }
+
+    /// <summary>
+    /// Denormalisert fra taggen UnsureIdentification. true = artsbestemmelsen er
+    /// USIKKER. Fravær av taggen regnes som sikker, slik gamle Artskart gjorde det
+    /// (etiketten der var bokstavelig talt "Vis sikker artsbestemmelse").
+    ///
+    /// Ikke det samme som taggen Validated, som er ekspertvalidering og et eget
+    /// begrep med eget filter i gamle Artskart.
+    /// </summary>
+    public bool UncertainIdentification { get; set; }
+
+    /// <summary>
+    /// Denormalisert fra taggen Unspontaneus. true = INNFØRT forekomst; fravær av
+    /// taggen regnes som naturlig.
+    ///
+    /// Navnet følger domenet, ikke taggen: taggnavnet er feilstavet i både enum og
+    /// Tag-tabellen, og vi bærer ikke den skrivefeilen inn i skjema og API. Samme
+    /// frihet som ChangedByAnnotation, som heter noe annet enn taggen AnnotatedChanges.
+    /// </summary>
+    public bool Introduced { get; set; }
 
     public int? ObservationQualityTypeId { get; set; }
 

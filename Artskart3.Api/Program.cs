@@ -1,9 +1,11 @@
+using System.Threading.RateLimiting;
 using Artskart3.Api.Configuration;
 using Artskart3.Api.Filters;
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.DependencyInjection;
@@ -12,7 +14,15 @@ using Duende.Bff;
 using Duende.Bff.EntityFramework;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+
+// Stiene responskomprimering slås på for. Svarene her er store, svært
+// komprimerbare og offentlige: observasjonsdata, områdegeometri og kartlag — ingen
+// tokens, ingen sesjonsdata. Det er forutsetningen for EnableForHttps, så listen
+// skal holdes kort og hvert tillegg vurderes mot den. Alt utenfor, /bff/*
+// inkludert, komprimeres ikke.
+string[] CompressedPaths = ["/api/Search", "/api/observations", "/api/MapLayer", "/api/Lookup"];
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,10 +49,17 @@ try
     logger.LogInformation("Machine: {MachineName}", Environment.MachineName);
     logger.LogInformation("Building services...");
 
+    // Navnet på vertsnavn-headeren er konfigurerbart fordi det avhenger av hva som
+    // står foran appen. Endres det, er rettingen en miljøvariabel og ikke en ny
+    // utrulling. Se ForwardedHeadersSettings for hva som går galt ved feil navn.
+    var forwardedHeadersSettings = builder.Configuration
+        .GetSection(ForwardedHeadersSettings.SectionName)
+        .Get<ForwardedHeadersSettings>() ?? new ForwardedHeadersSettings();
+
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-        options.ForwardedHostHeaderName = "X-Original-Host";
+        options.ForwardedHostHeaderName = forwardedHeadersSettings.OriginalHostHeaderName;
         options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
@@ -87,15 +104,39 @@ try
         }
     });
 
-    builder.Services.AddMemoryCache();
+    // SizeLimit, i byte. Uten en grense vokser bufferen fritt og kan ikke kaste noe
+    // ut under minnepress: zoomnivå 1 og 2 holder områdegeometrien som DTO-er (~15 MB
+    // WKT), som rå UTF-8 (20,7 MB) og som gzip (7,3 MB), og områdetellingene nøkles
+    // på en filterhash og har dermed et ubegrenset nøkkelrom. Grensen gjør at de
+    // eldste postene forsvinner framfor at prosessen vokser.
+    //
+    // MERK: med SizeLimit satt MÅ hver Set oppgi Size, ellers kaster den. Alle Set-ene
+    // på denne bufferen ligger i SearchService.
+    builder.Services.AddMemoryCache(options => options.SizeLimit = 128 * 1024 * 1024);
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        // Håndtereren er FELLES for alle policyene, så den må si hvilken som avviste.
+        // Sto meldingen fast på kartkøen, ville et avvist søk rapportert seg som et
+        // kartproblem — i svaret, og i loggen noen leser mens de feilsøker.
         options.OnRejected = async (context, cancellationToken) =>
         {
-            logger.LogWarning("Observation map request queue is full");
-            await context.HttpContext.Response.WriteAsJsonAsync(
-                new { error = "Too many map requests. Please retry." }, cancellationToken);
+            var sti = context.HttpContext.Request.Path.Value ?? "ukjent";
+            var erSoek = sti.StartsWith("/api/Search", StringComparison.OrdinalIgnoreCase);
+
+            if (erSoek)
+            {
+                logger.LogWarning("Search request queue is full ({Path})", sti);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Too many search requests. Please retry." }, cancellationToken);
+            }
+            else
+            {
+                logger.LogWarning("Observation map request queue is full ({Path})", sti);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Too many map requests. Please retry." }, cancellationToken);
+            }
         };
         options.AddConcurrencyLimiter("observation-maps", limiter =>
         {
@@ -103,6 +144,38 @@ try
             limiter.QueueLimit = 16;
             limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
         });
+
+        // Søkeendepunktene er anonyme, og de dyre av dem leser titalls millioner
+        // indeksrader. De har tak hver for seg — sidetall, filterlengder, antall
+        // grener — men ingenting begrenset hvor MANGE slike kall som kunne være i
+        // gang samtidig. Dette taket beskytter tilkoblingspoolen og databasen.
+        //
+        // GLOBALT, IKKE PER IP — OG DET ER IKKE FØRSTEVALGET
+        // Et tak per klient ville vært bedre: det rammer den som misbruker framfor
+        // alle. Men klient-IP-en er ikke til å stole på her. ForwardedHeaders er
+        // konfigurert med TOMME KnownIPNetworks og KnownProxies (se over), og
+        // ForwardedHeadersMiddleware validerer bare når minst én av dem har
+        // innhold — altså ikke i det hele tatt. RemoteIpAddress er da det kalleren
+        // selv skrev i X-Forwarded-For. En partisjonsnøkkel derfra gir to problemer:
+        // taket omgås ved å variere headeren, og hver nye verdi lager en ny
+        // partisjon, så «vernet» blir i seg selv en minnelekkasje under angrep.
+        //
+        // Ett globalt tak kan ikke omgås og bruker én limiter. Prisen er at en
+        // misbrukende klient kan fylle køen for andre — en dårligere egenskap enn
+        // et IP-tak ville hatt, men bedre enn et tak som ikke virker.
+        //
+        // SKAL DET BLI PER IP: fyll KnownIPNetworks/KnownProxies med de faktiske
+        // ingress-adressene og sett ForwardLimit. Da, og først da, er
+        // RemoteIpAddress klientens og ikke klientens påstand.
+        options.AddPolicy(SearchConstants.SearchRateLimitPolicy, _ =>
+            RateLimitPartition.GetConcurrencyLimiter(
+                "search",
+                _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = 32,
+                    QueueLimit = 64,
+                    QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                }));
     });
     builder.Services.AddControllers(options =>
     {
@@ -181,6 +254,8 @@ try
         })
         .AddSessionCleanupBackgroundProcess();
 
+    builder.Services.AddConfiguredDataProtection(builder.Configuration, logger);
+
     builder.Services.AddAuthorization();
     builder.Services.AddDbContext<ArtskartDbContext>(options =>
     {
@@ -191,8 +266,8 @@ try
         });
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         // Legger OPTION (RECOMPILE) på listevisningens spørring. Se
-        // RecompileHintInterceptor for hvorfor den trenger plan per kjøring.
-        options.AddInterceptors(new Artskart3.Infrastructure.Data.Interceptors.RecompileHintInterceptor());
+        // QueryHintInterceptor for hvorfor den trenger plan per kjøring.
+        options.AddInterceptors(new Artskart3.Infrastructure.Data.Interceptors.QueryHintInterceptor());
     });
 
     builder.Services.AddRepositories();
@@ -211,6 +286,29 @@ try
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));
     builder.Services.Configure<PaginationOptions>(builder.Configuration.GetSection(PaginationOptions.SectionName));
+    builder.Services.Configure<AreaCountCacheOptions>(builder.Configuration.GetSection(AreaCountCacheOptions.SectionName));
+    builder.Services.Configure<LocationCountCacheOptions>(builder.Configuration.GetSection(LocationCountCacheOptions.SectionName));
+
+    // Responskomprimering. Svarene er store og svært komprimerbare: AreaMarkers på
+    // zoomnivå 2 er 20,7 MB rå og 7,26 MB gzippet — 65 % mindre. Zoomnivå 1 går fra
+    // 3,9 til 1,38 MB. GeoJSON og WKT er tekst med mye repetisjon.
+    //
+    // EnableForHttps: BREACH/CRIME utnytter at komprimering lekker informasjon når et
+    // svar blander en hemmelighet med noe angriperen styrer. Endepunktene dette gjelder
+    // returnerer observasjonsdata og geometri — ingen tokens, ingen sesjonsdata — så
+    // det gjelder ikke der.
+    //
+    // DET ER OGSÅ HVORFOR MIDDLEWAREN ER AVGRENSET, ikke global. Begrunnelsen over
+    // gjelder noen endepunkter, mens app.UseResponseCompression() gjelder alle — også
+    // /bff/user, som returnerer den innloggede brukerens claims som JSON. Kjøres den
+    // for alt, arver neste endepunkt unntaket i stillhet. Se CompressedPaths nedenfor.
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+        options.Providers.Add<BrotliCompressionProvider>();
+        options.Providers.Add<GzipCompressionProvider>();
+        options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/geo+json"]);
+    });
     builder.Services.AddScoped<SlowQueryLoggingFilter>();
 
     logger.LogInformation("Configuring health checks...");
@@ -219,7 +317,25 @@ try
 
     var app = builder.Build();
 
+    // Hvilket navn som brukes er verdt å ha i loggen: kommer appen opp bak et annet
+    // ledd enn forventet, er dette det første stedet å se. At headeren faktisk kom
+    // fram ser man i forespørselsloggen — Host viser da det offentlige vertsnavnet.
+    logger.LogInformation("Forwarded host header: {HeaderName}",
+        forwardedHeadersSettings.OriginalHostHeaderName);
+
     app.UseForwardedHeaders();
+
+    // Tidlig i pipelinen, foer noe skriver til svaret. Hopper over svar som allerede
+    // har Content-Encoding satt (se AreaMarkers, som serverer ferdig gzippede bytes).
+    //
+    // Avgrenset til stiene komprimeringen er begrunnet for — store, offentlige
+    // geometri- og observasjonssvar. Alt annet, /bff/* inkludert, komprimeres ikke:
+    // begrunnelsen for EnableForHttps hviler på at svaret ikke blander en hemmelighet
+    // med noe en angriper styrer, og det kan vi ikke love for endepunkter som ennå
+    // ikke er skrevet.
+    app.UseWhen(
+        ctx => CompressedPaths.Any(p => ctx.Request.Path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)),
+        branch => branch.UseResponseCompression());
 
     // Auto-apply pending migrations only if enabled in configuration
     var autoMigrateDb = Convert.ToBoolean(builder.Configuration["Database:AutoMigrate"] ?? "false");
@@ -306,14 +422,21 @@ try
         logger.LogInformation("Production environment - Swagger UI disabled for security");
     }
 
-    var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-    {
-        ResponseWriter = HealthCheckExtensions.WriteJsonResponse,
-        AllowCachingResponses = !app.Environment.IsDevelopment()
-    };
+    var allowCachingHealthResponses = !app.Environment.IsDevelopment();
 
-    app.MapHealthChecks("/hc", healthCheckOptions);
-    logger.LogInformation("Health check endpoint mapped to '/hc'");
+    // Tre endepunkter, fordi en containerplattform bruker liveness og readiness til
+    // helt ulike ting. Liveness avgjør om containeren skal restartes, og sjekker
+    // derfor ingen avhengigheter: er databasen nede, hjelper det ingen å drepe
+    // appen om og om igjen. Readiness avgjør om den skal få trafikk, og sjekker
+    // databasen. /hc kjører alt og beholdes som før for eksisterende overvåking.
+    app.MapHealthChecks("/hc",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses));
+    app.MapHealthChecks("/hc/live",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses, _ => false));
+    app.MapHealthChecks("/hc/ready",
+        HealthCheckExtensions.CreateProbeOptions(allowCachingHealthResponses,
+            check => check.Tags.Contains(HealthCheckExtensions.ReadyTag)));
+    logger.LogInformation("Health check endpoints mapped: '/hc', '/hc/live', '/hc/ready'");
 
     app.UseBff();
     app.UseAuthorization();
@@ -341,6 +464,7 @@ return;
 void AddRobotsConfiguration(ConfigurationManager configuration, WebApplication webApplication)
 {
     // After the beta, set Application:AllowRobotsInProduction=true on the production app only, not in appsettings.json.
+    // In Container Apps the web container serves the pages and adds its own noindex header, so set ALLOW_INDEXING=true there at the same time.
     var allowIndexing = !webApplication.Environment.IsDevelopment()
         && !webApplication.Environment.IsEnvironment("Test")
         && Convert.ToBoolean(configuration["Application:AllowRobotsInProduction"]);

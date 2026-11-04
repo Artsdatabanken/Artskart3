@@ -59,18 +59,20 @@ public class NotificationsEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GetNotifications_ReturnsSeededNotificationWithAllFields()
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        var start = today.AddDays(-1);
-        var end = today.AddDays(1);
+        var now = NorwegianNow();
+        var publishFrom = now.AddDays(-1);
+        var publishUntil = now.AddDays(2);
+        var eventStart = now.AddDays(1);
+        var eventEnd = now.AddDays(1).AddHours(2);
         var notification = new Notification
         {
             AlertType = AlertType.Warning,
             Heading = "Planlagt vedlikehold",
             Description = "Tjenesten er utilgjengelig fredag kl. 22.",
-            StartDateTime = new DateTime(2026, 1, 1, 8, 0, 0, DateTimeKind.Utc),
-            EndDateTime = new DateTime(2026, 1, 31, 20, 0, 0, DateTimeKind.Utc),
-            StartDisplayDate = start,
-            EndDisplayDate = end,
+            PublishFrom = publishFrom,
+            PublishUntil = publishUntil,
+            EventStart = eventStart,
+            EventEnd = eventEnd,
             CanClose = true
         };
         await SeedAsync(notification);
@@ -81,8 +83,10 @@ public class NotificationsEndpointTests : IAsyncLifetime
         element.GetProperty("alertType").GetInt32().Should().Be((int)AlertType.Warning);
         element.GetProperty("heading").GetString().Should().Be(notification.Heading);
         element.GetProperty("description").GetString().Should().Be(notification.Description);
-        element.GetProperty("startDisplayDate").GetString().Should().Be(start.ToString("yyyy-MM-dd"));
-        element.GetProperty("endDisplayDate").GetString().Should().Be(end.ToString("yyyy-MM-dd"));
+        element.GetProperty("publishFrom").GetDateTime().Should().Be(publishFrom);
+        element.GetProperty("publishUntil").GetDateTime().Should().Be(publishUntil);
+        element.GetProperty("eventStart").GetDateTime().Should().Be(eventStart);
+        element.GetProperty("eventEnd").GetDateTime().Should().Be(eventEnd);
         element.GetProperty("canClose").GetBoolean().Should().BeTrue();
     }
 
@@ -101,8 +105,10 @@ public class NotificationsEndpointTests : IAsyncLifetime
         var element = await FindNotificationAsync(notification.Id);
 
         element.GetProperty("alertType").GetInt32().Should().Be((int)AlertType.Danger);
-        element.GetProperty("startDisplayDate").ValueKind.Should().Be(JsonValueKind.Null);
-        element.GetProperty("endDisplayDate").ValueKind.Should().Be(JsonValueKind.Null);
+        element.GetProperty("publishFrom").ValueKind.Should().Be(JsonValueKind.Null);
+        element.GetProperty("publishUntil").ValueKind.Should().Be(JsonValueKind.Null);
+        element.GetProperty("eventStart").ValueKind.Should().Be(JsonValueKind.Null);
+        element.GetProperty("eventEnd").ValueKind.Should().Be(JsonValueKind.Null);
         element.GetProperty("canClose").GetBoolean().Should().BeFalse();
     }
 
@@ -120,33 +126,41 @@ public class NotificationsEndpointTests : IAsyncLifetime
         (await FindNotificationAsync(second.Id)).GetProperty("heading").GetString().Should().Be("Andre");
     }
 
-    // Offsets i dager fra i dag; null betyr at datoen mangler (åpen ende).
+    // Offsets i minutter fra norsk tid nå; null betyr at tidspunktet mangler (åpen ende).
+    // ±30 minutter er mindre enn forskjellen mellom UTC og norsk tid, så sammenligning mot UTC gir feil svar.
     [Theory]
     [InlineData(null, null, true)]
-    [InlineData(-5, 5, true)]
-    [InlineData(0, 0, true)]
-    [InlineData(null, 3, true)]
-    [InlineData(-3, null, true)]
-    [InlineData(-10, -1, false)]
-    [InlineData(null, -1, false)]
-    [InlineData(1, 10, false)]
-    [InlineData(1, null, false)]
-    public async Task GetNotifications_FiltersOnDisplayPeriod(int? startOffsetDays, int? endOffsetDays, bool expectedVisible)
+    [InlineData(-300, 300, true)]
+    [InlineData(null, 180, true)]
+    [InlineData(-180, null, true)]
+    [InlineData(-600, -60, false)]
+    [InlineData(null, -30, false)]
+    [InlineData(-30, null, true)]
+    [InlineData(30, null, false)]
+    [InlineData(null, 30, true)]
+    [InlineData(60, 600, false)]
+    public async Task GetNotifications_FiltersOnPublishPeriodInNorwegianTime(int? publishFromOffsetMinutes, int? publishUntilOffsetMinutes, bool expectedVisible)
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var now = NorwegianNow();
         var notification = new Notification
         {
             AlertType = AlertType.Info,
             Heading = "Visningsperiode",
             Description = "Visningsperiode",
-            StartDisplayDate = startOffsetDays is { } s ? today.AddDays(s) : null,
-            EndDisplayDate = endOffsetDays is { } e ? today.AddDays(e) : null
+            PublishFrom = publishFromOffsetMinutes is { } fromMinutes ? now.AddMinutes(fromMinutes) : null,
+            PublishUntil = publishUntilOffsetMinutes is { } untilMinutes ? now.AddMinutes(untilMinutes) : null
         };
         await SeedAsync(notification);
 
         var ids = await GetNotificationIdsAsync();
 
         ids.Contains(notification.Id).Should().Be(expectedVisible);
+    }
+
+    private static DateTime NorwegianNow()
+    {
+        var norway = TimeZoneInfo.ConvertTime(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
+        return new DateTime(norway.Ticks - norway.Ticks % TimeSpan.TicksPerSecond);
     }
 
     private async Task SeedAsync(params Notification[] notifications)

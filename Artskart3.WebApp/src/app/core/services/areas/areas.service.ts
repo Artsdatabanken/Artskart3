@@ -303,6 +303,10 @@ export interface LocationSearchFilter {
   withImages?: boolean | null;
   changedByAnnotation?: boolean | null;
   sensitive?: boolean | null;
+  // true = usikker artsbestemmelse, true = innfoert forekomst. Backend stoetter
+  // begge; sidebaren har ennaa ingen kontroll som setter dem.
+  uncertainIdentification?: boolean | null;
+  introduced?: boolean | null;
   periodMonths?: number[] | null;
 }
 
@@ -513,6 +517,8 @@ export class AreasService {
       if (filter.withImages != null) body['withImages'] = filter.withImages;
       if (filter.changedByAnnotation != null) body['changedByAnnotation'] = filter.changedByAnnotation;
       if (filter.sensitive != null) body['sensitive'] = filter.sensitive;
+      if (filter.uncertainIdentification != null) body['uncertainIdentification'] = filter.uncertainIdentification;
+      if (filter.introduced != null) body['introduced'] = filter.introduced;
     }
 
     if (extent) {

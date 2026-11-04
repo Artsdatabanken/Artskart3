@@ -117,6 +117,27 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     // Removed OnConfiguring to use DI-based configuration from Program.cs
 
+    /// <summary>
+    /// Uttrykket for Location.GeometryTypeId. Speiler LocationGeometryType, og
+    /// de to maa endres sammen — databasen har ingen kjennskap til enumen.
+    /// </summary>
+    /// <remarks>
+    /// CAST er ikke pynt: uten den returnerer CASE-uttrykket INT, og kolonnen
+    /// blir INT i databasen mens modellen sier byte. Da feiler lesingen med
+    /// «Unable to cast object of type System.Int32 to type System.Byte».
+    /// </remarks>
+    private const string LocationGeometryTypeSql = """
+        CAST(CASE [Geometry].STGeometryType()
+            WHEN 'Point'              THEN 1
+            WHEN 'Polygon'            THEN 2
+            WHEN 'MultiPolygon'       THEN 3
+            WHEN 'LineString'         THEN 4
+            WHEN 'MultiLineString'    THEN 5
+            WHEN 'GeometryCollection' THEN 6
+            ELSE 0
+        END AS TINYINT)
+        """;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Area>(entity =>
@@ -403,6 +424,22 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => e.East, "IX_EastNorthGeom");
 
+            // Beregnet og persistert i databasen. ValueGeneratedOnAddOrUpdate
+            // gjør at EF leser den og aldri prøver å skrive den.
+            entity.Property(e => e.GeometryTypeId)
+                .HasColumnType("tinyint")
+                .HasComputedColumnSql(LocationGeometryTypeSql, stored: true)
+                .ValueGeneratedOnAddOrUpdate();
+
+            // Typen står FØRST i nøkkelen, ikke som et filter. SQL Server
+            // tillater ikke at et filtrert indeksfilter refererer en beregnet
+            // kolonne, og integrasjonstestene fanget forsøket.
+            //
+            // Med typen som ledende kolonne blir polygonhentingen et søk på
+            // likhet (2 eller 3) etterfulgt av utsnittsintervallet, og de
+            // 5 024 795 punktlokasjonene berøres aldri.
+            entity.HasIndex(e => new { e.GeometryTypeId, e.East, e.North }, "IX_Location_GeometryTypeEastNorth");
+
             entity.HasIndex(e => e.LookupId, "IX_LookupId");
 
             entity.Property(e => e.Locality).HasMaxLength(1000);
@@ -550,6 +587,122 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.OccurrenceId).HasMaxLength(255);
             entity.Property(e => e.ProxyId).HasMaxLength(255);
             entity.Property(e => e.YearCollected).HasComputedColumnSql("(datepart(year,[DateTimeCollected]))", false);
+
+            // De denormaliserte filterkolonnene. Defaultene må stå her, ikke bare i
+            // AddObservationDenormalisedFilterColumns: integrasjonstestene bygger
+            // skjemaet med EnsureCreated() fra modellen, og uten default feiler enhver
+            // INSERT som ikke nevner kolonnen — slik seed_data.sql ikke gjør.
+            //
+            // Verdiene speiler DF_Observation_RegistrationStatusId og
+            // DF_Observation_HasMediaFiles i migrasjonen. RegistrationStatusId 1 er
+            // "funnet", den nøytrale verdien 99,7 % av radene har. BehaviorId er
+            // nullable og trenger ingen default.
+            entity.Property(e => e.RegistrationStatusId).HasDefaultValue((byte)1);
+            entity.Property(e => e.HasMediaFiles).HasDefaultValue(false);
+
+            // FILTRERT INDEKS PÅ DE SJELDNE REGISTRERINGSSTATUSENE
+            //
+            // Listevisningen sorterer på DateTimeCollected og pagineres med
+            // OFFSET/FETCH. Arbeidet er da antall rader som trengs delt på
+            // selektiviteten, og med 125 treff i 61 millioner skanner selv side
+            // 1 nesten hele datoindeksen: bilder:lett + regstatus:lett tok
+            // 3 859 ms for å levere én rad, atferd:lett + regstatus:lett
+            // 2 981 ms for fire.
+            //
+            // HVORFOR FILTRERT OG IKKE VANLIG
+            // En vanlig (RegistrationStatusId, DateTimeCollected)-indeks ble
+            // bygget og målt: 562 MB, og optimizeren valgte den ALDRI for
+            // kombinasjonene. Den anslår 49 485 treffende rader der det er 125
+            // — exponential backoff i kardinalitetsestimatoren antar delvis
+            // korrelasjon, mens korrelasjonen her er sterkt negativ:
+            // observasjoner merket «ikke påvist» har nesten aldri bilder.
+            // Flerkolonnestatistikk med FULLSCAN gjorde anslaget verre
+            // (193 510), og DISABLE_OPTIMIZER_ROWGOAL endret ingenting.
+            //
+            // Den filtrerte velges derimot av seg selv, uten hint. Den
+            // inneholder bare de 193 510 radene, de ligger i datorekkefølge, og
+            // INCLUDE gjør den dekkende — så kostmodellen ser riktig at verste
+            // tilfelle er 193 510 poster. Målt 3 859 → 27 ms, 2 981 → 28 ms.
+            //
+            // 2,1 MB og tre sekunder å bygge, fordi fordelingen er ekstrem:
+            // verdi 1 er 99,67 %, verdi 2 er 0,32 %, verdi 3 er 0,01 %. Verdi 1
+            // kan ikke filtreres nyttig og trenger det ikke — den er rask.
+            //
+            // INCLUDE dekker nettopp de tre filterkolonnene som IKKE har egen
+            // (kolonne, DateTimeCollected)-indeks. De sju andre dimensjonene
+            // har en, og kombinasjoner med dem kan bruke den.
+            //
+            // MERK: filtrerte indekser krever SET QUOTED_IDENTIFIER ON ved BÅDE
+            // lesing og skriving. .NET SqlClient har den på; sqlcmd har den av,
+            // og en måling derfra vil se ut som om indeksen ikke brukes.
+            entity.HasIndex(e => new { e.RegistrationStatusId, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_RegistrationStatusRare")
+                .IsDescending(false, true, true)
+                .HasFilter("[RegistrationStatusId] IN (2, 3)")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            // FILTRERTE INDEKSER PÅ ANNOTERING OG SENSITIVITET
+            //
+            // Samme klasse problem som RegistrationStatusRare over, og samme
+            // løsning. Begge filtrene er tagger, og den SELEKTIVE halvdelen er
+            // den trege: listevisningen sorterer på DateTimeCollected og tar
+            // TOP 10, så arbeidet er hvor langt ned i datoindeksen den må gå før
+            // ti treff har samlet seg — med et nøkkeloppslag og en probe mot
+            // ObservationTags på hver eneste rad underveis.
+            //
+            // Målt på 61M rader, rader som må skannes for side 1:
+            //   AnnotatedChanges  133 357 rader, nyeste 2025-11-02   1 504 153
+            //   Sensitive           2 194 rader, nyeste 2025-07-01   6 338 836
+            //
+            // Negasjonen er rask uten indeks (19 ms på datoindeksen) og trenger
+            // ingen: nesten alle rader treffer, så TOP 10 stopper med én gang.
+            // Derfor filtrerte indekser — de dekker bare de merkede radene.
+            //
+            // MERK: filtrerte indekser krever SET QUOTED_IDENTIFIER ON ved BÅDE
+            // lesing og skriving. .NET SqlClient har den på; sqlcmd har den av,
+            // og en måling derfra vil se ut som om indeksen ikke brukes.
+            entity.Property(e => e.ChangedByAnnotation).HasDefaultValue(false);
+            entity.Property(e => e.Sensitive).HasDefaultValue(false);
+
+            // INCLUDE som på RegistrationStatusRare, og av samme grunn: det er de tre
+            // filterkolonnene som IKKE har egen (kolonne, DateTimeCollected)-indeks.
+            // Uten dem seeker indeksen riktig, men må slå opp i klyngeindeksen per rad
+            // så snart filteret også nevner atferd, bilder eller koordpresisjon.
+            //
+            // Målt uten INCLUDE, listevisningen: annotering:lett + atferd:lett tok
+            // 1 908 ms, og atferd:lett + koordpresisjon:lett + opprinnelse:lett 539 ms,
+            // mot en median på 22 ms for endepunktet ellers.
+            entity.HasIndex(e => new { e.ChangedByAnnotation, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_ChangedByAnnotation")
+                .IsDescending(false, true, true)
+                .HasFilter("[ChangedByAnnotation] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            entity.HasIndex(e => new { e.Sensitive, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_Sensitive")
+                .IsDescending(false, true, true)
+                .HasFilter("[Sensitive] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            // Artsbestemmelse og opprinnelse — samme mønster. Skannedybden for side 1
+            // målt på 61M rader: UnsureIdentification 708 863, Unspontaneus 24 130.
+            // Opprinnelse ville trolig klart seg uten indeks, men får den likevel:
+            // alternativet er at ett av de fire taggfiltrene bruker en annen
+            // mekanisme enn de tre andre, og fordelingen kan endre seg med import.
+            entity.Property(e => e.UncertainIdentification).HasDefaultValue(false);
+            entity.Property(e => e.Introduced).HasDefaultValue(false);
+
+            entity.HasIndex(e => new { e.UncertainIdentification, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_UncertainIdentification")
+                .IsDescending(false, true, true)
+                .HasFilter("[UncertainIdentification] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
+
+            entity.HasIndex(e => new { e.Introduced, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_Introduced")
+                .IsDescending(false, true, true)
+                .HasFilter("[Introduced] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
@@ -1052,6 +1205,80 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Det samme gjelder CompleteFilter-kolonnene InstitutionOrgId,
             // DatasetOrgId og BehaviorId: alle tre er lavselektive og betjenes av
             // columnstore. Ikke legg dem til i IX_ObservationEntityIndex_EntityLookup.
+            //
+            // ChangedByAnnotation og Sensitive følger samme regel. Merk at de er
+            // selektive på Observation — der har de hver sin filtrerte indeks — men
+            // her er spørringen en aggregering over hele området, ikke et TOP-10
+            // oppslag, og da er det skannehastigheten som teller. Columnstore.
+        });
+
+        // -------------------------------------------------------------------
+        // Områdebuffer — forhåndsberegnede antall per filter
+        //
+        // Klyngenøklene speiler oppslagsretningen nøyaktig: dimensjon og bøtte
+        // først, utdatacellen sist. Et oppslag blir dermed ett sammenhengende
+        // rekkeviddesøk, og intervalldimensjonene (periode, koordpresisjon) får
+        // bøtteintervallet sitt langs nøkkelen i stedet for som restledd.
+        //
+        // Sidekomprimering settes i migrasjonen — EF Core har ingen parameter for
+        // DATA_COMPRESSION. Uten den er toernivået ~0,9 GB.
+        // -------------------------------------------------------------------
+        modelBuilder.Entity<AreaCountCacheLevel1>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.EntityTypeId, e.EntityId, e.Mask });
+            entity.ToTable("AreaCountCacheLevel1");
+        });
+
+        modelBuilder.Entity<AreaCountCacheLevel2>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionPairId, e.BucketA, e.BucketB, e.EntityTypeId, e.EntityId, e.Mask });
+            entity.ToTable("AreaCountCacheLevel2");
+        });
+
+        modelBuilder.Entity<AreaCountCacheBucketMember>(entity =>
+        {
+            // (DimensionId, MemberId, BucketId), ikke (DimensionId, BucketId, MemberId):
+            // oppslaget går alltid «gitt verneområde 575, hvilke bøtter inneholder det».
+            entity.HasKey(e => new { e.DimensionId, e.MemberId, e.BucketId });
+            entity.ToTable("AreaCountCacheBucketMember");
+        });
+
+        modelBuilder.Entity<AreaCountCacheState>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("AreaCountCacheState");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
+        });
+
+        // -------------------------------------------------------------------
+        // Lokasjonsbuffer — ferdig talte lokasjoner per filter
+        //
+        // Klyngenøkkelen speiler oppslaget: dimensjon og bøtte først, deretter
+        // kartutsnittet. Utsnittet er det som snevrer mest inn — Oslo-utsnittet
+        // er 185 x 103 km av et land på 2500 km — så East og North må ligge
+        // langs nøkkelen og ikke som restledd.
+        //
+        // LocationId står SIST i nøkkelen, ikke tidligere. Den er bare med for
+        // å gjøre nøkkelen unik og for å ha en deterministisk tiebreaker; den
+        // er aldri det det søkes på.
+        //
+        // Sidekomprimering settes i migrasjonen — EF Core har ingen parameter
+        // for DATA_COMPRESSION. Uten den er tabellen anslagsvis tre ganger så
+        // stor: AreaCountCacheLevel2 måler 26,4 byte per rad med komprimering.
+        // -------------------------------------------------------------------
+        modelBuilder.Entity<LocationCountCacheLevel1>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.East, e.North, e.LocationId, e.Mask });
+            entity.ToTable("LocationCountCacheLevel1");
+        });
+
+        modelBuilder.Entity<LocationCountCacheState>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("LocationCountCacheState");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
         });
 
         modelBuilder.Entity<ObservationProject>(entity =>

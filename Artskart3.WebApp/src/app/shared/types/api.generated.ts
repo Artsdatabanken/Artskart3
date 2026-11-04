@@ -1851,6 +1851,8 @@ export interface components {
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
             sensitive?: null | boolean;
+            uncertainIdentification?: null | boolean;
+            introduced?: null | boolean;
             readonly hasActiveFilters?: boolean;
             readonly hasObservationAttributeFilters?: boolean;
             /** Format: int32 */
@@ -1892,13 +1894,13 @@ export interface components {
             heading: string;
             description: string;
             /** Format: date-time */
-            startDateTime?: null | string;
+            publishFrom?: null | string;
             /** Format: date-time */
-            endDateTime?: null | string;
-            /** Format: date */
-            startDisplayDate?: null | string;
-            /** Format: date */
-            endDisplayDate?: null | string;
+            publishUntil?: null | string;
+            /** Format: date-time */
+            eventStart?: null | string;
+            /** Format: date-time */
+            eventEnd?: null | string;
             canClose?: boolean;
         };
         ObservationDetailDto: {
@@ -2034,6 +2036,8 @@ export interface components {
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
             sensitive?: null | boolean;
+            uncertainIdentification?: null | boolean;
+            introduced?: null | boolean;
         };
         OrganizationDto: {
             /** Format: int32 */

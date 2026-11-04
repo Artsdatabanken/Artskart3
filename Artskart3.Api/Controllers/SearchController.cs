@@ -7,6 +7,7 @@ using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace Artskart3.Api.Controllers;
@@ -14,6 +15,11 @@ namespace Artskart3.Api.Controllers;
 [ApiController]
 [AllowAnonymous]
 [Route("api/[controller]")]
+// Anonymt endepunkt med spørringer som leser titalls millioner indeksrader. De
+// enkelte takene — sidetall, filterlengder, antall grener — begrenser hva ETT kall
+// kan koste; denne begrenser hvor mange slike kall én klient kan ha i gang
+// samtidig. Se policyen i Program.cs.
+[EnableRateLimiting(SearchConstants.SearchRateLimitPolicy)]
 public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
@@ -221,6 +227,27 @@ public class SearchController : ControllerBase
                 return validationError!;
             }
 
+            // Det ufiltrerte svaret er identisk hver gang og er det eneste frontend ber om
+            // her — to kall per sidelast, ett per zoomnivå. Det serveres derfor ferdig
+            // serialisert og ferdig gzippet, så kallet koster overføring og ingenting annet.
+            //
+            // Content-Encoding settes selv. Komprimeringsmellomvaren hopper over svar som
+            // allerede har headeren, så bytene pakkes ikke på nytt. Vary er nødvendig for
+            // at mellomliggende cacher ikke skal servere gzip til en klient som ikke tok imot.
+            if (filter is null || !filter.HasActiveFilters)
+            {
+                var payload = await _searchService.GetAreaMarkersPayloadAsync(zoomLevel, cancellationToken);
+                Response.Headers.Vary = "Accept-Encoding";
+
+                if (Request.Headers.AcceptEncoding.ToString().Contains("gzip", StringComparison.OrdinalIgnoreCase))
+                {
+                    Response.Headers.ContentEncoding = "gzip";
+                    return File(payload.Gzip, "application/json");
+                }
+
+                return File(payload.Raw, "application/json");
+            }
+
             var areas = await _searchService.GetAreaMarkersAsync(zoomLevel, filter, cancellationToken);
             _logger.LogInformation("Retrieved {Count} area markers for zoom level {ZoomLevel}", areas.Count(), zoomLevel);
             return Ok(areas.ToArray());
@@ -362,6 +389,20 @@ public class SearchController : ControllerBase
         if (filter.ResultsPerPage != null && !IsValidMaxResultCount(filter.ResultsPerPage.Value, SearchConstants.MinObservationResults, SearchConstants.MaxObservationResults))
         {
             validationError = BadRequest(CreateRangeErrorMessage(SearchConstants.MinObservationResults, SearchConstants.MaxObservationResults));
+            return false;
+        }
+
+        // Offsettet må begrenses, ikke bare sidetallet. Det forgrenede søket leser
+        // TOP(skip + take) rader per gren inn i minnet, så et dypt offset er minnebruk
+        // i prosessen og ikke en SQL-OFFSET. Regnes i long: PageNumber er int, og
+        // (PageNumber - 1) * ResultsPerPage renner over for store sidetall.
+        if (filter.PageNumber is { } side && filter.ResultsPerPage is { } perSide
+            && (long)(side - 1) * perSide > SearchConstants.MaxObservationSkip)
+        {
+            validationError = BadRequest(new
+            {
+                error = $"PageNumber and ResultsPerPage cannot skip past {SearchConstants.MaxObservationSkip} results."
+            });
             return false;
         }
 
