@@ -378,8 +378,8 @@ Add-Case 'Koordinatpresisjon'        @{ coordinatePrecision = @{ from = 0; to = 
 # ---------------------------------------------------------------------------
 if ($behavior)    { Add-Case "Atferd ($($behavior.Name))"         @{ behaviorIds     = @($behavior.Id) }    'Subquery' }
 if ($institution) { Add-Case "Institusjon ($($institution.Name))" @{ organizationIds = @($institution.Id) } 'Subquery' }
-if ($datasetOrg) { Add-Case "Datasett ($($datasetOrg.name))"  @{ datasetOrgId = $datasetOrg.id } 'Subquery' }
-if ($projectOrg)    { Add-Case "Prosjekt ($($projectOrg.name))"    @{ projectOrgId    = $projectOrg.id }    'Subquery' }
+if ($datasetOrg) { Add-Case "Datasett ($($datasetOrg.name))"  @{ datasetOrgIds = @($datasetOrg.id) } 'Subquery' }
+if ($projectOrg)    { Add-Case "Prosjekt ($($projectOrg.name))"    @{ projectOrgIds   = @($projectOrg.id) }    'Subquery' }
 if ($catalogMatch)  { Add-Case "Katalognummer ($($catalogMatch.catalogNumber))" @{ observationIds = @($catalogMatch.observationIds) } 'Subquery' }
 
 # ---------------------------------------------------------------------------

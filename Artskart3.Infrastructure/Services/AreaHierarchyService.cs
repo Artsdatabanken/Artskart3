@@ -1,6 +1,8 @@
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,8 +18,36 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
 {
     private static readonly TimeSpan ReloadInterval = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// Slingringsmonn på områdeboksene, i meter.
+    ///
+    /// Boksene er utledet av data og lastes på nytt hver time. Kommer det nye
+    /// observasjoner som utvider et område i mellomtiden, kunne en for stram boks
+    /// fått oss til å utelate et område som faktisk har treff. Marginen dekker det
+    /// vinduet, og samtidig at områdene er lagret i EPSG:32633 mens utsnittet
+    /// kommer i 25833 — omtrent én meter fra hverandre.
+    ///
+    /// En km koster oss ingenting: den gjør bare at optimaliseringen ikke slår inn
+    /// for utsnitt som ligger nærmere enn det fra områdets ytterkant.
+    /// </summary>
+    private const int BoundsMarginMetres = 1000;
+
     private volatile Dictionary<string, string> _municipalityToCounty = new();
     private volatile Dictionary<string, List<string>> _countyToMunicipalities = new();
+    private volatile Dictionary<(int EntityTypeId, int EntityId), AreaBounds> _areaBounds = new();
+
+    /// <summary>
+    /// Hvilke (områdetype, id) som FINNES, lest fra Area-tabellen.
+    ///
+    /// Holdes atskilt fra <see cref="_areaBounds"/> med vilje. Boksene er utledet av
+    /// observasjonsdata, og «har ingen boks» betyr bare «har ingen observasjon med
+    /// lokasjon» — ikke «finnes ikke». Brukte eksistenssjekken boksene, ville en
+    /// avbrutt LocationId-backfill, eller et område hvis første observasjoner kom
+    /// etter forrige lasting, blitt lest som ikke-eksisterende, og et helt legitimt
+    /// områdefilter hadde svart tomt med status 200. Area er autoritativ for hva som
+    /// finnes, og den er billig å lese.
+    /// </summary>
+    private volatile HashSet<(int EntityTypeId, int EntityId)> _existingAreas = [];
     private volatile bool _initialized;
     private PeriodicTimer? _timer;
     private Task? _backgroundTask;
@@ -91,17 +121,102 @@ public class AreaHierarchyService : IAreaHierarchyService, IHostedService, IDisp
                 list.Add(m.Fid);
         }
 
-        // Volatile swap — hver referanse settes atomisk, men de to tilordningene er ikke
+        // Eksistensmengden bygges av de samme radene. Verneområde-Fid-ene ligger som
+        // «Naturbase VVnnnnnnnn» og må konverteres med sin egen regel — ellers ville
+        // alle verneområder sett ut som om de ikke finnes.
+        var existingAreas = new HashSet<(int, int)>();
+        foreach (var a in areas)
+        {
+            var entityId = a.AreaTypeId == (int)ObservationIndexEntityType.RestrictedArea
+                ? RestrictedAreaFidToEntityId(a.Fid)
+                : FidToEntityId(a.Fid);
+
+            if (entityId is { } id)
+                existingAreas.Add((a.AreaTypeId, id));
+        }
+
+        var areaBounds = await LoadAreaBoundsAsync(context, cancellationToken);
+
+        // Volatile swap — hver referanse settes atomisk, men tilordningene er ikke
         // atomiske samlet. En leser kan i et kort øyeblikk se ny _municipalityToCounty
         // med gammel _countyToMunicipalities. Akseptabelt fordi data sjelden endres
-        // og en enkelt forespørsel typisk bruker bare én av de to oppslagene.
+        // og en enkelt forespørsel typisk bruker bare én av oppslagene.
         _municipalityToCounty = municipalityToCounty;
         _countyToMunicipalities = countyToMunicipalities;
+        _existingAreas = existingAreas;
+        _areaBounds = areaBounds;
         _initialized = true;
 
         _logger.LogInformation(
-            "Lastet områdehierarki: {MunicipalityCount} kommuner, {CountyCount} fylker",
-            municipalityToCounty.Count, countyToMunicipalities.Count);
+            "Lastet områdehierarki: {MunicipalityCount} kommuner, {CountyCount} fylker, {AreaCount} områder, {BoundsCount} områdebokser",
+            municipalityToCounty.Count, countyToMunicipalities.Count, existingAreas.Count, areaBounds.Count);
+    }
+
+    /// <summary>
+    /// Utstrekningen til observasjonslokasjonene i hvert område.
+    ///
+    /// HVORFOR IKKE Area.Bbox
+    /// Area-tabellen har allerede en Bbox-kolonne, men den beskriver polygonet, og
+    /// observasjonene følger det ikke. Målt mot prodlik database ligger 356 239
+    /// indeksrader for verneområder utenfor sitt eget polygons bbox — opptil 78 km
+    /// utenfor — pluss 5 759 for kommuner og 89 for fylker. Å luke på polygonets
+    /// boks ville dermed fjernet ekte treff.
+    ///
+    /// Boksen rundt lokasjonene svarer på nøyaktig det spørsmålet vi stiller: kan
+    /// en observasjon i dette området ha en lokasjon i kartutsnittet? Per
+    /// konstruksjon ligger ingen lokasjon utenfor.
+    ///
+    /// Prisen er at én feilregistrert koordinat blåser opp boksen for hele
+    /// området. 15 av 357 kommuner og 2 av 15 fylker er slik — Larvik har polygon
+    /// på 30 × 83 km, men lokasjoner spredt over 695 × 1323 km. For dem slår
+    /// optimaliseringen aldri inn. Svaret blir like riktig, bare ikke raskere.
+    ///
+    /// Aggregeringen er målt til 2,6 sekunder over 134 millioner indeksrader, så
+    /// den tas ved oppstart og ved hver periodiske oppdatering.
+    /// </summary>
+    private static async Task<Dictionary<(int, int), AreaBounds>> LoadAreaBoundsAsync(
+        IArtsKartDbContext context, CancellationToken cancellationToken)
+    {
+        var rows = await context.Set<ObservationEntityIndex>()
+            .AsNoTracking()
+            .Where(i => i.LocationId != null)
+            .Join(context.Set<Location>(),
+                i => i.LocationId, l => l.Id,
+                (i, l) => new { i.EntityTypeId, i.EntityId, l.East, l.North })
+            .GroupBy(x => new { x.EntityTypeId, x.EntityId })
+            .Select(g => new
+            {
+                g.Key.EntityTypeId,
+                g.Key.EntityId,
+                MinX = g.Min(x => x.East),
+                MaxX = g.Max(x => x.East),
+                MinY = g.Min(x => x.North),
+                MaxY = g.Max(x => x.North)
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            r => (r.EntityTypeId, r.EntityId),
+            r => new AreaBounds(r.MinX, r.MinY, r.MaxX, r.MaxY));
+    }
+
+    public AreaBounds? GetAreaBounds(int entityTypeId, int entityId)
+        => _areaBounds.TryGetValue((entityTypeId, entityId), out var b) ? b : null;
+
+    public int[] PruneToEnvelope(int[] entityIds, AreaBounds envelope, params int[] entityTypeIds)
+        => AreaBoundsPruner.Prune(entityIds, envelope.Expand(BoundsMarginMetres), _areaBounds, entityTypeIds);
+
+    /// <inheritdoc />
+    public int[] FilterToExistingAreas(int[] entityIds, int entityTypeId)
+    {
+        if (entityIds.Length == 0) return entityIds;
+
+        // Area-tabellen er ikke lastet ennå. Da vet vi ingenting, og «vet ikke» skal
+        // gi med grenen — ikke uten. Se grensesnittet.
+        var existing = _existingAreas;
+        if (existing.Count == 0) return entityIds;
+
+        return entityIds.Where(id => existing.Contains((entityTypeId, id))).ToArray();
     }
 
     public string? GetCountyFid(string municipalityFid)

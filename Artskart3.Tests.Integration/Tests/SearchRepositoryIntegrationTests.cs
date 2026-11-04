@@ -41,6 +41,13 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     private const int TestTaxonNameMissingObservationId = 960005;
     private const int TestObservationTaxonGroupOneId = 970001;
     private const int TestObservationTaxonGroupTwoId = 970002;
+
+    /// <summary>
+    /// Områdeid for indeksradene til grunnoppsettets observasjoner. Ligger bevisst
+    /// utenfor 981xxx-rekkevidden CompleteFilter-testene bruker, og ingen Area i
+    /// grunnoppsettet har numerisk Fid, så radene påvirker ikke områdetellingene.
+    /// </summary>
+    private const int TestLocationsAreaEntityId = 970010;
     // CompleteFilter: samling er en Organization-ID, ikke lenger en kode-streng.
     private const int CollectionOne = 1;
     private const int CollectionTwo = 2;
@@ -249,6 +256,49 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
         result.Should().HaveCount(2);
         result.Select(location => location.Id).Should().ContainInOrder(_locationOne.Id, _locationTwo.Id);
+    }
+
+    /// <summary>
+    /// Antallet teller fra samme kilde som lokasjonssøket, så de to må gi samme tall
+    /// for samme filter. Går denne i stå, har de to kodestiene glidd fra hverandre.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetLocationCountAsync_StemmerMedGetLocationsAsync(bool filtrert)
+    {
+        var filter = filtrert
+            ? new LocationSearchFilterDto { TaxonGroupIds = new[] { TestObservationTaxonGroupOneId } }
+            : new LocationSearchFilterDto
+            {
+                TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId }
+            };
+
+        var lokasjoner = await _repository.GetLocationsAsync(filter);
+        var antall = await _repository.GetLocationCountAsync(filter);
+
+        antall.Count.Should().Be(lokasjoner.Count);
+        antall.Truncated.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// MaxResults gjelder lokasjonssøket, ikke antallet. Antallet har sitt eget tak
+    /// (MaxLocationResults) og skal fortsette å telle alle treff selv om kalleren
+    /// ber om få lokasjoner.
+    /// </summary>
+    [Fact]
+    public async Task GetLocationCountAsync_IgnorererMaxResults()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            TaxonGroupIds = new[] { TestObservationTaxonGroupOneId, TestObservationTaxonGroupTwoId },
+            MaxResults = 2
+        };
+
+        var antall = await _repository.GetLocationCountAsync(filter);
+
+        antall.Count.Should().Be(3);
+        antall.Truncated.Should().BeFalse();
     }
 
     [Fact]
@@ -487,10 +537,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// BehaviorId er tinyint. C# caster unchecked, saa (byte)257 blir 1: en
-    /// foresporsel med behaviorIds=[257] ville talt atferd 1 paa kartet, mens
-    /// listevisningen - som sammenligner raa int - korrekt ikke fant noe. Ikke
-    /// ufiltrert, men stille forskjovet, som er verre aa oppdage.
+    /// BehaviorId er tinyint. C# caster unchecked, så (byte)257 blir 1: en
+    /// forespørsel med behaviorIds=[257] ville talt atferd 1 på kartet, mens
+    /// listevisningen - som sammenligner rå int - korrekt ikke fant noe. Ikke
+    /// ufiltrert, men stille forskjovet, som er verre å oppdage.
     /// </summary>
     [Theory]
     [InlineData(257)]
@@ -504,8 +554,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         var repository = CreateCompleteFilterRepository();
 
         // En rad per verdi de tre inndataene ville kollapset til med unchecked cast:
-        // (byte)257 = 1, (byte)-1 = 255, (byte)256 = 0. Uten en rad aa treffe ville
-        // testen bestaatt ogsaa med vakten fjernet - den ville maalt ingenting.
+        // (byte)257 = 1, (byte)-1 = 255, (byte)256 = 0. Uten en rad å treffe ville
+        // testen bestått også med vakten fjernet - den ville målt ingenting.
         foreach (var (observationId, seededBehaviorId) in new[] { (981100, 1), (981101, 255), (981102, 0) })
         {
             await RemoveSyntheticRowsAsync(observationId, areaFid);
@@ -546,7 +596,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     /// <summary>
     /// Institusjonsfilteret gikk tidligere via self-join mot EntityTypeId=101-radene.
-    /// Kolonnen erstattet baade joinen og radene.
+    /// Kolonnen erstattet både joinen og radene.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_InstitutionFilter_CountsOnlyMatchingInstitution()
@@ -597,8 +647,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Katalognummer er allerede lost opp til ObservationId-er av typeaheaden, saa
-    /// filteret er et seek paa klyngeindeksen.
+    /// Katalognummer er allerede løst opp til ObservationId-er av typeaheaden, så
+    /// filteret er et seek på klyngeindeksen.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_ObservationIdsFilter_CountsOnlyThoseObservations()
@@ -640,7 +690,13 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
 
         var repository = CreateCompleteFilterRepository();
-        await RemoveSyntheticRowsAsync(observationId, areaFid);
+
+        // observationId er en EKTE seedet observasjon — den er valgt fordi filteret
+        // krever en Observation-rad med dette taksonet. Da kan opprydningen bare
+        // fjerne radene denne testen selv legger til: RemoveSyntheticRowsAsync ville
+        // slettet ALLE indeks- og hierarkiradene dens, og den har rader på
+        // _locationOne som lokasjonstestene teller.
+        await RemoveSyntheticAreaRowsAsync(observationId, areaEntityId, areaFid);
         await RemoveSyntheticRowsAsync(indexOnlyObservationId, areaFid);
         SeedArea(areaFid, "Uten underliggende taksa kommune");
         SeedIndexRow(observationId, areaEntityId);
@@ -669,9 +725,9 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         const int areaEntityId = 981610;
 
         // ObservationProject har fremmednokler til BADE Observation og Organization,
-        // saa raden maa henge paa noe som finnes. Vi laaner en observasjon fra
-        // testdataene i stedet for aa lage en ny - en ny observasjon ville endret
-        // lokasjonstellingene som de andre testene i samlingen bygger paa.
+        // så raden må henge på noe som finnes. Vi låner en observasjon fra
+        // testdataene i stedet for å lage en ny - en ny observasjon ville endret
+        // lokasjonstellingene som de andre testene i samlingen bygger på.
         var observationId = await _context.Set<Observation>()
             .OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
 
@@ -697,8 +753,8 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     /// <summary>
     /// 745 066 observasjoner tilhorer mellom to og fem datasett. Derfor er koblingen
-    /// en egen tabell, og derfor maa filteret vaere et semi-join: et join ville talt
-    /// observasjonen en gang per datasett og blaast opp omraadetellingen.
+    /// en egen tabell, og derfor må filteret være et semi-join: et join ville talt
+    /// observasjonen en gang per datasett og blåst opp områdetellingen.
     /// </summary>
     [Fact]
     public async Task GetAreaCountsAsync_ObservationInSeveralDatasets_IsCountedOnce()
@@ -796,8 +852,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Where(a => a.Fid == areaFid).Sum(a => a.ObservationCount).Should().Be(1);
     }
 
-    // Tagfiltrene slår opp rett i koblingstabellen ObservationTags, som
-    // in-memory-testene ikke kan bekrefte at oversettes til SQL.
+    // Tagfiltrene leser denormaliserte kolonner på ObservationEntityIndex, ikke
+    // koblingstabellen. Testene setter BEGGE: taggen beskriver kilden, kolonnen er
+    // det spørringen faktisk filtrerer på. Går de fra hverandre i
+    // produksjonskoden — en backfill som ikke dekker alt — er det det disse skal
+    // avsløre. Samme mønster som bildetesten i ObservationQueryBuilderTests.
 
     [Fact]
     public Task GetAreaCountsAsync_ChangedByAnnotationFilter_SplitsOnAnnotatedChangesTag() =>
@@ -808,6 +867,16 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     public Task GetAreaCountsAsync_SensitiveFilter_SplitsOnSensitiveTag() =>
         AssertAreaCountsSplitOnTagAsync(983000, TagEnum.Sensitive,
             hasTag => new LocationSearchFilterDto { Sensitive = hasTag });
+
+    [Fact]
+    public Task GetAreaCountsAsync_UncertainIdentificationFilter_SplitsOnUnsureIdentificationTag() =>
+        AssertAreaCountsSplitOnTagAsync(984000, TagEnum.UnsureIdentification,
+            hasTag => new LocationSearchFilterDto { UncertainIdentification = hasTag });
+
+    [Fact]
+    public Task GetAreaCountsAsync_IntroducedFilter_SplitsOnUnspontaneusTag() =>
+        AssertAreaCountsSplitOnTagAsync(985000, TagEnum.Unspontaneus,
+            hasTag => new LocationSearchFilterDto { Introduced = hasTag });
 
     private async Task AssertAreaCountsSplitOnTagAsync(
         int untaggedObservationId, TagEnum tag, Func<bool, LocationSearchFilterDto> filterOnTag)
@@ -826,7 +895,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         await RemoveSyntheticRowsAsync(untaggedObservationId, areaFid);
         await RemoveSyntheticTagRowAsync(taggedObservationId, tagId);
         SeedArea(areaFid, $"{tag} test kommune");
-        SeedIndexRow(taggedObservationId, areaEntityId);
+        SeedIndexRow(taggedObservationId, areaEntityId,
+            changedByAnnotation: tag == TagEnum.AnnotatedChanges,
+            sensitive: tag == TagEnum.Sensitive,
+            uncertainIdentification: tag == TagEnum.UnsureIdentification,
+            introduced: tag == TagEnum.Unspontaneus);
         SeedIndexRow(untaggedObservationId, areaEntityId);
         await AddTagRowAsync(taggedObservationId, tag);
 
@@ -851,12 +924,47 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             ["TagId"] = tagId,
         });
         await _context.SaveChangesAsync();
+        await OppdaterRegistreringsstatusAsync(observationId);
     }
 
     private async Task RemoveSyntheticTagRowAsync(int observationId, int tagId)
     {
         ObservationTags().RemoveRange(ObservationTags()
             .Where(ot => (int)ot["ObservationId"] == observationId && (int)ot["TagId"] == tagId));
+        await _context.SaveChangesAsync();
+        await OppdaterRegistreringsstatusAsync(observationId);
+    }
+
+    /// <summary>
+    /// Holder den denormaliserte kolonnen i takt med taggene, slik seksjon C i
+    /// BackfillAll gjør i produksjon: ikke gjenfunnet slår ikke funnet, og uten
+    /// noen av dem er svaret funnet.
+    ///
+    /// Lokasjonssøket leser RegistrationStatusId fra indekstabellen og ikke fra
+    /// ObservationTag — kolonnen finnes nettopp for å slippe joinen — så en test
+    /// som bare legger på en tagg ville ellers ikke sett noen endring.
+    ///
+    /// Bare indeksraden oppdateres, som i seksjon C. Observation.RegistrationStatusId
+    /// vedlikeholdes ikke derfra.
+    /// </summary>
+    private async Task OppdaterRegistreringsstatusAsync(int observationId)
+    {
+        var tagIds = await ObservationTags()
+            .Where(ot => (int)ot["ObservationId"] == observationId)
+            .Select(ot => (int)ot["TagId"])
+            .ToListAsync();
+
+        var status = tagIds.Contains((int)TagEnum.NotRecovered) ? (byte)RegistrationStatus.NotRecovered
+            : tagIds.Contains((int)TagEnum.Absent) ? (byte)RegistrationStatus.Absent
+            : (byte)RegistrationStatus.Found;
+
+        var indexRows = await _context.Set<ObservationEntityIndex>()
+            .Where(idx => idx.ObservationId == observationId)
+            .ToListAsync();
+
+        foreach (var row in indexRows)
+            row.RegistrationStatusId = status;
+
         await _context.SaveChangesAsync();
     }
 
@@ -885,7 +993,11 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         int areaEntityId,
         int? institutionOrgId = null,
         int? datasetOrgId = null,
-        byte? behaviorId = null) =>
+        byte? behaviorId = null,
+        bool changedByAnnotation = false,
+        bool sensitive = false,
+        bool uncertainIdentification = false,
+        bool introduced = false) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
             ObservationId = observationId,
@@ -897,11 +1009,15 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             InstitutionOrgId = institutionOrgId,
             DatasetOrgId = datasetOrgId,
             BehaviorId = behaviorId,
+            ChangedByAnnotation = changedByAnnotation,
+            Sensitive = sensitive,
+            UncertainIdentification = uncertainIdentification,
+            Introduced = introduced,
         });
 
     /// <summary>
-    /// ProjectOrgId peker paa Organization, som igjen peker paa OrganizationType.
-    /// Testdataene inneholder ingen av delene, saa begge maa opprettes.
+    /// ProjectOrgId peker på Organization, som igjen peker på OrganizationType.
+    /// Testdataene inneholder ingen av delene, så begge må opprettes.
     ///
     /// Id-ene settes IKKE eksplisitt: Organization.Id er en identity-kolonne, og et
     /// eksplisitt id-innslag avvises med IDENTITY_INSERT OFF. Vi lar databasen
@@ -944,6 +1060,27 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         _context.Set<ObservationProject>()
             .RemoveRange(_context.Set<ObservationProject>().Where(d => d.ObservationId == observationId));
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Fjerner bare radene en test selv la på ett syntetisk område, og lar
+    /// observasjonens øvrige rader stå.
+    ///
+    /// Brukes når testen trenger en EKTE seedet observasjon — typisk fordi
+    /// filteret krever en Observation-rad med en bestemt egenskap.
+    /// <see cref="RemoveSyntheticRowsAsync"/> sletter da for mye: alle
+    /// indeksradene OG taksonhierarkiet til en observasjon som resten av klassen
+    /// regner med. Seedet bygges én gang og deles av alle testene her, så det
+    /// kommer ikke tilbake — lokasjonstellingene faller stille med én.
+    /// </summary>
+    private async Task RemoveSyntheticAreaRowsAsync(int observationId, int areaEntityId, string areaFid)
+    {
+        _context.Set<ObservationEntityIndex>()
+            .RemoveRange(_context.Set<ObservationEntityIndex>()
+                .Where(i => i.ObservationId == observationId && i.EntityId == areaEntityId));
+        _context.Set<Area>()
+            .RemoveRange(_context.Set<Area>().Where(a => a.Fid == areaFid));
         await _context.SaveChangesAsync();
     }
 
@@ -1070,13 +1207,16 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         _context.Set<Location>().AddRange(_locationOne, _locationTwo, _locationThree);
         await _context.SaveChangesAsync();
 
-        _context.Set<Observation>().AddRange(
+        var observations = new[]
+        {
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 1),
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 2),
             CreateObservation(_locationOne.Id, TestObservationTaxonGroupOneId, TestCategoryOneId, TestBasisOfRecordOneId, CollectionOne, 25, 3),
             CreateObservation(_locationTwo.Id, TestObservationTaxonGroupTwoId, TestCategoryTwoId, TestBasisOfRecordTwoId, CollectionTwo, 100, 4),
             CreateObservation(_locationTwo.Id, TestObservationTaxonGroupTwoId, TestCategoryTwoId, TestBasisOfRecordTwoId, CollectionTwo, 100, 5),
-            CreateObservation(_locationThree.Id, TestObservationTaxonGroupOneId, TestCategoryTwoId, TestBasisOfRecordOneId, CollectionOne, 500, 6));
+            CreateObservation(_locationThree.Id, TestObservationTaxonGroupOneId, TestCategoryTwoId, TestBasisOfRecordOneId, CollectionOne, 500, 6),
+        };
+        _context.Set<Observation>().AddRange(observations);
 
         _context.Set<Area>().AddRange(
             CreateArea("Repo kommune A", TestAreaTypeMunicipalityId, 10, 10),
@@ -1085,6 +1225,41 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             CreateArea("Repo fylke A", TestAreaTypeCountyId, 20, 7),
             CreateArea("Repo felles område", TestAreaTypeMunicipalityId, 30, 10),
             CreateArea("Repo felles område", TestAreaTypeCountyId, 40, 7));
+
+        await _context.SaveChangesAsync();
+
+        // ObservationEntityIndex speiler BackfillAll seksjon C/D/E: én rad per
+        // observasjon per område, med filterkolonnene kopiert fra observasjonen.
+        //
+        // Lokasjonssøket grupperer på ObservationEntityIndex.LocationId og rører ikke
+        // Observation i det hele tatt — uten radene her returnerer GetLocationsAsync
+        // tomt uansett hva som står i Observation. Filterkolonnene må være de samme,
+        // ellers filtrerer testene på noe annet enn det de seeder.
+        //
+        // Legges til etter lagringen fordi Observation.Id er identity-generert.
+        _context.Set<ObservationEntityIndex>().AddRange(observations.Select(o => new ObservationEntityIndex
+        {
+            ObservationId = o.Id,
+            EntityTypeId = TestAreaTypeMunicipalityId,
+            EntityId = TestLocationsAreaEntityId,
+            TaxonGroupId = o.TaxonGroupId,
+            CategoryId = o.CategoryId,
+            BasisOfRecordId = o.BasisOfRecordId,
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
+            DateTimeCollected = o.DateTimeCollected,
+            // MonthCollected MÅ følge DateTimeCollected. I produksjon er den
+            // backfillet og verifisert av migrasjon 20260920125459, og
+            // byggeskriptene for tellebufferne nekter å bygge hvis de to spriker:
+            // periodedimensjonen bøttes på MONTH(DateTimeCollected), mens
+            // filterstiene leser MonthCollected. Et seed som bare satte datoen
+            // ville derfor stoppe CountCacheScriptIntegrationTests.
+            MonthCollected = (byte?)o.DateTimeCollected?.Month,
+            RegistrationStatusId = o.RegistrationStatusId,
+            HasMediaFiles = o.HasMediaFiles,
+            BehaviorId = o.BehaviorId,
+            DatasetOrgId = o.DatasetOrgId,
+            LocationId = o.LocationId,
+        }));
 
         await _context.SaveChangesAsync();
     }
