@@ -336,6 +336,13 @@ public class ObservationQueryBuilderTests
         using var context = CreateInMemoryContext();
         var withMedia = CreateObservation(1);
         var withoutMedia = CreateObservation(2);
+
+        // HasMediaFiles er denormalisert; filteret leser kolonnen, ikke
+        // MediaFiles.Any(). Mediefilen legges fortsatt inn, slik at testen
+        // beskriver kilden og kolonnen sammen — går de fra hverandre i
+        // produksjonskoden, er det det denne testen skal avsløre.
+        withMedia.HasMediaFiles = true;
+
         SeedObservations(context, withMedia, withoutMedia);
         context.Set<MediaFile>().Add(new MediaFile
         {
@@ -358,12 +365,21 @@ public class ObservationQueryBuilderTests
     [Theory]
     [InlineData(true, 1)]
     [InlineData(false, 2)]
-    public void ApplyFilters_ChangedByAnnotation_SplitsOnAnnotatedChangesTag(bool changedByAnnotation, int expectedId)
+    public void ApplyFilters_ChangedByAnnotation_SplitsOnDenormalisedColumn(bool changedByAnnotation, int expectedId)
     {
         using var context = CreateInMemoryContext();
+        var annotert = CreateObservation(1);
+        var ikkeAnnotert = CreateObservation(2);
+
+        // ChangedByAnnotation er denormalisert fra taggen AnnotatedChanges;
+        // filteret leser kolonnen, ikke Tags.Any(). Taggen legges fortsatt inn,
+        // slik at testen beskriver kilden og kolonnen sammen — går de fra
+        // hverandre i produksjonskoden, er det det denne testen skal avsløre.
+        annotert.ChangedByAnnotation = true;
+
         SeedObservationsWithTags(context,
-            (CreateObservation(1), [(int)TagEnum.AnnotatedChanges]),
-            (CreateObservation(2), [(int)TagEnum.Absent]));
+            (annotert, [(int)TagEnum.AnnotatedChanges]),
+            (ikkeAnnotert, [(int)TagEnum.Absent]));
         context.SaveChanges();
 
         var result = Apply(context, new ObservationSearchFilterDto { ChangedByAnnotation = changedByAnnotation });
@@ -378,15 +394,78 @@ public class ObservationQueryBuilderTests
     [Theory]
     [InlineData(true, 1)]
     [InlineData(false, 2)]
-    public void ApplyFilters_Sensitive_SplitsOnSensitiveTag(bool sensitive, int expectedId)
+    public void ApplyFilters_Sensitive_SplitsOnDenormalisedColumn(bool sensitive, int expectedId)
     {
         using var context = CreateInMemoryContext();
+        var sensitiv = CreateObservation(1);
+        var ikkeSensitiv = CreateObservation(2);
+
+        // Som annoteringsfilteret over: Sensitive er denormalisert fra taggen,
+        // og filteret leser kolonnen. Begge legges inn.
+        sensitiv.Sensitive = true;
+        ikkeSensitiv.ChangedByAnnotation = true;
+
         SeedObservationsWithTags(context,
-            (CreateObservation(1), [(int)TagEnum.Sensitive]),
-            (CreateObservation(2), [(int)TagEnum.AnnotatedChanges]));
+            (sensitiv, [(int)TagEnum.Sensitive]),
+            (ikkeSensitiv, [(int)TagEnum.AnnotatedChanges]));
         context.SaveChanges();
 
         var result = Apply(context, new ObservationSearchFilterDto { Sensitive = sensitive });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Artsbestemmelse
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_UncertainIdentification_SplitsOnDenormalisedColumn(bool uncertain, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var usikker = CreateObservation(1);
+        var sikker = CreateObservation(2);
+
+        // true = USIKKER artsbestemmelse. Fravær av taggen er «sikker», slik gamle
+        // Artskart tolket det. Taggen legges inn ved siden av kolonnen, som i
+        // testene over.
+        usikker.UncertainIdentification = true;
+
+        SeedObservationsWithTags(context,
+            (usikker, [(int)TagEnum.UnsureIdentification]),
+            (sikker, [(int)TagEnum.Validated]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { UncertainIdentification = uncertain });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Opprinnelse
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public void ApplyFilters_Introduced_SplitsOnDenormalisedColumn(bool introduced, int expectedId)
+    {
+        using var context = CreateInMemoryContext();
+        var innfoert = CreateObservation(1);
+        var naturlig = CreateObservation(2);
+
+        // true = INNFØRT. Kolonnen heter ikke det samme som taggen (Unspontaneus),
+        // fordi taggnavnet er feilstavet; testen viser koblingen eksplisitt.
+        innfoert.Introduced = true;
+
+        SeedObservationsWithTags(context,
+            (innfoert, [(int)TagEnum.Unspontaneus]),
+            (naturlig, [(int)TagEnum.Validated]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { Introduced = introduced });
 
         result.Should().ContainSingle().Which.Id.Should().Be(expectedId);
     }
@@ -477,7 +556,102 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
+        // Observasjonen har ingen tagger — altså sikker artsbestemmelse.
+        [nameof(IObservationFilter.UncertainIdentification)] = f => f.UncertainIdentification = true,
+        // Observasjonen har ingen tagger — altså naturlig forekomst.
+        [nameof(IObservationFilter.Introduced)] = f => f.Introduced = true,
     };
+
+    /// <summary>
+    /// Øvre periodegrense er eksklusiv, som i søkestiene (se PeriodBounds).
+    ///
+    /// Formen var <c>&lt;= 31.12 23:59:59</c>, og DateTimeCollected er datetime2(7):
+    /// en observasjon klokka 23:59:59,5 nyttårsaften falt utenfor et filter som
+    /// eksplisitt inkluderte året. Den var altså med i listen og på kartet, men
+    /// borte fra CSV-en for samme filter.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithPeriodTo_IncluderSisteBroekdelAvAaret()
+    {
+        using var context = CreateInMemoryContext();
+
+        var sisteOejeblikk = CreateObservation(1);
+        sisteOejeblikk.DateTimeCollected = new DateTime(2024, 12, 31, 23, 59, 59).AddTicks(5_000_000);
+
+        var nesteAar = CreateObservation(2);
+        nesteAar.DateTimeCollected = new DateTime(2025, 1, 1);
+
+        SeedObservations(context, sisteOejeblikk, nesteAar);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { To = 2024 }
+        });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Månedsfilteret leser MonthCollected, ikke DATEPART på datoen — samme kolonne
+    /// og samme form som listevisningen, slik at CSV-en inneholder de radene listen
+    /// viste.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithMonths_LeserMonthCollected()
+    {
+        using var context = CreateInMemoryContext();
+
+        // MonthCollected settes eksplisitt: i databasen er den beregnet av
+        // DateTimeCollected, men in-memory-provideren regner ikke ut beregnede
+        // kolonner. Det er predikatet som testes her, ikke kolonneuttrykket.
+        var mai = CreateObservation(1);
+        mai.DateTimeCollected = new DateTime(2024, 5, 17);
+        mai.MonthCollected = 5;
+
+        var desember = CreateObservation(2);
+        desember.DateTimeCollected = new DateTime(2024, 12, 24);
+        desember.MonthCollected = 12;
+
+        var utenMaaned = CreateObservation(3);
+        utenMaaned.DateTimeCollected = null;
+        utenMaaned.MonthCollected = null;
+
+        SeedObservations(context, mai, desember, utenMaaned);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { Months = [5] }
+        });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Bare ugyldige måneder gir tomt, aldri ufiltrert — samme tomlisteguard som
+    /// listevisningen. Validatoren avviser slike filtre, men et lagret filter kan
+    /// være laget før den ble streng.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithBareUgyldigeMaaneder_ReturnererTomt()
+    {
+        using var context = CreateInMemoryContext();
+
+        var mai = CreateObservation(1);
+        mai.DateTimeCollected = new DateTime(2024, 5, 17);
+        mai.MonthCollected = 5;
+
+        SeedObservations(context, mai);
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto
+        {
+            Period = new PeriodDto { Months = [0, 13] }
+        });
+
+        result.Should().BeEmpty();
+    }
 
     private static List<Observation> Apply(
         ArtskartDbContext context,
@@ -525,6 +699,18 @@ public class ObservationQueryBuilderTests
                 observation.Tags.Add(tag);
             }
 
+            // RegistrationStatusId er en denormalisert kolonne, og filtrene leser
+            // den i stedet for å utlede den av taggene. Hjelperen setter den her
+            // etter samme CASE som BackfillAll seksjon C og oppdateringsløpet:
+            // NotRecovered vinner over Absent, ellers 1.
+            //
+            // Testene beskriver fortsatt tilstanden med tagger, som er kilden.
+            // Går de to fra hverandre, er det nettopp den driften disse testene
+            // skal fange.
+            observation.RegistrationStatusId =
+                tagIds.Contains((int)TagEnum.NotRecovered) ? (byte)3 :
+                tagIds.Contains((int)TagEnum.Absent)       ? (byte)2 : (byte)1;
+
             context.Set<Observation>().Add(observation);
         }
     }
@@ -569,6 +755,9 @@ public class ObservationQueryBuilderTests
         new()
         {
             Id = id,
+            // Speiler databasens DEFAULT (1) paa kolonnen: 99,67 % av radene er
+            // «funnet». Uten dette ville hver test maattet sette den selv.
+            RegistrationStatusId = 1,
             DateLastModified = DateTime.UtcNow,
             DateTimeRecordImported = DateTime.UtcNow,
             DateTimeRecordProcessed = DateTime.UtcNow,
