@@ -1,5 +1,5 @@
+using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
-using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 
 namespace Artskart3.Core.Application.Services.Implementations;
@@ -13,19 +13,8 @@ public class NotificationsService : INotificationsService
         _notificationsRepository = notificationsRepository ?? throw new ArgumentNullException(nameof(notificationsRepository));
     }
 
-    public async Task<IEnumerable<NotificationModel>> GetAllNotificationsAsync()
+    public async Task<IEnumerable<NotificationDto>> GetAllActiveNotificationsAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            return await _notificationsRepository.GetAllNotificationsAsync();
-        }
-        catch (ApplicationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw new ApplicationException("An error occurred while retrieving notifications.", ex);
-        }
+        return await _notificationsRepository.GetAllActiveNotificationsAsync(cancellationToken);
     }
 }

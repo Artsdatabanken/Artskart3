@@ -1,4 +1,5 @@
 using Artskart3.Api.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -7,6 +8,11 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 /// </summary>
 public static class HealthCheckExtensions
 {
+    /// <summary>
+    /// Sjekker merket med denne kjøres av readiness-proben. Liveness kjører ingen.
+    /// </summary>
+    public const string ReadyTag = "ready";
+
     private const int HealthCheckTimeoutSeconds = 5;
     public static IHealthChecksBuilder AddCustomHealthChecks(
         this IServiceCollection services,
@@ -17,34 +23,43 @@ public static class HealthCheckExtensions
 
         logger.LogInformation("Configuring Health Checks for Dependencies");
 
-        var dbConnectionString = configuration.GetConnectionString("ArtskartDb");
+        var dbConnectionString = configuration.GetConnectionString("ArtskartIndex");
         if (!string.IsNullOrEmpty(dbConnectionString))
         {
             logger.LogInformation("Database connection string configured");
             healthChecksBuilder.AddAsyncCheck("Database",
                 async () => await CheckDatabaseHealthAsync(dbConnectionString, logger),
-                tags: new[] { "dependencies", "database" });
+                tags: new[] { "dependencies", "database", ReadyTag });
         }
         else
         {
             logger.LogWarning("Database connection string NOT configured");
         }
 
-        var keyVaultUrl = configuration["KeyVault:Url"];
-        if (!string.IsNullOrEmpty(keyVaultUrl))
-        {
-            logger.LogInformation("Key Vault configured at: {KeyVaultUrl}", keyVaultUrl);
-            healthChecksBuilder.AddAsyncCheck("Key Vault",
-                async () => await CheckKeyVaultHealthAsync(keyVaultUrl, logger),
-                tags: new[] { "dependencies", "security" });
-        }
-        else
-        {
-            logger.LogDebug("Key Vault NOT configured (optional)");
-        }
-
         logger.LogInformation("Health checks configuration completed");
         return healthChecksBuilder;
+    }
+
+    /// <summary>
+    /// Bygger oppsettet for et probe-endepunkt. Predikatet velger hvilke sjekker som
+    /// kjøres: ingen for liveness, de ready-merkede for readiness, alle for /hc.
+    /// </summary>
+    public static HealthCheckOptions CreateProbeOptions(
+        bool allowCachingResponses,
+        Func<HealthCheckRegistration, bool>? predicate = null)
+    {
+        var options = new HealthCheckOptions
+        {
+            ResponseWriter = WriteJsonResponse,
+            AllowCachingResponses = allowCachingResponses
+        };
+
+        if (predicate is not null)
+        {
+            options.Predicate = predicate;
+        }
+
+        return options;
     }
     private static async Task<HealthCheckResult> ExecuteHealthCheckAsync(
      string serviceName,
@@ -84,16 +99,6 @@ public static class HealthCheckExtensions
         }, logger);
     }
 
-    private static async Task<HealthCheckResult> CheckKeyVaultHealthAsync(string keyVaultUrl, ILogger logger)
-    {
-        return await ExecuteHealthCheckAsync("Key Vault", async (ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(keyVaultUrl) || !Uri.TryCreate(keyVaultUrl, UriKind.Absolute, out _))
-                throw new InvalidOperationException($"Invalid Key Vault URL: {keyVaultUrl}");
-
-            await Task.CompletedTask;
-        }, logger);
-    }
     public static async Task WriteJsonResponse(HttpContext context, HealthReport report)
     {
         context.Response.ContentType = "application/json";

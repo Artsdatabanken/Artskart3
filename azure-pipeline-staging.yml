@@ -1,7 +1,6 @@
-trigger:
-  branches:
-    include:
-      - staging
+# Kjører bare som PR-validering. Bygg og utrulling fra staging gjøres av
+# azure-pipeline-dockerized.yml.
+trigger: none
 pr: 
   branches:
     include:

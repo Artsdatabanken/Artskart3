@@ -1,5 +1,6 @@
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
+import { localeFromLanguage } from '@shared/helpers/locale/locale';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 
 export type ObservationGrouping = 'taxonGroup' | 'location' | 'redList' | 'alienSpecies';
@@ -60,7 +61,7 @@ export function buildObservationTree(
   formatDate: (value: string | null | undefined) => string,
 ): ObservationTreeNode[] {
   const t = (key: string) => translate(`observationList.${key}`);
-  const locale = language === 'no' ? 'nb-NO' : 'en-GB';
+  const locale = localeFromLanguage(language);
   const collator = new Intl.Collator(locale);
   const categoryLabel = (code: string) => t(`categories.${code}`);
   const categoryRank = (code: string) => CATEGORY_ORDER.indexOf(code);

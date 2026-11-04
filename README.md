@@ -51,8 +51,7 @@ Rider: Høyreklikk prosjektet og velg Tools->.Net user Secrets
 Filen skal se noe slik ut, endre connectionstring ved behov.
 ```
 {
-  "ConnectionStrings:ArtskartIndex": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True",
-  "ClientSafeList": "127.0.0.1;::1"
+  "ConnectionStrings:ArtskartIndex": "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
 }
 ```
 
@@ -61,7 +60,6 @@ Filen skal se noe slik ut, endre connectionstring ved behov.
 cd Artskart3.Api
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:ArtskartIndex" "data source=localhost;initial catalog=Artskart3Index;Integrated Security=true;MultipleActiveResultSets=True;App=EntityFramework;TrustServerCertificate=True"
-dotnet user-secrets set "ClientSafeList" "127.0.0.1;::1"
 ```
 
 Valgfritt — legg til Application Insights ConnectionString hvis du skal teste det lokalt
@@ -93,6 +91,63 @@ dotnet ef migrations remove --startup-project ..\Artskart3.Api
 ```
 
 > Migrasjonsfilene ligger i `Artskart3.Infrastructure/Migrations/`. Ikke rediger disse manuelt etter at de er kjørt mot en delt database.
+
+## Kjøre Artskart 3 i containere lokalt
+
+Det vanlige utviklingsoppsettet over er fortsatt det du bruker til daglig. Dette er for
+å kjøre løsningen slik den kjører i Azure Container Apps — tre containere, med
+frontend bak nginx. Se [CONTAINERS.md](CONTAINERS.md) for topologi, miljøvariabler og
+det drift trenger.
+
+**Forutsetninger:** podman eller docker, og en SQL Server du kan nå over TCP med
+SQL-pålogging. LocalDB virker ikke — den lytter bare på en lokal named pipe. Se
+kommentarene i `.env.example` for hva som må være på plass på instansen.
+
+```bash
+cp .env.example .env        # fyll inn DB_CONNECTION_STRING
+podman compose up -d --build
+```
+
+| | |
+| --- | --- |
+| Frontend | https://localhost:49219 |
+| Swagger | https://localhost:49219/swagger |
+| Readiness (database) | https://localhost:49219/hc/ready |
+| Liveness | https://localhost:49219/hc/live |
+| nginx liveness | https://localhost:49219/healthz |
+| Workers | http://localhost:8082/health |
+| Hangfire | http://localhost:8082/hangfire |
+| API direkte (feilsøking) | http://localhost:8081 |
+
+Web-containeren svarer på tre porter: 49219 og 8443 over TLS, 8080 over http. Bruk
+**49219** — det er opphavet Angular dev-serveren bruker, og den returadressen er
+allerede registrert hos identitetsleverandøren, så pålogging virker. Alt skal gå
+gjennom web-containeren; API-et er bare publisert direkte for feilsøking, og har ingen
+ekstern ingress i Azure.
+
+**Unngå sertifikatadvarsel** ved å bruke ASP.NET sitt utviklersertifikat, det samme
+Visual Studio-oppsettet bruker:
+
+```bash
+podman compose -f docker-compose.yml -f docker-compose.devcert.yml up -d --build web
+```
+
+Uten den overstyringen lager containeren et selvsignert sertifikat, og nettleseren
+klager. Sertifikatfilene legges på plass av `prestart`-scriptet i
+`Artskart3.WebApp/package.json`; har du kjørt `npm start` en gang, finnes de.
+
+**Nyttige kommandoer:**
+
+```bash
+podman logs -f artskart3-web-1       # nginx: hvilke stier treffer hva
+podman logs -f artskart3-api-1       # API: forespørsler og trege spørringer
+podman compose restart api           # etter en endring i .env
+podman compose down                  # stopp alt
+```
+
+> Migrasjoner kjøres ikke fra compose, og `Database__AutoMigrate` er `false`. Basen din
+> har skjemaet allerede, og oppsettet skal ikke skrive til den. Trenger du migrasjoner,
+> kjør dem som beskrevet over.
 
 ## Testdekning (code coverage)
 
