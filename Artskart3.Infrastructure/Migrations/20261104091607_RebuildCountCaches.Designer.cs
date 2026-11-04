@@ -13,7 +13,7 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261023114735_RebuildCountCaches")]
+    [Migration("20261104091607_RebuildCountCaches")]
     partial class RebuildCountCaches
     {
         /// <inheritdoc />
@@ -1339,6 +1339,55 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("PK_dbo.__MigrationHistory");
 
                     b.ToTable("__MigrationHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AlertType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("CanClose")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EventEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EventStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("PublishFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PublishUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Observation", b =>
