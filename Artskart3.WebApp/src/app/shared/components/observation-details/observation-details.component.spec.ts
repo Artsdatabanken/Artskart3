@@ -178,6 +178,24 @@ describe('ObservationDetails', () => {
     expect(value('observationDetails.fields.quality').classList).not.toContain('empty');
   });
 
+  it('shows locality, municipality, and county in that order', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('detail', {
+      id: 42,
+      locality: 'Test locality',
+      municipalities: ['Test municipality'],
+      counties: ['Test county'],
+    });
+    await fixture.whenStable();
+
+    const placeRows = [...fixture.nativeElement.querySelectorAll('adb-accordion-item')][1].querySelectorAll('dt');
+    expect([...placeRows].slice(0, 3).map((row) => row.nextElementSibling?.textContent?.trim())).toEqual([
+      'Test locality',
+      'Test municipality',
+      'Test county',
+    ]);
+  });
+
   it('shows the registration type first, with a description for not found records', async () => {
     const fixture = await create();
     const element: HTMLElement = fixture.nativeElement;

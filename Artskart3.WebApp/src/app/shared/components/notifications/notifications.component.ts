@@ -23,15 +23,15 @@ const ALERT_TYPE_VARIANT: Record<number, AlertVariant> = {
   styleUrl: './notifications.component.css',
 })
 export class NotificationsComponent {
-  protected readonly notificationsService = inject(NotificationsService);
+  private readonly notificationsService = inject(NotificationsService);
   protected readonly translate = inject(TranslateService);
   private readonly dismissalService = inject(NotificationDismissalService);
   protected readonly visibleNotifications = computed(() =>
-    this.notificationsService.activeNotifications().filter(notification => !this.dismissalService.isDismissed(notification))
+    this.notificationsService.notifications().filter(notification => !this.dismissalService.isDismissed(notification))
   );
 
   protected variant(notification: NotificationModel): AlertVariant {
-    return ALERT_TYPE_VARIANT[notification.type ?? 0] ?? 'info';
+    return ALERT_TYPE_VARIANT[notification.alertType ?? 0] ?? 'info';
   }
 
   protected dismiss(notification: NotificationModel): void {

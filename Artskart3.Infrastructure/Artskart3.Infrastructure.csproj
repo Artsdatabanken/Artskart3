@@ -39,10 +39,4 @@
     <EmbeddedResource Include="..\Scripts\BuildLocationCountCache.sql" Link="Scripts\BuildLocationCountCache.sql" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Data\JsonDb\notifications.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

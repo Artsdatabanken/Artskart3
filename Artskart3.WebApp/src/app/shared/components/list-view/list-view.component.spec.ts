@@ -1,10 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TranslateModule } from '@ngx-translate/core';
+import { By } from '@angular/platform-browser';
 import { ListViewComponent } from './list-view.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 
 describe('ListViewComponent', () => {
   let component: ListViewComponent;
@@ -36,6 +38,29 @@ describe('ListViewComponent', () => {
 
   it('should have page size options', () => {
     expect(component.pageSizeOptions).toEqual([10, 25, 50]);
+  });
+
+  it('renders the risk category badge with the category lookup code', async () => {
+    const httpTesting = TestBed.inject(HttpTestingController);
+    httpTesting.expectOne('/api/Lookup/Categories').flush([
+      { id: 1, name: 'Rødliste', categories: [{ id: 10, code: 'CR', name: 'Kritisk truet' }] },
+    ]);
+    httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+    httpTesting.expectOne('/api/Lookup/Areas').flush({});
+    httpTesting.expectOne('/api/Search/Observation').flush({
+      items: [{ id: 1, categoryId: 10 }],
+      pageNumber: 1,
+      resultsPerPage: 10,
+      lookaheadCount: 0,
+      hasMorePages: false,
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const badge = fixture.debugElement.query(By.directive(RiskCategoryBadgeComponent));
+    expect(badge).toBeTruthy();
+    expect(badge.injector.get(RiskCategoryBadgeComponent).code()).toBe('CR');
   });
 
   describe('onPageChange', () => {

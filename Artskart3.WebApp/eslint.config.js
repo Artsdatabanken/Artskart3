@@ -40,6 +40,23 @@ module.exports = defineConfig([
     },
   },
   {
+    files: ["**/*.ts"],
+    ignores: ["src/app/shared/types/api.types.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/api.generated"],
+              message: "Import API types from api.types.ts instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["**/*.html"],
     extends: [
       angular.configs.templateRecommended,
