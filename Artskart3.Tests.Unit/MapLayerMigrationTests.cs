@@ -9,9 +9,8 @@ namespace Artskart3.Tests.Unit;
 public class MapLayerMigrationTests
 {
     private const string InitialMigration = "20260910075213_AddMapLayer";
-    private const string PreviousMigration = "20261007083902_RemoveLegacyGrenserMapLayer";
-    private const string MaritimeMigration = "20261012130000_SeedMaritimeMapLayer";
-    private const string LatestMigration = "20261013075134_AddMapLayerRenderingParameters";
+    private const string PreviousMigration = "20261104091607_RebuildCountCaches";
+    private const string LatestMigration = "20261105150132_UpdateMapLayerTable";
 
     [Fact]
     public void MapLayerMigrations_GenerateIdempotentUpgradeScript()
@@ -34,22 +33,21 @@ public class MapLayerMigrationTests
     }
 
     [Fact]
-    public void MaritimeMigration_OnlySeedsAndRemovesCombinedLayer()
+    public void UpdateMapLayerTableMigration_SeedsMaritimeLayerOnlyIfMissingAndRemovesItOnRollback()
     {
         using var context = CreateContext();
 
-        var upgradeScript = context.GetService<IMigrator>().GenerateScript(PreviousMigration, MaritimeMigration);
-        var rollbackScript = context.GetService<IMigrator>().GenerateScript(MaritimeMigration, PreviousMigration);
+        var upgradeScript = context.GetService<IMigrator>().GenerateScript(PreviousMigration, LatestMigration);
+        var rollbackScript = context.GetService<IMigrator>().GenerateScript(LatestMigration, PreviousMigration);
 
+        upgradeScript.Should().Contain("IF NOT EXISTS (SELECT 1 FROM [MapLayer] WHERE [Name] = N'MaritimeGrenser')");
         upgradeScript.Should().Contain("Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn");
-        upgradeScript.Should().NotContain("CREATE TABLE [SavedFilter]");
-        upgradeScript.Should().NotContain("ALTER COLUMN [SortOrder]");
         rollbackScript.Should().Contain("Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn");
-        rollbackScript.Should().NotContain("DROP TABLE [SavedFilter]");
+        rollbackScript.Should().Contain("DROP COLUMN [UseSingleImage]");
     }
 
     [Fact]
-    public void RenderingParametersMigration_ConfiguresExistingLayersWithoutUnrelatedSchemaChanges()
+    public void UpdateMapLayerTableMigration_ConfiguresExistingLayersWithoutUnrelatedSchemaChanges()
     {
         using var context = CreateContext();
 

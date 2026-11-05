@@ -5,7 +5,7 @@
 namespace Artskart3.Infrastructure.Migrations;
 
 /// <inheritdoc />
-public partial class AddMapLayerRenderingParameters : Migration
+public partial class UpdateMapLayerTable : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
@@ -43,7 +43,20 @@ public partial class AddMapLayerRenderingParameters : Migration
             nullable: false,
             defaultValue: false);
 
+        // IX_MapLayer_Name er ikke unik, så raden settes bare inn hvis den mangler.
         migrationBuilder.Sql("""
+            IF NOT EXISTS (SELECT 1 FROM [MapLayer] WHERE [Name] = N'MaritimeGrenser')
+            BEGIN
+                INSERT INTO [MapLayer]
+                    ([Name], [Type], [Url], [Layers], [Format], [Version], [Attribution],
+                     [CreatedAt], [UpdatedAt], [IsDeleted], [SortOrder])
+                VALUES
+                    (N'MaritimeGrenser', N'WMS', N'https://wms.geonorge.no/skwms1/wms.nmg?',
+                     N'Maritime_grenser,Maritime_grenser_navn',
+                     N'image/png', N'1.3.0', N'Kartverket',
+                     GETUTCDATE(), GETUTCDATE(), 0, 60);
+            END;
+
             UPDATE [MapLayer]
             SET [Opacity] = 0.5
             WHERE [Name] IN (N'Bioseksjoner', N'Biosoner');
@@ -63,6 +76,13 @@ public partial class AddMapLayerRenderingParameters : Migration
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.Sql("""
+            DELETE FROM [MapLayer]
+            WHERE [Name] = N'MaritimeGrenser'
+                AND [Url] = N'https://wms.geonorge.no/skwms1/wms.nmg?'
+                AND [Layers] = N'Maritime_grenser,Maritime_grenser_navn';
+            """);
+
         migrationBuilder.DropColumn(
             name: "MaxScaleDenominator",
             table: "MapLayer");
