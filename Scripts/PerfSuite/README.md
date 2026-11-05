@@ -178,8 +178,8 @@ fortsatt er brukbar:
 | `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
-Hver case kjøres mot flere endepunkter (`Observation` side 1 og side 50,
-`AreaCounts` z1/z2, `LocationCount`, og `Locations` og `LocationPolygons` med 16
+Hver case kjøres mot flere endepunkter (`Observation` og `ObservationImages`
+side 1 og side 50, `AreaCounts` z1/z2, `LocationCount`, og `Locations` og `LocationPolygons` med 16
 kartutsnitt).
 Et endepunkt kan snevre inn hvilke case det gjelder for, med `Layers` eller
 `CaseKeys` — se `Test-PerfEndpointRunsCase`. `AreaMarkers` bruker det til å kjøre
