@@ -2,8 +2,8 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, EventEmitter, Input, Output, inject,
 import { TranslateModule } from '@ngx-translate/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
-import { MapLayerDto } from '@shared/types/map-layer.types';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
+import {MapLayerDto} from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map-layers',

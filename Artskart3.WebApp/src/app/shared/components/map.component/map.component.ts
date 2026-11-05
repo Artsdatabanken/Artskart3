@@ -1758,15 +1758,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       else this.mapLayerService.setLayerFailed(layer.id, false);
       return;
     }
-    if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
+    if (!visible || !this.map || layer.type.toLowerCase() !== 'wms') return;
 
     const params = {
       LAYERS: layer.layers ?? undefined,
       FORMAT: layer.format ?? 'image/png',
       VERSION: layer.version ?? '1.3.0',
     };
-    const useSingleImage = layer.useSingleImage ?? false;
-    const retryDelayMs = Math.max(0, layer.retryAfterSeconds ?? 0) * 1000;
+    const useSingleImage = layer.useSingleImage;
+    const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
     let retryAt = 0;
     const loadImageElement = (imageElement: HTMLImageElement, src: string) => {
       if (retryDelayMs > 0 && Date.now() < retryAt) {
@@ -1789,7 +1789,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const loadSingleImage = (image: ImageWrapper, src: string) => loadImageElement(image.getImage() as HTMLImageElement, src);
     const loadTileImage = (tile: Tile, src: string) => loadImageElement((tile as ImageTile).getImage() as HTMLImageElement, src);
     const commonOptions = {
-      opacity: Math.max(0, Math.min(1, layer.opacity ?? 1)),
+      opacity: Math.max(0, Math.min(1, layer.opacity)),
       minResolution:
         layer.minScaleDenominator != null ? this.scaleDenominatorToResolution(layer.minScaleDenominator) : undefined,
       maxResolution:

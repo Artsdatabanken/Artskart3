@@ -29,6 +29,7 @@ export type LocationCountResult = components['schemas']['LocationCountDto'];
 export type SavedFilterDto = components['schemas']['SavedFilterDto'];
 export type CreateSavedFilterRequestDto = components['schemas']['CreateSavedFilterRequestDto'];
 export type MapExtentDto = components['schemas']['MapExtentDto'];
+export type MapLayerDto = components['schemas']['MapLayerDto'];
 
 export type SpeciesDto = components['schemas']['SpeciesDto'];
 export type VernacularNameDto = components['schemas']['VernacularNameDto'];

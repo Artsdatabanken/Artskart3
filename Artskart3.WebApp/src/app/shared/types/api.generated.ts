@@ -1873,19 +1873,23 @@ export interface components {
         };
         MapLayerDto: {
             /** Format: int32 */
-            id?: number;
-            name?: string;
-            type?: string;
-            url?: string;
+            id: number;
+            name: string;
+            type: string;
+            url: string;
             layers?: null | string;
             format?: null | string;
             version?: null | string;
             attribution?: null | string;
+            /** Format: double */
             minScaleDenominator?: null | number;
+            /** Format: double */
             maxScaleDenominator?: null | number;
-            useSingleImage?: boolean;
-            retryAfterSeconds?: number;
-            opacity?: number;
+            useSingleImage: boolean;
+            /** Format: int32 */
+            retryAfterSeconds: number;
+            /** Format: double */
+            opacity: number;
         };
         NotificationDto: {
             /** Format: uuid */
