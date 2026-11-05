@@ -29,6 +29,7 @@ import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil,
 import { AreasService, LocationPoint, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { LocationCountResult } from '@shared/types/api.types';
 import { AreaMarkerDto } from '@shared/types/api.types';
+import { MapLayerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { LanguageService } from '@shared/services/languages/language.service';
@@ -76,8 +77,6 @@ import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
-import type ImageWrapper from 'ol/Image';
-import type Tile from 'ol/Tile';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
@@ -127,6 +126,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS> | ImageLayer<ImageWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
+  private readonly mapOverlayRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
@@ -1754,8 +1754,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const existing = this.mapOverlayLayers.get(layer.id);
     if (existing) {
       existing.setVisible(visible);
-      if (visible) existing.getSource()?.refresh();
-      else this.mapLayerService.setLayerFailed(layer.id, false);
+      if (visible) {
+        existing.getSource()?.refresh();
+        // Restart cooldown timer if layer is re-enabled during backoff
+        this.scheduleRefreshAfterCooldown(layer);
+      } else {
+        // Clear failure flag and cancel pending refresh when hiding
+        this.mapLayerService.setLayerFailed(layer.id, false);
+        const timer = this.mapOverlayRefreshTimers.get(layer.id);
+        if (timer) {
+          clearTimeout(timer);
+          this.mapOverlayRefreshTimers.delete(layer.id);
+        }
+      }
       return;
     }
     if (!visible || !this.map || layer.type.toLowerCase() !== 'wms') return;
@@ -1767,27 +1778,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
     const useSingleImage = layer.useSingleImage;
     const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
-    let retryAt = 0;
-    const loadImageElement = (imageElement: HTMLImageElement, src: string) => {
-      if (retryDelayMs > 0 && Date.now() < retryAt) {
-        imageElement.onload = null;
-        imageElement.onerror = null;
-        imageElement.src = MAP_CONSTANTS.TRANSPARENT_PIXEL_DATA_URI;
-        return;
-      }
-      imageElement.onload = () => {
-        retryAt = 0;
-        this.mapLayerService.setLayerFailed(layer.id, false);
-      };
-      imageElement.onerror = () => {
-        if (retryDelayMs === 0) return;
-        retryAt = Date.now() + retryDelayMs;
-        this.mapLayerService.setLayerFailed(layer.id, true);
-      };
-      imageElement.src = src;
-    };
-    const loadSingleImage = (image: ImageWrapper, src: string) => loadImageElement(image.getImage() as HTMLImageElement, src);
-    const loadTileImage = (tile: Tile, src: string) => loadImageElement((tile as ImageTile).getImage() as HTMLImageElement, src);
+
     const commonOptions = {
       opacity: Math.max(0, Math.min(1, layer.opacity)),
       minResolution:
@@ -1795,6 +1786,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       maxResolution:
         layer.maxScaleDenominator != null ? this.scaleDenominatorToResolution(layer.maxScaleDenominator) : undefined,
     };
+
     const overlay = useSingleImage
       ? new ImageLayer({
           ...commonOptions,
@@ -1802,7 +1794,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             url: layer.url,
             params,
             attributions: layer.attribution ?? undefined,
-            imageLoadFunction: loadSingleImage,
           }),
         })
       : new TileLayer({
@@ -1811,26 +1802,48 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             url: layer.url,
             params,
             attributions: layer.attribution ?? undefined,
-            tileLoadFunction: loadTileImage,
           }),
         });
+
+    const markFailedIfVisible = () => {
+      if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+    };
+
     if (useSingleImage) {
       const source = overlay.getSource() as ImageWMS;
-      this.mapOverlayLoadKeys.push(
-        source.on('imageloaderror', () => {
-          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
-        }),
-      );
+      this.mapOverlayLoadKeys.push(source.on('imageloaderror', markFailedIfVisible));
     } else {
       const source = overlay.getSource() as TileWMS;
-      this.mapOverlayLoadKeys.push(
-        source.on('tileloaderror', () => {
-          if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
-        }),
-      );
+      this.mapOverlayLoadKeys.push(source.on('tileloaderror', markFailedIfVisible));
     }
+
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+
+    if (retryDelayMs > 0) {
+      this.scheduleRefreshAfterCooldown(layer);
+    }
+  }
+
+  private scheduleRefreshAfterCooldown(layer: MapLayerDto): void {
+    // Cancel any pending refresh timer for this layer
+    const existingTimer = this.mapOverlayRefreshTimers.get(layer.id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
+    if (retryDelayMs === 0) return;
+
+    const timer = setTimeout(() => {
+      const overlay = this.mapOverlayLayers.get(layer.id);
+      if (overlay && overlay.getVisible()) {
+        overlay.getSource()?.refresh();
+      }
+      this.mapOverlayRefreshTimers.delete(layer.id);
+    }, retryDelayMs);
+
+    this.mapOverlayRefreshTimers.set(layer.id, timer);
   }
 
   private cleanup(): void {
@@ -1851,6 +1864,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.countsCache.clear();
     unByKey(this.mapOverlayLoadKeys);
     this.mapOverlayLoadKeys.length = 0;
+    for (const [, timer] of this.mapOverlayRefreshTimers) {
+      clearTimeout(timer);
+    }
+    this.mapOverlayRefreshTimers.clear();
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.disposeWebglLocationsLayer();

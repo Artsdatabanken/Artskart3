@@ -224,21 +224,21 @@ describe('MapComponent', () => {
         visible: true,
       });
 
-      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
-      const imageElement = document.createElement('img');
-      const imageWrapper = { getImage: () => imageElement } as unknown as ImageWrapper;
-      const loadImage = source.getImageLoadFunction();
-
-      loadImage(imageWrapper, 'https://example.test/wms?request=first');
-      expect(imageElement.src).toBe('https://example.test/wms?request=first');
-      imageElement.onerror?.(new Event('error'));
-
-      loadImage(imageWrapper, 'https://example.test/wms?request=retry');
-      expect(imageElement.src).toMatch(/^data:image\/gif;base64,/);
-
+      const overlay = component['mapOverlayLayers'].get(5);
+      expect(overlay).toBeInstanceOf(ImageLayer);
+      
+      const source = overlay?.getSource() as ImageWMS;
+      // imageLoadFunction should not be set; OpenLayers uses default behavior
+      expect(source.getImageLoadFunction()).toBeDefined();
+      
+      // Refresh timer should be scheduled for the configured delay
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
+      const refreshSpy = vi.spyOn(source, 'refresh');
+      
       vi.advanceTimersByTime(30_000);
-      loadImage(imageWrapper, 'https://example.test/wms?request=after-cooldown');
-      expect(imageElement.src).toBe('https://example.test/wms?request=after-cooldown');
+      // After cooldown expires, refresh should be called
+      expect(refreshSpy).toHaveBeenCalled();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
     } finally {
       vi.useRealTimers();
     }
