@@ -1809,13 +1809,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
     };
 
-    if (useSingleImage) {
-      const source = overlay.getSource() as ImageWMS;
-      this.mapOverlayLoadKeys.push(source.on('imageloaderror', markFailedIfVisible));
-    } else {
-      const source = overlay.getSource() as TileWMS;
-      this.mapOverlayLoadKeys.push(source.on('tileloaderror', markFailedIfVisible));
-    }
+    this.mapOverlayLoadKeys.push(
+      useSingleImage
+        ? (overlay.getSource() as ImageWMS).on('imageloaderror', markFailedIfVisible)
+        : (overlay.getSource() as TileWMS).on('tileloaderror', markFailedIfVisible),
+    );
 
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
