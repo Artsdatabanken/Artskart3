@@ -1,4 +1,4 @@
-import { MapLayerDto } from '@shared/types/map-layer.types';
+import {MapLayerDto} from '@shared/types/api.types';
 
 export type MapToolbarMenu = 'mapTypes' | 'mapLayers' | 'mapSettings';
 

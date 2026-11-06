@@ -1,11 +1,7 @@
-using Artskart3.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Artskart3.Infrastructure.Migrations;
 
-[DbContext(typeof(ArtskartDbContext))]
-[Migration("20261006020000_CombineMatrikkelMapLayers")]
 public partial class CombineMatrikkelMapLayers : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

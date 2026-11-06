@@ -341,7 +341,8 @@
       "vern": "Protected areas",
       "bioseksjoner": "Bioclimatic sections",
       "biosoner": "Bioclimatic zones",
-      "eiendomskart": "Property"
+      "eiendomskart": "Property",
+      "maritimeGrenser": "Maritime boundaries"
     },
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },

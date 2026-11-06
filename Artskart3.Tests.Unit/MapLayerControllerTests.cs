@@ -40,7 +40,10 @@ public class MapLayerControllerTests
                 Layers = "kommuner_gjel",
                 Format = "image/png",
                 Version = "1.3.0",
-                Attribution = "admGrenserAttribution"
+                Attribution = "admGrenserAttribution",
+                UseSingleImage = false,
+                RetryAfterSeconds = 0,
+                Opacity = 1.0
             }
         };
         _serviceMock.Setup(s => s.GetMapLayersAsync(default)).ReturnsAsync(mapLayers);

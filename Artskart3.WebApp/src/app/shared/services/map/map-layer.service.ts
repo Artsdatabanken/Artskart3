@@ -1,9 +1,9 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClientService } from '@core/services/api-client.service';
-import { MapLayerDto } from '../../types/map-layer.types';
 import { AlertService } from '../alert/alert.service';
 import { TranslateService } from '@ngx-translate/core';
+import {MapLayerDto} from '@shared/types/api.types';
 
 @Injectable({ providedIn: 'root' })
 export class MapLayerService {
