@@ -30,6 +30,10 @@
     "imageUnavailable": "Bildet er ikke tilgjengelig.",
     "imageViewer": "Forstørret bilde",
     "enlargeImage": "Forstørr bilde",
+    "previousImage": "Forrige bilde",
+    "nextImage": "Neste bilde",
+    "openOriginal": "Åpne original",
+    "speciesName": "Artsnavn",
     "rightsHolder": "Rettighetshaver",
     "license": "Lisens",
     "maps": { "local": "Lokalkart som viser funnet", "overview": "Oversiktskart som viser funnet" },
@@ -95,6 +99,7 @@
     "loading": "Laster...",
     "error": "Feil",
     "success": "Suksess",
+    "by": "Av",
     "close": "Lukk",
     "cancel": "Avbryt",
     "required": "(Må fylles ut)",
@@ -109,6 +114,7 @@
   "tabs": {
     "map": "Kart",
     "list": "Liste",
+    "gallery": "Galleri",
     "ariaLabel": "Velg visning"
   },
   "export": {
@@ -165,6 +171,10 @@
     "taxonGroup": "Artsgruppe",
     "riskCategory": "Kategori",
     "noResults": "Valgt filter har ingen registreringer"
+  },
+  "galleryView": {
+    "showObservation": "Vis funn",
+    "noResults": "Valgt filter har ingen bilder"
   },
   "autocomplete": {
     "resultCount": "Treff: {{count}}",

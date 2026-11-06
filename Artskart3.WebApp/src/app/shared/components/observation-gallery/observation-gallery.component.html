@@ -3,17 +3,19 @@
     <article>
       @if (source(image); as source) {
         <div class="photo">
-          <img loading="lazy" [src]="source" [alt]="alt(image)" (error)="fail(image, source)" />
-          <adb-icon-button
-            class="enlarge"
-            variant="secondary"
-            size="sm"
-            (click)="selected.set(image.id ?? null)"
-            [attr.aria-label]="'observationDetails.enlargeImage' | translate"
-          >
-            <adb-icon name="open-in-full" aria-hidden="true" />
-            <span class="adb-sr-only">{{ 'observationDetails.enlargeImage' | translate }}</span>
-          </adb-icon-button>
+          <img loading="lazy" [src]="source" [alt]="alt(image)" (load)="loaded(source)" (error)="fail(image, source)" />
+          @if (canEnlarge(image, source)) {
+            <adb-icon-button
+              class="enlarge"
+              variant="secondary"
+              size="sm"
+              (click)="selected.set(image.id ?? null)"
+              [attr.aria-label]="'observationDetails.enlargeImage' | translate"
+            >
+              <adb-icon name="open-in-full" aria-hidden="true" />
+              <span class="adb-sr-only">{{ 'observationDetails.enlargeImage' | translate }}</span>
+            </adb-icon-button>
+          }
         </div>
       } @else {
         <p role="status">{{ 'observationDetails.imageUnavailable' | translate }}</p>
@@ -39,4 +41,12 @@
     </article>
   }
 </div>
-<app-image-viewer [image]="viewer()" (closed)="selected.set(null)" (failed)="viewerFailed()" />
+<app-image-viewer
+  [image]="viewer()"
+  [hasPrevious]="previousImage() !== null"
+  [hasNext]="nextImage() !== null"
+  (previous)="step(-1)"
+  (next)="step(1)"
+  (closed)="selected.set(null)"
+  (failed)="viewerFailed()"
+/>

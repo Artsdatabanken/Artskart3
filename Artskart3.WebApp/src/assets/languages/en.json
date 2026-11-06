@@ -30,6 +30,10 @@
     "imageUnavailable": "Image unavailable.",
     "imageViewer": "Enlarged image",
     "enlargeImage": "Enlarge image",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "openOriginal": "Open original",
+    "speciesName": "Species name",
     "rightsHolder": "Rights holder",
     "license": "License",
     "maps": { "local": "Local map showing the observation", "overview": "Overview map showing the observation" },
@@ -95,6 +99,7 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
+    "by": "By",
     "close": "Close",
     "cancel": "Cancel",
     "required": "(Required)",
@@ -109,6 +114,7 @@
   "tabs": {
     "map": "Map",
     "list": "List",
+    "gallery": "Gallery",
     "ariaLabel": "Select view"
   },
   "export": {
@@ -165,6 +171,10 @@
     "taxonGroup": "Taxon group",
     "riskCategory": "Category",
     "noResults": "The selected filter has no observations"
+  },
+  "galleryView": {
+    "showObservation": "Show observation",
+    "noResults": "The selected filter has no images"
   },
   "autocomplete": {
     "resultCount": "Results: {{count}}",

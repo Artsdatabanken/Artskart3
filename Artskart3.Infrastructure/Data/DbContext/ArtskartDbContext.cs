@@ -701,6 +701,26 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .HasFilter("[Introduced] = 1")
                 .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
+            // FILTRERT INDEKS PÅ FUNN MED MEDIEFILER
+            //
+            // Galleriet og «Med bilder» henter de nyeste funnene med mediefiler. Uten
+            // indeksen leser planen datoindeksen og slår opp hver rad i klyngeindeksen
+            // for å sjekke HasMediaFiles. Er treffene sjeldne, går den gjennom nesten
+            // alle 61M radene: «observasjon» + «assessment» i galleriet tok over 60 s.
+            //
+            // Indeksen har bare de ~4M funnene med mediefiler, i datorekkefølge. INCLUDE
+            // dekker de vanligste filterkolonnene; flaggene med egne filtrerte indekser
+            // (annotering, sensitivitet, artsbestemmelse, opprinnelse) slås fortsatt opp.
+            entity.HasIndex(e => new { e.HasMediaFiles, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_HasMediaFiles")
+                .IsDescending(false, true, true)
+                .HasFilter("[HasMediaFiles] = 1")
+                .IncludeProperties(e => new
+                {
+                    e.BasisOfRecordId, e.BehaviorId, e.CategoryId, e.CoordinatePrecisionInMeters, e.DatasetOrgId,
+                    e.InstitutionOrgId, e.MonthCollected, e.RegistrationStatusId, e.TaxonGroupId, e.TaxonId,
+                });
+
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
             // ObservationId-er fra typeaheaden og seeker på den clustered indeksen.

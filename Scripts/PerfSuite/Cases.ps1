@@ -429,6 +429,14 @@ function New-PerfEndpointMatrix {
         Samme filterkropp, samme utsnitt, samme kodesti fram til geometrien hentes.
         Kjoerer den ikke paa de samme utsnittene, kan vi ikke se om en regresjon
         ligger i lokasjonssoeket eller i polygonhentingen.
+
+        OBSERVATIONIMAGES ER GALLERIET
+        Samme filterkropp som listevisningen, men 25 per side som i frontend, og
+        siden telles i bilder, ikke funn. Kostnaden avhenger av to ting listen ikke
+        har: hvor tett funnene med bilder ligger i filteret, og om omraadefilteret
+        gaar per omraade (ett eller to valgt) eller gjennom den generelle
+        spoerringen. Derfor kjoerer den hele filtermatrisen, og side 50 fra
+        Standard som listen.
     #>
     param(
         [ValidateSet('Quick', 'Standard', 'Full')] [string] $Level = 'Standard',
@@ -446,6 +454,11 @@ function New-PerfEndpointMatrix {
               Path = '/api/Search/Observation'
               Extra = @{ pageNumber = 1; resultsPerPage = $ResultsPerPage } })
 
+    # Galleriet. Se OBSERVATIONIMAGES over.
+    $m.Add(@{ Endpoint = 'ObservationImages'; Variant = 'side1'
+              Path = '/api/Search/ObservationImages'
+              Extra = @{ pageNumber = 1; resultsPerPage = 25 } })
+
     # Kartmarkoerene paa laveste zoom - faerrest celler, mest aggregering per celle.
     $m.Add(@{ Endpoint = 'AreaMarkers'; Variant = 'z1'; Path = '/api/Search/AreaMarkers?zoomLevel=1'; Extra = @{}; CaseKeys = @('ingen-filter') })
     $m.Add(@{ Endpoint = 'AreaCounts';  Variant = 'z1'; Path = '/api/Search/AreaCounts?zoomLevel=1';  Extra = @{}; Runs = 1 })
@@ -458,6 +471,9 @@ function New-PerfEndpointMatrix {
         $m.Add(@{ Endpoint = 'Observation'; Variant = 'side50'
                   Path = '/api/Search/Observation'
                   Extra = @{ pageNumber = 50; resultsPerPage = $ResultsPerPage } })
+        $m.Add(@{ Endpoint = 'ObservationImages'; Variant = 'side50'
+                  Path = '/api/Search/ObservationImages'
+                  Extra = @{ pageNumber = 50; resultsPerPage = 25 } })
     }
 
     # LOKASJONSUTSNITT PER NIVAA

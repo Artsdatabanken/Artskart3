@@ -618,6 +618,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const rect = this.mapEl?.nativeElement.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
 
+    // Kartet kan nettopp ha blitt synlig før OpenLayers' egen ResizeObserver har oppdatert størrelsen.
+    this.zoomControl?.getMap()?.updateSize();
     const extent = this.mapView.consumeRequestedExtent();
     if (extent) this.map.fitExtent(extent, 0);
   }

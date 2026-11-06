@@ -1,0 +1,99 @@
+<div class="gallery-view">
+  @if (imagesResource.isLoading()) {
+    <p class="status-message">{{ 'common.loading' | translate }}</p>
+  }
+
+  @if (imagesResource.error()) {
+    <p class="status-message error">{{ 'common.error' | translate }}</p>
+  }
+
+  @if (imagesResource.hasValue()) {
+    <div class="gallery-container">
+      @if (imagesResource.value().items?.length) {
+        <ul class="gallery">
+          @for (item of imagesResource.value().items; track item.image?.id ?? $index) {
+            <li class="card">
+              @if (source(item); as source) {
+                <div class="photo">
+                  <img loading="lazy" [src]="source" [alt]="alt(item)" (load)="loaded(source)" (error)="fail(item, source)" />
+                  @if (canEnlarge(item, source)) {
+                    <adb-icon-button
+                      class="enlarge"
+                      variant="secondary"
+                      size="sm"
+                      (click)="selected.set(item)"
+                      [attr.aria-label]="'observationDetails.enlargeImage' | translate"
+                    >
+                      <adb-icon name="open-in-full" aria-hidden="true" />
+                      <span class="adb-sr-only">{{ 'observationDetails.enlargeImage' | translate }}</span>
+                    </adb-icon-button>
+                  }
+                </div>
+              } @else {
+                <p class="unavailable" role="status">{{ 'observationDetails.imageUnavailable' | translate }}</p>
+              }
+              <div class="metadata">
+                <button
+                  type="button"
+                  class="species-toggle"
+                  [attr.aria-expanded]="isExpanded(item)"
+                  [attr.aria-controls]="'image-info-' + item.image?.id"
+                  (click)="toggleInfo(item)"
+                >
+                  <adb-icon [attr.name]="isExpanded(item) ? 'unfold-less' : 'unfold-more'" size="sm" aria-hidden="true" />
+                  <span class="species">
+                    @if (item.popularName) {
+                      <span class="popular-name" lang="no">{{ item.popularName }}</span>&ngsp;
+                    }
+                    @if (item.scientificName) {
+                      <i>{{ item.scientificName }}</i>
+                    }
+                  </span>
+                </button>
+                @if (isExpanded(item)) {
+                  <app-image-info
+                    [id]="'image-info-' + item.image?.id"
+                    [names]="item"
+                    [media]="item.image"
+                    [withRightsHolder]="false"
+                  />
+                }
+                @if (item.image?.rightsHolder) {
+                  <p>
+                    <span class="label">{{ 'common.by' | translate }}:</span>
+                    {{ item.image.rightsHolder }}
+                  </p>
+                }
+                <adb-button class="show-observation" variant="secondary" size="sm" (click)="showObservation(item)">
+                  {{ 'galleryView.showObservation' | translate }}
+                </adb-button>
+              </div>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="status-message">{{ 'galleryView.noResults' | translate }}</p>
+      }
+      <adb-pagination
+        class="pagination"
+        [attr.current-page]="pageNumber()"
+        [attr.total-pages]="!hasMorePages() ? totalVisiblePages() : null"
+        [attr.visible-pages]="4"
+        [attr.has-more-pages]="hasMorePages() || null"
+        [attr.page-size-options]="pageSizeOptions.join(',')"
+        [attr.page-size]="resultsPerPage()"
+        (page-change)="onPageChange($any($event).detail.page)"
+        (page-size-change)="onPageSizeChange($any($event).detail.pageSize)"
+      />
+    </div>
+  }
+</div>
+<app-image-viewer
+  [image]="viewer()"
+  [hasPrevious]="previousItem() !== null"
+  [hasNext]="nextItem() !== null"
+  (previous)="step(-1)"
+  (next)="step(1)"
+  (closed)="selected.set(null)"
+  (failed)="viewerFailed()"
+/>

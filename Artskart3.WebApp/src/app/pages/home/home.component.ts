@@ -7,6 +7,7 @@ import { Subject, filter, map, switchMap, takeUntil } from 'rxjs';
 import { ResizablePanelComponent } from '../../shared/components/resizable-panel/resizable-panel.component';
 import { MapComponent } from '../../shared/components/map.component/map.component';
 import { ListViewComponent } from '../../shared/components/list-view/list-view.component';
+import { GalleryViewComponent } from '../../shared/components/gallery-view/gallery-view.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { SaveFilterDialogComponent } from '../../shared/components/save-filter-dialog/save-filter-dialog.component';
@@ -34,6 +35,7 @@ const SAVED_FILTER_LOGIN_RETRY_MS = 2 * 60 * 1000;
     ResizablePanelComponent,
     MapComponent,
     ListViewComponent,
+    GalleryViewComponent,
     SidebarComponent,
     ModalComponent,
     SaveFilterDialogComponent,
