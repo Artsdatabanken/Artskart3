@@ -394,14 +394,7 @@ public class LocationCountCacheService : ILocationCountCacheService
             }
         }
 
-        // Maskepredikatet. Er ingen bool satt, legges ingenting til, og cellens
-        // masker summeres av grupperingen under.
-        if (maske.IsActive)
-        {
-            var care = maske.Care;
-            var want = maske.Want;
-            query = query.Where(r => (r.Mask & care) == want);
-        }
+        query = query.WhereMask(maske);
 
         // Samme avkorting til int som ApplyEnvelopeFilterToEntityIndex. Formen må
         // være lik på fortegnet nøyaktig: (int) på et negativt tall runder mot

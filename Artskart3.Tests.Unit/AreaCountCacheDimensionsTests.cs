@@ -171,6 +171,16 @@ public class AreaCountCacheDimensionsTests
             .Should().OnlyContain(s => !s.IsActive && s.IsCacheable);
     }
 
+    /// <summary>
+    /// FilterMaskQuery uttrykker skjulte funn som «Mask under biten», og det holder bare
+    /// så lenge den er den øverste. Får masken en høyere bit, må den koden endres først.
+    /// </summary>
+    [Fact]
+    public void Skjulte_funn_er_den_oeverste_biten()
+    {
+        (FilterMask.HiddenByAnnotation * 2).Should().Be(FilterMask.Count);
+    }
+
     [Fact]
     public void Alle_funn_gir_inaktiv_maske()
     {

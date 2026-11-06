@@ -128,6 +128,30 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Skjulte funn er et intervall i oppslaget, de andre bool-filtrene en bitoperasjon.
+    /// Her må begge deler virke sammen, i begge retninger.
+    /// </summary>
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, true)]
+    [InlineData(HiddenObservationFilter.Exclude, false)]
+    [InlineData(HiddenObservationFilter.Only, true)]
+    [InlineData(HiddenObservationFilter.Only, false)]
+    public async Task Skjulte_funn_sammen_med_bool_filter_gir_samme_som_telling(HiddenObservationFilter skjulte, bool bilder)
+    {
+        await SettSkjultAsync(true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = skjulte, WithImages = bilder });
+        }
+        finally
+        {
+            await SettSkjultAsync(false);
+        }
+    }
+
     private Task SettSkjultAsync(bool skjult) =>
         _context.Set<ObservationEntityIndex>()
             .Where(r => r.TaxonGroupId == TaksongruppeB)

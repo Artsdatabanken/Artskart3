@@ -572,7 +572,16 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.ToTable("Observation");
 
-            entity.HasIndex(e => new { e.LocationId, e.CategoryId }, "IX_LocationId");
+            // Dekkende for matrikkelgrenen: datosortering på alle funn i en eiendom.
+            // HiddenByAnnotation må være med, ellers slås hver rad opp. Målt på en
+            // eiendom med 174 919 funn: 2 794 mot 669 647 lesninger.
+            entity.HasIndex(e => new { e.LocationId, e.CategoryId }, "IX_LocationId")
+                .IncludeProperties(e => new
+                {
+                    e.DateTimeCollected, e.BasisOfRecordId, e.TaxonId, e.TaxonGroupId,
+                    e.YearCollected, e.MonthCollected, e.Id, e.HiddenByAnnotation,
+                })
+                .UseDataCompression(DataCompressionType.Page);
 
             entity.HasIndex(e => new { e.TaxonGroupId, e.CategoryId }, "IX_TaxonGroupId");
 
@@ -720,6 +729,10 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeksen har bare de ~4M funnene med mediefiler, i datorekkefølge. INCLUDE
             // dekker de vanligste filterkolonnene; flaggene med egne filtrerte indekser
             // (annotering, sensitivitet, artsbestemmelse, opprinnelse) slås fortsatt opp.
+            //
+            // HiddenByAnnotation må være med selv om den har egen indeks: standardfilteret
+            // står på hver spørring. Uten den ble hver kandidat slått opp, målt 29 millioner
+            // lesninger og 2 480 mot 220 ms for én art.
             entity.HasIndex(e => new { e.HasMediaFiles, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_HasMediaFiles")
                 .IsDescending(false, true, true)
@@ -728,6 +741,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 {
                     e.BasisOfRecordId, e.BehaviorId, e.CategoryId, e.CoordinatePrecisionInMeters, e.DatasetOrgId,
                     e.InstitutionOrgId, e.MonthCollected, e.RegistrationStatusId, e.TaxonGroupId, e.TaxonId,
+                    e.HiddenByAnnotation,
                 });
 
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
