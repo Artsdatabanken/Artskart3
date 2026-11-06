@@ -1,0 +1,76 @@
+<div class="map-toolbar-menu-container">
+  <adb-icon-button
+    [attr.variant]="isOpen() ? 'primary' : 'secondary'"
+    (click)="toggleMapLegend()"
+    [attr.aria-label]="'mapToolbar.legendHeading' | translate"
+    [attr.aria-pressed]="isOpen()"
+    [attr.aria-expanded]="isOpen()"
+    aria-haspopup="true"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 13h2v-2H3v2Zm0 4h2v-2H3v2Zm0-8h2V7H3v2Zm4 4h14v-2H7v2Zm0 4h14v-2H7v2ZM7 7v2h14V7H7Z" fill="currentColor" />
+    </svg>
+  </adb-icon-button>
+  @if (isOpen()) {
+    <div class="map-toolbar-menu-dropdown map-legend-dropdown" role="group" aria-labelledby="map-legend-heading">
+      <div id="map-legend-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">
+        {{ 'mapToolbar.legendHeading' | translate }}
+      </div>
+      <ul class="map-legend-list">
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="found-marker" cx="8" cy="18" r="6.4" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.found' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="negative-marker" cx="8" cy="18" r="6.4" />
+            <path class="negative-glyph" d="M5.1 15.1L10.9 20.9M5.1 20.9L10.9 15.1" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.absent' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="negative-marker" cx="8" cy="18" r="6.4" />
+            <path class="negative-glyph" d="M5.1 18H10.9" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.notRecovered' | translate }}</span>
+        </li>
+        @if (geolocationActive()) {
+          <li class="map-legend-row">
+            <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="position-accuracy" cx="18" cy="18" r="17" />
+              <circle class="position-dot" cx="18" cy="18" r="6" />
+            </svg>
+            <span>{{ 'mapToolbar.legend.position' | translate }}</span>
+          </li>
+        }
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="found-marker" cx="18" cy="18" r="17" />
+            <text class="marker-label" x="18" y="18" text-anchor="middle" dominant-baseline="central">10</text>
+          </svg>
+          <span>{{ 'mapToolbar.legend.cluster' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" viewBox="0 0 46 46" aria-hidden="true">
+            <clipPath id="map-legend-polygon-outline"><path d="M0 5L0 34.5L46 46L41 0Z" /></clipPath>
+            <path class="polygon-marker" d="M0 5L0 34.5L46 46L41 0Z" clip-path="url(#map-legend-polygon-outline)" />
+            <text class="marker-label polygon-label" x="23" y="23" text-anchor="middle" dominant-baseline="central">10</text>
+          </svg>
+          <span>{{ 'mapToolbar.legend.polygonCluster' | translate }}</span>
+        </li>
+      </ul>
+      @for (legend of layerLegends(); track legend.layer.id) {
+        <section class="map-legend-layer">
+          @let layerLabel = (mapLayerLabels[legend.layer.name] ?? legend.layer.name) | translate;
+          <h3 class="map-legend-layer-heading adb-heading-2xsm">{{ layerLabel }}</h3>
+          @for (image of legend.images; track image.url) {
+            <img class="map-legend-image" [src]="image.url" [alt]="layerLabel" loading="lazy" (error)="onImageError(image.url)" />
+          }
+        </section>
+      }
+    </div>
+  }
+</div>
