@@ -199,7 +199,7 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Kommune_alene()
     {
-        await BuildGeographyCacheAsync();
+        await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
 
         await AssertSameAsCountingAsync(new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
     }
@@ -221,7 +221,7 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Kommune_og_havomraade_samtidig()
     {
-        await BuildGeographyCacheAsync();
+        await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
 
         await AssertSameAsCountingAsync(new LocationSearchFilterDto
         {
@@ -383,6 +383,67 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
             await SkjulObservasjonIKommuneAAsync(false);
         }
     }
+
+    /// <summary>
+    /// Områdevalg alene skal lese totalene for de valgte områdene, ikke gå via
+    /// geografi-dimensjonen: den ble målt 15 ganger tregere for samme tall.
+    /// </summary>
+    [Fact]
+    public async Task Kommunevalg_alene_leser_totalene_uten_geografidimensjonen()
+    {
+        await SkjulObservasjonIKommuneAAsync(true);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(2, new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
+
+            result.Single(a => a.Fid == AreaFidOne).ObservationCount.Should().Be(ObservationsPerArea - 1);
+        }
+        finally
+        {
+            await SkjulObservasjonIKommuneAAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// På fylkesnivå skal en valgt kommune gi kommunens andel, ikke hele fylket, og
+    /// andelen skal være uten skjulte funn.
+    /// </summary>
+    [Fact]
+    public async Task Kommunevalg_paa_fylkesnivaa_gir_kommunens_andel_uten_skjulte_funn()
+    {
+        const string fylkeFid = "98";
+
+        var fylke = NewArea(fylkeFid, "Buffer fylke");
+        fylke.AreaTypeId = AreaCountCacheDimensions.AreaTypeCounty;
+        fylke.ZoomLevel = 1;
+        fylke.ObservationCount = 1000;
+        _context.Set<Area>().Add(fylke);
+        await _context.SaveChangesAsync();
+
+        await SkjulObservasjonIKommuneAAsync(true);
+        await SettForelderAsync(fylkeFid);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(1, new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
+
+            result.Single(a => a.Fid == fylkeFid).ObservationCount.Should().Be(ObservationsPerArea - 1);
+        }
+        finally
+        {
+            await SettForelderAsync("buffer-parent");
+            await SkjulObservasjonIKommuneAAsync(false);
+            await _context.Set<Area>().Where(a => a.Fid == fylkeFid).ExecuteDeleteAsync();
+        }
+    }
+
+    private Task SettForelderAsync(string parentFid) =>
+        _context.Set<Area>()
+            .Where(a => a.Fid == AreaFidOne)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.ParentFid, parentFid));
 
     [Fact]
     public async Task Standardutvalget_bruker_forhaandsberegnede_tall_uten_klar_buffer()
