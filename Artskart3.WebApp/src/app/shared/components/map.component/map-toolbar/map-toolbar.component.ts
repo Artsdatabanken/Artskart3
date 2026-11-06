@@ -44,10 +44,6 @@ export class MapToolbarComponent {
     this.setMenuState('mapSettings', isOpen);
   }
 
-  onMapLegendOpenChange(isOpen: boolean): void {
-    this.setMenuState('mapLegend', isOpen);
-  }
-
   onMapToolbarMenuItemChange(event: MapToolbarMenuItemChange): void {
     this.activeLayers.update((layers) => {
       const others = layers.filter((layer) => layer.id !== event.layer.id);

@@ -14,17 +14,21 @@ async function createLegend(inputs: { isOpen?: boolean; activeLayers?: MapLayerD
 }
 
 describe('MapLegendComponent', () => {
-  it('åpner og lukker med knappen', async () => {
+  it('åpner og lukker med knappen, uavhengig av de andre menyene', async () => {
     const { fixture, element } = await createLegend({});
-    const opened: boolean[] = [];
-    fixture.componentInstance.mapLegendOpenChange.subscribe((open) => opened.push(open));
     const button = element.querySelector('adb-icon-button')!;
 
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(element.querySelector('.map-legend-dropdown')).toBeNull();
 
     button.dispatchEvent(new Event('click'));
-    expect(opened).toEqual([true]);
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+
+    button.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(element.querySelector('.map-legend-dropdown')).toBeNull();
   });
 
   it('viser alltid markørtypene og clusterne når den er åpen', async () => {

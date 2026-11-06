@@ -1,4 +1,4 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, output, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, model, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
 import { WmsLegendImage, wmsLegendImages } from '@shared/helpers/map-legend/wms-legend';
@@ -17,10 +17,9 @@ interface LayerLegend {
   styleUrl: './map-legend.component.css',
 })
 export class MapLegendComponent {
-  readonly isOpen = input(false);
+  readonly isOpen = model(false);
   readonly activeLayers = input<readonly MapLayerDto[]>([]);
   readonly geolocationActive = input(false);
-  readonly mapLegendOpenChange = output<boolean>();
 
   protected readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
   private readonly failedImageUrls = signal<ReadonlySet<string>>(new Set());
@@ -32,7 +31,7 @@ export class MapLegendComponent {
   );
 
   toggleMapLegend(): void {
-    this.mapLegendOpenChange.emit(!this.isOpen());
+    this.isOpen.update((open) => !open);
   }
 
   protected onImageError(url: string): void {

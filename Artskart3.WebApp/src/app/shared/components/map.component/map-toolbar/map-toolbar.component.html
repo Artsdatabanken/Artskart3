@@ -19,11 +19,6 @@
     ></app-map-settings>
   </div>
   <div class="map-toolbar-bottom">
-    <app-map-legend
-      [isOpen]="openMenu() === 'mapLegend'"
-      [activeLayers]="activeLayers()"
-      [geolocationActive]="geolocationActive()"
-      (mapLegendOpenChange)="onMapLegendOpenChange($event)"
-    ></app-map-legend>
+    <app-map-legend [activeLayers]="activeLayers()" [geolocationActive]="geolocationActive()"></app-map-legend>
   </div>
 </div>
