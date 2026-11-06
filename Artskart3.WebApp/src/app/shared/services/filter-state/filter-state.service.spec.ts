@@ -1,5 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { FilterStateService } from './filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  annotationFilterToHiddenObservations,
+  FilterStateService,
+  toAnnotationFilter,
+} from './filter-state.service';
 
 describe('FilterStateService', () => {
   let service: FilterStateService;
@@ -413,7 +418,7 @@ describe('FilterStateService', () => {
       service.setCatalogNumber('104168');
       service.setCatalogObservationIds([8368071]);
       service.setImageFilter('withImage');
-      service.setAnnotationFilter('changed');
+      service.setAnnotationFilter('hidden');
       service.setSensitiveFilter('sensitive');
 
       service.clearOtherFindProperties();
@@ -423,8 +428,33 @@ describe('FilterStateService', () => {
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
       expect(service.imageFilter()).toBe('all');
-      expect(service.annotationFilter()).toBe('all');
+      expect(service.annotationFilter()).toBe('excludeHidden');
       expect(service.sensitiveFilter()).toBe('all');
+    });
+  });
+
+  describe('annotation filter', () => {
+    it('should exclude hidden observations by default', () => {
+      expect(service.annotationFilter()).toBe('excludeHidden');
+    });
+
+    it.each([
+      ['all', 'Include', undefined],
+      ['excludeHidden', undefined, undefined],
+      ['hidden', 'Only', undefined],
+      ['annotated', undefined, true],
+    ] as const)('should map %s to the API fields and back', (option, hiddenObservations, changedByAnnotation) => {
+      expect(annotationFilterToHiddenObservations(option)).toBe(hiddenObservations);
+      expect(annotationFilterToChangedByAnnotation(option)).toBe(changedByAnnotation);
+      expect(toAnnotationFilter(hiddenObservations, changedByAnnotation)).toBe(option);
+    });
+
+    it.each([
+      ['Exclude', undefined],
+      [undefined, false],
+      [null, null],
+    ] as const)('should fall back to the default for hiddenObservations %s and changedByAnnotation %s', (hidden, changed) => {
+      expect(toAnnotationFilter(hidden, changed)).toBe('excludeHidden');
     });
   });
 

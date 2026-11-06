@@ -50,7 +50,7 @@ DROP TABLE IF EXISTS #dim, #vern, #vernsig, #vernbucket, #proj, #projsig, #projb
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 723897205;
+DECLARE @SchemaVersion INT = 945914384;
 
 DECLARE @NullBucket INT = -2147483648;   -- int.MinValue
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
@@ -362,7 +362,7 @@ BEGIN
 INSERT dbo.LocationCountCacheLevel1 (DimensionId, BucketId, LocationId, East, North, Mask, ObservationCount, MinRegistrationStatusId, MaxRegistrationStatusId)
 SELECT ' + CAST(@Id AS VARCHAR(3)) + N', q.Bucket, q.LocationId, l.East, l.North, q.Mask, COUNT(DISTINCT q.ObservationId), MIN(q.RegistrationStatusId), MAX(q.RegistrationStatusId)
 FROM (
-    SELECT DISTINCT i.ObservationId, i.LocationId, i.RegistrationStatusId, ' + @Uttrykk + N' AS Bucket, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 AS Mask
+    SELECT DISTINCT i.ObservationId, i.LocationId, i.RegistrationStatusId, ' + @Uttrykk + N' AS Bucket, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32 AS Mask
     FROM dbo.ObservationEntityIndex i' + @Join + N'
     WHERE i.LocationId IS NOT NULL
 ) q

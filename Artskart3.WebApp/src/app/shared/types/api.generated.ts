@@ -1891,6 +1891,8 @@ export interface components {
             /** Format: int32 */
             hardLimit?: number;
         };
+        /** @enum {string} */
+        HiddenObservationFilter: "Exclude" | "Include" | "Only";
         InstitutionDto: {
             /** Format: int32 */
             id?: number;
@@ -1934,6 +1936,7 @@ export interface components {
             observationIds?: null | number[];
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
+            hiddenObservations?: components["schemas"]["HiddenObservationFilter"];
             sensitive?: null | boolean;
             uncertainIdentification?: null | boolean;
             introduced?: null | boolean;
@@ -2127,6 +2130,7 @@ export interface components {
             observationIds?: null | number[];
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
+            hiddenObservations?: components["schemas"]["HiddenObservationFilter"];
             sensitive?: null | boolean;
             uncertainIdentification?: null | boolean;
             introduced?: null | boolean;

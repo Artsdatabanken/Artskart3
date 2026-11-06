@@ -1,7 +1,12 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { HiddenObservationFilter } from '../../types/api.types';
 
 export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
-export type AnnotationFilterOption = 'all' | 'changed' | 'notChanged';
+export type AnnotationFilterOption = 'all' | 'excludeHidden' | 'hidden' | 'annotated';
+
+/** The API excludes hidden observations unless told otherwise, so this option sends nothing. */
+export const DEFAULT_ANNOTATION_FILTER: AnnotationFilterOption = 'excludeHidden';
+
 export type SensitiveFilterOption = 'all' | 'sensitive' | 'notSensitive';
 
 /**
@@ -34,16 +39,24 @@ export function withImagesToImageFilter(withImages: boolean | null | undefined):
   return 'all';
 }
 
-export function annotationFilterToChangedByAnnotation(option: AnnotationFilterOption): boolean | undefined {
-  if (option === 'changed') return true;
-  if (option === 'notChanged') return false;
+export function annotationFilterToHiddenObservations(option: AnnotationFilterOption): HiddenObservationFilter | undefined {
+  if (option === 'all') return 'Include';
+  if (option === 'hidden') return 'Only';
   return undefined;
 }
 
-export function changedByAnnotationToAnnotationFilter(changedByAnnotation: boolean | null | undefined): AnnotationFilterOption {
-  if (changedByAnnotation === true) return 'changed';
-  if (changedByAnnotation === false) return 'notChanged';
-  return 'all';
+export function annotationFilterToChangedByAnnotation(option: AnnotationFilterOption): boolean | undefined {
+  return option === 'annotated' ? true : undefined;
+}
+
+/** Saved filters may have `changedByAnnotation: false`, which no longer has an option and falls back to the default. */
+export function toAnnotationFilter(
+  hiddenObservations: HiddenObservationFilter | null | undefined,
+  changedByAnnotation: boolean | null | undefined,
+): AnnotationFilterOption {
+  if (hiddenObservations === 'Include') return 'all';
+  if (hiddenObservations === 'Only') return 'hidden';
+  return changedByAnnotation === true ? 'annotated' : DEFAULT_ANNOTATION_FILTER;
 }
 
 export function sensitiveFilterToSensitive(option: SensitiveFilterOption): boolean | undefined {
@@ -116,7 +129,7 @@ export class FilterStateService {
   readonly catalogNumber = signal<string>('');
   readonly catalogObservationIds = signal<number[]>([]);
   readonly imageFilter = signal<ImageFilterOption>('all');
-  readonly annotationFilter = signal<AnnotationFilterOption>('all');
+  readonly annotationFilter = signal<AnnotationFilterOption>(DEFAULT_ANNOTATION_FILTER);
   readonly sensitiveFilter = signal<SensitiveFilterOption>('all');
   readonly identificationFilter = signal<IdentificationFilterOption>('all');
   readonly originFilter = signal<OriginFilterOption>('all');
@@ -401,7 +414,7 @@ export class FilterStateService {
     this.catalogNumber.set('');
     this.catalogObservationIds.set([]);
     this.imageFilter.set('all');
-    this.annotationFilter.set('all');
+    this.annotationFilter.set(DEFAULT_ANNOTATION_FILTER);
     this.sensitiveFilter.set('all');
     this.identificationFilter.set('all');
     this.originFilter.set('all');

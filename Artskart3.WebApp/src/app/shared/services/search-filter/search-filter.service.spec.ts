@@ -85,7 +85,7 @@ describe('SearchFilterService', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
-    filterState.setAnnotationFilter('changed');
+    filterState.setAnnotationFilter('annotated');
     filterState.setSensitiveFilter('sensitive');
 
     const filter = service.observationFilter();
@@ -183,7 +183,7 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
-    filterState.setAnnotationFilter('notChanged');
+    filterState.setAnnotationFilter('hidden');
     filterState.setSensitiveFilter('notSensitive');
     const saved = service.observationFilter();
 
@@ -231,6 +231,7 @@ describe('SearchFilterService.applyFilter', () => {
       observationIds: [9],
       withImages: true,
       changedByAnnotation: true,
+      hiddenObservations: 'Only',
       sensitive: false,
       uncertainIdentification: true,
       introduced: false,
@@ -239,7 +240,31 @@ describe('SearchFilterService.applyFilter', () => {
     await service.applyFilter(sample);
     flushNameLookups();
 
-    expect(service.observationFilter()).toEqual(sample);
+    // Both annotation fields share one radio group, and 'only hidden' takes priority.
+    expect(service.observationFilter()).toEqual({ ...sample, changedByAnnotation: undefined });
+  });
+
+  it('sender ingen skjult-felt for standardvalget, så det ikke regnes som et aktivt filter', () => {
+    expect(service.observationFilter().hiddenObservations).toBeUndefined();
+    expect(service.hasActiveFilter()).toBe(false);
+  });
+
+  it.each([
+    ['all', 'Include'],
+    ['hidden', 'Only'],
+  ] as const)('sender valget %s som %s', (option, expected) => {
+    filterState.setAnnotationFilter(option);
+
+    expect(service.observationFilter().hiddenObservations).toBe(expected);
+    expect(service.hasActiveFilter()).toBe(true);
+  });
+
+  it('gjenoppretter Exclude fra et lagret filter som standardvalget', async () => {
+    filterState.setAnnotationFilter('hidden');
+
+    await service.applyFilter({ hiddenObservations: 'Exclude' });
+
+    expect(filterState.annotationFilter()).toBe('excludeHidden');
   });
 
   it('fjerner det som var satt fra før', async () => {

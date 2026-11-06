@@ -688,6 +688,15 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // mekanisme enn de tre andre, og fordelingen kan endre seg med import.
             entity.Property(e => e.UncertainIdentification).HasDefaultValue(false);
             entity.Property(e => e.Introduced).HasDefaultValue(false);
+            entity.Property(e => e.HiddenByAnnotation).HasDefaultValue(false);
+
+            // Samme mønster for skjulte funn. Negasjonen er standardfilteret og treffer
+            // nesten alle rader, så bare den merkede halvdelen trenger indeksen.
+            entity.HasIndex(e => new { e.HiddenByAnnotation, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_HiddenByAnnotation")
+                .IsDescending(false, true, true)
+                .HasFilter("[HiddenByAnnotation] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
             entity.HasIndex(e => new { e.UncertainIdentification, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_UncertainIdentification")

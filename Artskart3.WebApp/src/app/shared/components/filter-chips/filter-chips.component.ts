@@ -1,7 +1,7 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { DEFAULT_ANNOTATION_FILTER, FilterStateService } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
@@ -204,9 +204,9 @@ export class FilterChipsComponent {
     }
 
     const annotationFilter = this.filterState.annotationFilter();
-    if (annotationFilter !== 'all') {
-      const valueKey = annotationFilter === 'changed' ? 'sidebar.annotationChanged' : 'sidebar.annotationNotChanged';
-      chips.push(namedChip('annotationFilter', 'sidebar.annotation', t(valueKey), () => this.filterState.setAnnotationFilter('all')));
+    if (annotationFilter !== DEFAULT_ANNOTATION_FILTER) {
+      const valueKey = annotationFilter === 'all' ? 'sidebar.annotationAll' : annotationFilter === 'hidden' ? 'sidebar.annotationHidden' : 'sidebar.annotationAnnotated';
+      chips.push(namedChip('annotationFilter', 'sidebar.annotation', t(valueKey), () => this.filterState.setAnnotationFilter(DEFAULT_ANNOTATION_FILTER)));
     }
 
     return chips;

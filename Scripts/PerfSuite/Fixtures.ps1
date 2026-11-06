@@ -531,6 +531,14 @@ function New-PerfFixtures {
         New-PerfTier -Key 'annotering:tung' -Role 'tung' -Label 'ikke endret av annotering'  -Filter @{ changedByAnnotation = $false }
     )))
 
+    # Standardutvalget utelater skjulte funn, saa alle andre case maaler allerede den
+    # negasjonen. Her maales de to andre valgene: kun skjulte (7 267 funn) og alle
+    # funn, der verken maske eller dimensjon er aktiv.
+    $dimensions.Add((New-PerfDimension -Name 'skjulte' -Tiers @(
+        New-PerfTier -Key 'skjulte:lett' -Role 'lett' -Label 'kun skjulte funn'         -Filter @{ hiddenObservations = 'Only' }
+        New-PerfTier -Key 'skjulte:tung' -Role 'tung' -Label 'alle funn, ogsaa skjulte' -Filter @{ hiddenObservations = 'Include' }
+    )))
+
     $dimensions.Add((New-PerfDimension -Name 'sensitivitet' -Tiers @(
         New-PerfTier -Key 'sensitivitet:lett' -Role 'lett' -Label 'sensitive funn'      -Filter @{ sensitive = $true }
         New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }

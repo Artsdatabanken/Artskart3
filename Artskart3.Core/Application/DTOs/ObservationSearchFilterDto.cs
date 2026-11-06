@@ -1,3 +1,5 @@
+using Artskart3.Core.Domain.Enums;
+
 namespace Artskart3.Core.Application.DTOs;
 
 public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilter
@@ -41,6 +43,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public bool? WithImages { get; set; }
 
     public bool? ChangedByAnnotation { get; set; }
+
+    public HiddenObservationFilter HiddenObservations { get; set; }
 
     public bool? Sensitive { get; set; }
 
