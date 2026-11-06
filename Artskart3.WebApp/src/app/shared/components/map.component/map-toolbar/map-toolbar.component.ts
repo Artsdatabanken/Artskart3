@@ -4,10 +4,12 @@ import { ClusteringLock, MapToolbarMenu, MapToolbarMenuItemChange } from './map-
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
 import { MapLayersComponent } from './map-layers/map-layers.component';
 import { MapSettingsComponent } from './map-settings/map-settings.component';
+import { MapLegendComponent } from './map-legend/map-legend.component';
+import { MapLayerDto } from '@shared/types/map-layer.types';
 
 @Component({
   selector: 'app-map-toolbar',
-  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent, MapSettingsComponent],
+  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent, MapSettingsComponent, MapLegendComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
@@ -17,8 +19,10 @@ export class MapToolbarComponent {
   readonly mapToolbarMenuItemChange = output<MapToolbarMenuItemChange>();
   readonly clusteringEnabled = model(true);
   readonly clusteringLock = input<ClusteringLock | null>(null);
+  readonly geolocationActive = input(false);
 
   protected readonly openMenu = signal<MapToolbarMenu | null>(null);
+  protected readonly activeLayers = signal<readonly MapLayerDto[]>([]);
 
   onButtonClick(iconName: string): void {
     this.iconClick.emit(iconName);
@@ -40,7 +44,15 @@ export class MapToolbarComponent {
     this.setMenuState('mapSettings', isOpen);
   }
 
+  onMapLegendOpenChange(isOpen: boolean): void {
+    this.setMenuState('mapLegend', isOpen);
+  }
+
   onMapToolbarMenuItemChange(event: MapToolbarMenuItemChange): void {
+    this.activeLayers.update((layers) => {
+      const others = layers.filter((layer) => layer.id !== event.layer.id);
+      return event.visible ? [...others, event.layer] : others;
+    });
     this.mapToolbarMenuItemChange.emit(event);
   }
 

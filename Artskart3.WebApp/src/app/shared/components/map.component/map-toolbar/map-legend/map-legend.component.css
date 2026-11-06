@@ -1,0 +1,94 @@
+.map-legend-dropdown {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + var(--adb-spacing-xsm));
+  left: 0;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.map-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm);
+  margin: 0;
+  padding: 0 var(--adb-spacing-xsm);
+  list-style: none;
+}
+
+.map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
+  font-size: var(--adb-font-size-small);
+}
+
+.map-legend-symbol {
+  flex: none;
+  width: 36px;
+  height: 36px;
+}
+
+.found-marker,
+.polygon-marker {
+  fill: var(--adb-color-brand-freshwater-blue-90);
+  stroke: var(--adb-color-neutrals-ocean-10);
+  stroke-width: 1.5;
+}
+
+.polygon-marker {
+  stroke-width: 3.9;
+}
+
+.negative-marker {
+  fill: var(--adb-color-neutrals-ocean-10);
+  stroke: var(--adb-color-special-100);
+  stroke-width: 1.5;
+}
+
+.negative-glyph {
+  fill: none;
+  stroke: var(--adb-color-special-110);
+  stroke-width: 1.5;
+}
+
+/* Samme blå som posisjonsmarkøren i kartkomponenten */
+.position-accuracy {
+  fill: rgba(33, 150, 243, 0.15);
+  stroke: #2196f3;
+  stroke-width: 1;
+}
+
+.position-dot {
+  fill: #2196f3;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.marker-label {
+  fill: #fff;
+  font: 600 10px 'Chivo', sans-serif;
+}
+
+.polygon-label {
+  font-size: 12.8px;
+}
+
+.map-legend-layer {
+  padding: 0 var(--adb-spacing-xsm);
+}
+
+.map-legend-layer-heading {
+  margin: 0 0 var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
+}
+
+.map-legend-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
