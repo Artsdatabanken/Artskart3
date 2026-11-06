@@ -28,7 +28,6 @@ import Cluster from 'ol/source/Cluster';
 import { get as getProjection, transform } from 'ol/proj';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
-import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -226,15 +225,15 @@ describe('MapComponent', () => {
 
       const overlay = component['mapOverlayLayers'].get(5);
       expect(overlay).toBeInstanceOf(ImageLayer);
-      
+
       const source = overlay?.getSource() as ImageWMS;
       // imageLoadFunction should not be set; OpenLayers uses default behavior
       expect(source.getImageLoadFunction()).toBeDefined();
-      
+
       // Refresh timer should be scheduled for the configured delay
       expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
       const refreshSpy = vi.spyOn(source, 'refresh');
-      
+
       vi.advanceTimersByTime(30_000);
       // After cooldown expires, refresh should be called
       expect(refreshSpy).toHaveBeenCalled();
