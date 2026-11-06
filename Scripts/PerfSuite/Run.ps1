@@ -103,8 +103,12 @@ param(
     # Kjoer bare case der noekkel, lag eller dimensjon inneholder denne teksten.
     [string] $Only,
 
-    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'oppslag')]
+    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'oppslag')]
     [string[]] $Layer,
+
+    # Porten Kartverket-stubben lytter paa. API-et maa startes med
+    # KartverketEiendom__BaseUrl=http://localhost:<port>/ - se Kartverket.ps1.
+    [int]    $KartverketPort = 5099,
 
     # Bygger testdataene paa nytt. Gjoer gamle baselinjer usammenlignbare.
     [switch] $RefreshFixtures,
@@ -136,6 +140,7 @@ $suiteDir = $PSScriptRoot
 Import-Module (Join-Path $suiteDir 'PerfLib.psm1') -Force
 . (Join-Path $suiteDir 'Fixtures.ps1')
 . (Join-Path $suiteDir 'Cases.ps1')
+. (Join-Path $suiteDir 'Kartverket.ps1')
 
 # Maaledata ligger utenfor arbeidstreet, felles for alle trer. Modulen maa
 # importeres foerst, saa dette kan ikke staa hos de andre stioppslagene over.
@@ -261,6 +266,22 @@ elseif ($SqlServer -or $SqlDatabase) {
     Write-Host 'Bade -SqlServer og -SqlDatabase maa settes for indekssporing.' -ForegroundColor Yellow
 }
 
+# Matrikkelcasene faar omrisset til eiendommene fra Kartverket via API-et. Suiten
+# svarer selv med opptak, slik at maalingene ikke avhenger av en ekstern tjeneste.
+# Se Kartverket.ps1.
+$brukerKartverket = @($cases | Where-Object {
+    ($_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds')) -or $_.LookupPath -like '*/CadastralUnit*'
+}).Count -gt 0
+
+if ($brukerKartverket) {
+    if (-not (Start-PerfKartverketStub -Port $KartverketPort)) { exit 1 }
+    if (-not (Test-PerfKartverketStub -Port $KartverketPort)) {
+        Stop-PerfKartverketStub
+        exit 1
+    }
+    Write-Host "Kartverket-stubben svarer paa port $KartverketPort." -ForegroundColor DarkGray
+}
+
 $results   = [System.Collections.Generic.List[object]]::new()
 $suiteWatch = [System.Diagnostics.Stopwatch]::StartNew()
 $done      = 0
@@ -358,6 +379,7 @@ foreach ($case in $cases) {
 
 $suiteWatch.Stop()
 Close-PerfSql
+if ($brukerKartverket) { Stop-PerfKartverketStub }
 
 # ---------------------------------------------------------------------------
 # Oppsummering

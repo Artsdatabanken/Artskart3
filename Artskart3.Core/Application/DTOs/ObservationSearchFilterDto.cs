@@ -20,6 +20,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public string[]? OceanAreaIds { get; set; }
 
+    public string[]? CadastralUnitIds { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }

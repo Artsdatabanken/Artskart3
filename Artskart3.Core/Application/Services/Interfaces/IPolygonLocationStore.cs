@@ -36,8 +36,13 @@ public interface IPolygonLocationStore
     /// Resultatet skal være identisk med det databasestien ville gitt —
     /// samme lokasjoner, samme antall, samme rekkefølge, samme
     /// rektangel- og boksfiltrering. Er det ikke det, er lageret feil.
+    ///
+    /// <paramref name="cadastralLocationIds"/> er lokasjonene innenfor
+    /// matrikkelenhetene i filteret. Har filteret matrikkelenheter uten dem, svarer
+    /// lageret null.
     /// </summary>
-    IReadOnlyList<LocationPolygonDto>? TryQuery(LocationSearchFilterDto filter, int maxResults);
+    IReadOnlyList<LocationPolygonDto>? TryQuery(
+        LocationSearchFilterDto filter, int maxResults, IReadOnlySet<int>? cadastralLocationIds = null);
 
     /// <summary>Bygger datasettet. Kalles én gang ved oppstart.</summary>
     Task BuildAsync(CancellationToken cancellationToken = default);

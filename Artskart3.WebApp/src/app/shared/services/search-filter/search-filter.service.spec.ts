@@ -220,6 +220,7 @@ describe('SearchFilterService.applyFilter', () => {
       municipalityIds: ['1101'],
       countyIds: ['21'],
       oceanAreaIds: ['h1'],
+      cadastralUnitIds: ['1101-1/2'],
       behaviorIds: [5],
       basisOfRecordIds: [6],
       registrationStatusId: 1,

@@ -1,9 +1,12 @@
+using System.Reflection;
 using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Application.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Artskart3.Tests.Unit;
@@ -11,18 +14,22 @@ namespace Artskart3.Tests.Unit;
 public class LookupControllerTests
 {
     private readonly Mock<ILookupService> _serviceMock;
+    private readonly Mock<ICadastralUnitService> _cadastralUnitServiceMock;
+    private readonly Mock<ILogger<LookupController>> _loggerMock;
     private readonly LookupController _sut;
 
     public LookupControllerTests()
     {
         _serviceMock = new Mock<ILookupService>();
-        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService());
+        _cadastralUnitServiceMock = new Mock<ICadastralUnitService>();
+        _loggerMock = new Mock<ILogger<LookupController>>();
+        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLookupServiceIsNull()
     {
-        var act = () => new LookupController(null!, new StubTaxonHierarchyService());
+        var act = () => new LookupController(null!, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _loggerMock.Object);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("lookupService");
     }
@@ -459,6 +466,81 @@ public class LookupControllerTests
         result.Result.Should().BeOfType<OkObjectResult>()
             .Which.Value.Should().BeEquivalentTo(new OrganizationDto { Id = 5, Name = "Prosjekt" });
     }
+
+    [Fact]
+    public void GetCadastralUnit_HasItsOwnRateLimit()
+    {
+        var attribute = typeof(LookupController).GetMethod(nameof(LookupController.GetCadastralUnit))!
+            .GetCustomAttribute<EnableRateLimitingAttribute>();
+
+        attribute!.PolicyName.Should().Be(SearchConstants.CadastralLookupRateLimitPolicy);
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WithInvalidFormat_ReturnsBadRequestWithoutCallingKartverket()
+    {
+        var result = await _sut.GetCadastralUnit("1101-1");
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _cadastralUnitServiceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenFound_ReturnsOkWithNormalizedId()
+    {
+        var cadastralUnit = new CadastralUnitDto { Id = "1101-1/2", WktPolygon = "MULTIPOLYGON (((0 0, 1 0, 1 1, 0 0)))" };
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync("1101-1/2", It.IsAny<CancellationToken>())).ReturnsAsync(cadastralUnit);
+
+        var result = await _sut.GetCadastralUnit(" 1101-01/2 ");
+
+        result.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().Be(cadastralUnit);
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenNotFound_ReturnsNotFound()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync("1101-99999/1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CadastralUnitDto?)null);
+
+        var result = await _sut.GetCadastralUnit("1101-99999/1");
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenKartverketIsUnavailable_Returns502()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+        var result = await _sut.GetCadastralUnit("1101-1/2");
+
+        result.Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(502);
+        VerifyWarningLogged();
+    }
+
+    [Fact]
+    public async Task GetCadastralUnit_WhenKartverketTimesOut_Returns504()
+    {
+        _cadastralUnitServiceMock.Setup(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TaskCanceledException("Timeout", new TimeoutException()));
+
+        var result = await _sut.GetCadastralUnit("1101-1/2");
+
+        result.Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(504);
+        VerifyWarningLogged();
+    }
+
+    // Unntakene stopper her og når aldri GlobalExceptionFilter, så uten dette logges de ikke.
+    private void VerifyWarningLogged() =>
+        _loggerMock.Verify(
+            logger => logger.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
 
     [Fact]
     public async Task GetCatalogNumberByObservationIds_WithEmptyList_ReturnsBadRequest()
