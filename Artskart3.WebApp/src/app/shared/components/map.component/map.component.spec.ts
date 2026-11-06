@@ -3,7 +3,6 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
-
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
