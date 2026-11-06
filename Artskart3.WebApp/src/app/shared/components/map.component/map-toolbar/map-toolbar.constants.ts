@@ -1,6 +1,6 @@
 import { MapLayerDto } from '@shared/types/map-layer.types';
 
-export type MapToolbarMenu = 'mapTypes' | 'mapLayers' | 'mapSettings';
+export type MapToolbarMenu = 'mapTypes' | 'mapLayers' | 'mapSettings' | 'mapLegend';
 
 /** Why clustering can't be turned off right now. */
 export type ClusteringLock = 'unknownCount' | 'tooManyLocations';
