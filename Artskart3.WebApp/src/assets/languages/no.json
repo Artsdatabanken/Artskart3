@@ -328,7 +328,7 @@
     "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
     "loadingObservationsLabel": "Henter registreringer...",
-    "legendHeading": "Tegneforklaring",
+    "legendHeading": "Tegnforklaring",
     "legend": {
       "found": "Funn",
       "absent": "Ikke funn",
