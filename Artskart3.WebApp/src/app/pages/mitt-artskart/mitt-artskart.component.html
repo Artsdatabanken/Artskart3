@@ -1,13 +1,30 @@
 <div class="mitt-artskart">
   <h1>{{ 'mittArtskart.title' | translate }}</h1>
+  @if (this.authService.isAnonymous()) {
+    <div class="log-in">
+      <p>{{ 'export.notLoggedIn' | translate }}</p>
+      <adb-button variant="secondary" [attr.aria-label]="'header.loginAriaLabel' | translate" (click)="authService.login()">
+        {{ 'header.login' | translate }}
+      </adb-button>
+    </div>
+  }
 
   <adb-tabs [attr.aria-label]="'mittArtskart.tabsAriaLabel' | translate">
     <adb-tab slot="tab">{{ 'mittArtskart.exportJobs' | translate }}</adb-tab>
-    <adb-tab slot="tab">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
+    <adb-tab slot="tab" [disabled]="authService.isAnonymous()">{{ 'savedFilters.tabLabel' | translate }}</adb-tab>
+
 
     <adb-tab-panel>
       @if (historyResource.isLoading() && !historyResource.hasValue()) {
         <p class="status-message">{{ 'common.loading' | translate }}</p>
+      }
+
+      @if(this.authService.isAnonymous()) {
+        <div class="temporary-export-message">
+          <h3>{{ 'export.modalTitle' | translate }}</h3>
+          <p>{{ 'export.exportsNotSaved' | translate }}</p>
+          <p>{{ 'export.downloadExportToSave' | translate }}</p>
+        </div>
       }
 
       @if (historyResource.error() && !historyResource.hasValue()) {
@@ -72,7 +89,11 @@
     </adb-tab-panel>
 
     <adb-tab-panel>
-      <app-saved-filters-table />
+      @if (authService.isAnonymous()) {
+        <p class="status-message">{{ 'mittArtskart.savedFiltersLoginPrompt' | translate }}</p>
+      } @else {
+        <app-saved-filters-table />
+      }
     </adb-tab-panel>
   </adb-tabs>
 </div>

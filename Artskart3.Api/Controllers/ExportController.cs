@@ -11,6 +11,8 @@ namespace Artskart3.Api.Controllers;
 [Route("api/export/csv")]
 public class ExportController : ControllerBase
 {
+    private const string AnonymousUserHeader = "X-Anonymous-User-Id";
+
     private readonly IExportService _exportService;
     private readonly IBlobStorageService _blobStorageService;
     private readonly ILogger<ExportController> _logger;
@@ -30,6 +32,7 @@ public class ExportController : ControllerBase
         return Ok(columns);
     }
 
+    [AllowAnonymous]
     [HttpPost("summary")]
     public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
@@ -43,6 +46,7 @@ public class ExportController : ControllerBase
         return Ok(summary);
     }
 
+    [AllowAnonymous]
     [HttpPost("start")]
     public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
@@ -66,6 +70,7 @@ public class ExportController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/status")]
     public async Task<ActionResult<CsvExportJobDto>> GetStatus(int jobId, CancellationToken cancellationToken)
     {
@@ -79,6 +84,7 @@ public class ExportController : ControllerBase
         return Ok(status);
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/download")]
     public async Task<ActionResult> Download(int jobId, CancellationToken cancellationToken)
     {
@@ -94,6 +100,7 @@ public class ExportController : ControllerBase
         return File(stream, "text/csv", fileName);
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/download/excel")]
     public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
@@ -109,6 +116,7 @@ public class ExportController : ControllerBase
         return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
+    [AllowAnonymous]
     [HttpPost("{jobId:int}/cancel")]
     public async Task<ActionResult> Cancel(int jobId, CancellationToken cancellationToken)
     {
@@ -122,6 +130,7 @@ public class ExportController : ControllerBase
         return Ok();
     }
 
+    [AllowAnonymous]
     [HttpGet("history")]
     public async Task<ActionResult<List<CsvExportJobDto>>> GetHistory(CancellationToken cancellationToken)
     {
@@ -130,6 +139,20 @@ public class ExportController : ControllerBase
 
         var history = await _exportService.GetUserExportHistoryAsync(userId, cancellationToken);
         return Ok(history);
+    }
+
+    [HttpPost("claim-anonymous")]
+    public async Task<ActionResult<object>> ClaimAnonymousExports(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+
+        var anonymousIdValue = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (!Guid.TryParse(anonymousIdValue, out var anonymousUserId) || anonymousUserId == Guid.Empty)
+            return BadRequest(new { error = $"Mangler gyldig {AnonymousUserHeader}-header." });
+
+        var claimedCount = await _exportService.ClaimAnonymousExportsAsync(userId, anonymousUserId, cancellationToken);
+        return Ok(new { claimedCount });
     }
 
     /// <summary>
@@ -146,17 +169,23 @@ public class ExportController : ControllerBase
         return error == null ? null : BadRequest(new { error });
     }
 
+    /// <summary>
+    /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere får en
+    /// klientgenerert GUID i localStorage, sendt som X-Anonymous-User-Id-header.
+    /// Headeren brukes bare når det ikke finnes en gyldig sub, slik at jobber alltid
+    /// knyttes til den innloggede kontoen når brukeren er logget inn.
+    /// </summary>
     private ActionResult? TryGetUserId(out Guid userId)
     {
-        userId = Guid.Empty;
-
         var sub = User.FindFirst("sub")?.Value;
-        if (string.IsNullOrWhiteSpace(sub))
-            return Unauthorized(new { error = "Bruker mangler 'sub'-claim." });
+        if (Guid.TryParse(sub, out userId))
+            return null;
 
-        if (!Guid.TryParse(sub, out userId))
-            return Unauthorized(new { error = "Bruker har ugyldig 'sub'-claim." });
+        var anonymousId = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (Guid.TryParse(anonymousId, out userId))
+            return null;
 
-        return null;
+        userId = Guid.Empty;
+        return Unauthorized(new { error = $"Mangler brukeridentitet ('sub'-claim eller {AnonymousUserHeader}-header)." });
     }
 }
