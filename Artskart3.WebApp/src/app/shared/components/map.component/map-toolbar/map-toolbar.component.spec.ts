@@ -22,4 +22,27 @@ describe('MapToolbarComponent', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
   });
+
+  it('holds the legend open while the other menus are toggled', () => {
+    fixture = TestBed.createComponent(MapToolbarComponent);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const buttonFor = (label: string) => element.querySelector(`adb-icon-button[aria-label="${label}"]`)!;
+    const legendOpen = () => element.querySelector('.map-legend-dropdown') !== null;
+
+    buttonFor('mapToolbar.legendHeading').dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    buttonFor('mapToolbar.layersAriaLabel').dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(element.querySelector('adb-checkbox, .map-layers-empty')).not.toBeNull();
+    expect(legendOpen()).toBe(true);
+
+    buttonFor('mapToolbar.settingsAriaLabel').dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(legendOpen()).toBe(true);
+
+    buttonFor('mapToolbar.legendHeading').dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(legendOpen()).toBe(false);
+  });
 });
