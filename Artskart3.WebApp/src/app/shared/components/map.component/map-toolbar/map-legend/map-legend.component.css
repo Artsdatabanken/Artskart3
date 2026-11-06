@@ -10,6 +10,10 @@
   overflow-y: auto;
 }
 
+.map-toolbar-menu-header {
+  box-sizing: border-box;
+}
+
 .map-legend-list {
   display: flex;
   flex-direction: column;
