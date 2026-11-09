@@ -152,6 +152,35 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Standardutvalget trekker skjulte funn fra i summen i stedet for å filtrere dem
+    /// bort. En lokasjon med bare skjulte funn må da forsvinne, ikke stå igjen med 0.
+    /// </summary>
+    [Fact]
+    public async Task Lokasjon_med_bare_skjulte_funn_er_ikke_med_i_standardutvalget()
+    {
+        await SettLokasjonSkjultAsync(_l3, true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            var fraBuffer = await CreateCacheService().TryGetTopLocationsAsync(new LocationSearchFilterDto(), 100_000);
+
+            fraBuffer.Should().NotBeNull("ellers sammenligner testen tellingen med seg selv");
+            fraBuffer!.Should().NotContain(x => x.Id == _l3.Id);
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto());
+        }
+        finally
+        {
+            await SettLokasjonSkjultAsync(_l3, false);
+        }
+    }
+
+    private Task SettLokasjonSkjultAsync(Location lokasjon, bool skjult) =>
+        _context.Set<ObservationEntityIndex>()
+            .Where(r => r.LocationId == lokasjon.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenByAnnotation, skjult));
+
     private Task SettSkjultAsync(bool skjult) =>
         _context.Set<ObservationEntityIndex>()
             .Where(r => r.TaxonGroupId == TaksongruppeB)
