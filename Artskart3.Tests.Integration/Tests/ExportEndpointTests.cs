@@ -31,6 +31,21 @@ public class ExportEndpointTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // POST /api/export/csv/anonymous-session
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAnonymousSession_ReturnsToken()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        var token = await GetAnonymousTokenAsync(anonymousClient);
+
+        token.Should().NotBeNullOrWhiteSpace();
+    }
+
+    // -----------------------------------------------------------------------
     // GET /api/export/csv/columns
     // -----------------------------------------------------------------------
 
