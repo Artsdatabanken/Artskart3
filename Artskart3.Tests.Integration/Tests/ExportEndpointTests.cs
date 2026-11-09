@@ -256,15 +256,14 @@ public class ExportEndpointTests : IAsyncLifetime
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Anonyme brukere identifiseres med en klientgenerert GUID i
-    /// X-Anonymous-User-Id-headeren, lagret i localStorage i nettleseren.
+    /// Anonyme brukere identifiseres med et signert token utstedt av serveren.
     /// </summary>
     [Fact]
-    public async Task StartExport_WithAnonymousUserHeader_Returns200()
+    public async Task StartExport_WithServerIssuedAnonymousToken_Returns200()
     {
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-CSRF", "1");
-        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(client));
 
         var response = await StartExportAsync(client, "anonym-eksport");
 
@@ -272,15 +271,40 @@ public class ExportEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task StartExport_AnonymousBeyondConcurrencyLimit_Returns409WithReason()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(client));
+
+        var responses = await Task.WhenAll(
+            StartExportAsync(client, "anonym-eksport-1"),
+            StartExportAsync(client, "anonym-eksport-2"));
+
+        try
+        {
+            responses.Count(response => response.StatusCode == HttpStatusCode.OK).Should().Be(1);
+            responses.Count(response => response.StatusCode == HttpStatusCode.Conflict).Should().Be(1);
+            var conflictBody = await responses.Single(response => response.StatusCode == HttpStatusCode.Conflict).Content.ReadAsStringAsync();
+            conflictBody.Should().Contain("anonym bruker");
+        }
+        finally
+        {
+            foreach (var response in responses)
+                response.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task GetHistory_AnonymousUsers_DoNotSeeEachOthersExports()
     {
         using var anonymousClient = _factory.CreateClient();
         anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
-        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(anonymousClient));
 
         using var otherAnonymousClient = _factory.CreateClient();
         otherAnonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
-        otherAnonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+        otherAnonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(otherAnonymousClient));
 
         await StartExportAsync(anonymousClient, "anonym-eksport");
 
@@ -315,11 +339,11 @@ public class ExportEndpointTests : IAsyncLifetime
     [Fact]
     public async Task ClaimAnonymousExports_TransfersHistoryToAuthenticatedUser()
     {
-        var anonymousUserId = Guid.NewGuid().ToString();
         var authenticatedUserId = Guid.NewGuid().ToString();
 
         using var anonymousClient = _factory.CreateClient();
         anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        var anonymousUserId = await GetAnonymousTokenAsync(anonymousClient);
         anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", anonymousUserId);
         (await StartExportAsync(anonymousClient, "eksport-fra-gjest")).StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -357,4 +381,15 @@ public class ExportEndpointTests : IAsyncLifetime
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    private static async Task<string> GetAnonymousTokenAsync(HttpClient client)
+    {
+        using var response = await client.PostAsJsonAsync("/api/export/csv/anonymous-session", new { });
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content.ReadFromJsonAsync<AnonymousSessionResponse>();
+        return session?.Token ?? throw new InvalidOperationException("Anonymous session response did not contain a token.");
+    }
+
+    private sealed record AnonymousSessionResponse(string Token);
 }

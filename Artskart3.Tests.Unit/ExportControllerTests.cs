@@ -34,6 +34,7 @@ public class ExportControllerTests
         exportService
             .Setup(s => s.StartExportAsync(
                 It.IsAny<Guid>(),
+                It.IsAny<bool>(),
                 It.IsAny<ObservationSearchFilterDto>(),
                 It.IsAny<List<string>>(),
                 It.IsAny<string?>(),
@@ -47,6 +48,7 @@ public class ExportControllerTests
         result.Result.Should().BeOfType<OkObjectResult>();
         exportService.Verify(s => s.StartExportAsync(
             UserId,
+            false,
             It.IsAny<ObservationSearchFilterDto>(),
             It.IsAny<List<string>>(),
             It.IsAny<string?>(),
@@ -129,6 +131,7 @@ public class ExportControllerTests
         exportService
             .Setup(s => s.StartExportAsync(
                 It.IsAny<Guid>(),
+                It.IsAny<bool>(),
                 It.IsAny<ObservationSearchFilterDto>(),
                 It.IsAny<List<string>>(),
                 It.IsAny<string?>(),
@@ -143,6 +146,7 @@ public class ExportControllerTests
         result.Result.Should().BeOfType<OkObjectResult>();
         exportService.Verify(s => s.StartExportAsync(
             AnonymousUserId,
+            true,
             It.IsAny<ObservationSearchFilterDto>(),
             It.IsAny<List<string>>(),
             It.IsAny<string?>(),

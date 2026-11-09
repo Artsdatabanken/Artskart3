@@ -65,9 +65,11 @@ public class ExportController : ControllerBase
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
 
+        var isAnonymous = User.Identity?.IsAuthenticated != true;
+
         try
         {
-            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
+            var jobId = await _exportService.StartExportAsync(userId, isAnonymous, request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
             return Ok(new { jobId });
         }
         catch (InvalidOperationException ex)

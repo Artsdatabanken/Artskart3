@@ -300,8 +300,8 @@ eksportjobb mot testbasen. Sett flyktig lagring på `workers` romslig i stedet. 
 er kjent, og som kan brukes til å anslå:
 
 - `CsvExport:Limits:HardRowLimit` = 500 000 rader er den øvre grensen for én eksport.
-- `CsvExport:Limits:MaxConcurrentPerUser` = 3, så flere filer kan være under bygging
-  samtidig, også fra samme bruker.
+- `CsvExport:Limits:MaxConcurrentPerUser` = 3 for innloggede brukere.
+- `CsvExport:Limits:MaxConcurrentAnonymousPerUser` = 1 per anonym ID.
 - Filene slettes etter opplasting, men en jobb som feiler midt i kan etterlate en fil
   til neste opprydding.
 
