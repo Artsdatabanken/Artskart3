@@ -1,8 +1,10 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Application.Validation;
+using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Artskart3.Api.Controllers;
 
@@ -40,6 +42,7 @@ public class ExportController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("summary")]
+    [EnableRateLimiting(SearchConstants.SearchRateLimitPolicy)]
     public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
         if (request?.Filter == null)
@@ -54,6 +57,7 @@ public class ExportController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("start")]
+    [EnableRateLimiting(ExportConstants.AnonymousExportStartRateLimitPolicy)]
     public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
         if (request?.Filter == null)

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
@@ -75,6 +76,37 @@ public class ExportEndpointTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/export/csv/start", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task StartExport_AnonymousRequestsAreLimitedToThirtyPerMinute()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        for (var i = 0; i < 30; i++)
+        {
+            using var content = new StringContent("null", Encoding.UTF8, "application/json");
+            using var response = await anonymousClient.PostAsync("/api/export/csv/start", content);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        using (var content = new StringContent("null", Encoding.UTF8, "application/json"))
+        using (var response = await anonymousClient.PostAsync("/api/export/csv/start", content))
+        {
+            response.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        }
+
+        using var authenticatedClient = _factory.CreateClient();
+        authenticatedClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        authenticatedClient.DefaultRequestHeaders.Add("X-Test-UserId", Guid.NewGuid().ToString());
+
+        for (var i = 0; i < 31; i++)
+        {
+            using var content = new StringContent("null", Encoding.UTF8, "application/json");
+            using var response = await authenticatedClient.PostAsync("/api/export/csv/start", content);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 
     // -----------------------------------------------------------------------

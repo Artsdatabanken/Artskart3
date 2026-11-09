@@ -7,9 +7,11 @@ import { ExportService } from './export.service';
 import { anonymousUserInterceptor } from '../../interceptors/anonymous-user.interceptor';
 import { AuthService, Session } from '../auth/auth.service';
 import { AlertService } from '../alert/alert.service';
+import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../types/api.types';
 
 const STORAGE_KEY = 'artskart.anonymousUserId';
 const ANONYMOUS_USER_ID = '95e445a5-caa6-4b54-ae93-22d31ecc6b01';
+const SECOND_ANONYMOUS_USER_ID = '81c9415f-ad70-42c6-9aa4-cfd898f8bb0f';
 const AUTHENTICATED_SESSION: Session = [{ type: 'sub', value: '25db4012-849e-4411-8616-f46b94a390dd' }];
 
 describe('ExportService', () => {
@@ -89,6 +91,34 @@ describe('ExportService', () => {
     const secondHistory = firstValueFrom(service.getHistory());
     httpTesting.expectOne('/api/export/csv/history').flush([]);
     await secondHistory;
+  });
+
+  it('attempts a claim again when the anonymous token changes', async () => {
+    const firstHistory = firstValueFrom(service.getHistory());
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush('Server error', { status: 500, statusText: 'Server Error' });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await firstHistory;
+
+    localStorage.setItem(STORAGE_KEY, SECOND_ANONYMOUS_USER_ID);
+    const secondHistory = firstValueFrom(service.getHistory());
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(SECOND_ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await secondHistory;
+  });
+
+  it('claims anonymous exports before polling status for an authenticated user', async () => {
+    const statusPromise = firstValueFrom(service.getStatus(42));
+
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+
+    httpTesting.expectOne('/api/export/csv/42/status').flush(
+      { id: 42, status: CSV_EXPORT_STATUS.Pending } as CsvExportJobDto,
+    );
+    await expect(statusPromise).resolves.toMatchObject({ id: 42 });
   });
 
   it('does not claim exports for anonymous history requests', async () => {

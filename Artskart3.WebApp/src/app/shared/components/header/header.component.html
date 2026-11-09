@@ -137,12 +137,12 @@
         <adb-dark-mode-toggle></adb-dark-mode-toggle>
       }
       @if (!isMenuOpen) {
-        @if (authService.isAnonymous()) {
+        @if (authService.sessionResolved() && authService.isAnonymous()) {
           <div class="user-control">
             <button
               type="button"
               class="header-btn language-btn"
-              [attr.aria-label]="'header.loginAriaLabel' | translate"
+              [attr.aria-label]="'header.userMenuAriaLabel' | translate"
               [attr.aria-haspopup]="'menu'"
               [attr.aria-expanded]="isUserMenuOpen"
               (click)="toggleUserMenu()"
@@ -286,11 +286,11 @@
           }
           <adb-dark-mode-toggle></adb-dark-mode-toggle>
           <div class="user-control">
-            @if (authService.isAnonymous()) {
+            @if (authService.sessionResolved() && authService.isAnonymous()) {
               <button
                 type="button"
                 class="header-btn language-btn"
-                [attr.aria-label]="'header.loginAriaLabel' | translate"
+                [attr.aria-label]="'header.userMenuAriaLabel' | translate"
                 [attr.aria-haspopup]="'menu'"
                 [attr.aria-expanded]="isUserMenuOpen"
                 (click)="toggleUserMenu()"

@@ -5,7 +5,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { CsvExportJobDto, CSV_EXPORT_STATUS, ExportSummaryDto, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
 import { AuthService } from '../auth/auth.service';
-import { clearAnonymousToken, peekAnonymousToken } from '../../interceptors/anonymous-user.interceptor';
+import { clearAnonymousToken, peekAnonymousToken } from '../../utils/anonymous-user-token';
 
 @Injectable({
   providedIn: 'root',
@@ -17,8 +17,8 @@ export class ExportService {
   private readonly authService = inject(AuthService);
   private readonly baseUrl = '/api/export/csv';
   private readonly activePolls = new Map<number, Subscription>();
-  private anonymousExportClaimed = false;
-  private anonymousExportClaim$: Observable<void> | null = null;
+  private anonymousExportClaimedToken: string | null = null;
+  private anonymousExportClaim$: { token: string; request: Observable<void> } | null = null;
 
   /** Incremented when an export completes — use as a dependency to trigger refetch. */
   readonly historyVersion = signal(0);
@@ -42,7 +42,7 @@ export class ExportService {
   }
 
   getStatus(jobId: number): Observable<CsvExportJobDto> {
-    return this.http.get<CsvExportJobDto>(`${this.baseUrl}/${jobId}/status`);
+    return this.withAnonymousClaim(() => this.http.get<CsvExportJobDto>(`${this.baseUrl}/${jobId}/status`));
   }
 
   /**
@@ -113,45 +113,48 @@ export class ExportService {
   }
 
   getHistory(): Observable<CsvExportJobDto[]> {
+    return this.withAnonymousClaim(() => this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`));
+  }
+
+  private withAnonymousClaim<T>(request: () => Observable<T>): Observable<T> {
     return this.authService.getSession().pipe(
-      switchMap((session) => {
-        const historyRequest = () => this.http.get<CsvExportJobDto[]>(`${this.baseUrl}/history`);
-        return session
-          ? this.claimAnonymousExports().pipe(switchMap(() => historyRequest()))
-          : historyRequest();
-      }),
+      switchMap((session) => session ? this.claimAnonymousExports().pipe(switchMap(request)) : request()),
     );
   }
 
   private claimAnonymousExports(): Observable<void> {
     // Bare claim når det faktisk ligger et token lagra — ellers ville hver
     // innloggede bruker opprettet et token bare for å ha noe å sende.
-    if (this.anonymousExportClaimed || !peekAnonymousToken()) return of(undefined);
+    const token = peekAnonymousToken();
+    if (!token || this.anonymousExportClaimedToken === token) return of(undefined);
 
-    if (!this.anonymousExportClaim$) {
-      this.anonymousExportClaim$ = this.http
-        .post<{ claimedCount: number }>(`${this.baseUrl}/claim-anonymous`, {})
-        .pipe(
-          map(() => undefined),
-          tap(() => {
-            this.anonymousExportClaimed = true;
-            // Jobbene er flyttet til kontoen — tokenet skal ikke gjenbrukes,
-            // ellers kunne neste innlogging på en delt maskin arvet andres eksporter.
-            clearAnonymousToken();
-          }),
-          catchError((error) => {
-            // En feila claim skal ikke hindre visning av egen historikk. Marker
-            // som forsøkt så vi ikke prøver på nytt ved hver innlasting.
-            console.error('Kunne ikke overføre anonyme eksporter', error);
-            this.anonymousExportClaimed = true;
-            return of(undefined);
-          }),
-          finalize(() => (this.anonymousExportClaim$ = null)),
-          shareReplay({ bufferSize: 1, refCount: false }),
-        );
-    }
+    if (this.anonymousExportClaim$?.token === token) return this.anonymousExportClaim$.request;
 
-    return this.anonymousExportClaim$;
+    const request = this.http
+      .post<{ claimedCount: number }>(`${this.baseUrl}/claim-anonymous`, {})
+      .pipe(
+        map(() => undefined),
+        tap(() => {
+          this.anonymousExportClaimedToken = token;
+          // Jobbene er flyttet til kontoen — tokenet skal ikke gjenbrukes,
+          // ellers kunne neste innlogging på en delt maskin arvet andres eksporter.
+          clearAnonymousToken(token);
+        }),
+        catchError((error) => {
+          // En feila claim skal ikke hindre visning av egen historikk. Marker
+          // som forsøkt så vi ikke prøver på nytt ved hver innlasting.
+          console.error('Kunne ikke overføre anonyme eksporter', error);
+          this.anonymousExportClaimedToken = token;
+          return of(undefined);
+        }),
+        finalize(() => {
+          if (this.anonymousExportClaim$?.token === token) this.anonymousExportClaim$ = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+
+    this.anonymousExportClaim$ = { token, request };
+    return request;
   }
 
   downloadFile(jobId: number): Observable<Blob> {

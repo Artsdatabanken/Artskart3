@@ -71,6 +71,7 @@
     "logout": "Logg ut",
     "loginAriaLabel": "Logg inn",
     "logoutAriaLabel": "Logg ut",
+    "userMenuAriaLabel": "Åpne brukermeny",
     "mainNavigationAriaLabel": "Hovedmeny",
     "openMenuAriaLabel": "Åpne navigasjonsmeny",
     "closeMenuAriaLabel": "Lukk navigasjonsmeny",

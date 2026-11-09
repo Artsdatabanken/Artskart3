@@ -2,13 +2,12 @@ import { HttpClient, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Observable, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
 import { AuthService } from '../services/auth/auth.service';
+import { peekAnonymousToken, storeAnonymousToken } from '../utils/anonymous-user-token';
 
-const STORAGE_KEY = 'artskart.anonymousUserId';
 const SESSION_URL = '/api/export/csv/anonymous-session';
 export const ANONYMOUS_USER_HEADER = 'X-Anonymous-User-Id';
 
 let tokenRequest$: Observable<string> | null = null;
-let inMemoryToken: string | null = null;
 
 /**
  * Anonyme brukere eier eksportjobbene sine via et signert token utstedt av
@@ -18,26 +17,6 @@ let inMemoryToken: string | null = null;
  * brukeren er på samme nettleser og maskin.
  */
 
-/** Leser lagra token uten å opprette nytt — brukt av claim-flyten. */
-export function peekAnonymousToken(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY) ?? inMemoryToken;
-  } catch {
-    // localStorage utilgjengelig (f.eks. privat modus).
-    return inMemoryToken;
-  }
-}
-
-/** Fjerner tokenet, f.eks. etter at anonyme eksporter er overført til en konto. */
-export function clearAnonymousToken(): void {
-  inMemoryToken = null;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Se peekAnonymousToken.
-  }
-}
-
 function getAnonymousToken(http: HttpClient): Observable<string> {
   const existing = peekAnonymousToken();
   if (existing) return of(existing);
@@ -45,14 +24,7 @@ function getAnonymousToken(http: HttpClient): Observable<string> {
   // Del pågående forespørsel, så parallelle eksportkall ikke henter hvert sitt token.
   tokenRequest$ ??= http.post<{ token: string }>(SESSION_URL, {}).pipe(
     map((response) => response.token),
-    tap((token) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, token);
-      } catch {
-        // Tokenet lever da bare så lenge fanen gjør.
-        inMemoryToken = token;
-      }
-    }),
+    tap(storeAnonymousToken),
     finalize(() => (tokenRequest$ = null)),
     shareReplay(1),
   );
