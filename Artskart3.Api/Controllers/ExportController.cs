@@ -15,12 +15,18 @@ public class ExportController : ControllerBase
 
     private readonly IExportService _exportService;
     private readonly IBlobStorageService _blobStorageService;
+    private readonly IAnonymousUserTokenService _anonymousUserTokens;
     private readonly ILogger<ExportController> _logger;
 
-    public ExportController(IExportService exportService, IBlobStorageService blobStorageService, ILogger<ExportController> logger)
+    public ExportController(
+        IExportService exportService,
+        IBlobStorageService blobStorageService,
+        IAnonymousUserTokenService anonymousUserTokens,
+        ILogger<ExportController> logger)
     {
         _exportService = exportService;
         _blobStorageService = blobStorageService;
+        _anonymousUserTokens = anonymousUserTokens;
         _logger = logger;
     }
 
@@ -141,14 +147,28 @@ public class ExportController : ControllerBase
         return Ok(history);
     }
 
+    /// <summary>
+    /// Utsteder en signert anonym bruker-ID. Klienten lagrer tokenet i
+    /// localStorage og sender det som X-Anonymous-User-Id-header.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("anonymous-session")]
+    public ActionResult<object> CreateAnonymousSession(CancellationToken cancellationToken)
+    {
+        return Ok(new { token = _anonymousUserTokens.CreateToken() });
+    }
+
     [HttpPost("claim-anonymous")]
     public async Task<ActionResult<object>> ClaimAnonymousExports(CancellationToken cancellationToken)
     {
         if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
             return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
 
-        var anonymousIdValue = Request.Headers[AnonymousUserHeader].FirstOrDefault();
-        if (!Guid.TryParse(anonymousIdValue, out var anonymousUserId) || anonymousUserId == Guid.Empty)
+        // Bare token serveren selv har signert godtas — ellers kunne en innlogget
+        // bruker sendt en annen brukers sub her og flyttet hele eksporthistorikken
+        // deres over til sin egen konto.
+        var token = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (!_anonymousUserTokens.TryGetUserId(token, out var anonymousUserId))
             return BadRequest(new { error = $"Mangler gyldig {AnonymousUserHeader}-header." });
 
         var claimedCount = await _exportService.ClaimAnonymousExportsAsync(userId, anonymousUserId, cancellationToken);
@@ -170,22 +190,27 @@ public class ExportController : ControllerBase
     }
 
     /// <summary>
-    /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere får en
-    /// klientgenerert GUID i localStorage, sendt som X-Anonymous-User-Id-header.
-    /// Headeren brukes bare når det ikke finnes en gyldig sub, slik at jobber alltid
-    /// knyttes til den innloggede kontoen når brukeren er logget inn.
+    /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere må ha et
+    /// token serveren selv har signert (se /anonymous-session), sendt som
+    /// X-Anonymous-User-Id-header. Signaturen beviser at ID-en er utstedt som anonym,
+    /// så en sub kan ikke spoofes gjennom headeren.
     /// </summary>
     private ActionResult? TryGetUserId(out Guid userId)
     {
-        var sub = User.FindFirst("sub")?.Value;
-        if (Guid.TryParse(sub, out userId))
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            // En autentisert bruker med ugyldig sub er en feiltilstand, ikke en
+            // anonym bruker — ikke fall tilbake på headeren og lagre jobben på en
+            // ID som ikke har noe med kontoen å gjøre.
+            if (Guid.TryParse(User.FindFirst("sub")?.Value, out userId) && userId != Guid.Empty)
+                return null;
+
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+        }
+
+        if (_anonymousUserTokens.TryGetUserId(Request.Headers[AnonymousUserHeader].FirstOrDefault(), out userId))
             return null;
 
-        var anonymousId = Request.Headers[AnonymousUserHeader].FirstOrDefault();
-        if (Guid.TryParse(anonymousId, out userId))
-            return null;
-
-        userId = Guid.Empty;
         return Unauthorized(new { error = $"Mangler brukeridentitet ('sub'-claim eller {AnonymousUserHeader}-header)." });
     }
 }

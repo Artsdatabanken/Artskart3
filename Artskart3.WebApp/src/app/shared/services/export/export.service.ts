@@ -1,10 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, Subscription, timer, switchMap, takeWhile, last, of, map, tap, finalize, shareReplay } from 'rxjs';
+import { Observable, Subscription, timer, switchMap, takeWhile, last, of, map, tap, finalize, shareReplay, catchError } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
 import { CsvExportJobDto, CSV_EXPORT_STATUS, ExportSummaryDto, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
 import { AuthService } from '../auth/auth.service';
+import { clearAnonymousToken, peekAnonymousToken } from '../../interceptors/anonymous-user.interceptor';
 
 @Injectable({
   providedIn: 'root',
@@ -123,14 +124,28 @@ export class ExportService {
   }
 
   private claimAnonymousExports(): Observable<void> {
-    if (this.anonymousExportClaimed) return of(undefined);
+    // Bare claim når det faktisk ligger et token lagra — ellers ville hver
+    // innloggede bruker opprettet et token bare for å ha noe å sende.
+    if (this.anonymousExportClaimed || !peekAnonymousToken()) return of(undefined);
 
     if (!this.anonymousExportClaim$) {
       this.anonymousExportClaim$ = this.http
         .post<{ claimedCount: number }>(`${this.baseUrl}/claim-anonymous`, {})
         .pipe(
           map(() => undefined),
-          tap(() => (this.anonymousExportClaimed = true)),
+          tap(() => {
+            this.anonymousExportClaimed = true;
+            // Jobbene er flyttet til kontoen — tokenet skal ikke gjenbrukes,
+            // ellers kunne neste innlogging på en delt maskin arvet andres eksporter.
+            clearAnonymousToken();
+          }),
+          catchError((error) => {
+            // En feila claim skal ikke hindre visning av egen historikk. Marker
+            // som forsøkt så vi ikke prøver på nytt ved hver innlasting.
+            console.error('Kunne ikke overføre anonyme eksporter', error);
+            this.anonymousExportClaimed = true;
+            return of(undefined);
+          }),
           finalize(() => (this.anonymousExportClaim$ = null)),
           shareReplay({ bufferSize: 1, refCount: false }),
         );

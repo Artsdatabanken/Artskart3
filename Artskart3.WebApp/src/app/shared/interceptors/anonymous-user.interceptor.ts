@@ -1,32 +1,82 @@
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpClient, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Observable, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
+import { AuthService } from '../services/auth/auth.service';
 
 const STORAGE_KEY = 'artskart.anonymousUserId';
+const SESSION_URL = '/api/export/csv/anonymous-session';
 export const ANONYMOUS_USER_HEADER = 'X-Anonymous-User-Id';
 
-let inMemoryId: string | null = null;
+let tokenRequest$: Observable<string> | null = null;
+let inMemoryToken: string | null = null;
 
 /**
- * Anonyme brukere eier eksportjobbene sine via en klientgenerert GUID som
- * backend lagrer som UserId. GUID-en ligger i localStorage, så historikken
- * overlever nye økter så lenge brukeren er på samme nettleser og maskin.
+ * Anonyme brukere eier eksportjobbene sine via et signert token utstedt av
+ * serveren. Signaturen gjør at backend kan skille anonyme ID-er fra innloggede
+ * brukeres sub, så en vilkårlig GUID i headeren ikke lenger godtas som eier.
+ * Tokenet ligger i localStorage, så historikken overlever nye økter så lenge
+ * brukeren er på samme nettleser og maskin.
  */
-function getAnonymousUserId(): string {
-  try {
-    const existing = localStorage.getItem(STORAGE_KEY);
-    if (existing) return existing;
 
-    const id = crypto.randomUUID();
-    localStorage.setItem(STORAGE_KEY, id);
-    return id;
+/** Leser lagra token uten å opprette nytt — brukt av claim-flyten. */
+export function peekAnonymousToken(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY) ?? inMemoryToken;
   } catch {
-    // localStorage utilgjengelig (f.eks. privat modus) — ID-en lever bare så lenge fanen gjør.
-    inMemoryId ??= crypto.randomUUID();
-    return inMemoryId;
+    // localStorage utilgjengelig (f.eks. privat modus).
+    return inMemoryToken;
   }
 }
 
-export const anonymousUserInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.includes('/api/export/')) return next(req);
+/** Fjerner tokenet, f.eks. etter at anonyme eksporter er overført til en konto. */
+export function clearAnonymousToken(): void {
+  inMemoryToken = null;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Se peekAnonymousToken.
+  }
+}
 
-  return next(req.clone({ setHeaders: { [ANONYMOUS_USER_HEADER]: getAnonymousUserId() } }));
+function getAnonymousToken(http: HttpClient): Observable<string> {
+  const existing = peekAnonymousToken();
+  if (existing) return of(existing);
+
+  // Del pågående forespørsel, så parallelle eksportkall ikke henter hvert sitt token.
+  tokenRequest$ ??= http.post<{ token: string }>(SESSION_URL, {}).pipe(
+    map((response) => response.token),
+    tap((token) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, token);
+      } catch {
+        // Tokenet lever da bare så lenge fanen gjør.
+        inMemoryToken = token;
+      }
+    }),
+    finalize(() => (tokenRequest$ = null)),
+    shareReplay(1),
+  );
+  return tokenRequest$;
+}
+
+export const anonymousUserInterceptor: HttpInterceptorFn = (req, next) => {
+  if (!req.url.includes('/api/export/') || req.url.includes(SESSION_URL)) return next(req);
+
+  // Lazy inject per kall bryter DI-syklusen HttpClient -> interceptor -> AuthService.
+  const authService = inject(AuthService);
+
+  if (!authService.isAnonymous()) {
+    // Innlogget: bare claim-kallet trenger headeren, og bare hvis det finnes et
+    // token å overføre. Å sende den ellers ville gjort at en utløpt sesjon laget
+    // anonyme jobber i stedet for å gi 401 og utløse refreshSession.
+    if (req.url.includes('/claim-anonymous')) {
+      const token = peekAnonymousToken();
+      if (token) return next(req.clone({ setHeaders: { [ANONYMOUS_USER_HEADER]: token } }));
+    }
+    return next(req);
+  }
+
+  return getAnonymousToken(inject(HttpClient)).pipe(
+    switchMap((token) => next(req.clone({ setHeaders: { [ANONYMOUS_USER_HEADER]: token } }))),
+  );
 };

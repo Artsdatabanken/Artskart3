@@ -25,7 +25,7 @@ describe('ExportService', () => {
       providers: [
         provideHttpClient(withInterceptors([anonymousUserInterceptor])),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { getSession: () => of(session) } },
+        { provide: AuthService, useValue: { getSession: () => of(session), isAnonymous: () => session === null } },
         { provide: AlertService, useValue: { showError: vi.fn(), showSuccess: vi.fn() } },
         { provide: TranslateService, useValue: { instant: (key: string) => key } },
       ],
@@ -48,6 +48,34 @@ describe('ExportService', () => {
     expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(ANONYMOUS_USER_ID);
     claimRequest.flush({ claimedCount: 1 });
 
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+
+  it('clears the stored token after a successful claim', async () => {
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush({ claimedCount: 1 });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await historyPromise;
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('fetches history even when the claim fails', async () => {
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush('Server error', { status: 500, statusText: 'Server Error' });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+
+  it('does not claim when there is no stored token', async () => {
+    localStorage.removeItem(STORAGE_KEY);
+
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectNone('/api/export/csv/claim-anonymous');
     httpTesting.expectOne('/api/export/csv/history').flush([]);
     await expect(historyPromise).resolves.toEqual([]);
   });
