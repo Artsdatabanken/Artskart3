@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261106112413_RebuildCountCaches")]
-    partial class RebuildCountCaches
+    [Migration("20261109114939_AddHistoricalAreaLocation")]
+    partial class AddHistoricalAreaLocation
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -724,6 +724,19 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("geometry_columns_pk");
 
                     b.ToTable("geometry_columns", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.HistoricalAreaLocation", b =>
+                {
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AreaId", "LocationId");
+
+                    b.ToTable("HistoricalAreaLocation", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ImportLog", b =>
@@ -1564,7 +1577,7 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasDatabaseName("IX_Observation_HasMediaFiles")
                         .HasFilter("[HasMediaFiles] = 1");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId", "HiddenByAnnotation" });
 
                     b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
@@ -1602,6 +1615,9 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UncertainIdentification", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), new[] { "DateTimeCollected", "BasisOfRecordId", "TaxonId", "TaxonGroupId", "YearCollected", "MonthCollected", "Id", "HiddenByAnnotation" });
 
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 

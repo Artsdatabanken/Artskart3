@@ -293,6 +293,7 @@ export interface LocationSearchFilter {
   restrictedAreaIds?: string[];
   oceanAreaIds?: string[];
   cadastralUnitIds?: string[];
+  historicalAreaIds?: number[];
   coordinatePrecisionFrom?: number | null;
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
@@ -509,6 +510,7 @@ export class AreasService {
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
       if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
       if (filter.cadastralUnitIds?.length) body['cadastralUnitIds'] = filter.cadastralUnitIds;
+      if (filter.historicalAreaIds?.length) body['historicalAreaIds'] = filter.historicalAreaIds;
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }

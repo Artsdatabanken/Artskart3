@@ -90,6 +90,38 @@
         [selectedIds]="selectedCadastralUnitIds()"
         (selected)="onCadastralUnitSelected($event)"
       />
+      <h6 class="area-section-heading area-search-heading">{{ 'sidebar.areaSearch' | translate }}</h6>
+      <app-autocomplete
+        class="area-search"
+        [search]="searchAreas"
+        [fitContent]="true"
+        [label]="'sidebar.areaSearch' | translate"
+        placeholder=""
+        noResultsKey="sidebar.noSearchResultsArea"
+        [trackBy]="trackByAreaId"
+        (selected)="onAreaSelected($event)"
+      >
+        <ng-template [appAutocompleteOption]="searchAreas" let-suggestion let-term="term">
+          <span>
+            <app-highlight-text [text]="suggestion.area.name" [term]="term" />
+            @if (suggestion.detail) {
+              <span class="suggestion-detail"> {{ suggestion.detail }}</span>
+            }
+            @if (suggestion.area.observationCount !== null && suggestion.area.observationCount !== undefined) {
+              <span class="suggestion-count"> ({{ suggestion.area.observationCount | formatNumber: translate.currentLang }})</span>
+            }
+          </span>
+        </ng-template>
+      </app-autocomplete>
+      <p class="area-search-hint" [class.area-search-hint--error]="historicalAreaLimitReached()">
+        {{ (historicalAreaLimitReached() ? 'sidebar.areaSearchLimitReached' : 'sidebar.areaSearchHint') | translate: { max: maxHistoricalAreas } }}
+      </p>
+      <!-- Live region must exist in the DOM before a message arrives, or it isn't announced. -->
+      <div class="sr-only" role="status" aria-atomic="true">
+        @if (historicalAreaLimitReached()) {
+          {{ 'sidebar.areaSearchLimitReached' | translate: { max: maxHistoricalAreas } }}
+        }
+      </div>
       @if (countyGroups(); as groups) {
         @if (groups.length > 0) {
           <h6 class="area-section-heading">

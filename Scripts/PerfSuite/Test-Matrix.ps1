@@ -143,6 +143,7 @@ $fixtures = [PSCustomObject]@{
     createdUtc = 'test'; baseUrl = 'https://localhost:5088'
     dimensions = $dims;  envelopes = $script:PerfEnvelopes
     matrikkel  = (New-PerfCadastralDimension)
+    historisk  = (New-PerfHistoricalAreaDimension)
 } | ConvertTo-Json -Depth 12 | ConvertFrom-Json
 
 # ---------------------------------------------------------------------------
@@ -242,7 +243,7 @@ Assert-Perf 'JSON uten tomme objekter' ($feil.Count -eq 0) `
 # Fanget feil 2: ett-elements lister som ble skalarer.
 $arrayFelt = @('taxonIds', 'taxonGroupIds', 'categoryIds', 'organizationIds', 'municipalityIds',
                'countyIds', 'restrictedAreaIds', 'oceanAreaIds', 'behaviorIds', 'basisOfRecordIds',
-               'observationIds', 'cadastralUnitIds')
+               'observationIds', 'cadastralUnitIds', 'historicalAreaIds')
 $feil = 0
 foreach ($c in $filterCases) {
     foreach ($felt in $arrayFelt) {
@@ -350,8 +351,9 @@ $quickMatrikkel = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick' | Wher
 Assert-Perf 'Quick har tung og lett' ($quickMatrikkel.Count -eq 2) "$($quickMatrikkel.Count) case"
 
 # Kom matrikkelen inn i parene eller utvalgene, ville case-noeklene for alle de
-# andre casene endret seg, og ingen gammel baseline vaert sammenlignbar.
-$lekket = @($cases | Where-Object { $_.Layer -ne 'matrikkel' -and $_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds') })
+# andre casene endret seg, og ingen gammel baseline vaert sammenlignbar. Historisk-
+# laget er haandplukket som dette, og har ett case med matrikkel.
+$lekket = @($cases | Where-Object { $_.Layer -notin 'matrikkel', 'historisk' -and $_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds') })
 Assert-Perf 'Matrikkel bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
 
 # Eiendommene ligger i oslo-utsnittet. Andre utsnitt ville maalt et tomt svar,
@@ -401,6 +403,74 @@ if ($startet) {
     $svar = & $hent $tung
     Assert-Perf 'Stopper' ($svar.Status -eq -1) "svarte fortsatt med $($svar.Status)"
 }
+
+# ---------------------------------------------------------------------------
+# Historiske omraader
+# ---------------------------------------------------------------------------
+
+Write-Host "`nHistoriske omraader:" -ForegroundColor Cyan
+
+$historiskCase = @($cases | Where-Object Layer -eq 'historisk')
+Assert-Perf 'Historisk-laget bygget' ($historiskCase.Count -eq 17) "$($historiskCase.Count) av 17"
+
+$quickHistorisk = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick' | Where-Object Layer -eq 'historisk')
+Assert-Perf 'Quick har tung og lett' ($quickHistorisk.Count -eq 2) "$($quickHistorisk.Count) case"
+
+# Samme grunn som for matrikkelen: case-noeklene til de andre lagene skal staa.
+$lekket = @($cases | Where-Object { $_.Layer -ne 'historisk' -and $_.Filter -and $_.Filter.ContainsKey('historicalAreaIds') })
+Assert-Perf 'Historisk bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
+
+foreach ($level in @('Standard', 'Full')) {
+    $lvlCases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $level | Where-Object Layer -eq 'historisk')
+    $lvlEps   = @(New-PerfEndpointMatrix -Level $level -Envelopes $fixtures.envelopes | Where-Object { $_.Extra.envelope })
+    $utsnitt  = @($lvlEps | Where-Object { $ep = $_; @($lvlCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count -gt 0 } |
+                  ForEach-Object Variant | Sort-Object -Unique)
+    Assert-Perf "Historisk bare paa oslo ($level)" (($utsnitt -join ',') -eq 'oslo') "kjoerer paa: $($utsnitt -join ', ')"
+}
+
+$oppslagOmraade = @($cases | Where-Object CaseKey -eq 'oppslag:omraadesoek')
+Assert-Perf 'Oppslag for omraadesoek' ($oppslagOmraade.Count -eq 1 -and $oppslagOmraade[0].LookupPath -like '/api/Lookup/Areas/Search?search=*') `
+    'mangler eller feil sti'
+
+# Sjekken foer maalingen, mot et falskt API. Invoke-PerfApi i skriptets scope
+# skygger for modulens, saa Test-PerfHistoricalAreas kaller denne.
+$script:falskeOmraader = @{}
+$script:falskeTreff    = @{}
+function Invoke-PerfApi {
+    param([string] $Path, [string] $Method, [object] $Body, [int] $TimeoutSec)
+    if ($Path -match '^/api/Lookup/Areas/(\d+)$') {
+        $omraade = $script:falskeOmraader[[int]$Matches[1]]
+        if (-not $omraade) { throw 'Not Found' }
+        return $omraade
+    }
+    if ($Path -match '^/api/Lookup/Areas/Search\?search=([^&]+)') {
+        return ,@($script:falskeTreff[[uri]::UnescapeDataString($Matches[1])])
+    }
+    throw "uventet sti $Path"
+}
+
+function Set-FalskeOmraader {
+    param([switch] $UtenLokasjoner, [int] $FeilFid)
+    $script:falskeOmraader = @{}
+    $script:falskeTreff    = @{}
+    foreach ($omraade in @($script:PerfHistoricalAreas.Values | ForEach-Object { $_.Areas })) {
+        $fid = if ($omraade.Id -eq $FeilFid) { '9999' } else { $omraade.Fid }
+        $svar = [PSCustomObject]@{ id = $omraade.Id; fid = $fid; name = "omraade $($omraade.Id)"; isCurrent = $false }
+        $script:falskeOmraader[$omraade.Id] = $svar
+        $script:falskeTreff[$svar.name] = if ($UtenLokasjoner -and $omraade.Id -eq 244) { @() } else { @($svar) }
+    }
+}
+
+Set-FalskeOmraader
+Assert-Perf 'Sjekk: alt paa plass' (Test-PerfHistoricalAreas 6>$null) 'avviste et gyldig oppsett'
+
+Set-FalskeOmraader -UtenLokasjoner
+Assert-Perf 'Sjekk: uten lokasjoner' (-not (Test-PerfHistoricalAreas 6>$null)) 'godtok et omraade uten lokasjoner'
+
+Set-FalskeOmraader -FeilFid 663
+Assert-Perf 'Sjekk: annen Fid' (-not (Test-PerfHistoricalAreas 6>$null)) 'godtok feil omraade'
+
+Remove-Item Function:\Invoke-PerfApi
 
 # ---------------------------------------------------------------------------
 # Oppdagelseshjelperne

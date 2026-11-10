@@ -140,6 +140,83 @@ function New-PerfCadastralDimension {
     return New-PerfDimension -Name 'matrikkel' -Tiers @($tiers)
 }
 
+# Historiske fylker og kommuner (Area.IsCurrent = 0) for historisk-laget i Cases.ps1.
+#
+# HAANDPLUKKET, SOM MATRIKKELENHETENE
+# Laget skal maale en stor og en liten lokasjonsmengde, og omraadene staar derfor
+# som konstanter med Area.Id. De holdes utenfor fixtures.dimensions av samme grunn
+# som matrikkelen: case-noeklene til de andre lagene skal ikke endre seg.
+#
+# Alle unntatt utenfor ligger helt innenfor oslo-utsnittet, saa Locations og
+# LocationPolygons faar ekte treff. utenfor har ingen lokasjoner der: historiske
+# omraader lukes ikke mot utsnittet, saa spoerringen kjoeres likevel.
+#
+# Area.Id er ikke garantert lik paa tvers av databaser. Run.ps1 sjekker derfor foer
+# maalingen at hvert omraade har forventet Fid og er historisk, og at det har
+# lokasjoner i HistoricalAreaLocation. Se Test-PerfHistoricalAreas.
+#
+# Tallene er lokasjoner i HistoricalAreaLocation og observasjonene paa dem, maalt mot
+# Artskart3TestMigrations 09.11.2026. De staar som dokumentasjon - koden bruker dem
+# ikke.
+$script:PerfHistoricalAreas = [ordered]@{
+    tung    = @{ Label = 'Viken, fylke 2020-2023';      Areas = @(@{ Id = 663; Fid = '30' }) }   # 1 408 443 lok, 10 224 923 obs
+    kommune = @{ Label = 'Baerum, kommune foer 2020';   Areas = @(@{ Id = 241; Fid = '219' }) }  #    64 765 lok,    701 724 obs
+    lett    = @{ Label = 'Gjerdrum, kommune foer 2020'; Areas = @(@{ Id = 244; Fid = '234' }) }  #     4 929 lok,     14 340 obs
+    # Asker foer 2020: 44 378 lok, 224 292 obs.
+    x2      = @{ Label = 'Baerum + Asker';              Areas = @(@{ Id = 241; Fid = '219' }, @{ Id = 366; Fid = '220' }) }
+    utenfor = @{ Label = 'Troms og Finnmark, utenfor oslo-utsnittet'; Areas = @(@{ Id = 669; Fid = '54' }) }  # 366 098 lok, 3 122 475 obs
+}
+
+function New-PerfHistoricalAreaDimension {
+    <#
+        De historiske omraadene som en dimensjon, for historisk-laget i Cases.ps1.
+        Legges ikke i fixtures.dimensions - se New-PerfCadastralDimension.
+    #>
+    $tiers = foreach ($navn in $script:PerfHistoricalAreas.Keys) {
+        $omraade = $script:PerfHistoricalAreas[$navn]
+        $rolle = if ($navn -in 'tung', 'lett') { $navn } else { 'annen' }
+        New-PerfTier -Key "historisk:$navn" -Role $rolle -Label $omraade.Label `
+            -Filter @{ historicalAreaIds = @($omraade.Areas | ForEach-Object { $_.Id }) }
+    }
+    return New-PerfDimension -Name 'historisk' -Tiers @($tiers)
+}
+
+function Test-PerfHistoricalAreas {
+    <#
+        Sjekker at de historiske omraadene er de $PerfHistoricalAreas mener, og at
+        HistoricalAreaLocation er bygget for dem.
+
+        Uten lokasjoner gir filteret et tomt svar, og laget ville maalt det i
+        stillhet. Omraadesoeket viser bare historiske omraader som har lokasjoner, saa
+        sjekken trenger ingen databasetilkobling.
+    #>
+    $omraader = @($script:PerfHistoricalAreas.Values | ForEach-Object { $_.Areas } | Sort-Object { $_.Id } -Unique)
+
+    $feil = foreach ($omraade in $omraader) {
+        try { $funnet = Invoke-PerfApi -Path "/api/Lookup/Areas/$($omraade.Id)" -TimeoutSec 30 }
+        catch { "Area $($omraade.Id) finnes ikke."; continue }
+
+        if ($funnet.fid -ne $omraade.Fid -or $funnet.isCurrent) {
+            $hva = if ($funnet.isCurrent) { 'gjeldende' } else { 'historisk' }
+            "Area $($omraade.Id) er $hva $($funnet.fid) $($funnet.name), ikke historisk $($omraade.Fid)."
+            continue
+        }
+
+        $sok = [uri]::EscapeDataString($funnet.name)
+        $treff = @(Invoke-PerfApi -Path "/api/Lookup/Areas/Search?search=$sok&maxCount=50" -TimeoutSec 30 | ForEach-Object { $_ })
+        if (-not ($treff | Where-Object { $_.id -eq $omraade.Id })) {
+            "Area $($omraade.Id) ($($funnet.name)) har ingen lokasjoner i HistoricalAreaLocation."
+        }
+    }
+
+    if ($feil) {
+        $feil | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+        Write-Host 'Kjoer Scripts/BuildHistoricalAreaLocations.sql mot databasen API-et bruker, eller rett omraadene i $PerfHistoricalAreas i Fixtures.ps1.' -ForegroundColor Red
+        return $false
+    }
+    return $true
+}
+
 function ConvertTo-PerfHashtable {
     <#
         JSON-runden gjoer hashtables om til PSCustomObject. Filterfragmentene maa
@@ -576,6 +653,7 @@ function New-PerfFixtures {
         dimensions = @($dimensions | Where-Object { $null -ne $_ })
         envelopes  = $script:PerfEnvelopes
         matrikkel  = New-PerfCadastralDimension
+        historisk  = New-PerfHistoricalAreaDimension
     }
 
     $antallNivaa = ($fixtures.dimensions | ForEach-Object { $_.tiers.Count } | Measure-Object -Sum).Sum
@@ -596,7 +674,8 @@ function Get-PerfFixtureSet {
         konstanter i denne fila. Leses de fra den lagrede JSON-en i stedet, blir en
         endring her stille ignorert til noen kjoerer -RefreshFixtures - som samtidig
         forkaster alle baselinjer. Derfor overstyres de alltid fra $PerfEnvelopes.
-        Det samme gjelder matrikkelenhetene i $PerfCadastralUnits.
+        Det samme gjelder matrikkelenhetene i $PerfCadastralUnits og de historiske
+        omraadene i $PerfHistoricalAreas.
     #>
     param(
         [Parameter(Mandatory)] [string] $Path,
@@ -620,6 +699,10 @@ function Get-PerfFixtureSet {
         $matrikkel = New-PerfCadastralDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
         $fixtures | Add-Member -NotePropertyName 'matrikkel' -NotePropertyValue $matrikkel -Force
         Write-Host ("  Matrikkelenheter fra Fixtures.ps1: {0}" -f $script:PerfCadastralUnits.Count) -ForegroundColor DarkGray
+
+        $historisk = New-PerfHistoricalAreaDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+        $fixtures | Add-Member -NotePropertyName 'historisk' -NotePropertyValue $historisk -Force
+        Write-Host ("  Historiske omraader fra Fixtures.ps1: {0}" -f $script:PerfHistoricalAreas.Count) -ForegroundColor DarkGray
         return $fixtures
     }
 

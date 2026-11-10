@@ -91,6 +91,9 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 API-et må også startes mot Kartverket-stubben, ellers stopper kjøringen før den
 måler noe. Se [Matrikkelenheter og Kartverket-stubben](#matrikkelenheter-og-kartverket-stubben).
 
+Databasen må dessuten ha `HistoricalAreaLocation` bygget med
+`Scripts/BuildHistoricalAreaLocations.sql`. Se [Historiske områder](#historiske-områder).
+
 ```powershell
 # Se hva matrisen dekker uten å måle noe
 ./Scripts/PerfSuite/Run.ps1 -ListOnly
@@ -176,6 +179,7 @@ fortsatt er brukbar:
 | `kvadruppel` | Deterministisk utvalg av fire |
 | `reise` | Håndplukkede, realistiske brukerflyter med 3–8 filtre |
 | `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
+| `historisk` | Historiske fylker og kommuner, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` og `ObservationImages`
@@ -387,6 +391,43 @@ filter uten treff. Legger du til eller bytter en eiendom, kjør
 tiden til det første caset som bruker den. Enkeltcasene kjøres først av den grunn.
 `Compare.ps1` sammenligner varm tid og ser det ikke. For `stor` tok oppslaget
 133 ms i API-et 28.10.2026.
+
+## Historiske områder
+
+Filteret på historiske fylker og kommuner (`historicalAreaIds`) har et eget lag,
+`historisk`, bygget på håndplukkede områder i `$PerfHistoricalAreas` i
+`Fixtures.ps1`. Som matrikkelenhetene holdes de utenfor `fixtures.dimensions`, så
+case-nøklene til de andre lagene og gamle baselinjer står.
+
+| Nivå | Område | Lokasjoner | Observasjoner |
+|---|---|---|---|
+| `tung` | Viken, fylke 2020–2023 (Area.Id 663) | 1 408 443 | 10 224 923 |
+| `kommune` | Bærum før 2020 (241) | 64 765 | 701 724 |
+| `lett` | Gjerdrum før 2020 (244) | 4 929 | 14 340 |
+| `x2` | Bærum + Asker før 2020 (241, 366) | | |
+| `utenfor` | Troms og Finnmark (669), ingen lokasjoner i `oslo` | 366 098 | 3 122 475 |
+
+Tallene er lokasjoner i `HistoricalAreaLocation` og observasjonene på dem, målt mot
+`Artskart3TestMigrations` 09.11.2026. Alle unntatt `utenfor` ligger helt innenfor
+`oslo`-utsnittet. `utenfor` måler at et historisk område ikke lukes mot
+kartutsnittet: spørringen kjøres selv om svaret blir tomt.
+
+Laget har 17 case: hvert nivå alene, og kombinasjoner valgt etter kodestiene
+filteret treffer — med et gjeldende område (egen gren og tellinger utenfor
+områdene), lette filtre der den datosorterte `TOP`-en må lese langt, tunge og
+lette filtre på store og små områder (filteret har alltid `RECOMPILE`), to
+institusjoner, og sammen med en matrikkelenhet. `Quick` tar bare `tung` og `lett`
+alene. `Locations` og `LocationPolygons` kjører laget bare på `oslo`. Polygonene
+går til databasen, siden minnelageret ikke dekker historiske områder.
+`oppslag:omraadesoek` måler typeahead-søket med to tegn.
+
+### Tabellen må være bygget
+
+Area.Id er ikke garantert lik på tvers av databaser, og uten rader i
+`HistoricalAreaLocation` gir filteret et tomt svar. Før noe måles, slår `Run.ps1`
+derfor opp hvert område i API-et og stopper hvis det har feil Fid, er gjeldende,
+eller ikke vises i områdesøket. Søket viser bare historiske områder med
+lokasjoner, så sjekken trenger ingen databasetilkobling.
 
 ## Indekssporing
 

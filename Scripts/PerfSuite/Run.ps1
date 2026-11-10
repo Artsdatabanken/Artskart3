@@ -103,7 +103,7 @@ param(
     # Kjoer bare case der noekkel, lag eller dimensjon inneholder denne teksten.
     [string] $Only,
 
-    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'oppslag')]
+    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'historisk', 'oppslag')]
     [string[]] $Layer,
 
     # Porten Kartverket-stubben lytter paa. API-et maa startes med
@@ -280,6 +280,16 @@ if ($brukerKartverket) {
         exit 1
     }
     Write-Host "Kartverket-stubben svarer paa port $KartverketPort." -ForegroundColor DarkGray
+}
+
+# Uten HistoricalAreaLocation ville casene med historiske omraader maalt et tomt svar.
+$brukerHistoriske = @($cases | Where-Object { $_.Filter -and $_.Filter.ContainsKey('historicalAreaIds') }).Count -gt 0
+if ($brukerHistoriske) {
+    if (-not (Test-PerfHistoricalAreas)) {
+        if ($brukerKartverket) { Stop-PerfKartverketStub }
+        exit 1
+    }
+    Write-Host 'De historiske omraadene har lokasjoner i HistoricalAreaLocation.' -ForegroundColor DarkGray
 }
 
 $results   = [System.Collections.Generic.List[object]]::new()

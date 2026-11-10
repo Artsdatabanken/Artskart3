@@ -1,5 +1,6 @@
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.Entities;
+using AreaType = Artskart3.Core.Domain.Enums.AreaType;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
@@ -216,6 +217,137 @@ public class LookupRepositoryTests
             new { Id = 2, Name = "Kartlegging Tom", ObservationCount = (int?)null },
         ]);
     }
+
+    [Fact]
+    public async Task SearchAreasAsync_PutsPrefixMatchesAndCurrentAreasFirst()
+    {
+        var context = CreateContext();
+        context.Set<Area>().AddRange(
+            CreateArea(1, "5501", "Tromsø", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)),
+            CreateArea(2, "1902", "Tromsø", AreaType.Municipality, isCurrent: false, new DateTime(2019, 1, 29)),
+            CreateArea(3, "5401", "Tromsø", AreaType.Municipality, isCurrent: false, new DateTime(2021, 1, 6)),
+            CreateArea(4, "55", "Troms", AreaType.County, isCurrent: true, new DateTime(2024, 1, 16)),
+            CreateArea(5, "1234", "Vest-Tromsø", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)));
+        context.Set<HistoricalAreaLocation>().AddRange(
+            new HistoricalAreaLocation { AreaId = 2, LocationId = 100 },
+            new HistoricalAreaLocation { AreaId = 3, LocationId = 100 });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = (await sut.SearchAreasAsync("troms", 10)).ToList();
+
+        result.Select(a => a.Id).Should().Equal(4, 1, 3, 2, 5);
+        result.Single(a => a.Id == 2).Should().BeEquivalentTo(new
+        {
+            Fid = "1902", Name = "Tromsø", AreaTypeId = (int)AreaType.Municipality, IsCurrent = false, EndYear = 2020,
+            ObservationCount = (int?)null,
+        });
+        result.Single(a => a.Id == 1).ObservationCount.Should().Be(500);
+    }
+
+    /// <summary>
+    /// Uten koblinger ville et historisk område gitt et tomt søk. Det skal ikke kunne velges.
+    /// </summary>
+    [Fact]
+    public async Task SearchAreasAsync_LeavesOutHistoricalAreasWithoutLocations()
+    {
+        var context = CreateContext();
+        context.Set<Area>().AddRange(
+            CreateArea(1, "1902", "Tromsø", AreaType.Municipality, isCurrent: false, new DateTime(2019, 1, 29)),
+            CreateArea(2, "5501", "Tromsø", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)));
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.SearchAreasAsync("tromsø", 10);
+
+        result.Select(a => a.Id).Should().Equal(2);
+    }
+
+    [Fact]
+    public async Task SearchAreasAsync_MatchesTheStartOfTheNumber()
+    {
+        var context = CreateContext();
+        context.Set<Area>().AddRange(
+            CreateArea(1, "5501", "Tromsø", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)),
+            CreateArea(2, "1550", "Hustadvika", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)));
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.SearchAreasAsync("55", 10);
+
+        result.Select(a => a.Id).Should().Equal(1);
+    }
+
+    [Fact]
+    public async Task SearchAreasAsync_LeavesOutRestrictedAndDeletedAreas()
+    {
+        var context = CreateContext();
+        var deleted = CreateArea(2, "0302", "Oslo gamle", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17));
+        deleted.IsDeleted = true;
+        context.Set<Area>().AddRange(
+            CreateArea(1, "Naturbase VV00000001", "Oslo naturreservat", AreaType.RestrictedArea, isCurrent: true, new DateTime(2024, 1, 17)),
+            deleted,
+            CreateArea(3, "0301", "Oslo", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17)));
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = await sut.SearchAreasAsync("oslo", 10);
+
+        result.Select(a => a.Id).Should().Equal(3);
+    }
+
+    [Fact]
+    public async Task GetAreaByIdAsync_ReturnsHistoricalAreaAndSkipsDeleted()
+    {
+        var context = CreateContext();
+        var deleted = CreateArea(2, "0302", "Slettet", AreaType.Municipality, isCurrent: false, new DateTime(2019, 1, 29));
+        deleted.IsDeleted = true;
+        context.Set<Area>().AddRange(
+            CreateArea(1, "54", "Troms og Finnmark", AreaType.County, isCurrent: false, new DateTime(2021, 1, 6)),
+            deleted);
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        (await sut.GetAreaByIdAsync(1)).Should().BeEquivalentTo(new { Name = "Troms og Finnmark", IsCurrent = false, EndYear = 2024, CountyName = (string?)null });
+        (await sut.GetAreaByIdAsync(2)).Should().BeNull();
+    }
+
+    /// <summary>
+    /// Kommuner med like navn skilles på fylket, og en gjeldende kommune har ikke sluttår.
+    /// </summary>
+    [Fact]
+    public async Task SearchAreasAsync_GivesMunicipalitiesTheirCounty()
+    {
+        var context = CreateContext();
+        context.Set<Area>().AddRange(
+            CreateArea(1, "1515", "Herøy", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17), parentFid: "15"),
+            CreateArea(2, "1818", "Herøy", AreaType.Municipality, isCurrent: true, new DateTime(2024, 1, 17), parentFid: "18"),
+            CreateArea(3, "15", "Møre og Romsdal", AreaType.County, isCurrent: true, new DateTime(2024, 1, 16)),
+            CreateArea(4, "18", "Nordland", AreaType.County, isCurrent: true, new DateTime(2024, 1, 16)));
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        var result = (await sut.SearchAreasAsync("herøy", 10)).ToList();
+
+        result.Should().BeEquivalentTo([
+            new { Id = 1, CountyName = "Møre og Romsdal", EndYear = (int?)null },
+            new { Id = 2, CountyName = "Nordland", EndYear = (int?)null },
+        ]);
+    }
+
+    private static Area CreateArea(int id, string fid, string name, AreaType type, bool isCurrent, DateTime timeStamp, string parentFid = "") => new()
+    {
+        Id = id,
+        ObservationCount = 500,
+        Fid = fid,
+        Name = name,
+        AreaTypeId = (int)type,
+        IsCurrent = isCurrent,
+        TimeStamp = timeStamp,
+        DocumentId = string.Empty,
+        ParentFid = parentFid,
+        Bbox = string.Empty,
+    };
 
     private static Taxon CreateTaxon(int id, TaxonGroup group) => new()
     {

@@ -53,6 +53,44 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Typeahead for fylker, kommuner og havområder, også historiske. Et gjeldende område
+    /// legges i countyIds, municipalityIds eller oceanAreaIds i søkefilteret, et historisk
+    /// i historicalAreaIds.
+    /// </summary>
+    [HttpGet("Areas/Search")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<AreaSearchResultDto>>> SearchAreas(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxAreaSearchCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<AreaSearchResultDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxAreaSearchCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxAreaSearchCount}." });
+        }
+
+        var result = await _lookupService.SearchAreasAsync(search, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Henter ett område på id. Brukes til å vise navnet på historiske områder når et
+    /// lagret filter aktiveres.
+    /// </summary>
+    [HttpGet("Areas/{id:int}")]
+    [Produces("application/json")]
+    public async Task<ActionResult<AreaSearchResultDto>> GetAreaById(int id, CancellationToken cancellationToken = default)
+    {
+        var area = await _lookupService.GetAreaByIdAsync(id, cancellationToken);
+        return area == null ? NotFound() : Ok(area);
+    }
+
+    /// <summary>
     /// Returns all institutions, intended for populating filter dropdowns.
     /// </summary>
     [HttpGet("Institutions")]

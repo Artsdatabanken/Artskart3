@@ -39,7 +39,7 @@ public interface IPolygonLocationStore
     ///
     /// <paramref name="cadastralLocationIds"/> er lokasjonene innenfor
     /// matrikkelenhetene i filteret. Har filteret matrikkelenheter uten dem, svarer
-    /// lageret null.
+    /// lageret null. Lokasjonene til historiske områder har lageret selv.
     /// </summary>
     IReadOnlyList<LocationPolygonDto>? TryQuery(
         LocationSearchFilterDto filter, int maxResults, IReadOnlySet<int>? cadastralLocationIds = null);

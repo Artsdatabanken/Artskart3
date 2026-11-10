@@ -1,9 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, computed } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, of, shareReplay } from 'rxjs';
-import { AreaResponseDto, AreaDto } from '../../types/api.types';
+import { Observable, catchError, of, shareReplay } from 'rxjs';
+import { AreaTypeId } from '@shared/models/area/area-marker.model';
+import { AreaResponseDto, AreaDto, AreaSearchResultDto } from '../../types/api.types';
 import { FilterStateService } from '../filter-state/filter-state.service';
+
+/** Same limit as SearchConstants.MaxHistoricalAreaFilterSize in the API. */
+export const MAX_HISTORICAL_AREAS = 20;
 
 export interface CountyGroup {
   county: AreaDto;
@@ -167,6 +171,42 @@ export class AreaService {
   private unknownMunicipalityIds(selectedMunicipalities: string[]): string[] {
     const known = new Set(this.countyGroups().flatMap((group) => group.municipalities.map((m) => m.fid)));
     return selectedMunicipalities.filter((fid) => !known.has(fid));
+  }
+
+  /** Counties, municipalities and ocean areas by name or number, including historical ones. */
+  searchAreas(search: string): Observable<AreaSearchResultDto[]> {
+    return this.http.get<AreaSearchResultDto[]>(`${this.endpoint}/Search`, { params: { search } });
+  }
+
+  getArea(id: number): Observable<AreaSearchResultDto> {
+    return this.http.get<AreaSearchResultDto>(`${this.endpoint}/${id}`);
+  }
+
+  /**
+   * Adds an area picked in the area search. A current area is ticked in the list below the
+   * field, where a county means all its municipalities. A historical area isn't in the list,
+   * so it gets a filter chip of its own.
+   */
+  addSearchedArea(area: AreaSearchResultDto): void {
+    if (!area.isCurrent) {
+      this.filterState.addHistoricalArea(area);
+      return;
+    }
+    if (!area.fid) return;
+
+    switch (area.areaTypeId) {
+      case AreaTypeId.Municipality:
+        this.filterState.addMunicipality(area.fid);
+        break;
+      case AreaTypeId.OceanArea:
+        this.filterState.addOceanArea(area.fid);
+        break;
+      default: {
+        const selection = this.toSelection([area.fid]);
+        selection.municipalityIds.forEach((fid) => this.filterState.addMunicipality(fid));
+        selection.countyIds.forEach((fid) => this.filterState.addCounty(fid));
+      }
+    }
   }
 
   readonly svalbardBjornoyaAndJanMayenSelectionCount = computed(() => {

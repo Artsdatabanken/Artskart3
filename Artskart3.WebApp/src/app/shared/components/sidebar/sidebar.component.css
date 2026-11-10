@@ -161,6 +161,30 @@ adb-checkbox::part(control) {
   padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
 }
 
+.area-search-heading {
+  margin-bottom: var(--adb-spacing-2xsm);
+}
+
+/* Lined up with the cadastral field above it: adb-search pads its field by 4px inside its
+   shadow DOM, which the cadastral field offsets the same way. */
+.area-search {
+  margin-inline-start: -4px;
+  padding-inline: var(--adb-spacing-3xsm);
+  --adb-search-width: 100%;
+}
+
+.area-search-hint {
+  margin: var(--adb-spacing-3xsm) 0 0;
+  padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
+  font-size: var(--adb-font-size-3);
+  font-weight: var(--adb-font-weight-primary);
+  color: var(--adb-text-base-secondary);
+}
+
+.area-search-hint--error {
+  color: var(--adb-text-brand-1);
+}
+
 .category-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-4);
@@ -232,4 +256,8 @@ adb-checkbox::part(control) {
 .suggestion-count {
   color: var(--adb-text-base-secondary);
   font-size: var(--adb-font-size-2);
+}
+
+.suggestion-detail {
+  color: var(--adb-text-base-secondary);
 }

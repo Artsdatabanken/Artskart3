@@ -269,6 +269,7 @@
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
     "noSearchResultsDataset": "No results in datasets for \"{{searchTerm}}\"",
     "noSearchResultsCatalogNumber": "No results in ids or catalog numbers for \"{{searchTerm}}\"",
+    "noSearchResultsArea": "No results in counties, municipalities and ocean areas for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "rank": {
       "Kingdom": "Kingdom",
@@ -307,6 +308,18 @@
     "cadastralUnitNotFound": "No property found with number {{id}}",
     "cadastralUnitLookupFailed": "Could not look up the property. Please try again later.",
     "cadastralUnitLimitReached": "You can select at most {{max}} properties. Remove one to add another.",
+    "areaSearch": "County, municipality and ocean area",
+    "areaSearchHint": "Including historical counties and municipalities",
+    "areaSearchLimitReached": "You can select at most {{max}} historical areas. Remove one to add another.",
+    "areaSearchType": {
+      "municipality": "municipality",
+      "county": "county",
+      "oceanArea": "ocean area",
+      "historicalMunicipality": "historical municipality in {{county}}, before {{year}}",
+      "historicalMunicipalityWithoutCounty": "historical municipality, before {{year}}",
+      "historicalCounty": "historical county, before {{year}}",
+      "historicalArea": "historical area, before {{year}}"
+    },
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",

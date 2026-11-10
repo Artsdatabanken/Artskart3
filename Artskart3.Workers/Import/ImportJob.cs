@@ -21,6 +21,10 @@ namespace Artskart3.Workers.Import;
 /// kun én gang i migrasjon 20260702113806. Den må også vedlikeholdes herfra,
 /// ellers blir taksonfiltrering stående på et frosset øyeblikksbilde.
 ///
+/// Det samme gjelder HistoricalAreaLocation, som bygges av
+/// Scripts/BuildHistoricalAreaLocations.sql. Nye lokasjoner må kobles til de
+/// historiske områdene de ligger i, ellers mangler de i filteret på historiske områder.
+///
 /// DE DENORMALISERTE KOLONNENE MÅ OGSÅ TØMMES, IKKE BARE FYLLES
 /// ObservationEntityIndex bærer kopier av verdier fra Observation — LocationId,
 /// MonthCollected, RegistrationStatusId, HasMediaFiles, de fem bool-flaggene,

@@ -19,6 +19,7 @@
       kvadruppel - deterministisk utvalg av fire
       reise      - haandplukkede, realistiske brukerflyter med mange filtre
       matrikkel  - matrikkelenheter, alene og med utvalgte filtre
+      historisk  - historiske fylker og kommuner, alene og med utvalgte filtre
       oppslag    - typeahead-endepunktene, som ikke tar filterkropp
 
     Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
@@ -313,6 +314,61 @@ function New-PerfCaseMatrix {
         }
     }
 
+    # --- Lag 7: historiske omraader ------------------------------------------
+    # Eget lag av samme grunn som matrikkelen - se New-PerfHistoricalAreaDimension.
+    #
+    # Historiske omraader gaar utenom begge tellebufferne og minnelageret for
+    # polygoner, og slaas opp via lokasjonene i HistoricalAreaLocation. De har alltid
+    # RECOMPILE, fordi et fylke har flere hundre ganger saa mange lokasjoner som en
+    # kommune. Kombinasjonene er valgt etter kodestiene det treffer:
+    #   omraade     omraadet blir en egen gren ved siden av de gjeldende omraadene,
+    #               og omraadetellingene faar dets treff utenfor dem lagt til
+    #   listedybde  lette filtre, der den datosorterte TOP-en maa lese langt
+    #   plan        tunge og lette filtre paa store og smaa omraader
+    #   grening     to institusjoner gaar gjennom GetBranchedObservationIdsAsync
+    #   matrikkel   OR mellom de to lokasjonsbaserte filtrene
+    $historisk = $Fixtures.historisk
+    if ($historisk) {
+        $historiskCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('historisk:tung') }, @{ Keys = @('historisk:lett') })
+        }
+        else {
+            @($historisk.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # omraade
+                @{ Keys = @('historisk:tung', 'kommune:tung') },
+                @{ Keys = @('historisk:kommune', 'fylke:tung') },
+                @{ Keys = @('historisk:lett', 'kommune:mange') },
+                # listedybde
+                @{ Keys = @('historisk:tung', 'periode:lett') },
+                @{ Keys = @('historisk:tung', 'taksongruppe:lett') },
+                @{ Keys = @('historisk:kommune', 'takson:Order') },
+                # plan
+                @{ Keys = @('historisk:tung', 'taksongruppe:tung') },
+                @{ Keys = @('historisk:lett', 'taksongruppe:tung') },
+                @{ Keys = @('historisk:tung', 'kategori:tung') },
+                # grening
+                @{ Keys = @('historisk:tung', 'institusjon:x2-tung-lett') },
+                # matrikkel
+                @{ Keys = @('historisk:kommune', 'matrikkel:tung') },
+                # Hvilke fugler er sett i gamle Baerum kommune de siste aarene?
+                @{ Keys = @('historisk:kommune', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:historisk' }
+            )
+        }
+
+        $alleDims = @($dims) + @($matrikkel) + @($historisk) | Where-Object { $_ }
+        foreach ($h in $historiskCase) {
+            $tiers = @($h.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            if ($tiers.Count -ne $h.Keys.Count) {
+                Write-Warning "$($h.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'historisk' -Tiers $tiers -KeyOverride $h.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
     # --- Lag 5: oppslag (typeahead) ----------------------------------------
     # Strengsoeket forsvant ikke fra loesningen, det flyttet hit da filtrene gikk
     # over til aa ta IDer. Maales derfor for seg: gevinsten i filterspoerringen er
@@ -327,7 +383,9 @@ function New-PerfCaseMatrix {
         @{ Key = 'oppslag:katalognr-kort';  Path = '/api/Lookup/CatalogNumbers?search=12'   },
         @{ Key = 'oppslag:katalognr-lang';  Path = '/api/Lookup/CatalogNumbers?search=123456' },
         @{ Key = 'oppslag:artstre-rot';     Path = '/api/Lookup/TaxonTree'                  },
-        @{ Key = 'oppslag:omraader';        Path = '/api/Lookup/Areas'                      }
+        @{ Key = 'oppslag:omraader';        Path = '/api/Lookup/Areas'                      },
+        # To tegn er det korteste feltet soeker paa, og gir flest treff.
+        @{ Key = 'oppslag:omraadesoek';     Path = '/api/Lookup/Areas/Search?search=os'     }
     )
 
     # Omrisset til den stoerste eiendommen, som WKT. Kjoeres etter matrikkel-laget,
@@ -518,8 +576,9 @@ function New-PerfEndpointMatrix {
         # De fire store. Paa Quick er oslo (over taket) og kristiansand (under)
         # med; de to andre foerst fra Standard.
         #
-        # Matrikkel-laget kjoerer bare paa oslo, der alle eiendommene ligger.
-        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel') }; Full=@{} }
+        # Matrikkel-laget kjoerer bare paa oslo, der alle eiendommene ligger, og det
+        # samme gjelder historisk-laget.
+        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk') }; Full=@{} }
         @{ Navn='trondheim';    Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt','par') } }
         @{ Navn='trollheimen';  Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt') } }
         @{ Navn='kristiansand'; Quick=$qQuick; Standard=$qStige; Full=@{ Layers=@('enkelt') } }

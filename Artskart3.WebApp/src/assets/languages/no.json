@@ -269,6 +269,7 @@
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
     "noSearchResultsDataset": "Ingen treff i datasett på \"{{searchTerm}}\"",
     "noSearchResultsCatalogNumber": "Ingen treff i id-er eller katalognumre på \"{{searchTerm}}\"",
+    "noSearchResultsArea": "Ingen treff i fylker, kommuner og havområder på \"{{searchTerm}}\"",
     "searchResults": "Søkeresultater",
     "rank": {
       "Kingdom": "Rike",
@@ -307,6 +308,18 @@
     "cadastralUnitNotFound": "Fant ingen eiendom med nummer {{id}}",
     "cadastralUnitLookupFailed": "Kunne ikke slå opp eiendommen. Prøv igjen senere.",
     "cadastralUnitLimitReached": "Du kan velge maks {{max}} eiendommer. Fjern en for å legge til en ny.",
+    "areaSearch": "Fylke, kommune og havområde",
+    "areaSearchHint": "Inkludert historiske fylker og kommuner",
+    "areaSearchLimitReached": "Du kan velge maks {{max}} historiske områder. Fjern ett for å legge til et nytt.",
+    "areaSearchType": {
+      "municipality": "kommune",
+      "county": "fylke",
+      "oceanArea": "havområde",
+      "historicalMunicipality": "historisk kommune i {{county}}, før {{year}}",
+      "historicalMunicipalityWithoutCounty": "historisk kommune, før {{year}}",
+      "historicalCounty": "historisk fylke, før {{year}}",
+      "historicalArea": "historisk område, før {{year}}"
+    },
     "image": "Bilde",
     "imageAll": "Alle (standard)",
     "imageWith": "Med bilde",

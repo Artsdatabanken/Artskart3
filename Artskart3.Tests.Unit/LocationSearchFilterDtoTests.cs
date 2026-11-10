@@ -62,6 +62,28 @@ public class LocationSearchFilterDtoTests
     }
 
     [Fact]
+    public void HistoricalAreaIds_KreverDynamiskTelling()
+    {
+        var sut = new LocationSearchFilterDto { HistoricalAreaIds = [669] };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
+        sut.HasLocationBasedAreas.Should().BeTrue();
+    }
+
+    [Fact]
+    public void WithoutLocationBasedAreas_FjernerMatrikkelOgHistoriskeOmraader()
+    {
+        var sut = new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], HistoricalAreaIds = [669], MunicipalityIds = ["0301"] };
+
+        var copy = sut.WithoutLocationBasedAreas();
+
+        copy.HasLocationBasedAreas.Should().BeFalse();
+        copy.MunicipalityIds.Should().Equal("0301");
+        sut.HistoricalAreaIds.Should().Equal(669);
+    }
+
+    [Fact]
     public void AlleEgenskaper_KanSettes()
     {
         var sut = new LocationSearchFilterDto

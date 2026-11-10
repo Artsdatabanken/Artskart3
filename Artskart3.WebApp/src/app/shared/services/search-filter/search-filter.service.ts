@@ -59,6 +59,7 @@ export class SearchFilterService {
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
       const datasetOrgIds = this.filterState.selectedDatasetIds();
       const projectOrgIds = this.filterState.selectedProjectIds();
+      const historicalAreaIds = this.filterState.selectedHistoricalAreaIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
@@ -80,6 +81,7 @@ export class SearchFilterService {
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
         cadastralUnitIds: this.filterState.selectedCadastralUnitIds().length ? this.filterState.selectedCadastralUnitIds() : undefined,
+        historicalAreaIds: historicalAreaIds.length ? historicalAreaIds : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
         datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
@@ -103,8 +105,8 @@ export class SearchFilterService {
   /**
    * Det motsatte av `observationFilter`: setter filterpanelet fra et lagret filter.
    *
-   * Navnene på datasett, prosjekt og katalognummer ligger ikke i filteret, bare
-   * ID-ene. De slås opp etterpå uten å vente — filteret virker uansett, det er bare
+   * Navnene på datasett, prosjekt, historiske områder og katalognummer ligger ikke i
+   * filteret, bare ID-ene. De slås opp etterpå uten å vente — filteret virker uansett, det er bare
    * teksten i panelet og filterbrikkene som kommer litt senere.
    */
   async applyFilter(filter: ObservationSearchFilter): Promise<void> {
@@ -118,6 +120,7 @@ export class SearchFilterService {
     state.selectedMunicipalityIds.set(areas.municipalityIds);
     state.selectedOceanAreaIds.set(filter.oceanAreaIds ?? []);
     state.selectedCadastralUnitIds.set(filter.cadastralUnitIds ?? []);
+    state.selectedHistoricalAreas.set((filter.historicalAreaIds ?? []).map((id) => ({ id, isCurrent: false })));
     state.selectedCategoryIds.set(filter.categoryIds ?? []);
     state.selectedInstitutionIds.set(filter.organizationIds ?? []);
     state.selectedBehaviorIds.set(filter.behaviorIds ?? []);
@@ -157,6 +160,13 @@ export class SearchFilterService {
     for (const { id } of state.selectedProjects()) {
       this.organizationService.getOrganization(id).subscribe({
         next: (organization) => organization.name && state.setProjectName(id, organization.name),
+        error: () => undefined,
+      });
+    }
+
+    for (const { id } of state.selectedHistoricalAreas()) {
+      this.areaService.getArea(id!).subscribe({
+        next: (area) => state.setHistoricalArea(area),
         error: () => undefined,
       });
     }
