@@ -1,5 +1,4 @@
 ﻿export const MAP_CONSTANTS = {
-  TRANSPARENT_PIXEL_DATA_URI: 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
   OGC_PIXEL_SIZE_METERS: 0.00028, // OGC standard rendering pixel size (0.28 mm).
   OBSERVATION_HIGHLIGHT_ID: 'observation-details-highlight',
   MAP_TYPE_PREFIX: 'map-type:',
