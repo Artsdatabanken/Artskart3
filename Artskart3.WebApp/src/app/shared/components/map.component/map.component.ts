@@ -106,7 +106,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly observationPanel = viewChild(ObservationPanelComponent);
   private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
-  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
   readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
     new Observable((subscriber) => {
       const controller = new AbortController();
@@ -465,7 +464,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.mapVisible) return;
     const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
     this.map.updateGeoJSONLayer(
-      this.OBSERVATION_HIGHLIGHT_ID,
+      MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       JSON.stringify({
         type: 'FeatureCollection',
         features: coordinates
@@ -936,7 +935,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const styles = this.featureStyles;
     if (!styles) throw new Error('Map feature styles must be initialized before adding layers');
     this.map.addLayer({
-      id: this.OBSERVATION_HIGHLIGHT_ID,
+      id: MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,

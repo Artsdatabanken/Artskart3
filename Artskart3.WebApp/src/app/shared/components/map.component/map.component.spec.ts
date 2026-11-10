@@ -251,7 +251,7 @@ describe('MapComponent', () => {
         name: 'MaritimeGrenser',
         type: 'WMS',
         url: 'https://wms.geonorge.no/skwms1/wms.nmg?',
-        layers: 'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+        layers: 'Maritime_grenser,Maritime_grenser_navn',
         useSingleImage: true,
         retryAfterSeconds: 0,
         opacity: 1,
@@ -263,7 +263,7 @@ describe('MapComponent', () => {
     expect(overlay).toBeInstanceOf(ImageLayer);
     expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
     expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe(
-      'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+      'Maritime_grenser,Maritime_grenser_navn',
     );
   });
 
