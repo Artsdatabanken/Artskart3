@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClientService } from '@core/services/api-client.service';
-import { MapLayerDto } from '../../types/map-layer.types';
+import { MapLayerDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
 import { TranslateService } from '@ngx-translate/core';
 

@@ -22,4 +22,14 @@ public class MapLayer : BaseEntity
     public string? Version { get; set; }
 
     public string? Attribution { get; set; }
+
+    public double? MinScaleDenominator { get; set; }
+
+    public double? MaxScaleDenominator { get; set; }
+
+    public bool UseSingleImage { get; set; }
+
+    public int RetryAfterSeconds { get; set; }
+
+    public double Opacity { get; set; } = 1;
 }
