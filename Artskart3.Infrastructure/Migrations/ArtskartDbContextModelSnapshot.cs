@@ -723,6 +723,19 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("geometry_columns", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.HistoricalAreaLocation", b =>
+                {
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AreaId", "LocationId");
+
+                    b.ToTable("HistoricalAreaLocation", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ImportLog", b =>
                 {
                     b.Property<int>("Id")

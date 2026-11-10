@@ -177,6 +177,81 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         treff.Should().Equal(_myr.Id);
     }
 
+    /// <summary>
+    /// Lageret laster lokasjonene til de historiske områdene selv ved oppstart, så
+    /// koblingen må finnes før det bygges.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_gir_begge_stier_samme_polygoner()
+    {
+        const int historiskOmraade = 986110;
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _myr.Id);
+
+        try
+        {
+            var treff = await AssertSammeSomDatabasenAsync(new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade] });
+
+            treff.Should().Equal(_myr.Id);
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    /// <summary>
+    /// Matrikkelenheten og det historiske området er én lokasjonsmengde i lageret, og
+    /// skal OR-es som i databasen.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_og_matrikkelenhet_gir_begge_stier_samme_polygoner()
+    {
+        const int historiskOmraade = 986111;
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _sensitivRute.Id);
+
+        try
+        {
+            var treff = await AssertSammeSomDatabasenAsync(
+                new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade], CadastralUnitIds = [Matrikkelnummer] },
+                eiendom: [_myr.Id]);
+
+            treff.Should().BeEquivalentTo([_myr.Id, _sensitivRute.Id]);
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    /// <summary>
+    /// Fylles HistoricalAreaLocation etter oppstart, har bare databasen lokasjonene. Et
+    /// tomt svar her ville gitt et område som kan velges, men ingen polygoner på kartet.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_lagt_til_etter_byggingen_gir_null()
+    {
+        const int historiskOmraade = 986119;
+        var minnelager = await MinnelagerAsync();
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _myr.Id);
+
+        try
+        {
+            minnelager.TryQuery(new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade] }, 1000)
+                .Should().BeNull("lokasjonene må hentes fra databasen");
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    private async Task LeggTilHistoriskOmraadeAsync(int areaId, int locationId)
+    {
+        await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == areaId).ExecuteDeleteAsync();
+        _context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = areaId, LocationId = locationId });
+        await _context.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Matrikkelenhet_uten_oppslaatte_lokasjoner_gir_null()
     {

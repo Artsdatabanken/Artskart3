@@ -1347,6 +1347,13 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        // Nøkkelen leder med AreaId, så filteret blir ett rekkeviddesøk per område.
+        modelBuilder.Entity<HistoricalAreaLocation>(entity =>
+        {
+            entity.HasKey(e => new { e.AreaId, e.LocationId });
+            entity.ToTable("HistoricalAreaLocation");
+        });
+
         modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>
         {
             entity.HasKey(e => e.ObservationId);

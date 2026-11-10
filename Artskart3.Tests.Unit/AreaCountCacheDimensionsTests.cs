@@ -107,7 +107,8 @@ public class AreaCountCacheDimensionsTests
     public void Alle_filteregenskaper_er_gjort_rede_for()
     {
         // Egenskaper som ikke påvirker antallet i det hele tatt.
-        string[] ikkeFilter = ["Epsg", "MaxResults", "Envelope", "HasActiveFilters", "HasObservationAttributeFilters"];
+        string[] ikkeFilter =
+            ["Epsg", "MaxResults", "Envelope", "HasActiveFilters", "HasObservationAttributeFilters", "HasLocationBasedAreas"];
 
         // Filtre bufferen ikke dekker. Hver av dem MÅ ha en eksplisitt fall-through i
         // AreaCountCacheService, LocationCountCacheService og PolygonLocationStore —
@@ -127,7 +128,10 @@ public class AreaCountCacheDimensionsTests
         // Matrikkelenheter: lokasjonene slås opp mot Kartverket per forespørsel og
         // finnes ikke som bøtter. Minnelageret for polygoner får dem oppslått av
         // SearchRepository og evaluerer dem selv.
-        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa", "CadastralUnitIds"];
+        //
+        // Historiske områder: ObservationEntityIndex, som bufferne er bygget fra, har bare
+        // gjeldende områder. Minnelageret for polygoner laster lokasjonene deres selv.
+        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa", "CadastralUnitIds", "HistoricalAreaIds"];
 
         // Bool-filtrene er ikke dimensjoner, men bit i FilterMask — en tredje nøkkel
         // på hver bufferrad. De koster derfor ingen dimensjonsplass, og to vanlige

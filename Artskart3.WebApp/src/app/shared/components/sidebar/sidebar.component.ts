@@ -2,11 +2,13 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, computed, linkedSign
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
-import { AreaService, CountyGroup, RestrictedArea } from '../../services/area/area.service';
+import { map } from 'rxjs';
+import { AreaService, CountyGroup, MAX_HISTORICAL_AREAS, RestrictedArea } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
+import { AreaSuggestion, withSuggestionDetails } from '../../services/area/area-label';
 import {
   BehaviorDto,
   BasisOfRecordDto,
@@ -446,6 +448,26 @@ export class SidebarComponent {
 
   onRestrictedAreaSelected(area: RestrictedArea): void {
     this.filterState.addRestrictedArea(area.fid);
+  }
+
+  readonly searchAreas: AutocompleteSearch<AreaSuggestion> = (term) =>
+    this.areaService
+      .searchAreas(term)
+      .pipe(map((areas) => withSuggestionDetails(areas, (key, params) => this.translate.instant(key, params))));
+  readonly trackByAreaId = (suggestion: AreaSuggestion) => suggestion.area.id;
+
+  readonly maxHistoricalAreas = MAX_HISTORICAL_AREAS;
+  private readonly historicalAreaRefused = signal(false);
+  /** Replaces the hint after a historical area was refused, until one is removed. */
+  readonly historicalAreaLimitReached = computed(
+    () => this.historicalAreaRefused() && this.filterState.selectedHistoricalAreaIds().length >= MAX_HISTORICAL_AREAS,
+  );
+
+  onAreaSelected({ area }: AreaSuggestion): void {
+    const selected = this.filterState.selectedHistoricalAreaIds();
+    const refused = !area.isCurrent && selected.length >= MAX_HISTORICAL_AREAS && !selected.includes(area.id!);
+    this.historicalAreaRefused.set(refused);
+    if (!refused) this.areaService.addSearchedArea(area);
   }
 
   onProjectSelected(organization: OrganizationDto): void {
