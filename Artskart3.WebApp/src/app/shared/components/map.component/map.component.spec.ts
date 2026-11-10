@@ -3,7 +3,6 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
-
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
@@ -26,6 +25,8 @@ import type BaseLayer from 'ol/layer/Base';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import { get as getProjection, transform } from 'ol/proj';
+import ImageLayer from 'ol/layer/Image';
+import ImageWMS from 'ol/source/ImageWMS';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -34,6 +35,7 @@ import { ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
+import { MAP_CONSTANTS } from '@core/constants/map-constants';
 
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
@@ -168,6 +170,101 @@ describe('MapComponent', () => {
     expect(transformCoordsFrom).toHaveBeenCalledWith([23.27, 69.97], 'EPSG:4326', MAP_CONFIG.projection);
     expect(setCenter).toHaveBeenCalledWith(center);
     expect(setZoom).toHaveBeenCalledWith(place.zoomLevel);
+  });
+
+  it.each([
+    ['Climate areas', 0.5],
+    ['Property', 1],
+  ])('uses configured opacity for %s', (name, opacity) => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: { id: 1, name, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity },
+      visible: true,
+    });
+
+    expect(component['mapOverlayLayers'].get(1)?.getOpacity()).toBe(opacity);
+  });
+
+  it('uses configured WMS scale bounds and single-image mode', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 4,
+        name: 'Property boundaries',
+        type: 'WMS',
+        url: 'https://example.test/wms',
+        layers: 'boundary,parcel_id',
+        minScaleDenominator: 50_000,
+        maxScaleDenominator: 2_000_000,
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(4);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getMinResolution()).toBeCloseTo(14);
+    expect(overlay?.getMaxResolution()).toBeCloseTo(560);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe('boundary,parcel_id');
+  });
+
+  it('backs off WMS image retries using the configured delay', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: { id: 5, name: 'Unavailable WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
+        visible: true,
+      });
+
+      const overlay = component['mapOverlayLayers'].get(5);
+      expect(overlay).toBeInstanceOf(ImageLayer);
+
+      const source = overlay?.getSource() as ImageWMS;
+      // imageLoadFunction should not be set; OpenLayers uses default behavior
+      expect(source.getImageLoadFunction()).toBeDefined();
+
+      // Refresh timer should be scheduled for the configured delay
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      vi.advanceTimersByTime(30_000);
+      // After cooldown expires, refresh should be called
+      expect(refreshSpy).toHaveBeenCalled();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders all maritime sublayers in one WMS image request rather than tiled requests', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 6,
+        name: 'MaritimeGrenser',
+        type: 'WMS',
+        url: 'https://wms.geonorge.no/skwms1/wms.nmg?',
+        layers: 'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(6);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe(
+      'Maritime_omraader,Maritime_grenser,Maritime_omraader_navn,Maritime_grenser_navn',
+    );
   });
 
   describe('linked feature styling', () => {
@@ -1163,7 +1260,7 @@ describe('MapComponent', () => {
         CLICK_ANIMATION_DURATION_MS: number;
       };
 
-    const animationDuration = () => accessPrivate(component).CLICK_ANIMATION_DURATION_MS;
+    const animationDuration = () => MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS;
 
     const centroid = { x: 250000, y: 7100000 };
 
