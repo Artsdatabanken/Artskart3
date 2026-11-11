@@ -60,6 +60,39 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
     }
 
     [Fact]
+    public async Task FindByOccurrenceId_MatchesOccurrenceIdOrProxyId()
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var observation = await context.Observations.SingleAsync(o => o.Id == ObservationId);
+        var (originalOccurrenceId, originalProxyId) = (observation.OccurrenceId, observation.ProxyId);
+        // Samme form som NINA-data: GUID-en i OccurrenceId, kildekvalifisert verdi i ProxyId.
+        observation.OccurrenceId = "0008EF28-TEST-OCCURRENCE-LINK";
+        observation.ProxyId = "nina/skandobs/0008ef28-test-occurrence-link";
+        await context.SaveChangesAsync();
+        try
+        {
+            // Angular sender skråstrek ukodet i spørrestrengen, eksterne lenker sender %2F.
+            foreach (var encoded in new[]
+                     {
+                         observation.OccurrenceId, observation.ProxyId, Uri.EscapeDataString(observation.ProxyId),
+                     })
+            {
+                var found = await GetByOccurrenceIdAsync(encoded);
+                found.StatusCode.Should().Be(HttpStatusCode.OK, encoded);
+                (await found.Content.ReadFromJsonAsync<int>()).Should().Be(ObservationId);
+            }
+            (await GetByOccurrenceIdAsync("nina%2Fskandobs%2F0008ef28-test")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await GetByOccurrenceIdAsync("")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            (observation.OccurrenceId, observation.ProxyId) = (originalOccurrenceId, originalProxyId);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
     public async Task Image_ReturnsStoredBytesWithoutCsrfHeaderAndHidesForeignOrDeletedMedia()
     {
         using var scope = factory.Services.CreateScope();
@@ -86,6 +119,13 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
     public async Task Map_InvalidPresetIsRejectedWithoutCsrfHeader()
     {
         (await client.GetAsync($"/api/observations/{ObservationId}/maps/arbitrary")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private async Task<HttpResponseMessage> GetByOccurrenceIdAsync(string encodedOccurrenceId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/observations/by-occurrence-id?occurrenceId={encodedOccurrenceId}");
+        request.Headers.Add("X-CSRF", "1");
+        return await client.SendAsync(request);
     }
 
     private static async Task<(MediaFile Media, MediaFileType Type)> AddStoredImageAsync(ArtskartDbContext context)

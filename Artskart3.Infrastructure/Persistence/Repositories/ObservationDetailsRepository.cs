@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
@@ -92,6 +93,39 @@ public sealed partial class ObservationDetailsRepository(
                 logger.LogWarning("No unambiguous assessment edition for observation {ObservationId}", id);
         }
         return detail;
+    }
+
+    /// <summary>
+    /// Slår opp intern ID for eksterne lenker, som bare kjenner det de kaller occurrenceId.
+    /// For noen kilder er det vår ProxyId: NINA har nina/skandobs/&lt;guid&gt; i ProxyId og bare
+    /// GUID-en i OccurrenceId. Derfor prøves OccurrenceId først og ProxyId etterpå, begge
+    /// som seek på egen indeks.
+    ///
+    /// Ingen av kolonnene er garantert unike, så ved flere treff velges laveste ID, slik at
+    /// samme lenke alltid åpner samme observasjon.
+    /// </summary>
+    public async Task<int?> FindIdByOccurrenceIdAsync(string occurrenceId, CancellationToken cancellationToken)
+    {
+        // Lengre verdier kan ikke finnes i kolonnene, begge nvarchar(255).
+        if (occurrenceId.Length > 255) return null;
+
+        return await FindLowestLiveIdAsync(o => o.OccurrenceId == occurrenceId, occurrenceId, cancellationToken)
+            ?? await FindLowestLiveIdAsync(o => o.ProxyId == occurrenceId, occurrenceId, cancellationToken);
+    }
+
+    private async Task<int?> FindLowestLiveIdAsync(
+        Expression<Func<Observation, bool>> match, string identifier, CancellationToken cancellationToken)
+    {
+        var ids = await context.Set<Observation>().AsNoTracking()
+            .Where(match)
+            .Where(o => !o.IsDeleted)
+            .OrderBy(o => o.Id)
+            .Select(o => o.Id)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        if (ids.Count > 1)
+            logger.LogWarning("Identifier {Identifier} matches several observations; using {ObservationId}", identifier, ids[0]);
+        return ids.Count > 0 ? ids[0] : null;
     }
 
     public async Task<ObservationImageFile?> GetImageAsync(int observationId, int mediaId, CancellationToken cancellationToken)
