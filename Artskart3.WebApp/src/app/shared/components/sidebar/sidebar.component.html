@@ -103,6 +103,26 @@
 
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+      <h6 class="area-section-heading area-search-heading">{{ 'sidebar.restrictedArea' | translate }}</h6>
+      <app-autocomplete
+        class="area-search restricted-area-search"
+        [search]="searchRestrictedAreas"
+        [fitContent]="true"
+        [label]="'sidebar.restrictedArea' | translate"
+        placeholder=""
+        noResultsKey="sidebar.noSearchResultsRestrictedArea"
+        [trackBy]="trackByFid"
+        (selected)="onRestrictedAreaSelected($event)"
+      >
+        <ng-template [appAutocompleteOption]="searchRestrictedAreas" let-area let-term="term">
+          <span>
+            <app-highlight-text [text]="area.name" [term]="term" />
+            @if (area.observationCount !== null && area.observationCount !== undefined) {
+              <span class="suggestion-count"> ({{ area.observationCount | formatNumber: translate.currentLang }})</span>
+            }
+          </span>
+        </ng-template>
+      </app-autocomplete>
       <h6 class="area-section-heading cadastral-unit-heading">{{ 'sidebar.cadastralUnit' | translate }}</h6>
       <app-cadastral-unit-search
         class="cadastral-unit-search"

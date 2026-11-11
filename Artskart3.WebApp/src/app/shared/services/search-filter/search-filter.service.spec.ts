@@ -210,7 +210,7 @@ describe('SearchFilterService.applyFilter', () => {
    * til `applyFilter` også håndterer det.
    */
   it('håndterer hvert felt i filteret', async () => {
-    type FilterFields = Required<Omit<ObservationSearchFilter, 'pageNumber' | 'resultsPerPage' | 'isPaginated' | 'restrictedAreaIds'>>;
+    type FilterFields = Required<Omit<ObservationSearchFilter, 'pageNumber' | 'resultsPerPage' | 'isPaginated'>>;
     const sample: FilterFields = {
       taxonGroupIds: [1],
       taxonIds: [2],
@@ -220,6 +220,7 @@ describe('SearchFilterService.applyFilter', () => {
       municipalityIds: ['1101'],
       countyIds: ['21'],
       oceanAreaIds: ['h1'],
+      restrictedAreaIds: ['Naturbase VV00001234'],
       cadastralUnitIds: ['1101-1/2'],
       behaviorIds: [5],
       basisOfRecordIds: [6],
