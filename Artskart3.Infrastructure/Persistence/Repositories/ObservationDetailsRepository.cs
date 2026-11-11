@@ -109,24 +109,17 @@ public sealed partial class ObservationDetailsRepository(
         // Lengre verdier kan ikke finnes i kolonnene, begge nvarchar(255).
         if (occurrenceId.Length > 255) return null;
 
-        return await FindLowestLiveIdAsync(o => o.OccurrenceId == occurrenceId, occurrenceId, cancellationToken)
-            ?? await FindLowestLiveIdAsync(o => o.ProxyId == occurrenceId, occurrenceId, cancellationToken);
+        return await FindLowestLiveIdAsync(o => o.OccurrenceId == occurrenceId, cancellationToken)
+            ?? await FindLowestLiveIdAsync(o => o.ProxyId == occurrenceId, cancellationToken);
     }
 
-    private async Task<int?> FindLowestLiveIdAsync(
-        Expression<Func<Observation, bool>> match, string identifier, CancellationToken cancellationToken)
-    {
-        var ids = await context.Set<Observation>().AsNoTracking()
+    private Task<int?> FindLowestLiveIdAsync(Expression<Func<Observation, bool>> match, CancellationToken cancellationToken) =>
+        context.Set<Observation>().AsNoTracking()
             .Where(match)
             .Where(o => !o.IsDeleted)
             .OrderBy(o => o.Id)
-            .Select(o => o.Id)
-            .Take(2)
-            .ToListAsync(cancellationToken);
-        if (ids.Count > 1)
-            logger.LogWarning("Identifier {Identifier} matches several observations; using {ObservationId}", identifier, ids[0]);
-        return ids.Count > 0 ? ids[0] : null;
-    }
+            .Select(o => (int?)o.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<ObservationImageFile?> GetImageAsync(int observationId, int mediaId, CancellationToken cancellationToken)
     {

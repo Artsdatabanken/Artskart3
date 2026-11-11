@@ -156,7 +156,7 @@ describe('GalleryViewComponent', () => {
 
     fixture.nativeElement.querySelector('.show-observation').click();
 
-    expect(navigate).toHaveBeenCalledWith([], { queryParams: { observationId: 42 }, queryParamsHandling: 'merge' });
+    expect(navigate).toHaveBeenCalledWith([], { queryParams: { observationId: 42, occurrenceId: null }, queryParamsHandling: 'merge' });
     expect(shown).toHaveBeenCalled();
   });
 

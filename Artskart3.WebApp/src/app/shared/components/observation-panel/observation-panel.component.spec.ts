@@ -63,7 +63,10 @@ describe('ObservationPanel', () => {
   });
 
   it('resolves an external occurrenceId link and replaces it with the observation ID', async () => {
-    await harness.navigateByUrl('/?occurrenceId=nina%2Fskandobs%2F0008ef28-6c98-4791-b3f6-914b3908e4a3&other=kept', ObservationPanelComponent);
+    await harness.navigateByUrl(
+      '/?occurrenceId=nina%2Fskandobs%2F0008ef28-6c98-4791-b3f6-914b3908e4a3&other=kept',
+      ObservationPanelComponent,
+    );
     await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
     expect(findIdByOccurrenceId).toHaveBeenCalledExactlyOnceWith('nina/skandobs/0008ef28-6c98-4791-b3f6-914b3908e4a3');
     expect(getDetail).toHaveBeenCalledExactlyOnceWith(42);
@@ -88,6 +91,35 @@ describe('ObservationPanel', () => {
     await harness.fixture.whenStable();
     expect(TestBed.inject(Router).url).toBe('/');
     expect(findIdByOccurrenceId).toHaveBeenCalledOnce();
+  });
+
+  it('lets observationId win over occurrenceId and treats an empty observationId as absent', async () => {
+    await harness.navigateByUrl('/?observationId=43&occurrenceId=other', ObservationPanelComponent);
+    expect(panel.detail()?.id).toBe(43);
+    expect(findIdByOccurrenceId).not.toHaveBeenCalled();
+    await harness.navigateByUrl('/?observationId=&occurrenceId=other', ObservationPanelComponent);
+    await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
+    expect(findIdByOccurrenceId).toHaveBeenCalledExactlyOnceWith('other');
+  });
+
+  it('cancels a pending occurrenceId lookup when dismissed', async () => {
+    const pending = new Subject<number>();
+    findIdByOccurrenceId.mockReturnValueOnce(pending);
+    await harness.navigateByUrl('/?occurrenceId=slow', ObservationPanelComponent);
+    panel.dismiss();
+    await harness.fixture.whenStable();
+    expect(pending.observed).toBe(false);
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(panel.rawId()).toBeNull();
+  });
+
+  it('retries a failed occurrenceId lookup', async () => {
+    findIdByOccurrenceId.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 500 })));
+    await harness.navigateByUrl('/?occurrenceId=flaky', ObservationPanelComponent);
+    expect(panel.state()).toBe('error');
+    panel.retryDetails();
+    await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
+    expect(findIdByOccurrenceId).toHaveBeenCalledTimes(2);
   });
 
   it('retains its component across URL changes and surfaces missing records', async () => {

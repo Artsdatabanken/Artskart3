@@ -72,10 +72,12 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
         await context.SaveChangesAsync();
         try
         {
-            // Angular sender skråstrek ukodet i spørrestrengen, eksterne lenker sender %2F.
+            // Angular sender skråstrek ukodet i spørrestrengen, eksterne lenker sender %2F. Store og
+            // små bokstaver matcher bare gjennom databasens sortering, som InMemory ikke har.
             foreach (var encoded in new[]
                      {
-                         observation.OccurrenceId, observation.ProxyId, Uri.EscapeDataString(observation.ProxyId),
+                         observation.OccurrenceId, observation.OccurrenceId.ToLowerInvariant(),
+                         observation.ProxyId, Uri.EscapeDataString(observation.ProxyId.ToUpperInvariant()),
                      })
             {
                 var found = await GetByOccurrenceIdAsync(encoded);
