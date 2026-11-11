@@ -24,12 +24,16 @@ export class ImageViewerComponent {
   readonly previous = output<void>();
   readonly next = output<void>();
   readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly closeButton = viewChild.required<ElementRef<HTMLElement>>('closeButton');
 
   constructor() {
     afterRenderEffect(() => {
       const dialog = this.dialog().nativeElement;
       if (this.image()) {
-        if (!dialog.open) dialog.showModal();
+        if (dialog.open) return;
+        dialog.showModal();
+        // Autofocus can't reach the button inside the shadow root.
+        this.closeButton().nativeElement.shadowRoot?.querySelector('button')?.focus();
       } else if (dialog.open) dialog.close();
     });
   }

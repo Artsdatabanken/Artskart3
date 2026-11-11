@@ -21,15 +21,17 @@
     </adb-icon-button>
   }
   <div class="panel">
-    <button type="button" class="close" autofocus (click)="closed.emit()">{{ 'common.close' | translate }}</button>
+    <adb-minimal-button #closeButton class="close" size="md" (click)="closed.emit()" [attr.aria-label]="'common.close' | translate">
+      <adb-icon name="close" aria-hidden="true" />
+      <span class="adb-sr-only">{{ 'common.close' | translate }}</span>
+    </adb-minimal-button>
     @if (image(); as image) {
       <img [src]="image.src" [alt]="image.alt" (error)="failed.emit()" />
       <app-image-info [names]="image" [media]="image" />
-      <!-- Opens rather than downloads: browsers ignore the download attribute for other origins. -->
-      <adb-button class="original" variant="secondary" size="sm" [href]="image.src" target="_blank">
-        <adb-icon slot="icon-start" name="open-in-new" aria-hidden="true" />
+      <a class="original adb-link adb-link--external" [href]="image.src" target="_blank" rel="noopener noreferrer">
         {{ 'observationDetails.openOriginal' | translate }}
-      </adb-button>
+        <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+      </a>
     }
   </div>
   @if (hasPrevious() || hasNext()) {

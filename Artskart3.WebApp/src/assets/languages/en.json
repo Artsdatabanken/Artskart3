@@ -34,7 +34,7 @@
     "nextImage": "Next image",
     "openOriginal": "Open original",
     "speciesName": "Species name",
-    "rightsHolder": "Rights holder",
+    "description": "Description",
     "license": "License",
     "maps": { "local": "Local map showing the observation", "overview": "Overview map showing the observation" },
     "sections": { "observation": "Observation information", "place": "Locality", "dataset": "Data source" },

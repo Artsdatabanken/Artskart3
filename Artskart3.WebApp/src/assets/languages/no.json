@@ -34,7 +34,7 @@
     "nextImage": "Neste bilde",
     "openOriginal": "Åpne original",
     "speciesName": "Artsnavn",
-    "rightsHolder": "Rettighetshaver",
+    "description": "Beskrivelse",
     "license": "Lisens",
     "maps": { "local": "Lokalkart som viser funnet", "overview": "Oversiktskart som viser funnet" },
     "sections": { "observation": "Funnopplysninger", "place": "Lokalitet", "dataset": "Datakilde" },

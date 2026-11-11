@@ -20,24 +20,7 @@
       } @else {
         <p role="status">{{ 'observationDetails.imageUnavailable' | translate }}</p>
       }
-      <div class="metadata">
-        @if (image.description) {
-          <p>{{ image.description }}</p>
-        }
-        @if (image.rightsHolder) {
-          <p>{{ 'observationDetails.rightsHolder' | translate }}: {{ image.rightsHolder }}</p>
-        }
-        @if (image.license) {
-          <p>
-            {{ 'observationDetails.license' | translate }}:
-            @if (webUrl(image.license); as url) {
-              <a [href]="url" target="_blank" rel="noopener noreferrer">{{ image.license }}</a>
-            } @else {
-              {{ image.license }}
-            }
-          </p>
-        }
-      </div>
+      <app-image-info class="metadata" [media]="image" />
     </article>
   }
 </div>
