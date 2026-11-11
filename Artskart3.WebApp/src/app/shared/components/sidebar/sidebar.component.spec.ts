@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SidebarComponent } from './sidebar.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { By } from '@angular/platform-browser';
@@ -68,8 +68,8 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
   });
 
-  async function flushAll() {
-    httpTesting.expectOne('/api/Lookup/Categories').flush(mockCategoryTypes);
+  async function flushAll(categoryTypes: unknown[] = mockCategoryTypes) {
+    httpTesting.expectOne('/api/Lookup/Categories').flush(categoryTypes);
     httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaResponse);
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
@@ -116,7 +116,7 @@ describe('SidebarComponent', () => {
     expect(headings.length).toBe(2);
     const flatLists = categoriesItem.querySelectorAll('.category-flat');
     expect(flatLists.length).toBe(2);
-    const checkboxes = categoriesItem.querySelectorAll('.category-flat adb-checkbox');
+    const checkboxes = categoriesItem.querySelectorAll('.category-flat adb-checkbox:not(.select-all)');
     expect(checkboxes.length).toBe(2);
   });
 
@@ -260,6 +260,102 @@ describe('SidebarComponent', () => {
       filterState.addBasisOfRecord(2);
       expect(component.isBasisOfRecordSelected(2)).toBe(true);
       expect(component.isBasisOfRecordSelected(99)).toBe(false);
+    });
+  });
+
+  // Clicking a "select all" that selects nothing would leave the checkbox looking checked with no filter set.
+  it('shows no "select all" for a category type without categories', async () => {
+    await flushAll([...mockCategoryTypes, { id: 3, name: 'Tom', categories: [] }]);
+    const accordionItems = Array.from(fixture.nativeElement.querySelectorAll('adb-accordion-item')) as Element[];
+    const categoriesItem = accordionItems.find((el) => el.getAttribute('heading') === 'sidebar.categories')!;
+    const lists = Array.from(categoriesItem.querySelectorAll('.category-flat'));
+    expect(lists.map((list) => list.querySelector('.select-all') !== null)).toEqual([true, true, false]);
+  });
+
+  describe('select all', () => {
+    function accordionItem(heading: string): Element {
+      const items = Array.from(fixture.nativeElement.querySelectorAll('adb-accordion-item')) as Element[];
+      return items.find((el) => el.getAttribute('heading') === heading)!;
+    }
+
+    function selectAll(heading: string, index = 0): Element {
+      return accordionItem(heading).querySelectorAll('adb-checkbox.select-all')[index];
+    }
+
+    function click(checkbox: Element): void {
+      checkbox.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    beforeEach(async () => {
+      await flushAll();
+    });
+
+    it('comes first in each list, with one per category type', () => {
+      for (const heading of ['sidebar.taxonGroups', 'sidebar.behaviors', 'sidebar.basisOfRecords']) {
+        const list = accordionItem(heading).querySelector('.checkbox-accordion-children')!;
+        expect(list.firstElementChild!.classList).toContain('select-all');
+      }
+      const categoryLists = accordionItem('sidebar.categories').querySelectorAll('.category-flat');
+      expect(Array.from(categoryLists).map((list) => list.firstElementChild!.classList.contains('select-all'))).toEqual([true, true]);
+    });
+
+    it('names the list it selects from for screen readers', () => {
+      const checkbox = selectAll('sidebar.taxonGroups');
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('no', { sidebar: { selectAll: 'Velg alle', selectAllIn: 'Velg alle: {{list}}', taxonGroups: 'Artsgrupper' } });
+      translate.use('no');
+      fixture.detectChanges();
+
+      expect(checkbox.getAttribute('aria-label')).toBe('Velg alle: Artsgrupper');
+      expect(checkbox.textContent!.trim()).toBe('Velg alle');
+    });
+
+    it('selects every taxon group, then clears them on the next click', () => {
+      click(selectAll('sidebar.taxonGroups'));
+      expect(filterState.selectedTaxonGroupIds()).toEqual([1, 2]);
+
+      click(selectAll('sidebar.taxonGroups'));
+      expect(filterState.selectedTaxonGroupIds()).toEqual([]);
+    });
+
+    it('shows a partial selection, and completes it when clicked', () => {
+      filterState.addTaxonGroup(2);
+      fixture.detectChanges();
+      const checkbox = selectAll('sidebar.taxonGroups');
+      expect(checkbox.hasAttribute('indeterminate')).toBe(true);
+      expect(checkbox.hasAttribute('checked')).toBe(false);
+
+      click(checkbox);
+      expect(filterState.selectedTaxonGroupIds()).toEqual([2, 1]);
+      expect(checkbox.hasAttribute('checked')).toBe(true);
+      expect(checkbox.hasAttribute('indeterminate')).toBe(false);
+    });
+
+    it('only selects and clears the categories of its own type', () => {
+      filterState.addCategory(7);
+
+      click(selectAll('sidebar.categories', 0));
+      expect(filterState.selectedCategoryIds()).toEqual([7, 10]);
+
+      click(selectAll('sidebar.categories', 0));
+      expect(filterState.selectedCategoryIds()).toEqual([7]);
+    });
+
+    it('selects and clears every behavior', () => {
+      click(selectAll('sidebar.behaviors'));
+      expect(filterState.selectedBehaviorIds()).toEqual([1, 2]);
+
+      click(selectAll('sidebar.behaviors'));
+      expect(filterState.selectedBehaviorIds()).toEqual([]);
+    });
+
+    it('selects and clears every basis of record', () => {
+      click(selectAll('sidebar.basisOfRecords'));
+      expect(filterState.selectedBasisOfRecordIds()).toEqual([1, 2]);
+
+      click(selectAll('sidebar.basisOfRecords'));
+      expect(filterState.selectedBasisOfRecordIds()).toEqual([]);
     });
   });
 

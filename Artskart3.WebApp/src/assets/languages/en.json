@@ -260,6 +260,8 @@
     "taxonTree": "Taxonomy Tree",
     "includeDescendantTaxa": "Lower taxa",
     "excludesDescendantTaxa": "Excludes lower taxa",
+    "selectAll": "Select all",
+    "selectAllIn": "Select all: {{list}}",
     "scientificNames": "Scientific names",
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",

@@ -146,6 +146,11 @@ adb-checkbox::part(control) {
   align-self: center;
 }
 
+adb-checkbox.select-all {
+  padding-bottom: var(--adb-spacing-2xsm);
+  border-bottom: 1px solid var(--adb-border-base-subtle);
+}
+
 .area-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-4);

@@ -260,6 +260,8 @@
     "taxonTree": "Artstre",
     "includeDescendantTaxa": "Underliggende taksa",
     "excludesDescendantTaxa": "Ekskluderer underliggende taksa",
+    "selectAll": "Velg alle",
+    "selectAllIn": "Velg alle: {{list}}",
     "scientificNames": "Vitenskapelige navn",
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",

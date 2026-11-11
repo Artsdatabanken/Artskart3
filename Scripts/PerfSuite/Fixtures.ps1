@@ -315,6 +315,83 @@ function Get-PerfSpreadTiers {
     return New-PerfDimension -Name $Name -Tiers $tiers
 }
 
+function ConvertTo-PerfKeySlug {
+    <# Et navn fra Lookup som del av en case-noekkel: 'Rødliste' blir 'roedliste'. #>
+    param([Parameter(Mandatory)] [string] $Text)
+
+    $slug = $Text.ToLowerInvariant().Replace('æ', 'ae').Replace('ø', 'oe').Replace('å', 'aa')
+    return ($slug -replace '[^a-z0-9]+', '-').Trim('-')
+}
+
+function Get-PerfSelectAllTiers {
+    <#
+        Nivaaer for «Velg alle» i sidebaren: hele lista, og hele lista uten det
+        tyngste elementet - det brukeren faar ved aa velge alle og saa fjerne
+        for eksempel fugler.
+
+        Filteret blir én IN-liste med alle verdiene. De andre flerverdi-nivaaene
+        har hoeyst fem; her er det hele dimensjonen, og «alle» treffer
+        tilnaermet alt. «Uten tyngste» fjerner verdien som ellers fyller TOP-en
+        i listevisningen raskest.
+
+        Elementer uten observasjoner tas med, fordi sidebaren viser og velger dem.
+        Get-PerfSelectivitySpread luker dem bort, saa lista leses raa her.
+
+        Rollen er 'annen', som for de andre flerverdi-nivaaene: de havner i
+        enkelt-laget, ikke i par og tripler.
+
+        Et nivaa med samme id-er som et dimensjonen allerede har
+        (-ExistingIdSets) hoppes over, fordi det ville maalt samme spoerring
+        under to navn. Det sjekkes, ikke antas: tung og lett plukkes paa tvers
+        av alle kategoritypene, saa én kategori i én type er ikke det samme som
+        tung-nivaaet.
+    #>
+    param(
+        [Parameter(Mandatory)] [string]      $Key,
+        [object[]]                           $Items,
+        [string]                             $IdProperty = 'id',
+        [string]                             $LabelPrefix = '',
+        [string[]]                           $ExistingIdSets = @(),
+        [Parameter(Mandatory)] [scriptblock] $MultiFilterFactory
+    )
+
+    $Items = @($Items | ForEach-Object { $_ } | Where-Object { $null -ne $_ -and $null -ne $_.$IdProperty })
+    if ($Items.Count -eq 0) { return }
+
+    $sumObs = { param($rader) [int64](($rader | ForEach-Object { [int64]($_.observationCount ?? 0) } | Measure-Object -Sum).Sum) }
+
+    # Id som andre noekkel, saa valget er stabilt naar tellingene er like eller mangler.
+    $tyngste = @($Items | Sort-Object -Property `
+        @{ Expression = { [int64]($_.observationCount ?? 0) }; Descending = $true },
+        @{ Expression = { "$($_.$IdProperty)" } })[0]
+    $resten = @($Items | Where-Object { "$($_.$IdProperty)" -ne "$($tyngste.$IdProperty)" })
+
+    $kandidater = @(
+        @{ Key = $Key; Rader = $Items; Tekst = "alle" }
+        @{ Key = "$Key-uten-tyngste"; Rader = $resten; Tekst = "alle unntatt $(Remove-PerfMarkup $tyngste.name)" }
+    )
+
+    foreach ($k in $kandidater) {
+        $ider = @($k.Rader | ForEach-Object { $_.$IdProperty } | Select-Object -Unique)
+        if ($ider.Count -eq 0) { continue }
+
+        if ($ExistingIdSets -contains (ConvertTo-PerfIdSetKey $ider)) {
+            Write-Host "  $($k.Key): samme filter som et annet nivaa, hoppes over" -ForegroundColor DarkGray
+            continue
+        }
+
+        New-PerfTier -Key $k.Key -Role 'annen' `
+            -Label ("{0}{1} - {2} verdier ({3:N0} obs)" -f $LabelPrefix, $k.Tekst, $ider.Count, (& $sumObs $k.Rader)) `
+            -Filter (& $MultiFilterFactory $ider)
+    }
+}
+
+function ConvertTo-PerfIdSetKey {
+    <# Et id-sett som sammenlignbar tekst, uavhengig av rekkefoelge. #>
+    param([object[]] $Ids)
+    return (@($Ids | ForEach-Object { "$_" } | Sort-Object -Unique)) -join ','
+}
+
 function New-PerfFixtures {
     <#
         Kjoerer hele oppdagelsesfasen mot Lookup-endepunktene og bygger
@@ -368,12 +445,13 @@ function New-PerfFixtures {
     if ($d) { $dimensions.Add($d) }
 
     # --- Dimensjoner med observationCount fra Lookup ------------------------
+    # SelectAll: lista har «Velg alle» i sidebaren, se Get-PerfSelectAllTiers.
     $lookups = @(
-        @{ Name = 'taksongruppe'; Path = '/api/Lookup/TaxonGroups';    Nested = $null;         IdProp = 'id';  Field = 'taxonGroupIds'    },
-        @{ Name = 'kategori';     Path = '/api/Lookup/Categories';     Nested = 'categories';  IdProp = 'id';  Field = 'categoryIds'      },
-        @{ Name = 'institusjon';  Path = '/api/Lookup/Institutions';   Nested = $null;         IdProp = 'id';  Field = 'organizationIds'  },
-        @{ Name = 'funntype';     Path = '/api/Lookup/BasisOfRecords'; Nested = $null;         IdProp = 'id';  Field = 'basisOfRecordIds' },
-        @{ Name = 'atferd';       Path = '/api/Lookup/Behaviors';      Nested = $null;         IdProp = 'id';  Field = 'behaviorIds'      }
+        @{ Name = 'taksongruppe'; Path = '/api/Lookup/TaxonGroups';    Nested = $null;         IdProp = 'id';  Field = 'taxonGroupIds';    SelectAll = $true  },
+        @{ Name = 'kategori';     Path = '/api/Lookup/Categories';     Nested = 'categories';  IdProp = 'id';  Field = 'categoryIds';      SelectAll = $true  },
+        @{ Name = 'institusjon';  Path = '/api/Lookup/Institutions';   Nested = $null;         IdProp = 'id';  Field = 'organizationIds';  SelectAll = $false },
+        @{ Name = 'funntype';     Path = '/api/Lookup/BasisOfRecords'; Nested = $null;         IdProp = 'id';  Field = 'basisOfRecordIds'; SelectAll = $true  },
+        @{ Name = 'atferd';       Path = '/api/Lookup/Behaviors';      Nested = $null;         IdProp = 'id';  Field = 'behaviorIds';      SelectAll = $true  }
     )
 
     foreach ($lookup in $lookups) {
@@ -384,15 +462,34 @@ function New-PerfFixtures {
         $spread = Get-PerfSelectivitySpread -Items $items -IdProperty $lookup.IdProp -Label $lookup.Name
 
         $field = $lookup.Field
+        $multiFilter = {
+            # Komma foran: uten den pakker PowerShell ut en ett-elements
+            # liste til en skalar, og filteret blir "ids": 5 i stedet for [5].
+            param($ider) @{ $field = @($ider | ForEach-Object { [int]$_ }) }
+        }.GetNewClosure()
+
         $d = Get-PerfSpreadTiers -Name $lookup.Name -Spread $spread `
             -FilterFactory {
                 param($id) @{ $field = @([int]$id) }
             }.GetNewClosure() `
-            -MultiFilterFactory {
-                # Komma foran: uten den pakker PowerShell ut en ett-elements
-                # liste til en skalar, og filteret blir "ids": 5 i stedet for [5].
-                param($ider) @{ $field = @($ider | ForEach-Object { [int]$_ }) }
-            }.GetNewClosure()
+            -MultiFilterFactory $multiFilter
+
+        if ($d -and $lookup.SelectAll) {
+            $finnes = @($d.tiers | ForEach-Object { ConvertTo-PerfIdSetKey $_.filter[$field] })
+            $alle = if ($lookup.Nested) {
+                # Én «Velg alle» per kategoritype (Rødlista, Fremmedartslista), ikke på tvers.
+                @($response) | Where-Object { $_.name } | ForEach-Object {
+                    Get-PerfSelectAllTiers -Key "$($lookup.Name):alle-$(ConvertTo-PerfKeySlug $_.name)" `
+                        -Items $_.$($lookup.Nested) -IdProperty $lookup.IdProp `
+                        -LabelPrefix "$($_.name): " -ExistingIdSets $finnes -MultiFilterFactory $multiFilter
+                }
+            }
+            else {
+                Get-PerfSelectAllTiers -Key "$($lookup.Name):alle" -Items $response `
+                    -IdProperty $lookup.IdProp -ExistingIdSets $finnes -MultiFilterFactory $multiFilter
+            }
+            $d.tiers = @($d.tiers) + @($alle)
+        }
 
         if ($d) { $dimensions.Add($d); Write-Host ("  {0,-16} {1} nivaa" -f $lookup.Name, $d.tiers.Count) }
     }
