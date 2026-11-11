@@ -161,6 +161,10 @@ describe('SearchFilterService.applyFilter', () => {
     httpTesting
       .match('/api/Lookup/CatalogNumbers/ByObservationIds')
       .forEach((req) => req.flush({ catalogNumber: 'O-123', observationIds: req.request.body }));
+    httpTesting.match((req) => /^\/api\/Lookup\/Areas\/\d+$/.test(req.url)).forEach((req) => {
+      const id = Number(req.request.url.split('/').pop());
+      req.flush({ id, fid: '54', name: `Område ${id}`, areaTypeId: 2, isCurrent: false, endYear: 2021 });
+    });
   }
 
   it('gir samme filter tilbake når det bygges, brukes og bygges igjen', async () => {
@@ -181,6 +185,7 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.addDataset({ id: 8, name: 'Datasett' });
     filterState.addDataset({ id: 80, name: 'Datasett 2' });
     filterState.addProject({ id: 9, name: 'Prosjekt' });
+    filterState.addHistoricalArea({ id: 669, fid: '54', name: 'Troms og Finnmark', areaTypeId: 2, isCurrent: false, endYear: 2021 });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
     filterState.setAnnotationFilter('hidden');
@@ -201,6 +206,9 @@ describe('SearchFilterService.applyFilter', () => {
       { id: 80, name: 'Organisasjon 80' },
     ]);
     expect(filterState.selectedProjects()).toEqual([{ id: 9, name: 'Organisasjon 9' }]);
+    expect(filterState.selectedHistoricalAreas()).toEqual([
+      { id: 669, fid: '54', name: 'Område 669', areaTypeId: 2, isCurrent: false, endYear: 2021 },
+    ]);
     expect(filterState.catalogNumber()).toBe('O-123');
   });
 
@@ -221,6 +229,7 @@ describe('SearchFilterService.applyFilter', () => {
       countyIds: ['21'],
       oceanAreaIds: ['h1'],
       cadastralUnitIds: ['1101-1/2'],
+      historicalAreaIds: [669],
       behaviorIds: [5],
       basisOfRecordIds: [6],
       registrationStatusId: 1,
@@ -283,6 +292,15 @@ describe('SearchFilterService.applyFilter', () => {
     flushNameLookups();
 
     expect(filterState.selectedDatasets()).toEqual([{ id: 12, name: 'Organisasjon 12' }]);
+  });
+
+  it('keeps a historical area by id when its lookup fails', async () => {
+    await service.applyFilter({ historicalAreaIds: [669] });
+
+    httpTesting.expectOne('/api/Lookup/Areas/669').flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect(filterState.selectedHistoricalAreas()).toEqual([{ id: 669, isCurrent: false }]);
+    expect(service.observationFilter().historicalAreaIds).toEqual([669]);
   });
 
   it('beholder valget uten navn når navneoppslaget feiler', async () => {

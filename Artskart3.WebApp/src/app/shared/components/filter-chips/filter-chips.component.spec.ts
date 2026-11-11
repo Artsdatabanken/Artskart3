@@ -240,6 +240,25 @@ describe('FilterChipsComponent', () => {
       expect(filterState.selectedCadastralUnitIds()).toEqual(['0301-207/1']);
     });
 
+    it('shows a chip per historical area with its kind', () => {
+      flushLookups();
+      filterState.addHistoricalArea({ id: 2, fid: '1902', name: 'Tromsø', areaTypeId: 1, isCurrent: false, countyName: 'Troms', endYear: 2020 });
+      filterState.addHistoricalArea({ id: 669, fid: '54', name: 'Troms og Finnmark', areaTypeId: 2, isCurrent: false, endYear: 2024 });
+      const chips = component.chips().filter((c) => c.id.startsWith('historicalArea:'));
+      expect(chips.map((c) => c.text)).toEqual([
+        'sidebar.areaSearch: Tromsø (sidebar.areaSearchType.historicalMunicipality)',
+        'sidebar.areaSearch: Troms og Finnmark (sidebar.areaSearchType.historicalCounty)',
+      ]);
+      chips[0].clear();
+      expect(filterState.selectedHistoricalAreaIds()).toEqual([669]);
+    });
+
+    it('shows the id of a historical area that has not been looked up yet', () => {
+      flushLookups();
+      filterState.selectedHistoricalAreas.set([{ id: 669, isCurrent: false }]);
+      expect(component.chips().find((c) => c.id === 'historicalArea:669')!.text).toBe('sidebar.areaSearch: #669');
+    });
+
     it('viser chip for katalognummer', () => {
       flushLookups();
       filterState.setCatalogNumber('ABC-123');

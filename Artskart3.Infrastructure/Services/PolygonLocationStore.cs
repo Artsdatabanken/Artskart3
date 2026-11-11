@@ -88,6 +88,13 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private Dictionary<int, int> _tettTaksonIdx = new();
     private int _taksonAntall;
     private Dictionary<int, int[]> _geoBucketsForMedlem = new();
+
+    // Lokasjonene i hvert historiske område, av dem som ligger her. Historiske områder
+    // finnes ikke i indekstabellen og kan ikke bli geobøtter, men filteret på dem er en
+    // lokasjonsmengde, som matrikkelenhetene. Nøklene er alle områdene som hadde rader i
+    // HistoricalAreaLocation da lageret ble bygget, også de uten lokasjoner her. Null når
+    // lastingen feilet.
+    private Dictionary<int, int[]>? _historiskeLokasjoner = new();
     private Dictionary<int, int[]> _projBucketsForMedlem = new();
     private int _geoBucketAntall, _projBucketAntall;
 
@@ -140,8 +147,15 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
         // Matrikkelenhetene slås opp mot Kartverket av kalleren. Uten lokasjonene kan
         // filteret ikke evalueres her.
-        var eiendom = filter.CadastralUnitIds?.Length > 0 ? cadastralLocationIds : null;
-        if (filter.CadastralUnitIds?.Length > 0 && eiendom is null) return null;
+        if (filter.CadastralUnitIds?.Length > 0 && cadastralLocationIds is null) return null;
+
+        // Et historisk område som ikke fantes da lageret ble bygget, er fylt etterpå.
+        // Databasen har lokasjonene, lageret ikke.
+        if (filter.HistoricalAreaIds?.Length > 0 &&
+            (_historiskeLokasjoner is not { } kjente || !filter.HistoricalAreaIds.All(kjente.ContainsKey)))
+            return null;
+
+        var eiendom = LokasjonsbaserteValg(filter, cadastralLocationIds);
 
         var p = BuildPredicate(filter, harEiendom: eiendom is not null);
 
@@ -171,9 +185,9 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 if (n < minY || n > maxY) continue;
             }
 
-            // Matrikkelenhetene OR-es med områdene: en observasjon på en lokasjon i
-            // eiendommen slipper geografisjekken. Uten områdevalg er eiendommen hele
-            // geografifilteret, og andre lokasjoner hoppes over.
+            // Matrikkelenhetene og de historiske områdene OR-es med områdene: en
+            // observasjon på en av lokasjonene deres slipper geografisjekken. Uten
+            // områdevalg er de hele geografifilteret, og andre lokasjoner hoppes over.
             var iEiendom = eiendom?.Contains(_locId[loc]) == true;
             if (eiendom is not null && p.GeoBucket is null && !iEiendom) continue;
 
@@ -288,6 +302,25 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public bool[]? Takson { get; init; }         // tett taksonindeks -> treffer
         public bool[]? GeoBucket { get; init; }      // tett bucketindeks -> treffer
         public bool[]? ProjBucket { get; init; }
+    }
+
+    /// <summary>
+    /// Lokasjonene til matrikkelenhetene og de historiske områdene i filteret, som én
+    /// mengde, eller null når filteret ikke har noen av dem.
+    /// </summary>
+    private IReadOnlySet<int>? LokasjonsbaserteValg(LocationSearchFilterDto filter, IReadOnlySet<int>? matrikkel)
+    {
+        var harMatrikkel = filter.CadastralUnitIds?.Length > 0;
+        var historiske = filter.HistoricalAreaIds;
+        if (historiske is not { Length: > 0 } || _historiskeLokasjoner is not { } lokasjoner)
+            return harMatrikkel ? matrikkel : null;
+
+        var mengde = harMatrikkel && matrikkel is not null ? new HashSet<int>(matrikkel) : new HashSet<int>();
+        foreach (var omraade in historiske)
+        {
+            if (lokasjoner.TryGetValue(omraade, out var ider)) mengde.UnionWith(ider);
+        }
+        return mengde;
     }
 
     private bool Matcher(int i, in Predikat p, bool iEiendom)
@@ -564,11 +597,31 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _logger.LogInformation("PolygonLocationStore: {Geo} geobøtter, {Proj} prosjektbøtter",
             _geoBucketAntall, _projBucketAntall);
 
+        // Uten de historiske områdene kan resten av lageret brukes som før. Filtre med
+        // historiske områder går da til databasen, se TryQuery.
+        try
+        {
+            await LastHistoriskeOmraaderAsync(context, cancellationToken);
+            _logger.LogInformation("PolygonLocationStore: {Omraader} historiske områder etter {Sek}s",
+                _historiskeLokasjoner!.Count, klokke.Elapsed.TotalSeconds.ToString("F1"));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _historiskeLokasjoner = null;
+            _logger.LogWarning(ex, "PolygonLocationStore: historiske områder kunne ikke lastes, de slås opp i databasen");
+        }
+
         _ready = true;
         _beskrivelse = $"{_locId.Length:N0} lokasjoner, {_obsId.Length:N0} observasjoner, " +
                        $"bygget på {klokke.Elapsed.TotalSeconds:F1}s";
         _logger.LogInformation("PolygonLocationStore klar: {Beskrivelse}", _beskrivelse);
     }
+
+    private static readonly LocationGeometryType[] Geometrityper =
+    [
+        LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
+        LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
+    ];
 
     /// <summary>
     /// Lokasjonene, med WKT, omsluttende boks og rutenettflagg regnet ut én
@@ -578,14 +631,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private async Task<Dictionary<int, int>> LastLokasjonerAsync(
         IArtsKartDbContext context, CancellationToken ct)
     {
-        var typer = new[]
-        {
-            LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
-            LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
-        };
-
         var rader = await context.Set<Location>().AsNoTracking()
-            .Where(l => typer.Contains(l.GeometryTypeId) && l.Geometry != null)
+            .Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null)
             .OrderBy(l => l.Id)
             .Select(l => new { l.Id, l.East, l.North, l.Locality, l.Geometry, l.LookupId })
             .ToListAsync(ct);
@@ -617,6 +664,33 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         }
 
         return indeks;
+    }
+
+    /// <summary>
+    /// Hvilke av lokasjonene her som ligger i hvert historiske område. Samme
+    /// lokasjonsutvalg som LastLokasjonerAsync, så bare noen titusen rader kommer ut av
+    /// HistoricalAreaLocation.
+    /// </summary>
+    private async Task LastHistoriskeOmraaderAsync(IArtsKartDbContext context, CancellationToken ct)
+    {
+        var rader = await context.Set<HistoricalAreaLocation>().AsNoTracking()
+            .Join(context.Set<Location>().Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null),
+                h => h.LocationId, l => l.Id, (h, l) => new { h.AreaId, h.LocationId })
+            .ToListAsync(ct);
+
+        // Også områdene uten lokasjoner her, så de gir et tomt svar i stedet for et oppslag i
+        // databasen. De hentes fra Area: de distinkte AreaId-ene i koblingstabellen ville
+        // kostet en lesing av alle 12,6 millioner radene.
+        var utenLokasjoner = await context.Set<Area>().AsNoTracking()
+            .Where(a => !a.IsCurrent && context.Set<HistoricalAreaLocation>().Any(h => h.AreaId == a.Id))
+            .Select(a => a.Id)
+            .ToListAsync(ct);
+
+        var lokasjoner = rader
+            .GroupBy(r => r.AreaId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.LocationId).ToArray());
+        foreach (var id in utenLokasjoner) lokasjoner.TryAdd(id, []);
+        _historiskeLokasjoner = lokasjoner;
     }
 
     /// <summary>

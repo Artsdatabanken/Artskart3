@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
 import { DEFAULT_ANNOTATION_FILTER, FilterStateService } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
+import { areaLabel } from '../../services/area/area-label';
 import { CategoryService } from '../../services/category/category.service';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
 
@@ -113,6 +114,12 @@ export class FilterChipsComponent {
     }
     for (const id of this.filterState.selectedCadastralUnitIds()) {
       chips.push(namedChip(`cadastralUnit:${id}`, 'sidebar.cadastralUnit', id, () => this.filterState.removeCadastralUnit(id)));
+    }
+    // Until a saved filter's areas have been looked up, the chip shows the id.
+    for (const area of this.filterState.selectedHistoricalAreas()) {
+      const id = area.id!;
+      const text = area.name ? areaLabel(area, t) : `#${id}`;
+      chips.push(namedChip(`historicalArea:${id}`, 'sidebar.areaSearch', text, () => this.filterState.removeHistoricalArea(id)));
     }
 
     const precFrom = this.filterState.coordinatePrecisionFrom();

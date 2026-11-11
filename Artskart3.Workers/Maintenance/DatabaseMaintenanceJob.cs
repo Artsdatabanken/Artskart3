@@ -54,7 +54,7 @@ namespace Artskart3.Workers.Maintenance;
 /// slår opp flerverdi-bøttene sine i AreaCountCacheBucketMember.
 ///
 /// NÅR DENNE JOBBEN ER PÅ PLASS, SKAL MIGRASJONEN OG VAKTEN FJERNES
-/// Førstegangsbygget ligger i dag i 20261104091607_RebuildCountCaches, og etter den
+/// Førstegangsbygget ligger i dag i 20261109121516_RebuildCountCaches, og etter den
 /// kan det bare komme indeksendringer: den leser byggeskriptene slik de ser ut nå, og
 /// havner den foran en migrasjon som legger til en kolonne skriptene bruker, stopper
 /// hver nye database på «Invalid column name». Vakten

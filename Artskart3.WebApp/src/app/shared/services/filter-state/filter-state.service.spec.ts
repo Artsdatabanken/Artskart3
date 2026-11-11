@@ -122,6 +122,26 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('historical areas', () => {
+    const tromso = { id: 2, fid: '1902', name: 'Tromsø', areaTypeId: 1, isCurrent: false, endYear: 2019 };
+
+    it('should add without duplicates and expose the ids', () => {
+      service.addHistoricalArea(tromso);
+      service.addHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreaIds()).toEqual([2]);
+    });
+
+    it('should fill in a looked-up area but not bring back a removed one', () => {
+      service.selectedHistoricalAreas.set([{ id: 2, isCurrent: false }]);
+      service.setHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreas()).toEqual([tromso]);
+
+      service.removeHistoricalArea(2);
+      service.setHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreas()).toEqual([]);
+    });
+  });
+
   describe('clearAreas', () => {
     it('should reset both county and municipality selections to empty', () => {
       service.addCounty('03');
@@ -135,6 +155,12 @@ describe('FilterStateService', () => {
       service.addCadastralUnit('1101-1/2');
       service.clearAreas();
       expect(service.selectedCadastralUnitIds()).toEqual([]);
+    });
+
+    it('should also clear historical areas', () => {
+      service.addHistoricalArea({ id: 669, isCurrent: false });
+      service.clearAreas();
+      expect(service.selectedHistoricalAreas()).toEqual([]);
     });
   });
 

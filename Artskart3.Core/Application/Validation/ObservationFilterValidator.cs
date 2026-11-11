@@ -39,8 +39,13 @@ public static class ObservationFilterValidator
             return periodError;
         }
 
-        return GetArraySizeError(filter) ?? GetCadastralUnitError(filter);
+        return GetArraySizeError(filter) ?? GetCadastralUnitError(filter) ?? GetHistoricalAreaError(filter);
     }
+
+    private static string? GetHistoricalAreaError(IObservationFilter filter) =>
+        filter.HistoricalAreaIds?.Length > SearchConstants.MaxHistoricalAreaFilterSize
+            ? $"{nameof(filter.HistoricalAreaIds)} can contain at most {SearchConstants.MaxHistoricalAreaFilterSize} items."
+            : null;
 
     private static string? GetCadastralUnitError(IObservationFilter filter)
     {
@@ -124,6 +129,7 @@ public static class ObservationFilterValidator
             (nameof(filter.CountyIds), filter.CountyIds?.Length),
             (nameof(filter.RestrictedAreaIds), filter.RestrictedAreaIds?.Length),
             (nameof(filter.OceanAreaIds), filter.OceanAreaIds?.Length),
+            (nameof(filter.HistoricalAreaIds), filter.HistoricalAreaIds?.Length),
             (nameof(filter.BehaviorIds), filter.BehaviorIds?.Length),
             (nameof(filter.BasisOfRecordIds), filter.BasisOfRecordIds?.Length),
             (nameof(filter.DatasetOrgIds), filter.DatasetOrgIds?.Length),

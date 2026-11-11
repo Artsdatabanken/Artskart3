@@ -123,6 +123,67 @@ public class ObservationQueryBuilderTests
     }
 
     [Fact]
+    public void ApplyFilters_WithHistoricalAreaId_ReturnsObservationsAtItsLocations()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 11),
+            CreateObservation(3, locationId: 20));
+        context.Set<HistoricalAreaLocation>().AddRange(
+            new HistoricalAreaLocation { AreaId = 669, LocationId = 10 },
+            new HistoricalAreaLocation { AreaId = 669, LocationId = 11 },
+            new HistoricalAreaLocation { AreaId = 670, LocationId = 20 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HistoricalAreaIds = [669] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithHistoricalAreaAndMunicipality_ReturnsObservationsInEither()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = 2,
+            EntityTypeId = (int)ObservationIndexEntityType.Municipality,
+            EntityId = 301
+        });
+        context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = 669, LocationId = 10 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HistoricalAreaIds = [669], MunicipalityIds = ["0301"] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithHistoricalAreaAndCadastralUnit_ReturnsObservationsInEither()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = 669, LocationId = 10 });
+        context.SaveChanges();
+        var cadastralUnits = new StubCadastralUnitService(new() { ["1101-1/2"] = [20] });
+
+        var result = Apply(
+            context,
+            new ObservationSearchFilterDto { HistoricalAreaIds = [669], CadastralUnitIds = ["1101-1/2"] },
+            cadastralUnits: cadastralUnits);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
     public void ApplyFilters_WithProjectOrgId_ReturnsObservationsInThatProject()
     {
         using var context = CreateInMemoryContext();
@@ -612,6 +673,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.OceanAreaIds)] = f => f.OceanAreaIds = ["9999"],
         // Stubben kjenner ingen matrikkelenheter, så den har ingen lokasjoner.
         [nameof(IObservationFilter.CadastralUnitIds)] = f => f.CadastralUnitIds = ["9999-1/1"],
+        // Ingen lokasjoner er koblet til det historiske området.
+        [nameof(IObservationFilter.HistoricalAreaIds)] = f => f.HistoricalAreaIds = [999],
         [nameof(IObservationFilter.BehaviorIds)] = f => f.BehaviorIds = [999],
         [nameof(IObservationFilter.BasisOfRecordIds)] = f => f.BasisOfRecordIds = [999],
         // Observasjonen har ingen tagger, så «ikke registrert» treffer ikke.

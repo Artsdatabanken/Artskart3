@@ -11,6 +11,8 @@ public interface ILookupService
     Task<IEnumerable<OrganizationDto>> SearchOrganizationsByTypeAsync(string name, int organizationTypeId, int maxCount, CancellationToken cancellationToken = default);
     Task<IEnumerable<CatalogNumberMatchDto>> SearchCatalogNumbersAsync(string search, int maxCount, CancellationToken cancellationToken = default);
     Task<OrganizationDto?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<IEnumerable<AreaSearchResultDto>> SearchAreasAsync(string search, int maxCount, CancellationToken cancellationToken = default);
+    Task<AreaSearchResultDto?> GetAreaByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<CatalogNumberMatchDto?> GetCatalogNumberByObservationIdsAsync(int[] observationIds, CancellationToken cancellationToken = default);
     Task<IEnumerable<TaxonGroupDto>> GetTaxonGroupsAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<BehaviorDto>> GetBehaviorsAsync(CancellationToken cancellationToken = default);

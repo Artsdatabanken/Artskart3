@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { HiddenObservationFilter } from '../../types/api.types';
+import { AreaSearchResultDto, HiddenObservationFilter } from '../../types/api.types';
 
 export type ImageFilterOption = 'all' | 'withImage' | 'withoutImage';
 export type AnnotationFilterOption = 'all' | 'excludeHidden' | 'hidden' | 'annotated';
@@ -112,6 +112,10 @@ export class FilterStateService {
   readonly selectedOceanAreaIds = signal<string[]>([]);
   // Matrikkelnummer like 1101-1/2. The id doubles as the label.
   readonly selectedCadastralUnitIds = signal<string[]>([]);
+  // Historical counties and municipalities. Only the id is sent; the rest is for the chip,
+  // and is empty until a saved filter's areas have been looked up.
+  readonly selectedHistoricalAreas = signal<AreaSearchResultDto[]>([]);
+  readonly selectedHistoricalAreaIds = computed(() => this.selectedHistoricalAreas().map((area) => area.id!), { equal: sameIds });
   readonly selectedTaxonIds = signal<number[]>([]);
   readonly includeDescendantTaxa = signal(true);
   // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
@@ -276,6 +280,10 @@ export class FilterStateService {
     this.selectedOceanAreaIds.update((ids) => (ids.includes(fid) ? ids.filter((i) => i !== fid) : [...ids, fid]));
   }
 
+  addOceanArea(fid: string): void {
+    this.selectedOceanAreaIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  }
+
   clearOceanAreas(): void {
     this.selectedOceanAreaIds.set([]);
   }
@@ -286,6 +294,19 @@ export class FilterStateService {
 
   removeCadastralUnit(id: string): void {
     this.selectedCadastralUnitIds.update((ids) => ids.filter((i) => i !== id));
+  }
+
+  addHistoricalArea(area: AreaSearchResultDto): void {
+    this.selectedHistoricalAreas.update((areas) => (areas.some((a) => a.id === area.id) ? areas : [...areas, area]));
+  }
+
+  removeHistoricalArea(id: number): void {
+    this.selectedHistoricalAreas.update((areas) => areas.filter((a) => a.id !== id));
+  }
+
+  /** Fills in a selected area once it has been looked up. Does nothing if it was removed meanwhile. */
+  setHistoricalArea(area: AreaSearchResultDto): void {
+    this.selectedHistoricalAreas.update((areas) => areas.map((a) => (a.id === area.id ? area : a)));
   }
 
   addTaxon(taxonId: number): void {
@@ -313,6 +334,7 @@ export class FilterStateService {
     this.selectedMunicipalityIds.set([]);
     this.selectedOceanAreaIds.set([]);
     this.selectedCadastralUnitIds.set([]);
+    this.selectedHistoricalAreas.set([]);
   }
 
   clearMunicipalities(): void {

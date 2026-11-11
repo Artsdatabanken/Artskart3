@@ -24,6 +24,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public string[]? CadastralUnitIds { get; set; }
 
+    public int[]? HistoricalAreaIds { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }

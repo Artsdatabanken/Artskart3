@@ -186,6 +186,38 @@ describe('SidebarComponent', () => {
       expect(component.isMunicipalitySelected('0301')).toBe(true);
       expect(component.isMunicipalitySelected('0602')).toBe(false);
     });
+
+    describe('historical area limit', () => {
+      const historical = (id: number) => ({
+        area: { id, fid: String(id), name: `Område ${id}`, areaTypeId: 1, isCurrent: false, endYear: 2020 },
+        detail: '',
+      });
+
+      beforeEach(() => {
+        for (let id = 1; id <= component.maxHistoricalAreas; id++) component.onAreaSelected(historical(id));
+      });
+
+      it('refuses another historical area and says why', () => {
+        component.onAreaSelected(historical(999));
+
+        expect(filterState.selectedHistoricalAreaIds()).not.toContain(999);
+        expect(component.historicalAreaLimitReached()).toBe(true);
+      });
+
+      it('hides the message again when an area is removed', () => {
+        component.onAreaSelected(historical(999));
+        filterState.removeHistoricalArea(1);
+
+        expect(component.historicalAreaLimitReached()).toBe(false);
+      });
+
+      it('still adds current areas', () => {
+        component.onAreaSelected({ area: { id: 301, fid: '0301', name: 'Oslo', areaTypeId: 1, isCurrent: true }, detail: '' });
+
+        expect(filterState.selectedMunicipalityIds()).toContain('0301');
+        expect(component.historicalAreaLimitReached()).toBe(false);
+      });
+    });
   });
 
   describe('institution filtering', () => {

@@ -486,6 +486,107 @@ public class LookupEndpointTests : IAsyncLifetime
         doc.RootElement.GetProperty("name").GetString().Should().Be("Testprosjekt for lagrede filter");
     }
 
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Areas/Search og /api/Lookup/Areas/{id}
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Et historisk område uten lokasjoner i HistoricalAreaLocation ville gitt et tomt
+    /// søk, så det skal ikke tilbys.
+    /// </summary>
+    [Fact]
+    public async Task SearchAreas_ReturnsHistoricalAreasOnlyWhenTheyHaveLocations()
+    {
+        var (linked, unlinked) = await SeedHistoricalAreasAsync("Arealsøk historisk");
+
+        try
+        {
+            var response = await _client.GetAsync("/api/Lookup/Areas/Search?search=Arealsøk%20historisk");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var ids = doc.RootElement.EnumerateArray().Select(a => a.GetProperty("id").GetInt32()).ToList();
+            ids.Should().Contain(linked.Id).And.NotContain(unlinked.Id);
+
+            var area = doc.RootElement.EnumerateArray().Single(a => a.GetProperty("id").GetInt32() == linked.Id);
+            area.GetProperty("isCurrent").GetBoolean().Should().BeFalse();
+            area.GetProperty("endYear").GetInt32().Should().Be(2020);
+        }
+        finally
+        {
+            await RemoveAreasAsync(linked.Id, unlinked.Id);
+        }
+    }
+
+    [Fact]
+    public async Task SearchAreas_WithMaxCountOutOfRange_Returns400()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Areas/Search?search=oslo&maxCount=0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetAreaById_WithHistoricalArea_ReturnsIt()
+    {
+        var (linked, unlinked) = await SeedHistoricalAreasAsync("Arealoppslag historisk");
+
+        try
+        {
+            var response = await _client.GetAsync($"/api/Lookup/Areas/{unlinked.Id}");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            doc.RootElement.GetProperty("name").GetString().Should().Be(unlinked.Name);
+        }
+        finally
+        {
+            await RemoveAreasAsync(linked.Id, unlinked.Id);
+        }
+    }
+
+    [Fact]
+    public async Task GetAreaById_WithUnknownId_Returns404()
+    {
+        var response = await _client.GetAsync("/api/Lookup/Areas/2147483647");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task<(Area Linked, Area Unlinked)> SeedHistoricalAreasAsync(string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var linked = HistoricalMunicipality($"{name} med lokasjoner");
+        var unlinked = HistoricalMunicipality($"{name} uten lokasjoner");
+        context.Set<Area>().AddRange(linked, unlinked);
+        await context.SaveChangesAsync();
+        context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = linked.Id, LocationId = 1 });
+        await context.SaveChangesAsync();
+        return (linked, unlinked);
+    }
+
+    private static Area HistoricalMunicipality(string name) => new()
+    {
+        DocumentId = Guid.NewGuid().ToString("N"),
+        Fid = "9902",
+        Name = name,
+        AreaTypeId = 1,
+        ParentFid = "99",
+        SyncDateTime = DateTime.UtcNow,
+        Bbox = "bbox",
+        TimeStamp = new DateTime(2019, 1, 29),
+        IsCurrent = false,
+    };
+
+    private async Task RemoveAreasAsync(params int[] areaIds)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        await context.Set<HistoricalAreaLocation>().Where(h => areaIds.Contains(h.AreaId)).ExecuteDeleteAsync();
+        await context.Set<Area>().Where(a => areaIds.Contains(a.Id)).ExecuteDeleteAsync();
+    }
+
     [Fact]
     public async Task GetCatalogNumberByObservationIds_WithSeededObservation_ReturnsCatalogNumber()
     {
