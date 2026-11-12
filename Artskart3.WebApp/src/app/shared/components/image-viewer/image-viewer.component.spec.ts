@@ -46,9 +46,10 @@ describe('ImageViewerComponent', () => {
   it('links to the original in a new tab', async () => {
     await show(false, false);
 
-    const link = element.querySelector<HTMLElement & { href: string }>('adb-button.original')!;
+    const link = element.querySelector<HTMLAnchorElement>('a.original')!;
     expect(link.href).toBe('https://example.org/photo.jpg');
-    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener noreferrer');
   });
 
   it('has no step buttons when there is nothing to step to', async () => {

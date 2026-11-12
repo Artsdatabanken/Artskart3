@@ -39,7 +39,7 @@ dialog::backdrop {
   box-sizing: border-box;
   padding: 1rem;
   border: 1px solid var(--adb-border-base-primary);
-  border-radius: 1rem;
+  border-radius: var(--adb-radius-md);
   background: var(--adb-surface-base-primary);
 }
 .step {
@@ -60,22 +60,9 @@ img {
 }
 .close {
   display: block;
+  width: fit-content;
   margin-left: auto;
 }
 .original {
-  display: inline-block;
   margin-top: var(--adb-spacing-sm);
-}
-button {
-  font: inherit;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  color: var(--adb-text-accent-primary);
-  background: transparent;
-  border: 1px solid currentColor;
-  border-radius: 2rem;
-}
-button:focus-visible {
-  outline: 3px solid var(--adb-text-accent-primary);
-  outline-offset: 3px;
 }
