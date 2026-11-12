@@ -5,6 +5,7 @@ public class ObservationDetailDto
     public int Id { get; init; }
     public string? PopularName { get; init; }
     public string? ScientificName { get; init; }
+    public string? Author { get; init; }
     public int ExternalTaxonId { get; init; }
     public string? CategoryCode { get; init; }
     public int? CategoryTypeId { get; init; }

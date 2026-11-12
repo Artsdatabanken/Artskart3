@@ -4,26 +4,45 @@
   #dialog
   (cancel)="cancel($event)"
   (keydown.escape)="cancel($event)"
+  [class.browsing]="hasPrevious() || hasNext()"
   [attr.aria-label]="'observationDetails.imageViewer' | translate"
 >
-  <button type="button" class="close" autofocus (click)="closed.emit()">{{ 'common.close' | translate }}</button>
-  @if (image(); as image) {
-    <img [src]="image.src" [alt]="image.alt" (error)="failed.emit()" />
-    @if (image.description) {
-      <p>{{ image.description }}</p>
+  @if (hasPrevious() || hasNext()) {
+    <adb-icon-button
+      class="step previous"
+      variant="secondary"
+      size="lg"
+      (click)="showPrevious()"
+      [disabled]="!hasPrevious()"
+      [attr.aria-label]="'observationDetails.previousImage' | translate"
+    >
+      <adb-icon name="chevron-down" aria-hidden="true" />
+      <span class="adb-sr-only">{{ 'observationDetails.previousImage' | translate }}</span>
+    </adb-icon-button>
+  }
+  <div class="panel">
+    <button type="button" class="close" autofocus (click)="closed.emit()">{{ 'common.close' | translate }}</button>
+    @if (image(); as image) {
+      <img [src]="image.src" [alt]="image.alt" (error)="failed.emit()" />
+      <app-image-info [names]="image" [media]="image" />
+      <!-- Opens rather than downloads: browsers ignore the download attribute for other origins. -->
+      <adb-button class="original" variant="secondary" size="sm" [href]="image.src" target="_blank">
+        <adb-icon slot="icon-start" name="open-in-new" aria-hidden="true" />
+        {{ 'observationDetails.openOriginal' | translate }}
+      </adb-button>
     }
-    @if (image.rightsHolder) {
-      <p>{{ 'observationDetails.rightsHolder' | translate }}: {{ image.rightsHolder }}</p>
-    }
-    @if (image.license) {
-      <p>
-        {{ 'observationDetails.license' | translate }}:
-        @if (webUrl(image.license); as url) {
-          <a [href]="url" target="_blank" rel="noopener noreferrer">{{ image.license }}</a>
-        } @else {
-          {{ image.license }}
-        }
-      </p>
-    }
+  </div>
+  @if (hasPrevious() || hasNext()) {
+    <adb-icon-button
+      class="step next"
+      variant="secondary"
+      size="lg"
+      (click)="showNext()"
+      [disabled]="!hasNext()"
+      [attr.aria-label]="'observationDetails.nextImage' | translate"
+    >
+      <adb-icon name="chevron-down" aria-hidden="true" />
+      <span class="adb-sr-only">{{ 'observationDetails.nextImage' | translate }}</span>
+    </adb-icon-button>
   }
 </dialog>

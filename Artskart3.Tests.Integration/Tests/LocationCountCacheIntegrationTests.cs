@@ -402,6 +402,17 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Matrikkelenhet_gir_null()
+    {
+        await BuildAsync(TaksongruppeDimensjon, r => r.TaxonGroupId);
+
+        var resultat = await CreateCacheService().TryGetTopLocationsAsync(
+            new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"] }, 100);
+
+        resultat.Should().BeNull("matrikkelenheter er ikke bøtter, og uten dem ville svaret vært ufiltrert");
+    }
+
+    [Fact]
     public async Task Ubygget_buffer_gir_null()
     {
         await ClearCacheAsync();
@@ -510,11 +521,11 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
 
     private SearchRepository WithCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), null, CreateCacheService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), null, CreateCacheService());
 
     private SearchRepository WithoutCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
     private LocationCountCacheService CreateCacheService(LocationCountCacheOptions? options = null) =>
         new(_context, new StubTaxonHierarchyService(), new StubAreaHierarchyService(),

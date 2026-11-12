@@ -3,7 +3,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationMediaDto } from '@shared/types/api.types';
 import { LoggingService } from '@shared/logging.service';
 import { ImageViewerComponent } from '../image-viewer/image-viewer.component';
-import { ViewerImage, webUrl } from '../image-viewer/image-source';
+import { imageSource, neighbour, SpeciesNames, ViewerImage, webUrl } from '../image-viewer/image-source';
 
 @Component({
   imports: [TranslateModule, ImageViewerComponent],
@@ -16,6 +16,7 @@ export class ObservationGalleryComponent {
   readonly observationId = input.required<number>();
   readonly images = input<ObservationMediaDto[]>([]);
   readonly species = input('');
+  readonly names = input<SpeciesNames>({});
   private readonly logger = inject(LoggingService);
   private readonly translate = inject(TranslateService);
   readonly selected = linkedSignal<number | null>(() => {
@@ -26,19 +27,51 @@ export class ObservationGalleryComponent {
     this.images();
     return new Map();
   });
-  readonly viewer = computed<ViewerImage | null>(() => {
-    const image = this.images().find((item) => item.id === this.selected());
-    const src = image && this.source(image);
-    return image && src ? { ...image, src, alt: this.alt(image) } : null;
+  private readonly loadedSources = linkedSignal<ReadonlySet<string>>(() => {
+    this.images();
+    return new Set();
   });
+  private readonly selectedImage = computed(() => this.images().find((item) => item.id === this.selected()) ?? null);
+  readonly viewer = computed<ViewerImage | null>(() => {
+    const image = this.selectedImage();
+    const src = image && this.original(image);
+    if (!image || !src) return null;
+    const { popularName, scientificName, author } = this.names();
+    return { ...image, src, alt: this.alt(image), popularName, scientificName, author };
+  });
+  readonly previousImage = computed(() => this.neighbourOf(this.selectedImage(), -1));
+  readonly nextImage = computed(() => this.neighbourOf(this.selectedImage(), 1));
+  private lastStep: 1 | -1 = 1;
   readonly webUrl = webUrl;
 
   source(image: ObservationMediaDto): string | null {
-    const failed = this.failedSources().get(image.id ?? -1) ?? [];
+    return imageSource(this.observationId(), image, this.failedSources().get(image.id ?? -1));
+  }
+
+  /** The viewer only shows originals, so it skips images whose origin is missing or failed. */
+  private original(image: ObservationMediaDto): string | null {
     const origin = webUrl(image.origin);
-    if (origin && !failed.includes(origin)) return origin;
-    const fallback = `/api/observations/${this.observationId()}/media/${image.id}/image`;
-    return image.id != null && image.hasStoredImage && !failed.includes(fallback) ? fallback : null;
+    return origin && !(this.failedSources().get(image.id ?? -1) ?? []).includes(origin) ? origin : null;
+  }
+
+  private neighbourOf(image: ObservationMediaDto | null, step: 1 | -1): ObservationMediaDto | null {
+    return image && neighbour(this.images(), image, step, (other) => this.original(other) != null);
+  }
+
+  step(step: 1 | -1): void {
+    const target = this.neighbourOf(this.selectedImage(), step);
+    if (!target) return;
+    this.lastStep = step;
+    this.selected.set(target.id ?? null);
+  }
+
+  /** Only a loaded original is worth enlarging; the stored copy is a 100 × 80 thumbnail. */
+  canEnlarge(image: ObservationMediaDto, source: string): boolean {
+    return source === webUrl(image.origin) && this.loadedSources().has(source);
+  }
+
+  loaded(source: string): void {
+    this.loadedSources.update((loaded) => new Set(loaded).add(source));
   }
 
   alt(image: ObservationMediaDto): string {
@@ -52,9 +85,13 @@ export class ObservationGalleryComponent {
     this.failedSources.update((failed) => new Map(failed).set(id, [...(failed.get(id) ?? []), source]));
   }
 
+  /** Moves on in the direction the user was going, so a broken original doesn't end the browsing. */
   viewerFailed(): void {
-    const image = this.images().find((item) => item.id === this.selected());
-    const source = image && this.source(image);
-    if (image && source) this.fail(image, source);
+    const image = this.selectedImage();
+    const origin = image && this.original(image);
+    if (!image || !origin) return;
+    const onward = this.neighbourOf(image, this.lastStep) ?? this.neighbourOf(image, this.lastStep === 1 ? -1 : 1);
+    this.fail(image, origin);
+    this.selected.set(onward?.id ?? null);
   }
 }

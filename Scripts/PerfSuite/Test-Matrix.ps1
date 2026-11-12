@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PerfLib.psm1') -Force
 . (Join-Path $PSScriptRoot 'Fixtures.ps1')
 . (Join-Path $PSScriptRoot 'Cases.ps1')
+. (Join-Path $PSScriptRoot 'Kartverket.ps1')
 
 $feilTotalt = 0
 
@@ -76,7 +77,13 @@ $dims = @(
     )),
     (New-FakeDimension 'taksongruppe' 'taxonGroupIds'),
     (New-FakeDimension 'kategori'     'categoryIds'),
-    (New-FakeDimension 'institusjon'  'organizationIds'),
+    # Med ett flerverdi-nivaa, fordi matrikkel-laget bruker det.
+    (New-PerfDimension -Name 'institusjon' -Tiers @(
+        New-PerfTier -Key 'institusjon:tung'         -Role 'tung'  -Label 'institusjon tung'  -Filter @{ organizationIds = @(1) }
+        New-PerfTier -Key 'institusjon:lett'         -Role 'lett'  -Label 'institusjon lett'  -Filter @{ organizationIds = @(2) }
+        New-PerfTier -Key 'institusjon:annen'        -Role 'annen' -Label 'institusjon annen' -Filter @{ organizationIds = @(3) }
+        New-PerfTier -Key 'institusjon:x2-tung-lett' -Role 'annen' -Label 'tung + lett'       -Filter @{ organizationIds = @(1, 2) }
+    )),
     (New-FakeDimension 'funntype'     'basisOfRecordIds'),
     (New-FakeDimension 'atferd'       'behaviorIds'),
     (New-FakeDimension 'fylke'        'countyIds'         -AsString),
@@ -131,6 +138,7 @@ $dims = @(
 $fixtures = [PSCustomObject]@{
     createdUtc = 'test'; baseUrl = 'https://localhost:5088'
     dimensions = $dims;  envelopes = $script:PerfEnvelopes
+    matrikkel  = (New-PerfCadastralDimension)
 } | ConvertTo-Json -Depth 12 | ConvertFrom-Json
 
 # ---------------------------------------------------------------------------
@@ -230,7 +238,7 @@ Assert-Perf 'JSON uten tomme objekter' ($feil.Count -eq 0) `
 # Fanget feil 2: ett-elements lister som ble skalarer.
 $arrayFelt = @('taxonIds', 'taxonGroupIds', 'categoryIds', 'organizationIds', 'municipalityIds',
                'countyIds', 'restrictedAreaIds', 'oceanAreaIds', 'behaviorIds', 'basisOfRecordIds',
-               'observationIds')
+               'observationIds', 'cadastralUnitIds')
 $feil = 0
 foreach ($c in $filterCases) {
     foreach ($felt in $arrayFelt) {
@@ -324,6 +332,71 @@ foreach ($ep in @($eps | Where-Object { $_.CaseKeys })) {
 }
 $ukjente = @($ukjente | Sort-Object -Unique)
 Assert-Perf 'CaseKeys peker paa ekte case' ($ukjente.Count -eq 0) ($ukjente -join ', ')
+
+# ---------------------------------------------------------------------------
+# Matrikkelenhetene
+# ---------------------------------------------------------------------------
+
+Write-Host "`nMatrikkel:" -ForegroundColor Cyan
+
+$matrikkelCase = @($cases | Where-Object Layer -eq 'matrikkel')
+Assert-Perf 'Matrikkel-laget bygget' ($matrikkelCase.Count -eq 20) "$($matrikkelCase.Count) av 20"
+
+$quickMatrikkel = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick' | Where-Object Layer -eq 'matrikkel')
+Assert-Perf 'Quick har tung og lett' ($quickMatrikkel.Count -eq 2) "$($quickMatrikkel.Count) case"
+
+# Kom matrikkelen inn i parene eller utvalgene, ville case-noeklene for alle de
+# andre casene endret seg, og ingen gammel baseline vaert sammenlignbar.
+$lekket = @($cases | Where-Object { $_.Layer -ne 'matrikkel' -and $_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds') })
+Assert-Perf 'Matrikkel bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
+
+# Eiendommene ligger i oslo-utsnittet. Andre utsnitt ville maalt et tomt svar,
+# og med matrikkel i filteret gaar selv det til databasen.
+foreach ($level in @('Standard', 'Full')) {
+    $lvlCases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $level | Where-Object Layer -eq 'matrikkel')
+    $lvlEps   = @(New-PerfEndpointMatrix -Level $level -Envelopes $fixtures.envelopes | Where-Object { $_.Extra.envelope })
+    $utsnitt  = @($lvlEps | Where-Object { $ep = $_; @($lvlCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count -gt 0 } |
+                  ForEach-Object Variant | Sort-Object -Unique)
+    Assert-Perf "Matrikkel bare paa oslo ($level)" (($utsnitt -join ',') -eq 'oslo') "kjoerer paa: $($utsnitt -join ', ')"
+}
+
+$oppslagMatrikkel = @($cases | Where-Object CaseKey -eq 'oppslag:matrikkel')
+Assert-Perf 'Oppslag for matrikkel' ($oppslagMatrikkel.Count -eq 1 -and $oppslagMatrikkel[0].LookupPath -like '/api/Lookup/CadastralUnit?id=*') `
+    'mangler eller feil sti'
+
+# Et manglende opptak gir 500 fra stubben og feilede maalinger midt i en lang
+# kjoering. Bedre aa se det her.
+$ider = @($script:PerfCadastralUnits.Values | ForEach-Object { $_.Ids } | Sort-Object -Unique)
+$utenOpptak = @($ider | Where-Object { -not (Test-Path (Get-PerfKartverketFile -Id $_)) })
+Assert-Perf 'Opptak for alle eiendommer' ($utenOpptak.Count -eq 0) "mangler $($utenOpptak -join ', ') - kjoer Record-Kartverket.ps1"
+
+# Stubben selv, paa en egen port. Roerer bare localhost.
+$testPort = 5197
+$hent = {
+    param($id)
+    $url = "http://localhost:$testPort/geokoding?matrikkelnummer=$([uri]::EscapeDataString($id))&omrade=true&utkoordsys=25833"
+    try { $r = Invoke-WebRequest -Uri $url -TimeoutSec 5 -SkipHttpErrorCheck; @{ Status = [int]$r.StatusCode; Body = $r.Content } }
+    catch { @{ Status = -1; Body = $_.Exception.Message } }
+}
+
+$startet = Start-PerfKartverketStub -Port $testPort
+Assert-Perf 'Stubben starter' $startet "port $testPort"
+if ($startet) {
+    $tung = @($script:PerfCadastralUnits.tung.Ids)[0]
+    $svar = & $hent $tung
+    $forventet = Get-Content (Get-PerfKartverketFile -Id $tung) -Raw
+    Assert-Perf 'Svarer med opptaket' ($svar.Status -eq 200 -and $svar.Body -eq $forventet) "status $($svar.Status)"
+
+    $svar = & $hent $script:PerfKartverketSentinel
+    Assert-Perf 'Kjenner kontrollnummeret' ($svar.Status -eq 200 -and $svar.Body -match 'Polygon') "status $($svar.Status)"
+
+    $svar = & $hent '0301-1/1'
+    Assert-Perf 'Uten opptak gir 500' ($svar.Status -eq 500) "status $($svar.Status)"
+
+    Stop-PerfKartverketStub
+    $svar = & $hent $tung
+    Assert-Perf 'Stopper' ($svar.Status -eq -1) "svarte fortsatt med $($svar.Status)"
+}
 
 # ---------------------------------------------------------------------------
 # Oppdagelseshjelperne

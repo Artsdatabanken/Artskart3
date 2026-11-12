@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Validation;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
@@ -29,6 +31,78 @@ public class ObservationEndpointTests : IAsyncLifetime
     {
         _client.Dispose();
         await _factory.DisposeAsync();
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Search/ObservationImages
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetObservationImages_WithoutPagination_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/ObservationImages", new ObservationSearchFilterDto());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetObservationImages_ReturnsViewableImagesOfFilteredObservationsNewestFirst()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var observations = await context.Observations.Where(o => !o.IsDeleted).OrderBy(o => o.Id).Take(3).ToListAsync();
+        var imageType = new MediaFileType { Id = 987660, MediaTypeName = "Image", MimeType = "image/jpeg" };
+        var documentType = new MediaFileType { Id = 987661, MediaTypeName = "Document", MimeType = "application/pdf" };
+        MediaFile Media(Observation observation, MediaFileType type, bool deleted = false) => new()
+        {
+            ObservationId = observation.Id, Origin = $"https://example.org/{observation.Id}.jpg",
+            MediaFileType = type, Downloaded = false, IsDeleted = deleted, RightsHolder = "Photographer",
+        };
+        var viewable = new[] { Media(observations[0], imageType), Media(observations[0], imageType), Media(observations[1], imageType) };
+        var hidden = new[] { Media(observations[1], imageType, deleted: true), Media(observations[1], documentType), Media(observations[2], imageType) };
+        context.MediaFiles.AddRange(viewable.Concat(hidden));
+        var hadMediaFiles = observations.ToDictionary(o => o.Id, o => o.HasMediaFiles);
+        observations.ForEach(o => o.HasMediaFiles = true);
+        await context.SaveChangesAsync();
+        try
+        {
+            var filter = new ObservationSearchFilterDto
+            {
+                ObservationIds = [observations[0].Id, observations[1].Id], PageNumber = 1, ResultsPerPage = 2,
+            };
+            var firstPage = await PostObservationImagesAsync(filter);
+            filter.PageNumber = 2;
+            var secondPage = await PostObservationImagesAsync(filter);
+
+            var expectedOrder = observations.Take(2)
+                .OrderByDescending(o => o.DateTimeCollected).ThenByDescending(o => o.Id)
+                .SelectMany(o => viewable.Where(m => m.ObservationId == o.Id).OrderBy(m => m.Id))
+                .Select(m => m.Id);
+            firstPage.Items!.Concat(secondPage.Items!).Select(i => i.Image.Id).Should().Equal(expectedOrder);
+            firstPage.LookaheadCount.Should().Be(1);
+            firstPage.HasMorePages.Should().BeFalse();
+            firstPage.Items!.Should().OnlyContain(i => i.Image.RightsHolder == "Photographer" && !i.Image.HasStoredImage);
+            var first = observations.Single(o => o.Id == firstPage.Items!.First().ObservationId);
+            firstPage.Items!.First().CoordinatePrecision.Should().Be(first.CoordinatePrecisionInMeters);
+            var point = new ObservationPointDto(first.Latitude, first.Longitude, first.East, first.North);
+            firstPage.Items!.First().Point.Should().Be(ObservationPointValidator.IsUsable(point) ? point : null);
+            var author = await context.Set<Taxon>().Where(t => t.Id == first.TaxonId).Select(t => t.ValidScientificNameAuthorship).SingleAsync();
+            firstPage.Items!.First().Author.Should().Be(author);
+        }
+        finally
+        {
+            context.MediaFiles.RemoveRange(viewable.Concat(hidden));
+            context.Set<MediaFileType>().RemoveRange(imageType, documentType);
+            observations.ForEach(o => o.HasMediaFiles = hadMediaFiles[o.Id]);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private async Task<PagedObservationImageResponseDto> PostObservationImagesAsync(ObservationSearchFilterDto filter)
+    {
+        var response = await _client.PostAsJsonAsync("/api/Search/ObservationImages", filter);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<PagedObservationImageResponseDto>())!;
     }
 
     // -----------------------------------------------------------------------

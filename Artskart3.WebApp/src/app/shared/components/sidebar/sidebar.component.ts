@@ -10,6 +10,7 @@ import { TaxonGroupService } from '../../services/taxon-group/taxon-group.servic
 import {
   BehaviorDto,
   BasisOfRecordDto,
+  CadastralUnitDto,
   CategoryTypeDto,
   InstitutionDto,
   TaxonGroupDto,
@@ -37,6 +38,8 @@ import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
+import { CadastralUnitSearchComponent } from '../cadastral-unit-search/cadastral-unit-search.component';
+import { MapViewService } from '../../services/map-view/map-view.service';
 import { LoggingService } from '../../logging.service';
 
 // adb-radio-group can't select an empty value, so "Alle" (id null) needs a value of its own.
@@ -60,6 +63,7 @@ const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
     AutocompleteComponent,
     AutocompleteOptionDirective,
     HighlightTextComponent,
+    CadastralUnitSearchComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',
@@ -76,6 +80,7 @@ export class SidebarComponent {
   private readonly filterState = inject(FilterStateService);
   private readonly searchFilter = inject(SearchFilterService);
   private readonly savedFilterService = inject(SavedFilterService);
+  private readonly mapView = inject(MapViewService);
   protected readonly authService = inject(AuthService);
   private readonly logger = inject(LoggingService);
 
@@ -91,6 +96,7 @@ export class SidebarComponent {
     value: toRegistrationStatusValue(option.id),
   }));
   readonly registrationStatusValue = computed(() => toRegistrationStatusValue(this.filterState.selectedRegistrationStatusId()));
+  readonly selectedCadastralUnitIds = this.filterState.selectedCadastralUnitIds;
 
   readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -389,6 +395,16 @@ export class SidebarComponent {
   onProjectSelected(organization: OrganizationDto): void {
     if (organization.id == null) return;
     this.filterState.addProject({ id: organization.id, name: organization.name ?? '' });
+  }
+
+  onCadastralUnitSelected(cadastralUnit: CadastralUnitDto): void {
+    if (!cadastralUnit.id) return;
+    this.filterState.addCadastralUnit(cadastralUnit.id);
+
+    const { minX, minY, maxX, maxY } = cadastralUnit.extent ?? {};
+    if (minX == null || minY == null || maxX == null || maxY == null) return;
+    const margin = Math.max(maxX - minX, maxY - minY) * 0.25;
+    this.mapView.requestFit([minX - margin, minY - margin, maxX + margin, maxY + margin]);
   }
 
   onDatasetSelected(organization: OrganizationDto): void {

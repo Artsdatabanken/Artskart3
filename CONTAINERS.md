@@ -166,6 +166,7 @@ tydelig.
 | `<storage>.blob.core.windows.net` | 443 | Innlogging ryker ved hver utrulling |
 | Identitetsleverandøren (`Auth:Authority`) | 443 | Innlogging feiler |
 | `nortaxa.artsdatabanken.no` | 443 | Artssøk feiler |
+| `api.kartverket.no` | 443 | Filter på gårds- og bruksnummer feiler |
 | `wms.geonorge.no` | 443 | Kartbildet på observasjoner blir tomt |
 | `geodata.npolar.no` | 443 | Samme, for Svalbard og oversiktskart |
 | App Insights-ingestion i norwayeast | 443 | Ingen telemetri. Appen virker ellers |
@@ -177,6 +178,7 @@ tydelig.
 | SQL Server-instansen | 1433 | Alt |
 | `<keyvault>.vault.azure.net` | 443 | Starter ikke |
 | `<storage>.blob.core.windows.net` | 443 | Eksport feiler |
+| `api.kartverket.no` | 443 | Eksport med filter på gårds- og bruksnummer feiler |
 | App Insights-ingestion i norwayeast | 443 | Ingen telemetri |
 
 ### web

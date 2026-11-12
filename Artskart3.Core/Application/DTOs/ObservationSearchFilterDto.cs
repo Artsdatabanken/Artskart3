@@ -20,6 +20,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public string[]? OceanAreaIds { get; set; }
 
+    public string[]? CadastralUnitIds { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }
@@ -45,4 +47,14 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public bool? UncertainIdentification { get; set; }
 
     public bool? Introduced { get; set; }
+
+    /// <summary>
+    /// Samme filter, begrenset til funn med mediefiler.
+    /// </summary>
+    public ObservationSearchFilterDto WithMediaFilesOnly()
+    {
+        var copy = (ObservationSearchFilterDto)MemberwiseClone();
+        copy.WithImages = true;
+        return copy;
+    }
 }

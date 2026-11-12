@@ -1,35 +1,32 @@
 import { ApplicationConfig, ErrorHandler, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { HttpBackend, HttpClient, provideHttpClient, withInterceptors, withXhr } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, withXhr } from '@angular/common/http';
 import { TitleStrategy } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { provideTranslateService, TranslateLoader, TranslationObject } from '@ngx-translate/core';
-import { Observable } from 'rxjs';
+import { from, map, Observable, throwError } from 'rxjs';
 import { ApplicationinsightsAngularpluginErrorService } from '@microsoft/applicationinsights-angularplugin-js';
 import { routes } from './app.routes';
 import { languageInterceptor } from './shared/interceptors/language.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { unauthorizedInterceptor } from './shared/interceptors/unauthorized.interceptor';
-import { LanguageService } from './shared/services/languages/language.service';
+import { LanguageService, SupportedLanguage } from './shared/services/languages/language.service';
 import { LoggingService } from './shared/logging.service';
 import { AreasService } from './core/services/areas/areas.service';
 import { TranslatedTitleStrategy } from './shared/router/translated-title.strategy';
 
-class CustomTranslateLoader implements TranslateLoader {
-  private http: HttpClient;
+// Imported rather than fetched so each language becomes its own content-hashed chunk.
+const translationFiles: Record<SupportedLanguage, () => Promise<{ default: TranslationObject }>> = {
+  no: () => import('../assets/languages/no.json'),
+  en: () => import('../assets/languages/en.json')
+};
 
-  constructor(handler: HttpBackend) {
-    // HttpClient created from HttpBackend bypasses all interceptors,
-    // avoiding circular dependency with languageInterceptor
-    this.http = new HttpClient(handler);
-  }
-
+class BundledTranslateLoader implements TranslateLoader {
   getTranslation(lang: string): Observable<TranslationObject> {
-    return this.http.get<TranslationObject>(`/assets/languages/${lang}.json`);
+    if (!Object.hasOwn(translationFiles, lang)) {
+      return throwError(() => new Error(`No translation file for language '${lang}'`));
+    }
+    return from(translationFiles[lang as SupportedLanguage]()).pipe(map((module) => module.default));
   }
-}
-
-export function HttpLoaderFactory(handler: HttpBackend): TranslateLoader {
-  return new CustomTranslateLoader(handler);
 }
 
 export const appConfig: ApplicationConfig = {
@@ -41,8 +38,7 @@ export const appConfig: ApplicationConfig = {
       fallbackLang: 'no',
       loader: {
         provide: TranslateLoader,
-        useFactory: HttpLoaderFactory,
-        deps: [HttpBackend]
+        useClass: BundledTranslateLoader
       }
     }),
     AreasService,

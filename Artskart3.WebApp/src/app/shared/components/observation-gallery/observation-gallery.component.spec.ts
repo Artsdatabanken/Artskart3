@@ -35,7 +35,10 @@ describe('ObservationGallery', () => {
     const element: HTMLElement = fixture.nativeElement;
     const viewer = element.querySelector<HTMLDialogElement>('app-image-viewer dialog')!;
 
-    element.querySelector<HTMLElement>('.photo img')!.click();
+    const photo = element.querySelector<HTMLElement>('.photo img')!;
+    photo.dispatchEvent(new Event('load'));
+    await fixture.whenStable();
+    photo.click();
     await fixture.whenStable();
     expect(viewer.open).toBe(false);
 
@@ -43,6 +46,65 @@ describe('ObservationGallery', () => {
     await fixture.whenStable();
     expect(viewer.open).toBe(true);
     expect(viewer.querySelector('img')?.getAttribute('src')).toBe(image.origin);
+  });
+
+  it('offers to enlarge only a loaded original, never the stored thumbnail', async () => {
+    await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
+    const fixture = TestBed.createComponent(ObservationGalleryComponent);
+    const original = { id: 7, origin: 'https://example.org/photo.jpg', hasStoredImage: true };
+    const thumbnailOnly = { id: 8, origin: 'not a url', hasStoredImage: true };
+    fixture.componentRef.setInput('observationId', 42);
+    fixture.componentRef.setInput('images', [original, thumbnailOnly]);
+    await fixture.whenStable();
+    const element: HTMLElement = fixture.nativeElement;
+    const enlargeButtons = () => element.querySelectorAll('.enlarge').length;
+    expect(enlargeButtons()).toBe(0);
+
+    element.querySelectorAll('.photo img').forEach((img) => img.dispatchEvent(new Event('load')));
+    await fixture.whenStable();
+    expect(enlargeButtons()).toBe(1);
+
+    fixture.componentInstance.fail(original, original.origin);
+    await fixture.whenStable();
+    element.querySelectorAll('.photo img').forEach((img) => img.dispatchEvent(new Event('load')));
+    await fixture.whenStable();
+    expect(enlargeButtons()).toBe(0);
+  });
+
+  it('steps between the observation\'s originals in the viewer', async () => {
+    await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
+    const fixture = TestBed.createComponent(ObservationGalleryComponent);
+    const images = [
+      { id: 7, origin: 'https://example.org/7.jpg' },
+      { id: 8, origin: 'not a url', hasStoredImage: true },
+      { id: 9, origin: 'https://example.org/9.jpg' },
+    ];
+    fixture.componentRef.setInput('observationId', 42);
+    fixture.componentRef.setInput('images', images);
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.selected.set(9);
+
+    component.step(-1);
+
+    expect(component.viewer()?.src).toBe('https://example.org/7.jpg');
+    expect(component.previousImage()).toBeNull();
+    expect(component.nextImage()?.id).toBe(9);
+  });
+
+  it('gives the viewer the observation\'s species names', async () => {
+    await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
+    const fixture = TestBed.createComponent(ObservationGalleryComponent);
+    fixture.componentRef.setInput('observationId', 42);
+    fixture.componentRef.setInput('images', [{ id: 7, origin: 'https://example.org/7.jpg' }]);
+    fixture.componentRef.setInput('names', { popularName: 'brunbjørn', scientificName: 'Ursus arctos', author: 'Linnaeus, 1758' });
+    await fixture.whenStable();
+
+    fixture.componentInstance.selected.set(7);
+
+    expect(fixture.componentInstance.viewer()).toEqual(
+      expect.objectContaining({ popularName: 'brunbjørn', scientificName: 'Ursus arctos', author: 'Linnaeus, 1758' }),
+    );
   });
 
   it('rejects unsafe origins rather than binding them to images', () => {

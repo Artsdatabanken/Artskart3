@@ -69,7 +69,7 @@ public class AreaFilterAnchoringIntegrationTests : IAsyncLifetime
 
     private SearchRepository Repository() =>
         new(_context, NullLogger<SearchRepository>.Instance,
-            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
     // -----------------------------------------------------------------------
 

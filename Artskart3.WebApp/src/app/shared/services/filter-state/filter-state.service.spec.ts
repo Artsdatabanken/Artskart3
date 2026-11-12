@@ -102,6 +102,21 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('addCadastralUnit / removeCadastralUnit', () => {
+    it('should add without duplicates', () => {
+      service.addCadastralUnit('1101-1/2');
+      service.addCadastralUnit('1101-1/2');
+      expect(service.selectedCadastralUnitIds()).toEqual(['1101-1/2']);
+    });
+
+    it('should remove only the specified id', () => {
+      service.addCadastralUnit('1101-1/2');
+      service.addCadastralUnit('0301-207/1');
+      service.removeCadastralUnit('1101-1/2');
+      expect(service.selectedCadastralUnitIds()).toEqual(['0301-207/1']);
+    });
+  });
+
   describe('clearAreas', () => {
     it('should reset both county and municipality selections to empty', () => {
       service.addCounty('03');
@@ -109,6 +124,12 @@ describe('FilterStateService', () => {
       service.clearAreas();
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
+    });
+
+    it('should also clear cadastral units', () => {
+      service.addCadastralUnit('1101-1/2');
+      service.clearAreas();
+      expect(service.selectedCadastralUnitIds()).toEqual([]);
     });
   });
 
