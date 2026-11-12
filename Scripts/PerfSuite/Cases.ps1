@@ -227,6 +227,9 @@ function New-PerfCaseMatrix {
         $reiser = @(
             @{ Navn = 'reise:artsjakt';       Keys = @('takson:art-lett', 'fylke:tung', 'periode:lett') },
             @{ Navn = 'reise:forvaltning';    Keys = @('kategori:tung', 'kommune:tung', 'periode:tung') },
+            # Som forvaltning, men med «Velg alle» på Rødlista og så den tyngste
+            # kategorien fjernet igjen, slik «Velg alle» typisk brukes.
+            @{ Navn = 'reise:roedlista-uten-tyngste'; Keys = @('kategori:alle-roedliste-uten-tyngste', 'kommune:tung', 'periode:tung') },
             @{ Navn = 'reise:institusjon';    Keys = @('institusjon:lett', 'periode:tung', 'bilder:tung') },
             @{ Navn = 'reise:verneomraade';   Keys = @('verneomraade:tung', 'taksongruppe:tung', 'periode:lett') },
             @{ Navn = 'reise:marin';          Keys = @('havomraade:tung', 'taksongruppe:tung', 'funntype:tung') },

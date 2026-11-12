@@ -46,6 +46,28 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('adding several ids at once', () => {
+    it('appends only the ids that are missing', () => {
+      service.addTaxonGroup(2);
+      service.addTaxonGroups([1, 2, 3]);
+      expect(service.selectedTaxonGroupIds()).toEqual([2, 1, 3]);
+    });
+
+    it('keeps the same array when every id is already selected, so no new search starts', () => {
+      service.addCategories([1, 2]);
+      const before = service.selectedCategoryIds();
+      service.addCategories([2, 1]);
+      expect(service.selectedCategoryIds()).toBe(before);
+    });
+
+    it('works for behaviors and basis of records', () => {
+      service.addBehaviors([4, 5]);
+      service.addBasisOfRecords([6, 7]);
+      expect(service.selectedBehaviorIds()).toEqual([4, 5]);
+      expect(service.selectedBasisOfRecordIds()).toEqual([6, 7]);
+    });
+  });
+
   describe('clearCategories', () => {
     it('should reset selection to empty', () => {
       service.toggleCategory(1);

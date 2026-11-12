@@ -130,6 +130,10 @@ export class FilterStateService {
     this.selectedCategoryIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
 
+  addCategories(ids: readonly number[]): void {
+    this.selectedCategoryIds.update((current) => withIds(current, ids));
+  }
+
   removeCategory(id: number): void {
     this.selectedCategoryIds.update((ids) => {
       if (!ids.includes(id)) return ids;
@@ -202,6 +206,10 @@ export class FilterStateService {
     this.selectedBehaviorIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
 
+  addBehaviors(ids: readonly number[]): void {
+    this.selectedBehaviorIds.update((current) => withIds(current, ids));
+  }
+
   removeBehavior(id: number): void {
     this.selectedBehaviorIds.update((ids) => {
       if (!ids.includes(id)) return ids;
@@ -219,6 +227,10 @@ export class FilterStateService {
 
   addBasisOfRecord(id: number): void {
     this.selectedBasisOfRecordIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  addBasisOfRecords(ids: readonly number[]): void {
+    this.selectedBasisOfRecordIds.update((current) => withIds(current, ids));
   }
 
   removeBasisOfRecord(id: number): void {
@@ -246,6 +258,10 @@ export class FilterStateService {
 
   addTaxonGroup(id: number): void {
     this.selectedTaxonGroupIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  addTaxonGroups(ids: readonly number[]): void {
+    this.selectedTaxonGroupIds.update((current) => withIds(current, ids));
   }
 
   removeTaxonGroup(id: number): void {
@@ -429,6 +445,12 @@ function idsOf(items: NamedId[]): number[] {
 
 export function sameIds(a: number[], b: number[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+// Returns the same array when nothing is missing, so the signal doesn't fire a new search.
+function withIds(current: number[], ids: readonly number[]): number[] {
+  const missing = ids.filter((id) => !current.includes(id));
+  return missing.length === 0 ? current : [...current, ...missing];
 }
 
 function addNamed(items: NamedId[], item: NamedId): NamedId[] {
