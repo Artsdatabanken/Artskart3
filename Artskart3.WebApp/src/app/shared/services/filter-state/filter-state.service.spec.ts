@@ -139,6 +139,16 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('addRestrictedArea / removeRestrictedArea', () => {
+    it('should add without duplicates and remove only the specified fid', () => {
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.addRestrictedArea('Naturbase VV00005678');
+      service.removeRestrictedArea('Naturbase VV00001234');
+      expect(service.selectedRestrictedAreaIds()).toEqual(['Naturbase VV00005678']);
+    });
+  });
+
   describe('clearAreas', () => {
     it('should reset both county and municipality selections to empty', () => {
       service.addCounty('03');
@@ -146,6 +156,12 @@ describe('FilterStateService', () => {
       service.clearAreas();
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
+    });
+
+    it('should also clear protected areas', () => {
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.clearAreas();
+      expect(service.selectedRestrictedAreaIds()).toEqual([]);
     });
 
     it('should also clear cadastral units', () => {

@@ -1,11 +1,10 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, effect, untracked } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, linkedSignal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
-import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
 import { CategoryDto, CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
@@ -26,7 +25,6 @@ export class ListViewComponent {
   private readonly areaService = inject(AreaService);
   private readonly categoryService = inject(CategoryService);
   private readonly taxonGroupService = inject(TaxonGroupService);
-  private readonly filterState = inject(FilterStateService);
   private readonly searchFilter = inject(SearchFilterService);
 
   private readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
@@ -70,35 +68,10 @@ export class ListViewComponent {
     return map;
   });
 
-  readonly pageNumber = signal(1);
-
-  private readonly _resetPageOnFilterChange = effect(() => {
-    this.filterState.selectedCategoryIds();
-    this.filterState.selectedMunicipalityIds();
-    this.filterState.selectedCountyIds();
-    this.filterState.selectedOceanAreaIds();
-    this.filterState.selectedCadastralUnitIds();
-    this.filterState.selectedInstitutionIds();
-    this.filterState.selectedBehaviorIds();
-    this.filterState.selectedBasisOfRecordIds();
-    this.filterState.selectedRegistrationStatusId();
-    this.filterState.selectedTaxonGroupIds();
-    this.filterState.coordinatePrecisionFrom();
-    this.filterState.coordinatePrecisionTo();
-    this.filterState.periodFrom();
-    this.filterState.periodTo();
-    this.filterState.selectedDatasetIds();
-    this.filterState.selectedProjectIds();
-    this.filterState.catalogObservationIds();
-    this.filterState.imageFilter();
-    this.filterState.annotationFilter();
-    this.filterState.sensitiveFilter();
-    this.filterState.selectedMonths();
-    untracked(() => {
-      if (this.pageNumber() !== 1) {
-        this.pageNumber.set(1);
-      }
-    });
+  // Back to page 1 whenever the filter changes.
+  readonly pageNumber = linkedSignal(() => {
+    this.searchFilter.observationFilter();
+    return 1;
   });
   readonly pageSizeOptions = [10, 25, 50];
   readonly resultsPerPage = signal(this.pageSizeOptions[0]);

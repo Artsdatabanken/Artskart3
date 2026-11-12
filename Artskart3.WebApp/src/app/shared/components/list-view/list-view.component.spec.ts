@@ -108,6 +108,45 @@ describe('ListViewComponent', () => {
       expect(component.pageNumber()).toBe(1);
     });
 
+    it.each([
+      ['a species', (state: FilterStateService) => state.addTaxon(42)],
+      ['the identification filter', (state: FilterStateService) => state.setIdentificationFilter('uncertain')],
+      ['the origin filter', (state: FilterStateService) => state.setOriginFilter('introduced')],
+      ['a protected area', (state: FilterStateService) => state.addRestrictedArea('Naturbase VV00001234')],
+    ])('should reset pageNumber to 1 when %s is picked', (_, change) => {
+      const filterState = TestBed.inject(FilterStateService);
+      component.onPageChange(4);
+
+      change(filterState);
+      fixture.detectChanges();
+
+      expect(component.pageNumber()).toBe(1);
+    });
+
+    it('should reset pageNumber to 1 when descendant taxa are left out of a species filter', () => {
+      const filterState = TestBed.inject(FilterStateService);
+      filterState.addTaxon(42);
+      fixture.detectChanges();
+      component.onPageChange(4);
+
+      filterState.setIncludeDescendantTaxa(false);
+      fixture.detectChanges();
+
+      expect(component.pageNumber()).toBe(1);
+    });
+
+    it('should stay on the page when only a display name arrives', () => {
+      const filterState = TestBed.inject(FilterStateService);
+      filterState.addProject({ id: 9, name: '' });
+      fixture.detectChanges();
+      component.onPageChange(4);
+
+      filterState.setProjectName(9, 'Prosjekt 9');
+      fixture.detectChanges();
+
+      expect(component.pageNumber()).toBe(4);
+    });
+
     it('should stay on page 1 if already on page 1 when filter changes', () => {
       const filterState = TestBed.inject(FilterStateService);
 

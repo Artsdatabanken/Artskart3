@@ -186,6 +186,20 @@ describe('SidebarComponent', () => {
       expect(component.isMunicipalitySelected('0301')).toBe(true);
       expect(component.isMunicipalitySelected('0602')).toBe(false);
     });
+
+    it('puts the protected area search first in the area section, above the cadastral field', async () => {
+      await flushAll();
+      const headings = Array.from(fixture.nativeElement.querySelectorAll('h6.area-section-heading') as NodeListOf<Element>, (h) =>
+        h.textContent?.trim(),
+      );
+      expect(headings.slice(0, 2)).toEqual(['sidebar.restrictedArea', 'sidebar.cadastralUnit']);
+    });
+
+    it('adds a picked protected area to the filter by its fid', () => {
+      component.onRestrictedAreaSelected({ id: 400, fid: 'Naturbase VV00001234', name: 'Ytre Hvaler nasjonalpark', isCurrent: true });
+
+      expect(filterState.selectedRestrictedAreaIds()).toEqual(['Naturbase VV00001234']);
+    });
   });
 
   describe('institution filtering', () => {

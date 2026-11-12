@@ -97,6 +97,8 @@ export class FilterStateService {
   readonly selectedRegistrationStatusId = signal<number | null>(null);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
+  // Protected areas by fid, like "Naturbase VV00001234". AreaService has the names.
+  readonly selectedRestrictedAreaIds = signal<string[]>([]);
   // Matrikkelnummer like 1101-1/2. The id doubles as the label.
   readonly selectedCadastralUnitIds = signal<string[]>([]);
   readonly selectedTaxonIds = signal<number[]>([]);
@@ -283,6 +285,14 @@ export class FilterStateService {
     this.selectedOceanAreaIds.set([]);
   }
 
+  addRestrictedArea(fid: string): void {
+    this.selectedRestrictedAreaIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  }
+
+  removeRestrictedArea(fid: string): void {
+    this.selectedRestrictedAreaIds.update((ids) => ids.filter((i) => i !== fid));
+  }
+
   addCadastralUnit(id: string): void {
     this.selectedCadastralUnitIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
@@ -315,6 +325,7 @@ export class FilterStateService {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
     this.selectedOceanAreaIds.set([]);
+    this.selectedRestrictedAreaIds.set([]);
     this.selectedCadastralUnitIds.set([]);
   }
 

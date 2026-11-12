@@ -2,7 +2,7 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, computed, linkedSign
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
-import { AreaService, CountyGroup } from '../../services/area/area.service';
+import { AreaService, CountyGroup, RestrictedArea } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
@@ -440,6 +440,13 @@ export class SidebarComponent {
   readonly catalogNumberMinLength = 2;
   readonly trackByOrganizationId = (organization: OrganizationDto) => organization.id;
   readonly trackByCatalogNumber = (match: CatalogNumberMatchDto) => match.catalogNumber;
+
+  readonly searchRestrictedAreas: AutocompleteSearch<RestrictedArea> = (term) => this.areaService.searchRestrictedAreas(term);
+  readonly trackByFid = (area: RestrictedArea) => area.fid;
+
+  onRestrictedAreaSelected(area: RestrictedArea): void {
+    this.filterState.addRestrictedArea(area.fid);
+  }
 
   onProjectSelected(organization: OrganizationDto): void {
     if (organization.id == null) return;
