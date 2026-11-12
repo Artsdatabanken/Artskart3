@@ -213,7 +213,7 @@ describe('MapComponent', () => {
     expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe('boundary,parcel_id');
   });
 
-  it('backs off WMS image retries using the configured delay', () => {
+  it('does not retry a WMS image layer unless loading fails', () => {
     vi.useFakeTimers();
     try {
       component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
@@ -226,17 +226,80 @@ describe('MapComponent', () => {
       expect(overlay).toBeInstanceOf(ImageLayer);
 
       const source = overlay?.getSource() as ImageWMS;
-      // imageLoadFunction should not be set; OpenLayers uses default behavior
       expect(source.getImageLoadFunction()).toBeDefined();
-
-      // Refresh timer should be scheduled for the configured delay
-      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
       const refreshSpy = vi.spyOn(source, 'refresh');
 
       vi.advanceTimersByTime(30_000);
-      // After cooldown expires, refresh should be called
-      expect(refreshSpy).toHaveBeenCalled();
+      expect(refreshSpy).not.toHaveBeenCalled();
       expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries failed WMS images after the configured delay and clears the failure after success', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: {
+          id: 5,
+          name: 'Unavailable WMS',
+          type: 'WMS',
+          url: 'https://example.test/wms',
+          useSingleImage: true,
+          retryAfterSeconds: 30,
+          opacity: 1,
+        },
+        visible: true,
+      });
+
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).not.toHaveBeenCalled();
+
+      source.dispatchEvent('imageloaderror');
+      expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(true);
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+
+      source.dispatchEvent('imageloadend');
+      expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not schedule another retry when a WMS layer is re-enabled', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      const layer = {
+        id: 5,
+        name: 'Unavailable WMS',
+        type: 'WMS',
+        url: 'https://example.test/wms',
+        useSingleImage: true,
+        retryAfterSeconds: 30,
+        opacity: 1,
+      };
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      component.onMapToolbarMenuItemChange({ layer, visible: false });
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+      expect(refreshSpy).toHaveBeenCalledOnce();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
     } finally {
       vi.useRealTimers();
     }

@@ -1787,16 +1787,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       existing.setVisible(visible);
       if (visible) {
         existing.getSource()?.refresh();
-        // Restart cooldown timer if layer is re-enabled during backoff
-        this.scheduleRefreshAfterCooldown(layer);
       } else {
         // Clear failure flag and cancel pending refresh when hiding
         this.mapLayerService.setLayerFailed(layer.id, false);
-        const timer = this.mapOverlayRefreshTimers.get(layer.id);
-        if (timer) {
-          clearTimeout(timer);
-          this.mapOverlayRefreshTimers.delete(layer.id);
-        }
+        this.cancelRefreshAfterCooldown(layer.id);
       }
       return;
     }
@@ -1809,7 +1803,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       VERSION: layer.version ?? '1.3.0',
     };
     const useSingleImage = layer.useSingleImage;
-    const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
 
     const commonOptions = {
       opacity: Math.max(0, Math.min(1, layer.opacity)),
@@ -1838,28 +1831,41 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       });
 
     const markFailedIfVisible = () => {
-      if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
+      if (overlay.getVisible()) {
+        this.mapLayerService.setLayerFailed(layer.id, true);
+        this.scheduleRefreshAfterCooldown(layer);
+      }
     };
 
+    const markLoadedIfVisible = () => {
+      if (!overlay.getVisible()) return;
+      this.mapLayerService.setLayerFailed(layer.id, false);
+      this.cancelRefreshAfterCooldown(layer.id);
+    };
+
+    const source = overlay.getSource();
     this.mapOverlayLoadKeys.push(
       useSingleImage
-      ? (overlay.getSource() as ImageWMS).on('imageloaderror', markFailedIfVisible)
-      : (overlay.getSource() as TileWMS).on('tileloaderror', markFailedIfVisible),
+        ? (source as ImageWMS).on('imageloaderror', markFailedIfVisible)
+        : (source as TileWMS).on('tileloaderror', markFailedIfVisible),
     );
+    if (useSingleImage) {
+      this.mapOverlayLoadKeys.push((source as ImageWMS).on('imageloadend', markLoadedIfVisible));
+    }
+
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+  }
 
-    if (retryDelayMs > 0) {
-      this.scheduleRefreshAfterCooldown(layer);
-    }
+  private cancelRefreshAfterCooldown(layerId: number): void {
+    const timer = this.mapOverlayRefreshTimers.get(layerId);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    this.mapOverlayRefreshTimers.delete(layerId);
   }
 
   private scheduleRefreshAfterCooldown(layer: MapLayerDto): void {
-    // Cancel any pending refresh timer for this layer
-    const existingTimer = this.mapOverlayRefreshTimers.get(layer.id);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
+    this.cancelRefreshAfterCooldown(layer.id);
 
     const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
     if (retryDelayMs === 0) return;
