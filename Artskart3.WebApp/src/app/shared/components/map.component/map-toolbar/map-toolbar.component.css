@@ -31,6 +31,6 @@
 
 @media (max-width: 768px) {
   .map-toolbar-bottom {
-    inset-block-end: calc(var(--home-handle-height, 56px) + 16px);
+    inset-block-end: calc(var(--home-handle-height, 56px) + 64px);
   }
 }
