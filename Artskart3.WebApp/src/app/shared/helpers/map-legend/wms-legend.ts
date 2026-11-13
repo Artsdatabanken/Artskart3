@@ -1,4 +1,5 @@
 import type { MapLayerDto } from '@shared/types/map-layer.types';
+import { MAP_LAYER_LEGEND_LAYERS } from '@shared/config/map/map-layer-legend.config';
 
 export interface WmsLegendImage {
   layerName: string;
@@ -9,8 +10,7 @@ export interface WmsLegendImage {
 export function wmsLegendImages(layer: MapLayerDto): WmsLegendImage[] {
   if (layer.type.toLowerCase() !== 'wms' || !layer.url) return [];
 
-  const layerNames = (layer.layers ?? '')
-    .split(',')
+  const layerNames = (MAP_LAYER_LEGEND_LAYERS[layer.name] ?? (layer.layers ?? '').split(','))
     .map((name) => name.trim())
     .filter(Boolean);
 

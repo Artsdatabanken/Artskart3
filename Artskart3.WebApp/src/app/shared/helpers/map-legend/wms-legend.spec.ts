@@ -25,6 +25,12 @@ describe('wmsLegendImages', () => {
     expect(new URL(image.url).searchParams.get('map')).toBe('vern');
   });
 
+  it('henter forklaringen for administrative grenser fra ett målestokknivå', () => {
+    const images = wmsLegendImages({ ...wms, name: 'admGrenser', layers: 'kd_administrative_grenser,adm_grenser' });
+
+    expect(images.map((image) => image.layerName)).toEqual(['N5000AdministrativeGrenser']);
+  });
+
   it('gir ingen bilder for andre korttyper, manglende lagnavn eller ugyldig adresse', () => {
     expect(wmsLegendImages({ ...wms, type: 'WMTS' })).toEqual([]);
     expect(wmsLegendImages({ ...wms, layers: null })).toEqual([]);
