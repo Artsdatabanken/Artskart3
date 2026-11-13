@@ -2,7 +2,7 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, computed, linkedSign
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CategoryService } from '../../services/category/category.service';
-import { AreaService, CountyGroup } from '../../services/area/area.service';
+import { AreaService, CountyGroup, RestrictedArea } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
 import { BehaviorService } from '../../services/behavior/behavior.service';
 import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
@@ -50,6 +50,19 @@ function toRegistrationStatusValue(id: number | null): string {
 }
 
 const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
+
+type SelectAllState = 'none' | 'some' | 'all';
+
+function listIds(items: readonly { id?: number }[] | null | undefined): number[] {
+  return (items ?? []).flatMap((item) => (item.id == null ? [] : [item.id]));
+}
+
+function selectAllState(ids: readonly number[], selectedIds: readonly number[]): SelectAllState {
+  const selected = new Set(selectedIds);
+  const selectedCount = ids.filter((id) => selected.has(id)).length;
+  if (selectedCount === 0) return 'none';
+  return selectedCount === ids.length ? 'all' : 'some';
+}
 
 @Component({
   selector: 'app-sidebar',
@@ -133,6 +146,42 @@ export class SidebarComponent {
   readonly countyGroups = this.areaService.countyGroups;
   readonly svalbardBjornoyaAndJanMayenAreas = this.areaService.svalbardBjornoyaAndJanMayenAreas;
   readonly oceanAreaGroup = this.areaService.oceanAreaGroup;
+
+  private readonly taxonGroupIds = computed(() => listIds(this.taxonGroups()));
+  private readonly behaviorIds = computed(() => listIds(this.behaviors()));
+  private readonly basisOfRecordIds = computed(() => listIds(this.basisOfRecords()));
+
+  readonly taxonGroupsSelectAll = computed(() => selectAllState(this.taxonGroupIds(), this.filterState.selectedTaxonGroupIds()));
+  readonly behaviorsSelectAll = computed(() => selectAllState(this.behaviorIds(), this.filterState.selectedBehaviorIds()));
+  readonly basisOfRecordsSelectAll = computed(() =>
+    selectAllState(this.basisOfRecordIds(), this.filterState.selectedBasisOfRecordIds()),
+  );
+  // Keyed by the type objects the template iterates over; each category type has its own "select all".
+  readonly categoryTypesSelectAll = computed(() => {
+    const selected = this.filterState.selectedCategoryIds();
+    return new Map((this.categoryTypes() ?? []).map((type) => [type, selectAllState(listIds(type.categories), selected)]));
+  });
+
+  onSelectAllTaxonGroups(): void {
+    if (this.taxonGroupsSelectAll() === 'all') this.filterState.clearTaxonGroups();
+    else this.filterState.addTaxonGroups(this.taxonGroupIds());
+  }
+
+  onSelectAllBehaviors(): void {
+    if (this.behaviorsSelectAll() === 'all') this.filterState.clearBehaviors();
+    else this.filterState.addBehaviors(this.behaviorIds());
+  }
+
+  onSelectAllBasisOfRecords(): void {
+    if (this.basisOfRecordsSelectAll() === 'all') this.filterState.clearBasisOfRecords();
+    else this.filterState.addBasisOfRecords(this.basisOfRecordIds());
+  }
+
+  onSelectAllCategories(type: CategoryTypeDto): void {
+    const ids = listIds(type.categories);
+    if (this.categoryTypesSelectAll().get(type) === 'all') this.filterState.removeCategories(new Set(ids));
+    else this.filterState.addCategories(ids);
+  }
 
   isCategorySelected(id: number): boolean {
     return this.filterState.selectedCategoryIds().includes(id);
@@ -391,6 +440,13 @@ export class SidebarComponent {
   readonly catalogNumberMinLength = 2;
   readonly trackByOrganizationId = (organization: OrganizationDto) => organization.id;
   readonly trackByCatalogNumber = (match: CatalogNumberMatchDto) => match.catalogNumber;
+
+  readonly searchRestrictedAreas: AutocompleteSearch<RestrictedArea> = (term) => this.areaService.searchRestrictedAreas(term);
+  readonly trackByFid = (area: RestrictedArea) => area.fid;
+
+  onRestrictedAreaSelected(area: RestrictedArea): void {
+    this.filterState.addRestrictedArea(area.fid);
+  }
 
   onProjectSelected(organization: OrganizationDto): void {
     if (organization.id == null) return;

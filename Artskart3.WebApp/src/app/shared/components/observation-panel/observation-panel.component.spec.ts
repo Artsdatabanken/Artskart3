@@ -4,7 +4,7 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { TranslateModule } from '@ngx-translate/core';
-import { of, Subject, throwError } from 'rxjs';
+import { Observable, of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ObservationDetailDto } from '@shared/types/api.types';
@@ -14,9 +14,11 @@ describe('ObservationPanel', () => {
   let harness: RouterTestingHarness;
   let panel: ObservationPanelComponent;
   const getDetail = vi.fn((id: number) => of<ObservationDetailDto>({ id, scientificName: `Species ${id}` }));
+  const findIdByOccurrenceId = vi.fn<(occurrenceId: string) => Observable<number>>();
 
   beforeEach(async () => {
     getDetail.mockReset().mockImplementation((id: number) => of({ id, scientificName: `Species ${id}` }));
+    findIdByOccurrenceId.mockReset().mockReturnValue(of(42));
     await TestBed.configureTestingModule({
       imports: [TranslateModule.forRoot()],
       providers: [
@@ -38,7 +40,7 @@ describe('ObservationPanel', () => {
           withComponentInputBinding(),
         ),
         provideLocationMocks(),
-        { provide: ObservationService, useValue: { getDetail } },
+        { provide: ObservationService, useValue: { getDetail, findIdByOccurrenceId } },
       ],
     }).compileComponents();
     harness = await RouterTestingHarness.create();
@@ -58,6 +60,66 @@ describe('ObservationPanel', () => {
     await harness.navigateByUrl('/?observationId=invalid', ObservationPanelComponent);
     expect(panel.state()).toBe('notFound');
     expect(getDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves an external occurrenceId link and replaces it with the observation ID', async () => {
+    await harness.navigateByUrl(
+      '/?occurrenceId=nina%2Fskandobs%2F0008ef28-6c98-4791-b3f6-914b3908e4a3&other=kept',
+      ObservationPanelComponent,
+    );
+    await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
+    expect(findIdByOccurrenceId).toHaveBeenCalledExactlyOnceWith('nina/skandobs/0008ef28-6c98-4791-b3f6-914b3908e4a3');
+    expect(getDetail).toHaveBeenCalledExactlyOnceWith(42);
+    const router = TestBed.inject(Router);
+    expect(router.parseUrl(router.url).queryParams).toEqual({ other: 'kept', observationId: '42' });
+  });
+
+  it('does not treat a numeric occurrenceId as an observation ID while resolving it', async () => {
+    findIdByOccurrenceId.mockReturnValueOnce(new Subject<number>());
+    await harness.navigateByUrl('/?occurrenceId=7', ObservationPanelComponent);
+    expect(panel.state()).toBe('loading');
+    expect(panel.selectedId()).toBeNull();
+    expect(getDetail).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an unknown occurrenceId and removes it when dismissed', async () => {
+    findIdByOccurrenceId.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 404 })));
+    await harness.navigateByUrl('/?occurrenceId=unknown', ObservationPanelComponent);
+    expect(panel.state()).toBe('notFound');
+    expect(getDetail).not.toHaveBeenCalled();
+    panel.dismiss();
+    await harness.fixture.whenStable();
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(findIdByOccurrenceId).toHaveBeenCalledOnce();
+  });
+
+  it('lets observationId win over occurrenceId and treats an empty observationId as absent', async () => {
+    await harness.navigateByUrl('/?observationId=43&occurrenceId=other', ObservationPanelComponent);
+    expect(panel.detail()?.id).toBe(43);
+    expect(findIdByOccurrenceId).not.toHaveBeenCalled();
+    await harness.navigateByUrl('/?observationId=&occurrenceId=other', ObservationPanelComponent);
+    await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
+    expect(findIdByOccurrenceId).toHaveBeenCalledExactlyOnceWith('other');
+  });
+
+  it('cancels a pending occurrenceId lookup when dismissed', async () => {
+    const pending = new Subject<number>();
+    findIdByOccurrenceId.mockReturnValueOnce(pending);
+    await harness.navigateByUrl('/?occurrenceId=slow', ObservationPanelComponent);
+    panel.dismiss();
+    await harness.fixture.whenStable();
+    expect(pending.observed).toBe(false);
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(panel.rawId()).toBeNull();
+  });
+
+  it('retries a failed occurrenceId lookup', async () => {
+    findIdByOccurrenceId.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 500 })));
+    await harness.navigateByUrl('/?occurrenceId=flaky', ObservationPanelComponent);
+    expect(panel.state()).toBe('error');
+    panel.retryDetails();
+    await vi.waitFor(() => expect(panel.detail()?.id).toBe(42));
+    expect(findIdByOccurrenceId).toHaveBeenCalledTimes(2);
   });
 
   it('retains its component across URL changes and surfaces missing records', async () => {

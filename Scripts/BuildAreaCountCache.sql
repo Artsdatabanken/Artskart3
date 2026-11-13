@@ -391,9 +391,16 @@ END
 -- ---------------------------------------------------------------------------
 -- Ferdig
 -- ---------------------------------------------------------------------------
-UPDATE STATISTICS dbo.AreaCountCacheLevel1;
-UPDATE STATISTICS dbo.AreaCountCacheLevel2;
-UPDATE STATISTICS dbo.AreaCountCacheBucketMember;
+-- FULLSCAN, ikke standard utvalg. Tabellene er nettopp TRUNCATE-t og fylt, saa
+-- statistikken bygges fra bunnen uansett -- forskjellen er bare om den bygges av
+-- hele tabellen eller en liten proeve. Maalt 12.11.2026 ga standard utvalg
+-- AreaCountCacheLevel2 1,2 % og LocationCountCacheLevel1 0,7 %. Utvalgsstatistikk
+-- paa en tabell i denne stoerrelsesordenen har foer gjort LocationCount sju ganger
+-- tregere, og en tellebuffer som er treg aa lese, er hele poenget borte. Full
+-- skanning koster minutter mot de ~26 minuttene byggingen alt tar.
+UPDATE STATISTICS dbo.AreaCountCacheLevel1 WITH FULLSCAN;
+UPDATE STATISTICS dbo.AreaCountCacheLevel2 WITH FULLSCAN;
+UPDATE STATISTICS dbo.AreaCountCacheBucketMember WITH FULLSCAN;
 
 -- «Ready» BARE naar BEGGE nivaaene er bygget i denne kjoeringen.
 --

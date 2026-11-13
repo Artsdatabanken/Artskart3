@@ -146,6 +146,11 @@ adb-checkbox::part(control) {
   align-self: center;
 }
 
+adb-checkbox.select-all {
+  padding-bottom: var(--adb-spacing-2xsm);
+  border-bottom: 1px solid var(--adb-border-base-subtle);
+}
+
 .area-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-4);
@@ -159,6 +164,22 @@ adb-checkbox::part(control) {
 
 .cadastral-unit-search {
   padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
+}
+
+.area-search-heading {
+  margin-bottom: var(--adb-spacing-2xsm);
+}
+
+/* Lined up with the cadastral field: adb-search pads its field by 4px inside its
+   shadow DOM, which the cadastral field offsets the same way. */
+.area-search {
+  margin-inline-start: -4px;
+  padding-inline: var(--adb-spacing-3xsm);
+  --adb-search-width: 100%;
+}
+
+.restricted-area-search {
+  padding-bottom: var(--adb-spacing-2xsm);
 }
 
 .category-section-heading {

@@ -31,6 +31,13 @@ describe('ImageInfoComponent', () => {
     expect(text('.taxon')).toBe('observationDetails.speciesName: Ursus arctos');
   });
 
+  it('labels the description', async () => {
+    fixture.componentRef.setInput('media', { description: 'Hann ved reiret' });
+    await fixture.whenStable();
+
+    expect(text('.description')).toBe('observationDetails.description: Hann ved reiret');
+  });
+
   it('shows the photographer and links the license', async () => {
     fixture.componentRef.setInput('media', { rightsHolder: 'Fotograf', license: 'https://creativecommons.org/licenses/by/4.0/' });
     await fixture.whenStable();

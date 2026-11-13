@@ -2,11 +2,12 @@ import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, inject, input, linkedSigna
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationMediaDto } from '@shared/types/api.types';
 import { LoggingService } from '@shared/logging.service';
+import { ImageInfoComponent } from '../image-info/image-info.component';
 import { ImageViewerComponent } from '../image-viewer/image-viewer.component';
 import { imageSource, neighbour, SpeciesNames, ViewerImage, webUrl } from '../image-viewer/image-source';
 
 @Component({
-  imports: [TranslateModule, ImageViewerComponent],
+  imports: [TranslateModule, ImageViewerComponent, ImageInfoComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-gallery',
   styleUrl: './observation-gallery.component.css',
@@ -42,7 +43,6 @@ export class ObservationGalleryComponent {
   readonly previousImage = computed(() => this.neighbourOf(this.selectedImage(), -1));
   readonly nextImage = computed(() => this.neighbourOf(this.selectedImage(), 1));
   private lastStep: 1 | -1 = 1;
-  readonly webUrl = webUrl;
 
   source(image: ObservationMediaDto): string | null {
     return imageSource(this.observationId(), image, this.failedSources().get(image.id ?? -1));

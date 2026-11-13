@@ -165,6 +165,14 @@ det er mye å aggregere. Listevisningen er tregest for **lette**, fordi `TOP` m�
 lese langt ned i klyngeindeksen før den er fylt. Måler man bare det ene nivået,
 ser man bare halvparten av problemene.
 
+Listene med «Velg alle» i sidebaren — taksongruppe, funntype, atferd og kategori
+per kategoritype — har to `annen`-nivåer i tillegg: `<dimensjon>:alle` med hele
+lista, og `<dimensjon>:alle-uten-tyngste` med alt unntatt det tyngste elementet.
+Kategori får ett par per type, for eksempel `kategori:alle-roedliste`, og
+`reise:roedlista-uten-tyngste` kombinerer det vanligste valget — alle, så én
+fjernet — med kommune og periode. Nivåene oppdages fra
+Lookup som de andre, så de finnes først etter `-RefreshFixtures`.
+
 Casene genereres i lag som kjøres i rekkefølge, slik at en avbrutt kjøring
 fortsatt er brukbar:
 

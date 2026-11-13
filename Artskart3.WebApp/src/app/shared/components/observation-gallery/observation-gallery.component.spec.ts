@@ -25,6 +25,18 @@ describe('ObservationGallery', () => {
     expect(component.source(image)).toBe(image.origin);
   });
 
+  it('shows the image info under each image', async () => {
+    await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
+    const fixture = TestBed.createComponent(ObservationGalleryComponent);
+    fixture.componentRef.setInput('observationId', 42);
+    fixture.componentRef.setInput('images', [{ id: 7, rightsHolder: 'Fotograf', license: 'CC BY 4.0' }]);
+    await fixture.whenStable();
+
+    const text = fixture.nativeElement.querySelector('article app-image-info').textContent.replace(/\s+/g, ' ');
+    expect(text).toContain('common.by: Fotograf');
+    expect(text).toContain('observationDetails.license: CC BY 4.0');
+  });
+
   it('opens the viewer from the enlarge button only, not from the image', async () => {
     await TestBed.configureTestingModule({ imports: [ObservationGalleryComponent, TranslateModule.forRoot()] }).compileComponents();
     const fixture = TestBed.createComponent(ObservationGalleryComponent);

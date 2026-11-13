@@ -58,6 +58,7 @@ export class SearchFilterService {
       const hasPeriod = periodFrom != null || periodTo != null || periodMonths.length > 0;
       const datasetOrgIds = this.filterState.selectedDatasetIds();
       const projectOrgIds = this.filterState.selectedProjectIds();
+      const restrictedAreaIds = this.filterState.selectedRestrictedAreaIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
@@ -77,6 +78,7 @@ export class SearchFilterService {
         countyIds: countyIds.length ? countyIds : undefined,
         municipalityIds: municipalityIds.length ? municipalityIds : undefined,
         oceanAreaIds: this.filterState.selectedOceanAreaIds().length ? this.filterState.selectedOceanAreaIds() : undefined,
+        restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
         cadastralUnitIds: this.filterState.selectedCadastralUnitIds().length ? this.filterState.selectedCadastralUnitIds() : undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
         datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
@@ -114,6 +116,7 @@ export class SearchFilterService {
     state.selectedCountyIds.set(areas.countyIds);
     state.selectedMunicipalityIds.set(areas.municipalityIds);
     state.selectedOceanAreaIds.set(filter.oceanAreaIds ?? []);
+    state.selectedRestrictedAreaIds.set(filter.restrictedAreaIds ?? []);
     state.selectedCadastralUnitIds.set(filter.cadastralUnitIds ?? []);
     state.selectedCategoryIds.set(filter.categoryIds ?? []);
     state.selectedInstitutionIds.set(filter.organizationIds ?? []);

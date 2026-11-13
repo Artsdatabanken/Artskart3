@@ -27,6 +27,18 @@ public sealed class ObservationsController(
         return detail is null ? NotFound(new { error = "Observation not found." }) : Ok(detail);
     }
 
+    [HttpGet("by-occurrence-id")]
+    [ProducesResponseType<int>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<int>> FindByOccurrenceId([FromQuery] string? occurrenceId, CancellationToken cancellationToken)
+    {
+        var value = occurrenceId?.Trim();
+        if (string.IsNullOrEmpty(value)) return BadRequest(new { error = "Occurrence ID is required." });
+        var id = await detailsService.FindIdByOccurrenceIdAsync(value, cancellationToken);
+        return id is null ? NotFound(new { error = "Observation not found." }) : Ok(id.Value);
+    }
+
     [HttpGet("{id:int}/media/{mediaId:int}/image")]
     [BffApiSkipAntiforgery] // Public, read-only images must work in an img element without custom headers.
     [ProducesResponseType(StatusCodes.Status200OK)]

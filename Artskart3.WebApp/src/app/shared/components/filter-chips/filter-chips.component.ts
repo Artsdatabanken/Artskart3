@@ -111,6 +111,11 @@ export class FilterChipsComponent {
     if (oceanAreas.length > 0) {
       chips.push(countChip('areas:ocean', 'sidebar.areaSection.oceanAreas', oceanAreas.length, () => this.filterState.clearOceanAreas()));
     }
+    // Until the area list has loaded, the chip shows the fid.
+    for (const fid of this.filterState.selectedRestrictedAreaIds()) {
+      const name = this.areaService.restrictedAreaName(fid) ?? fid;
+      chips.push(namedChip(`restrictedArea:${fid}`, 'sidebar.restrictedArea', name, () => this.filterState.removeRestrictedArea(fid)));
+    }
     for (const id of this.filterState.selectedCadastralUnitIds()) {
       chips.push(namedChip(`cadastralUnit:${id}`, 'sidebar.cadastralUnit', id, () => this.filterState.removeCadastralUnit(id)));
     }

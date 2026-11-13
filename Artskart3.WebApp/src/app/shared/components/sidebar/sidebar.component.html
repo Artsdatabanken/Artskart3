@@ -20,6 +20,15 @@
       @if (taxonGroups(); as taxonGroupList) {
         @if (taxonGroupList.length > 0) {
           <div class="checkbox-accordion-children">
+            <adb-checkbox
+              class="select-all"
+              [attr.checked]="taxonGroupsSelectAll() === 'all' ? '' : null"
+              [attr.indeterminate]="taxonGroupsSelectAll() === 'some' ? '' : null"
+              [attr.aria-label]="'sidebar.selectAllIn' | translate: { list: 'sidebar.taxonGroups' | translate }"
+              (change)="onSelectAllTaxonGroups()"
+            >
+              {{ 'sidebar.selectAll' | translate }}
+            </adb-checkbox>
             @for (taxonGroup of taxonGroupList; track taxonGroup.id ?? $index) {
               @if (taxonGroup.id !== undefined && taxonGroup.id !== null) {
                 <adb-checkbox [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null" (change)="onTaxonGroupToggle(taxonGroup.id)">
@@ -62,6 +71,17 @@
         @for (type of types; track type.id ?? $index) {
           <h6 class="category-section-heading">{{ 'sidebar.categoryType.' + type.name | translate }}</h6>
           <div class="category-flat">
+            @if (type.categories?.length) {
+              <adb-checkbox
+                class="select-all"
+                [attr.checked]="categoryTypesSelectAll().get(type) === 'all' ? '' : null"
+                [attr.indeterminate]="categoryTypesSelectAll().get(type) === 'some' ? '' : null"
+                [attr.aria-label]="'sidebar.selectAllIn' | translate: { list: 'sidebar.categoryType.' + type.name | translate }"
+                (change)="onSelectAllCategories(type)"
+              >
+                {{ 'sidebar.selectAll' | translate }}
+              </adb-checkbox>
+            }
             @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
               @if (category.id !== undefined) {
                 <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
@@ -83,6 +103,26 @@
 
   <adb-accordion>
     <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+      <h6 class="area-section-heading area-search-heading">{{ 'sidebar.restrictedArea' | translate }}</h6>
+      <app-autocomplete
+        class="area-search restricted-area-search"
+        [search]="searchRestrictedAreas"
+        [fitContent]="true"
+        [label]="'sidebar.restrictedArea' | translate"
+        placeholder=""
+        noResultsKey="sidebar.noSearchResultsRestrictedArea"
+        [trackBy]="trackByFid"
+        (selected)="onRestrictedAreaSelected($event)"
+      >
+        <ng-template [appAutocompleteOption]="searchRestrictedAreas" let-area let-term="term">
+          <span>
+            <app-highlight-text [text]="area.name" [term]="term" />
+            @if (area.observationCount !== null && area.observationCount !== undefined) {
+              <span class="suggestion-count"> ({{ area.observationCount | formatNumber: translate.currentLang }})</span>
+            }
+          </span>
+        </ng-template>
+      </app-autocomplete>
       <h6 class="area-section-heading cadastral-unit-heading">{{ 'sidebar.cadastralUnit' | translate }}</h6>
       <app-cadastral-unit-search
         class="cadastral-unit-search"
@@ -245,6 +285,15 @@
       @if (behaviors(); as behaviorList) {
         @if (behaviorList.length > 0) {
           <div class="checkbox-accordion-children">
+            <adb-checkbox
+              class="select-all"
+              [attr.checked]="behaviorsSelectAll() === 'all' ? '' : null"
+              [attr.indeterminate]="behaviorsSelectAll() === 'some' ? '' : null"
+              [attr.aria-label]="'sidebar.selectAllIn' | translate: { list: 'sidebar.behaviors' | translate }"
+              (change)="onSelectAllBehaviors()"
+            >
+              {{ 'sidebar.selectAll' | translate }}
+            </adb-checkbox>
             @for (behavior of behaviorList; track behavior.id ?? $index) {
               @if (behavior.id !== undefined && behavior.id !== null) {
                 <adb-checkbox [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null" (change)="onBehaviorToggle(behavior.id)">
@@ -266,6 +315,15 @@
       @if (basisOfRecords(); as basisOfRecordList) {
         @if (basisOfRecordList.length > 0) {
           <div class="checkbox-accordion-children">
+            <adb-checkbox
+              class="select-all"
+              [attr.checked]="basisOfRecordsSelectAll() === 'all' ? '' : null"
+              [attr.indeterminate]="basisOfRecordsSelectAll() === 'some' ? '' : null"
+              [attr.aria-label]="'sidebar.selectAllIn' | translate: { list: 'sidebar.basisOfRecords' | translate }"
+              (change)="onSelectAllBasisOfRecords()"
+            >
+              {{ 'sidebar.selectAll' | translate }}
+            </adb-checkbox>
             @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
               @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
                 <adb-checkbox
