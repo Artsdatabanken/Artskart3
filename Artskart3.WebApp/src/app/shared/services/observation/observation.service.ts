@@ -20,6 +20,10 @@ export class ObservationService {
     return this.http.get<ObservationDetailDto>(`/api/observations/${id}`);
   }
 
+  findIdByOccurrenceId(occurrenceId: string): Observable<number> {
+    return this.http.get<number>('/api/observations/by-occurrence-id', { params: { occurrenceId } });
+  }
+
   searchObservations(filter: ObservationSearchFilter): Observable<PagedObservationResponse> {
     return this.http.post<PagedObservationResponse>(`${this.SearchObservationEndpoint}Observation`, filter);
   }

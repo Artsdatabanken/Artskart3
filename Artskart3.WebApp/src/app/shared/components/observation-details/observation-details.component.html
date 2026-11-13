@@ -162,6 +162,16 @@
               </adb-accordion>
             </div>
             <div class="visuals">
+              @if (detail.images?.length && observationId(); as id) {
+                <h3>{{ 'observationDetails.images' | translate }}</h3>
+                <app-observation-gallery
+                  class="gallery"
+                  [observationId]="id"
+                  [images]="detail.images"
+                  [species]="title()"
+                  [names]="detail"
+                />
+              }
               <h3>{{ 'observationDetails.location' | translate }}</h3>
               @if (detail.point) {
                 <div class="maps">
@@ -191,10 +201,6 @@
                 </div>
               } @else {
                 <p>{{ 'observationDetails.noCoordinates' | translate }}</p>
-              }
-              @if (detail.images?.length && observationId(); as id) {
-                <h3>{{ 'observationDetails.images' | translate }}</h3>
-                <app-observation-gallery [observationId]="id" [images]="detail.images" [species]="title()" [names]="detail" />
               }
             </div>
           </div>

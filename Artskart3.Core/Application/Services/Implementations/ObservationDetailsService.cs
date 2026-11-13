@@ -37,6 +37,9 @@ public sealed class ObservationDetailsService(
         return detail;
     }
 
+    public Task<int?> FindIdByOccurrenceIdAsync(string occurrenceId, CancellationToken cancellationToken) =>
+        repository.FindIdByOccurrenceIdAsync(occurrenceId, cancellationToken);
+
     public Task<ObservationImageFile?> GetImageAsync(int observationId, int mediaId, CancellationToken cancellationToken) =>
         repository.GetImageAsync(observationId, mediaId, cancellationToken);
 }

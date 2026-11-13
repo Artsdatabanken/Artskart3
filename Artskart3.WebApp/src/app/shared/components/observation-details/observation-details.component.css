@@ -170,6 +170,9 @@ dd .note {
   grid-template-columns: 1fr 1fr;
   align-items: start;
   gap: 0.5rem;
+}
+.gallery {
+  display: block;
   margin-bottom: 1rem;
 }
 .map-image {

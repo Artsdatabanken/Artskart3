@@ -46,6 +46,28 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('adding several ids at once', () => {
+    it('appends only the ids that are missing', () => {
+      service.addTaxonGroup(2);
+      service.addTaxonGroups([1, 2, 3]);
+      expect(service.selectedTaxonGroupIds()).toEqual([2, 1, 3]);
+    });
+
+    it('keeps the same array when every id is already selected, so no new search starts', () => {
+      service.addCategories([1, 2]);
+      const before = service.selectedCategoryIds();
+      service.addCategories([2, 1]);
+      expect(service.selectedCategoryIds()).toBe(before);
+    });
+
+    it('works for behaviors and basis of records', () => {
+      service.addBehaviors([4, 5]);
+      service.addBasisOfRecords([6, 7]);
+      expect(service.selectedBehaviorIds()).toEqual([4, 5]);
+      expect(service.selectedBasisOfRecordIds()).toEqual([6, 7]);
+    });
+  });
+
   describe('clearCategories', () => {
     it('should reset selection to empty', () => {
       service.toggleCategory(1);
@@ -117,6 +139,16 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('addRestrictedArea / removeRestrictedArea', () => {
+    it('should add without duplicates and remove only the specified fid', () => {
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.addRestrictedArea('Naturbase VV00005678');
+      service.removeRestrictedArea('Naturbase VV00001234');
+      expect(service.selectedRestrictedAreaIds()).toEqual(['Naturbase VV00005678']);
+    });
+  });
+
   describe('clearAreas', () => {
     it('should reset both county and municipality selections to empty', () => {
       service.addCounty('03');
@@ -124,6 +156,12 @@ describe('FilterStateService', () => {
       service.clearAreas();
       expect(service.selectedCountyIds()).toEqual([]);
       expect(service.selectedMunicipalityIds()).toEqual([]);
+    });
+
+    it('should also clear protected areas', () => {
+      service.addRestrictedArea('Naturbase VV00001234');
+      service.clearAreas();
+      expect(service.selectedRestrictedAreaIds()).toEqual([]);
     });
 
     it('should also clear cadastral units', () => {

@@ -224,6 +224,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const projectOrgIds = this.filterState.selectedProjectIds();
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const cadastralUnitIds = this.filterState.selectedCadastralUnitIds();
+      const restrictedAreaIds = this.filterState.selectedRestrictedAreaIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
@@ -247,6 +248,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         // Ikke et attributt, men matrikkelenheter er ikke forhåndstalt, så antallene må hentes fra API-et.
         cadastralUnitIds: cadastralUnitIds.length ? cadastralUnitIds : undefined,
+        // Not pre-counted per county or municipality either.
+        restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
         withImages,
         changedByAnnotation,
         sensitive,
@@ -1674,7 +1677,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const oceanAreaFids = new Set(filter.oceanAreaIds ?? []);
 
     // Matrikkelenheter OR-es med områdene, så treff kan ligge utenfor de valgte områdene.
-    if (filter.cadastralUnitIds?.length) return areas;
+    // The same goes for protected areas.
+    if (filter.cadastralUnitIds?.length || filter.restrictedAreaIds?.length) return areas;
 
     if (countyFids.size === 0 && municipalityFids.size === 0 && oceanAreaFids.size === 0) {
       return areas;

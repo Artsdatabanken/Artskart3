@@ -93,23 +93,26 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--adb-text-accent-primary);
+  color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
 
-  adb-icon {
+  adb-icon,
+  .image-icon {
     flex-shrink: 0;
+    color: var(--adb-text-accent-primary);
+  }
+
+  .image-icon {
+    width: 1rem;
+    height: 1rem;
   }
 
   &:focus-visible {
     outline: 3px solid var(--adb-text-accent-primary);
     outline-offset: 2px;
   }
-}
-
-.species {
-  border-bottom: 2px solid currentColor;
 }
 
 .popular-name,

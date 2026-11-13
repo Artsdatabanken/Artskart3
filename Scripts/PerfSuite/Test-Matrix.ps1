@@ -76,7 +76,13 @@ $dims = @(
         New-PerfTier -Key 'takson:art-lett' -Role 'lett'  -Label 'Sjelden art'   -Filter @{ taxonIds = @(99) }
     )),
     (New-FakeDimension 'taksongruppe' 'taxonGroupIds'),
-    (New-FakeDimension 'kategori'     'categoryIds'),
+    # Med et «Velg alle»-nivaa, fordi reise:roedlista-uten-tyngste bruker det.
+    (New-PerfDimension -Name 'kategori' -Tiers @(
+        New-PerfTier -Key 'kategori:tung'           -Role 'tung'  -Label 'kategori tung'  -Filter @{ categoryIds = @(1) }
+        New-PerfTier -Key 'kategori:lett'           -Role 'lett'  -Label 'kategori lett'  -Filter @{ categoryIds = @(2) }
+        New-PerfTier -Key 'kategori:annen'          -Role 'annen' -Label 'kategori annen' -Filter @{ categoryIds = @(3) }
+        New-PerfTier -Key 'kategori:alle-roedliste-uten-tyngste' -Role 'annen' -Label 'Rødliste: alle unntatt tung' -Filter @{ categoryIds = @(2, 3) }
+    )),
     # Med ett flerverdi-nivaa, fordi matrikkel-laget bruker det.
     (New-PerfDimension -Name 'institusjon' -Tiers @(
         New-PerfTier -Key 'institusjon:tung'         -Role 'tung'  -Label 'institusjon tung'  -Filter @{ organizationIds = @(1) }
@@ -205,7 +211,7 @@ Assert-Perf 'Alle dimensjoner dekket' ($dekket.Count -eq $fixtures.dimensions.Co
     "$($dekket.Count) av $($fixtures.dimensions.Count)"
 
 $reiser = @($cases | Where-Object Layer -eq 'reise')
-Assert-Perf 'Brukerreiser bygget' ($reiser.Count -eq 8) "$($reiser.Count) av 8"
+Assert-Perf 'Brukerreiser bygget' ($reiser.Count -eq 9) "$($reiser.Count) av 9"
 
 # ---------------------------------------------------------------------------
 # Filterkropper
@@ -526,6 +532,56 @@ $verne = @(
 $v1 = Get-PerfSelectivitySpread -Items $verne -IdProperty 'fid' -Label 'verneomraade' 3>$null
 $v2 = Get-PerfSelectivitySpread -Items ($verne | Sort-Object name -Descending) -IdProperty 'fid' -Label 'verneomraade' 3>$null
 Assert-Perf 'Stabilt uten telling' ($v1.Heaviest.Id -eq $v2.Heaviest.Id) 'rekkefoelgen varierer'
+
+# --- «Velg alle» -------------------------------------------------------------
+$grupper = @(
+    [PSCustomObject]@{ id = 7; name = 'Fugler';     observationCount = 9000000 }
+    [PSCustomObject]@{ id = 3; name = 'Karplanter'; observationCount = 500000  }
+    [PSCustomObject]@{ id = 5; name = 'Sopper';     observationCount = 12      }
+    [PSCustomObject]@{ id = 9; name = 'Tom';        observationCount = 0       }
+)
+$field = 'taxonGroupIds'
+$alleFilter = { param($ider) @{ $field = @($ider | ForEach-Object { [int]$_ }) } }.GetNewClosure()
+$va = @(Get-PerfSelectAllTiers -Key 'taksongruppe:alle' -Items $grupper -MultiFilterFactory $alleFilter)
+$vaIder = { param($key) @(@((ConvertTo-PerfHashtable (@($va | Where-Object key -eq $key)[0]).filter).$field) | Sort-Object) -join ',' }
+
+Assert-Perf 'Velg alle gir to nivaaer' (($va.key -join ',') -eq 'taksongruppe:alle,taksongruppe:alle-uten-tyngste') ($va.key -join ',')
+# Sidebaren velger ogsaa elementer uten observasjoner, saa de skal vaere med.
+Assert-Perf 'Alle tar med tomme' ((& $vaIder 'taksongruppe:alle') -eq '3,5,7,9') (& $vaIder 'taksongruppe:alle')
+Assert-Perf 'Uten tyngste fjerner Fugler' ((& $vaIder 'taksongruppe:alle-uten-tyngste') -eq '3,5,9') (& $vaIder 'taksongruppe:alle-uten-tyngste')
+Assert-Perf 'Velg alle har rollen annen' (@($va | Where-Object role -ne 'annen').Count -eq 0) ($va.role -join ',')
+
+$feil = 0
+foreach ($t in $va) {
+    $json = @{ $field = (ConvertTo-PerfHashtable $t.filter).$field } | ConvertTo-Json -Depth 6 -Compress
+    if ($json -notmatch "`"$field`":\[") { $feil++ }
+}
+Assert-Perf 'Velg alle er arrayer' ($feil -eq 0) "$feil nivaaer"
+
+# Ett element gir bare «alle»: «uten tyngste» ville vaert tomt.
+$en = @(Get-PerfSelectAllTiers -Key 'atferd:alle' -Items @($grupper[0]) -MultiFilterFactory $alleFilter)
+Assert-Perf 'Velg alle med ett element' (($en.key -join ',') -eq 'atferd:alle') ($en.key -join ',')
+
+# Et nivaa med samme id-er som et eksisterende hoppes over, og bare det.
+$kjent = @(Get-PerfSelectAllTiers -Key 'atferd:alle' -Items @($grupper[0], $grupper[1]) `
+    -ExistingIdSets @((ConvertTo-PerfIdSetKey @(3))) -MultiFilterFactory $alleFilter 6>$null)
+Assert-Perf 'Hopper over kjent filter' (($kjent.key -join ',') -eq 'atferd:alle') ($kjent.key -join ',')
+
+# Per kategoritype plukkes tung og lett paa tvers av typene, saa to kategorier i
+# én type gir likevel to nivaaer. Uten dette ble alle-roedliste-uten-tyngste = [CR]
+# aldri maalt.
+$roedliste = @(
+    [PSCustomObject]@{ id = 10; name = 'CR'; observationCount = 100  }
+    [PSCustomObject]@{ id = 11; name = 'LC'; observationCount = 9000 })
+$per = @(Get-PerfSelectAllTiers -Key 'kategori:alle-roedliste' -Items $roedliste -MultiFilterFactory $alleFilter)
+$perUten = @($per | Where-Object key -eq 'kategori:alle-roedliste-uten-tyngste')
+Assert-Perf 'To i én type gir to nivaaer' ($per.Count -eq 2) ($per.key -join ',')
+Assert-Perf 'Uten tyngste per type er CR' ($perUten.Count -eq 1 -and (@((ConvertTo-PerfHashtable $perUten[0].filter).$field) -join ',') -eq '10') `
+    $(if ($perUten.Count) { (ConvertTo-PerfHashtable $perUten[0].filter).$field -join ',' } else { 'mangler' })
+Assert-Perf 'Id-sett uavhengig av rekkefoelge' ((ConvertTo-PerfIdSetKey @(3, 1, 2)) -eq (ConvertTo-PerfIdSetKey @(2, 3, 1))) 'ulik noekkel'
+
+Assert-Perf 'Noekkel uten aeoeaa' ((ConvertTo-PerfKeySlug 'Rødliste') -eq 'roedliste') (ConvertTo-PerfKeySlug 'Rødliste')
+Assert-Perf 'Noekkel uten mellomrom' ((ConvertTo-PerfKeySlug 'Fremmed art (2023)') -eq 'fremmed-art-2023') (ConvertTo-PerfKeySlug 'Fremmed art (2023)')
 
 # ---------------------------------------------------------------------------
 # Sammenligning

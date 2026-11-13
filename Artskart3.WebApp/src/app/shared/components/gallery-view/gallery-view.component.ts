@@ -170,7 +170,7 @@ export class GalleryViewComponent {
     if (item.observationId == null) return;
     const { east, north } = item.point ?? {};
     if (east != null && north != null) this.mapView.requestFitPoint(east, north, item.coordinatePrecision);
-    void this.router.navigate([], { queryParams: { observationId: item.observationId }, queryParamsHandling: 'merge' });
+    void this.router.navigate([], { queryParams: { observationId: item.observationId, occurrenceId: null }, queryParamsHandling: 'merge' });
     this.observationShown.emit();
   }
 

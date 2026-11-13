@@ -12,7 +12,10 @@
 }
 @if (media(); as media) {
   @if (media.description) {
-    <p>{{ media.description }}</p>
+    <p class="description">
+      <span class="label">{{ 'observationDetails.description' | translate }}:</span>
+      {{ media.description }}
+    </p>
   }
   @if (withRightsHolder() && media.rightsHolder) {
     <p class="rights-holder">
