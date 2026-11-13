@@ -117,6 +117,10 @@ $dims = @(
         New-PerfTier -Key 'annotering:lett' -Role 'lett' -Label 'endret av annotering'      -Filter @{ changedByAnnotation = $true }
         New-PerfTier -Key 'annotering:tung' -Role 'tung' -Label 'ikke endret av annotering' -Filter @{ changedByAnnotation = $false }
     )),
+    (New-PerfDimension -Name 'skjulte' -Tiers @(
+        New-PerfTier -Key 'skjulte:lett' -Role 'lett' -Label 'kun skjulte funn'         -Filter @{ hiddenObservations = 'Only' }
+        New-PerfTier -Key 'skjulte:tung' -Role 'tung' -Label 'alle funn, ogsaa skjulte' -Filter @{ hiddenObservations = 'Include' }
+    )),
     (New-PerfDimension -Name 'sensitivitet' -Tiers @(
         New-PerfTier -Key 'sensitivitet:lett' -Role 'lett' -Label 'sensitive funn'      -Filter @{ sensitive = $true }
         New-PerfTier -Key 'sensitivitet:tung' -Role 'tung' -Label 'ikke sensitive funn' -Filter @{ sensitive = $false }

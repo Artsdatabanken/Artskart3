@@ -156,6 +156,13 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
             TaxonGroupIds = [TaksongruppeA, TaksongruppeB],
         });
 
+        // --- Skjulte funn: maskebiten skriptene regner ut selv -------------------
+        (await _context.Set<AreaCountCacheLevel1>().AnyAsync(r => r.Mask >= FilterMask.HiddenByAnnotation))
+            .Should().BeTrue("uten biten i dataene ville disse sammenligningene ikke bevist noe");
+
+        await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = HiddenObservationFilter.Only });
+        await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = HiddenObservationFilter.Include });
+
         // --- Periode: den ene Range-dimensjonen --------------------------------
         //
         // Den er den eneste som bøttes på et UTREGNET uttrykk (år * 100 + måned) i
@@ -458,7 +465,7 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
         {
             // Første observasjon får to områderader — kommune OG fylke — slik at en
             // buffer som teller rader i stedet for observasjoner ville tatt feil.
-            Rad(obs[i], Kommune, i < 3 ? KommuneA : KommuneB, rader[i].Dato, rader[i].Taksongruppe, rader[i].Presisjon);
+            Rad(obs[i], Kommune, i < 3 ? KommuneA : KommuneB, rader[i].Dato, rader[i].Taksongruppe, rader[i].Presisjon, skjult: i == 1);
 
             if (i == 0)
             {
@@ -535,7 +542,7 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
 
     private void Rad(
         Observation obs, int entityTypeId, int entityId,
-        DateTime? dato, int taksongruppeId, int? presisjon) =>
+        DateTime? dato, int taksongruppeId, int? presisjon, bool skjult = false) =>
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
             ObservationId = obs.Id,
@@ -552,6 +559,7 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
             MonthCollected = (byte?)dato?.Month,
 
             CoordinatePrecisionInMeters = presisjon,
+            HiddenByAnnotation = skjult,
         });
 
     private static Observation NewObservation(

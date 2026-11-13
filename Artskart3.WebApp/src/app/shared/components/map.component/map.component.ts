@@ -52,6 +52,7 @@ import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import {
   annotationFilterToChangedByAnnotation,
+  annotationFilterToHiddenObservations,
   FilterStateService,
   imageFilterToWithImages,
   sensitiveFilterToSensitive,
@@ -226,6 +227,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const restrictedAreaIds = this.filterState.selectedRestrictedAreaIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const hiddenObservations = annotationFilterToHiddenObservations(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
@@ -251,6 +253,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
         withImages,
         changedByAnnotation,
+        hiddenObservations,
         sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };

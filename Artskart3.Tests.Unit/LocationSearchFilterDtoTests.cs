@@ -1,4 +1,5 @@
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 
 namespace Artskart3.Tests.Unit;
@@ -27,6 +28,28 @@ public class LocationSearchFilterDtoTests
         var sut = new LocationSearchFilterDto();
 
         sut.Epsg.Should().BeNull();
+    }
+
+    // Standardutvalget må holde det ufiltrerte kallet på de ferdige svarene.
+    [Fact]
+    public void UtelatteSkjulteFunn_ErIkkeEtAktivtFilter()
+    {
+        var sut = new LocationSearchFilterDto();
+
+        sut.HiddenObservations.Should().Be(HiddenObservationFilter.Exclude);
+        sut.HasActiveFilters.Should().BeFalse();
+        sut.HasObservationAttributeFilters.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(HiddenObservationFilter.Include)]
+    [InlineData(HiddenObservationFilter.Only)]
+    public void AndreValgForSkjulteFunn_KreverDynamiskTelling(HiddenObservationFilter value)
+    {
+        var sut = new LocationSearchFilterDto { HiddenObservations = value };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
     }
 
     [Fact]

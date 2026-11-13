@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using Location = Artskart3.Core.Domain.Entities.Location;
@@ -193,6 +194,18 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// LookupId, og regelen finnes i to utgaver, er dette den ene testen som
     /// holder dem sammen.
     /// </summary>
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude)]
+    [InlineData(HiddenObservationFilter.Only)]
+    [InlineData(HiddenObservationFilter.Include)]
+    public async Task Skjulte_funn_gir_begge_stier_samme_polygoner(HiddenObservationFilter skjulte)
+    {
+        var lokasjoner = await AssertSammeSomDatabasenAsync(new LocationSearchFilterDto { HiddenObservations = skjulte });
+
+        if (skjulte == HiddenObservationFilter.Only)
+            lokasjoner.Should().Equal(_sensitivRute.Id);
+    }
+
     [Fact]
     public async Task Sensitiv_maskeringsrute_vises_og_vanlig_rute_skjules_i_begge_stier()
     {
@@ -407,6 +420,8 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var paaMyraA = NyObservasjon(_myr, TaksonA, taxon, taxonName);
         var paaMyraB = NyObservasjon(_myr, TaksonB, taxon, taxonName);
         var utenHierarki = NyObservasjon(_myr, TaksonUtenHierarki, taxon, taxonName);
+        var skjult = NyObservasjon(_sensitivRute, TaksonB, taxon, taxonName);
+        skjult.HiddenByAnnotation = true;
 
         // DELT TAKSON, BARE ÉN AV DEM MED HIERARKIRAD
         //
@@ -417,7 +432,7 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var deltUtenRad = NyObservasjon(_sensitivRute, TaksonDelt, taxon, taxonName);
 
         _context.Set<Observation>().AddRange(
-            paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki, deltMedRad, deltUtenRad);
+            paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki, skjult, deltMedRad, deltUtenRad);
         await _context.SaveChangesAsync();
 
         // Hierarkiraden er observasjonens egen takson som forfader av seg selv —

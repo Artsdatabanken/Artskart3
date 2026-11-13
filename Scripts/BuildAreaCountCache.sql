@@ -48,7 +48,7 @@ DECLARE @BuildLevel2 BIT = 1;
 
 -- Hentet fra AreaCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 723897205;
+DECLARE @SchemaVersion INT = 945914384;
 
 DECLARE @NullBucket INT = -2147483648;   -- int.MinValue
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
@@ -328,10 +328,10 @@ BEGIN
 
         SET @Sql = N'
 INSERT dbo.AreaCountCacheLevel1 (DimensionId, BucketId, EntityTypeId, EntityId, Mask, ObservationCount)
-SELECT ' + CAST(@Id AS VARCHAR(3)) + N', ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16, COUNT_BIG(*)
+SELECT ' + CAST(@Id AS VARCHAR(3)) + N', ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32, COUNT_BIG(*)
 FROM dbo.ObservationEntityIndex i' + @Join + N'
 WHERE ' + @Uttrykk + N' <> -2147483648
-GROUP BY ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16
+GROUP BY ' + @Uttrykk + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32
 OPTION (RECOMPILE);';
         EXEC sp_executesql @Sql;
         SET @Rows = @@ROWCOUNT;
@@ -371,10 +371,10 @@ BEGIN
 
         SET @Sql = N'
 INSERT dbo.AreaCountCacheLevel2 (DimensionPairId, BucketA, BucketB, EntityTypeId, EntityId, Mask, ObservationCount)
-SELECT ' + CAST(@PairId AS VARCHAR(3)) + N', ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16, COUNT_BIG(*)
+SELECT ' + CAST(@PairId AS VARCHAR(3)) + N', ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32, COUNT_BIG(*)
 FROM dbo.ObservationEntityIndex i' + @Join + N'
 WHERE ' + @UttA + N' <> -2147483648 AND ' + @UttB + N' <> -2147483648
-GROUP BY ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16
+GROUP BY ' + @UttA + N', ' + @UttB + N', i.EntityTypeId, i.EntityId, CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32
 OPTION (RECOMPILE);';
         EXEC sp_executesql @Sql;
         SET @Rows = @@ROWCOUNT;

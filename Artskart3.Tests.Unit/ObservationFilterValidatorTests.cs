@@ -1,12 +1,21 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Constants;
+using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 
 namespace Artskart3.Tests.Unit;
 
 public class ObservationFilterValidatorTests
 {
+    [Fact]
+    public void GetError_WithUndefinedHiddenObservations_ReturnsError()
+    {
+        var filter = new LocationSearchFilterDto { HiddenObservations = (HiddenObservationFilter)99 };
+
+        ObservationFilterValidator.GetError(filter).Should().Contain(nameof(filter.HiddenObservations));
+    }
+
     [Fact]
     public void GetError_WithValidCadastralUnitIds_ReturnsNull()
     {

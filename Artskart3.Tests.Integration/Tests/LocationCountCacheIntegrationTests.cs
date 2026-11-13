@@ -109,6 +109,83 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         await AssertSameAsCountingAsync(new LocationSearchFilterDto());
     }
 
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude)]
+    [InlineData(HiddenObservationFilter.Only)]
+    [InlineData(HiddenObservationFilter.Include)]
+    public async Task Skjulte_funn_gir_samme_lokasjoner_som_telling(HiddenObservationFilter skjulte)
+    {
+        await SettSkjultAsync(true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = skjulte });
+        }
+        finally
+        {
+            await SettSkjultAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// Skjulte funn er et intervall i oppslaget, de andre bool-filtrene en bitoperasjon.
+    /// Her må begge deler virke sammen, i begge retninger.
+    /// </summary>
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, true)]
+    [InlineData(HiddenObservationFilter.Exclude, false)]
+    [InlineData(HiddenObservationFilter.Only, true)]
+    [InlineData(HiddenObservationFilter.Only, false)]
+    public async Task Skjulte_funn_sammen_med_bool_filter_gir_samme_som_telling(HiddenObservationFilter skjulte, bool bilder)
+    {
+        await SettSkjultAsync(true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = skjulte, WithImages = bilder });
+        }
+        finally
+        {
+            await SettSkjultAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// Standardutvalget trekker skjulte funn fra i summen i stedet for å filtrere dem
+    /// bort. En lokasjon med bare skjulte funn må da forsvinne, ikke stå igjen med 0.
+    /// </summary>
+    [Fact]
+    public async Task Lokasjon_med_bare_skjulte_funn_er_ikke_med_i_standardutvalget()
+    {
+        await SettLokasjonSkjultAsync(_l3, true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            var fraBuffer = await CreateCacheService().TryGetTopLocationsAsync(new LocationSearchFilterDto(), 100_000);
+
+            fraBuffer.Should().NotBeNull("ellers sammenligner testen tellingen med seg selv");
+            fraBuffer!.Should().NotContain(x => x.Id == _l3.Id);
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto());
+        }
+        finally
+        {
+            await SettLokasjonSkjultAsync(_l3, false);
+        }
+    }
+
+    private Task SettLokasjonSkjultAsync(Location lokasjon, bool skjult) =>
+        _context.Set<ObservationEntityIndex>()
+            .Where(r => r.LocationId == lokasjon.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenByAnnotation, skjult));
+
+    private Task SettSkjultAsync(bool skjult) =>
+        _context.Set<ObservationEntityIndex>()
+            .Where(r => r.TaxonGroupId == TaksongruppeB)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenByAnnotation, skjult));
+
     /// <summary>
     /// FLERE MASKEVERDIER PÅ SAMME LOKASJON
     ///
@@ -800,7 +877,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         + (r.Sensitive ? FilterMask.Sensitive : 0)
         + (r.UncertainIdentification ? FilterMask.UncertainIdentification : 0)
         + (r.Introduced ? FilterMask.Introduced : 0)
-        + (r.HasMediaFiles ? FilterMask.HasMediaFiles : 0));
+        + (r.HasMediaFiles ? FilterMask.HasMediaFiles : 0)
+        + (r.HiddenByAnnotation ? FilterMask.HiddenByAnnotation : 0));
 
     private async Task<Location> EnsureLocationAsync(string lookupId, int east, int north)
     {

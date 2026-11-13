@@ -23,7 +23,7 @@ namespace Artskart3.Workers.Import;
 ///
 /// DE DENORMALISERTE KOLONNENE MÅ OGSÅ TØMMES, IKKE BARE FYLLES
 /// ObservationEntityIndex bærer kopier av verdier fra Observation — LocationId,
-/// MonthCollected, RegistrationStatusId, HasMediaFiles, de fire bool-flaggene,
+/// MonthCollected, RegistrationStatusId, HasMediaFiles, de fem bool-flaggene,
 /// rangnivå-kolonnene. Importen eier å holde dem i takt, og den retningen som er
 /// lett å glemme er den fra en verdi til NULL.
 ///

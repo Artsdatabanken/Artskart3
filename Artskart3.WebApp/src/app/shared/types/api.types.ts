@@ -25,6 +25,7 @@ export type CsvExportJobDto = components['schemas']['CsvExportJobDto'];
 export type StartExportRequestDto = components['schemas']['StartExportRequestDto'];
 export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
+export type HiddenObservationFilter = components['schemas']['HiddenObservationFilter'];
 export type NotificationModel = components['schemas']['NotificationDto'];
 export type ObservationListInfoDto = components['schemas']['ObservationListInfoDto'];
 export type LocationCountResult = components['schemas']['LocationCountDto'];

@@ -104,6 +104,13 @@ public partial class Observation : BaseEntity
     /// </summary>
     public bool ChangedByAnnotation { get; set; }
 
+    /// <summary>
+    /// Denormalisert fra taggen Blocked. true = skjult av annotering. Taggen er kilden,
+    /// ikke ObservationQualityTypeId = 3: en eldre Flag-annotering kan overskrive den
+    /// verdien mens taggen står.
+    /// </summary>
+    public bool HiddenByAnnotation { get; set; }
+
     /// <summary>Denormalisert fra taggen Sensitive.</summary>
     public bool Sensitive { get; set; }
 
