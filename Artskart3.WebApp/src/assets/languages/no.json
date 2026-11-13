@@ -348,6 +348,15 @@
     "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
     "loadingObservationsLabel": "Henter registreringer...",
+    "legendHeading": "Tegnforklaring",
+    "legend": {
+      "found": "Funn",
+      "absent": "Ikke funn",
+      "notRecovered": "Ikke gjenfunnet",
+      "position": "Din posisjon",
+      "cluster": "Lokalitet med flere funn",
+      "polygonCluster": "Flate med flere funn"
+    },
     "mapTypes": {
       "topografisk": "Landkart (standard)",
       "topo4graatone": "Gråtonekart",

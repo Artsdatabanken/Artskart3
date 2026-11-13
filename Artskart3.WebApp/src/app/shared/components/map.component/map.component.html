@@ -2,6 +2,7 @@
   <app-map-toolbar
     [(clusteringEnabled)]="clusteringEnabled"
     [clusteringLock]="clusteringLock()"
+    [geolocationActive]="geolocationActive()"
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>

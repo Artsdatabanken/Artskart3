@@ -163,6 +163,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private initializationTimer?: ReturnType<typeof setTimeout>;
 
   private readonly pendingAreaDataRequests = signal(0);
+  protected readonly geolocationActive = signal(false);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
   private fetchGeneration = 0;
@@ -564,7 +565,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
       },
       {
-        onClick: () => this.map.zoomToGeolocation(14),
+        onClick: async () => {
+          const located = await this.map.zoomToGeolocation(14);
+          if (located) this.geolocationActive.set(true);
+          return located;
+        },
       },
     );
     this.map.adoptControl(this.geolocationControl, 'geolocation');

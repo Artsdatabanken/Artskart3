@@ -20,3 +20,17 @@
   pointer-events: auto;
   inset-block-start: var(--adb-spacing-lg);
 }
+
+.map-toolbar-bottom {
+  position: absolute;
+  inset-inline-start: var(--adb-spacing-md);
+  inset-block-end: 40px;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .map-toolbar-bottom {
+    inset-block-end: calc(var(--home-handle-height, 56px) + 64px);
+  }
+}
