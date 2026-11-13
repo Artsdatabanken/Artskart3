@@ -20,6 +20,8 @@ export function wmsLegendImages(layer: MapLayerDto): WmsLegendImage[] {
       url.searchParams.set('SERVICE', 'WMS');
       url.searchParams.set('VERSION', layer.version ?? '1.3.0');
       url.searchParams.set('REQUEST', 'GetLegendGraphic');
+      // MapServer (Geonorge og Artsdatabanken) avviser forespørselen uten SLD_VERSION
+      url.searchParams.set('SLD_VERSION', '1.1.0');
       url.searchParams.set('FORMAT', layer.format ?? 'image/png');
       url.searchParams.set('LAYER', layerName);
       return [{ layerName, url: url.toString() }];

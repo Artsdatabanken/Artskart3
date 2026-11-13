@@ -13,6 +13,7 @@ describe('wmsLegendImages', () => {
       SERVICE: 'WMS',
       VERSION: '1.3.0',
       REQUEST: 'GetLegendGraphic',
+      SLD_VERSION: '1.1.0',
       FORMAT: 'image/png',
       LAYER: 'a',
     });
