@@ -1,8 +1,10 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Application.Validation;
+using Artskart3.Core.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Artskart3.Api.Controllers;
 
@@ -11,14 +13,22 @@ namespace Artskart3.Api.Controllers;
 [Route("api/export/csv")]
 public class ExportController : ControllerBase
 {
+    private const string AnonymousUserHeader = "X-Anonymous-User-Id";
+
     private readonly IExportService _exportService;
     private readonly IBlobStorageService _blobStorageService;
+    private readonly IAnonymousUserTokenService _anonymousUserTokens;
     private readonly ILogger<ExportController> _logger;
 
-    public ExportController(IExportService exportService, IBlobStorageService blobStorageService, ILogger<ExportController> logger)
+    public ExportController(
+        IExportService exportService,
+        IBlobStorageService blobStorageService,
+        IAnonymousUserTokenService anonymousUserTokens,
+        ILogger<ExportController> logger)
     {
         _exportService = exportService;
         _blobStorageService = blobStorageService;
+        _anonymousUserTokens = anonymousUserTokens;
         _logger = logger;
     }
 
@@ -30,7 +40,9 @@ public class ExportController : ControllerBase
         return Ok(columns);
     }
 
+    [AllowAnonymous]
     [HttpPost("summary")]
+    [EnableRateLimiting(SearchConstants.SearchRateLimitPolicy)]
     public async Task<ActionResult<ExportSummaryDto>> GetSummary([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
         if (request?.Filter == null)
@@ -43,7 +55,9 @@ public class ExportController : ControllerBase
         return Ok(summary);
     }
 
+    [AllowAnonymous]
     [HttpPost("start")]
+    [EnableRateLimiting(ExportConstants.AnonymousExportStartRateLimitPolicy)]
     public async Task<ActionResult<object>> StartExport([FromBody] StartExportRequestDto? request, CancellationToken cancellationToken)
     {
         if (request?.Filter == null)
@@ -55,9 +69,11 @@ public class ExportController : ControllerBase
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
 
+        var isAnonymous = User.Identity?.IsAuthenticated != true;
+
         try
         {
-            var jobId = await _exportService.StartExportAsync(userId, request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
+            var jobId = await _exportService.StartExportAsync(userId, isAnonymous, request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
             return Ok(new { jobId });
         }
         catch (InvalidOperationException ex)
@@ -66,6 +82,7 @@ public class ExportController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/status")]
     public async Task<ActionResult<CsvExportJobDto>> GetStatus(int jobId, CancellationToken cancellationToken)
     {
@@ -79,6 +96,7 @@ public class ExportController : ControllerBase
         return Ok(status);
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/download")]
     public async Task<ActionResult> Download(int jobId, CancellationToken cancellationToken)
     {
@@ -94,6 +112,7 @@ public class ExportController : ControllerBase
         return File(stream, "text/csv", fileName);
     }
 
+    [AllowAnonymous]
     [HttpGet("{jobId:int}/download/excel")]
     public async Task<ActionResult> DownloadExcel(int jobId, CancellationToken cancellationToken)
     {
@@ -109,6 +128,7 @@ public class ExportController : ControllerBase
         return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
+    [AllowAnonymous]
     [HttpPost("{jobId:int}/cancel")]
     public async Task<ActionResult> Cancel(int jobId, CancellationToken cancellationToken)
     {
@@ -122,6 +142,7 @@ public class ExportController : ControllerBase
         return Ok();
     }
 
+    [AllowAnonymous]
     [HttpGet("history")]
     public async Task<ActionResult<List<CsvExportJobDto>>> GetHistory(CancellationToken cancellationToken)
     {
@@ -130,6 +151,34 @@ public class ExportController : ControllerBase
 
         var history = await _exportService.GetUserExportHistoryAsync(userId, cancellationToken);
         return Ok(history);
+    }
+
+    /// <summary>
+    /// Utsteder en signert anonym bruker-ID. Klienten lagrer tokenet i
+    /// localStorage og sender det som X-Anonymous-User-Id-header.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("anonymous-session")]
+    public ActionResult<object> CreateAnonymousSession(CancellationToken cancellationToken)
+    {
+        return Ok(new { token = _anonymousUserTokens.CreateToken() });
+    }
+
+    [HttpPost("claim-anonymous")]
+    public async Task<ActionResult<object>> ClaimAnonymousExports(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+
+        // Bare token serveren selv har signert godtas — ellers kunne en innlogget
+        // bruker sendt en annen brukers sub her og flyttet hele eksporthistorikken
+        // deres over til sin egen konto.
+        var token = Request.Headers[AnonymousUserHeader].FirstOrDefault();
+        if (!_anonymousUserTokens.TryGetUserId(token, out var anonymousUserId))
+            return BadRequest(new { error = $"Mangler gyldig {AnonymousUserHeader}-header." });
+
+        var claimedCount = await _exportService.ClaimAnonymousExportsAsync(userId, anonymousUserId, cancellationToken);
+        return Ok(new { claimedCount });
     }
 
     /// <summary>
@@ -146,17 +195,28 @@ public class ExportController : ControllerBase
         return error == null ? null : BadRequest(new { error });
     }
 
+    /// <summary>
+    /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere må ha et
+    /// token serveren selv har signert (se /anonymous-session), sendt som
+    /// X-Anonymous-User-Id-header. Signaturen beviser at ID-en er utstedt som anonym,
+    /// så en sub kan ikke spoofes gjennom headeren.
+    /// </summary>
     private ActionResult? TryGetUserId(out Guid userId)
     {
-        userId = Guid.Empty;
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            // En autentisert bruker med ugyldig sub er en feiltilstand, ikke en
+            // anonym bruker — ikke fall tilbake på headeren og lagre jobben på en
+            // ID som ikke har noe med kontoen å gjøre.
+            if (Guid.TryParse(User.FindFirst("sub")?.Value, out userId) && userId != Guid.Empty)
+                return null;
 
-        var sub = User.FindFirst("sub")?.Value;
-        if (string.IsNullOrWhiteSpace(sub))
-            return Unauthorized(new { error = "Bruker mangler 'sub'-claim." });
+            return Unauthorized(new { error = "Bruker mangler gyldig 'sub'-claim." });
+        }
 
-        if (!Guid.TryParse(sub, out userId))
-            return Unauthorized(new { error = "Bruker har ugyldig 'sub'-claim." });
+        if (_anonymousUserTokens.TryGetUserId(Request.Headers[AnonymousUserHeader].FirstOrDefault(), out userId))
+            return null;
 
-        return null;
+        return Unauthorized(new { error = $"Mangler brukeridentitet ('sub'-claim eller {AnonymousUserHeader}-header)." });
     }
 }

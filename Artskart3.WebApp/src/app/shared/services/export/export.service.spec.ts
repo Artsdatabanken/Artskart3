@@ -1,0 +1,133 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { firstValueFrom, of } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
+import { ExportService } from './export.service';
+import { anonymousUserInterceptor } from '../../interceptors/anonymous-user.interceptor';
+import { AuthService, Session } from '../auth/auth.service';
+import { AlertService } from '../alert/alert.service';
+import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../types/api.types';
+
+const STORAGE_KEY = 'artskart.anonymousUserId';
+const ANONYMOUS_USER_ID = '95e445a5-caa6-4b54-ae93-22d31ecc6b01';
+const SECOND_ANONYMOUS_USER_ID = '81c9415f-ad70-42c6-9aa4-cfd898f8bb0f';
+const AUTHENTICATED_SESSION: Session = [{ type: 'sub', value: '25db4012-849e-4411-8616-f46b94a390dd' }];
+
+describe('ExportService', () => {
+  let service: ExportService;
+  let httpTesting: HttpTestingController;
+  let session: Session;
+
+  beforeEach(() => {
+    session = AUTHENTICATED_SESSION;
+    localStorage.setItem(STORAGE_KEY, ANONYMOUS_USER_ID);
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([anonymousUserInterceptor])),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: { getSession: () => of(session), isAnonymous: () => session === null } },
+        { provide: AlertService, useValue: { showError: vi.fn(), showSuccess: vi.fn() } },
+        { provide: TranslateService, useValue: { instant: (key: string) => key } },
+      ],
+    });
+
+    service = TestBed.inject(ExportService);
+    httpTesting = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpTesting.verify();
+    localStorage.removeItem(STORAGE_KEY);
+  });
+
+  it('claims anonymous exports before fetching authenticated history', async () => {
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.method).toBe('POST');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+
+  it('clears the stored token after a successful claim', async () => {
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush({ claimedCount: 1 });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await historyPromise;
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('fetches history even when the claim fails', async () => {
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush('Server error', { status: 500, statusText: 'Server Error' });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+
+  it('does not claim when there is no stored token', async () => {
+    localStorage.removeItem(STORAGE_KEY);
+
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectNone('/api/export/csv/claim-anonymous');
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+
+  it('only claims once after success', async () => {
+    const firstHistory = firstValueFrom(service.getHistory());
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush({ claimedCount: 1 });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await firstHistory;
+
+    const secondHistory = firstValueFrom(service.getHistory());
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await secondHistory;
+  });
+
+  it('attempts a claim again when the anonymous token changes', async () => {
+    const firstHistory = firstValueFrom(service.getHistory());
+    httpTesting.expectOne('/api/export/csv/claim-anonymous').flush('Server error', { status: 500, statusText: 'Server Error' });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await firstHistory;
+
+    localStorage.setItem(STORAGE_KEY, SECOND_ANONYMOUS_USER_ID);
+    const secondHistory = firstValueFrom(service.getHistory());
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(SECOND_ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await secondHistory;
+  });
+
+  it('claims anonymous exports before polling status for an authenticated user', async () => {
+    const statusPromise = firstValueFrom(service.getStatus(42));
+
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+
+    httpTesting.expectOne('/api/export/csv/42/status').flush(
+      { id: 42, status: CSV_EXPORT_STATUS.Pending } as CsvExportJobDto,
+    );
+    await expect(statusPromise).resolves.toMatchObject({ id: 42 });
+  });
+
+  it('does not claim exports for anonymous history requests', async () => {
+    session = null;
+
+    const historyPromise = firstValueFrom(service.getHistory());
+
+    httpTesting.expectNone('/api/export/csv/claim-anonymous');
+    httpTesting.expectOne('/api/export/csv/history').flush([]);
+    await expect(historyPromise).resolves.toEqual([]);
+  });
+});

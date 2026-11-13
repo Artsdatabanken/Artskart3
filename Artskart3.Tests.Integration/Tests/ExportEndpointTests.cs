@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
@@ -27,6 +28,21 @@ public class ExportEndpointTests : IAsyncLifetime
     {
         _client.Dispose();
         await _factory.DisposeAsync();
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/export/csv/anonymous-session
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAnonymousSession_ReturnsToken()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        var token = await GetAnonymousTokenAsync(anonymousClient);
+
+        token.Should().NotBeNullOrWhiteSpace();
     }
 
     // -----------------------------------------------------------------------
@@ -75,6 +91,37 @@ public class ExportEndpointTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/export/csv/start", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task StartExport_AnonymousRequestsAreLimitedToThirtyPerMinute()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        for (var i = 0; i < 30; i++)
+        {
+            using var content = new StringContent("null", Encoding.UTF8, "application/json");
+            using var response = await anonymousClient.PostAsync("/api/export/csv/start", content);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        using (var content = new StringContent("null", Encoding.UTF8, "application/json"))
+        using (var response = await anonymousClient.PostAsync("/api/export/csv/start", content))
+        {
+            response.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        }
+
+        using var authenticatedClient = _factory.CreateClient();
+        authenticatedClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        authenticatedClient.DefaultRequestHeaders.Add("X-Test-UserId", Guid.NewGuid().ToString());
+
+        for (var i = 0; i < 31; i++)
+        {
+            using var content = new StringContent("null", Encoding.UTF8, "application/json");
+            using var response = await authenticatedClient.PostAsync("/api/export/csv/start", content);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -250,4 +297,146 @@ public class ExportEndpointTests : IAsyncLifetime
             Filter = new ObservationSearchFilterDto(),
             SelectedColumns = []
         });
+
+    // -----------------------------------------------------------------------
+    // Anonyme brukere
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Anonyme brukere identifiseres med et signert token utstedt av serveren.
+    /// </summary>
+    [Fact]
+    public async Task StartExport_WithServerIssuedAnonymousToken_Returns200()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(client));
+
+        var response = await StartExportAsync(client, "anonym-eksport");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task StartExport_AnonymousBeyondConcurrencyLimit_Returns409WithReason()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(client));
+
+        var responses = await Task.WhenAll(
+            StartExportAsync(client, "anonym-eksport-1"),
+            StartExportAsync(client, "anonym-eksport-2"));
+
+        try
+        {
+            responses.Count(response => response.StatusCode == HttpStatusCode.OK).Should().Be(1);
+            responses.Count(response => response.StatusCode == HttpStatusCode.Conflict).Should().Be(1);
+            var conflictBody = await responses.Single(response => response.StatusCode == HttpStatusCode.Conflict).Content.ReadAsStringAsync();
+            conflictBody.Should().Contain("anonym bruker");
+        }
+        finally
+        {
+            foreach (var response in responses)
+                response.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task GetHistory_AnonymousUsers_DoNotSeeEachOthersExports()
+    {
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(anonymousClient));
+
+        using var otherAnonymousClient = _factory.CreateClient();
+        otherAnonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        otherAnonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(otherAnonymousClient));
+
+        await StartExportAsync(anonymousClient, "anonym-eksport");
+
+        var response = await otherAnonymousClient.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+
+        response.Should().NotBeNull();
+        response!.Should().NotContain(job => job.Name == "anonym-eksport");
+    }
+
+    /// <summary>
+    /// Når brukeren er innlogget vinner sub-claimet over en eventuell
+    /// anonym header, slik at eksporten havner på den innloggede kontoen.
+    /// </summary>
+    [Fact]
+    public async Task StartExport_LoggedInWithAnonymousHeader_UsesSubClaim()
+    {
+        var userId = Guid.NewGuid().ToString();
+
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Test-UserId", userId);
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        await StartExportAsync(client, "innlogget-eksport");
+
+        var history = await client.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+
+        history.Should().NotBeNull();
+        history!.Should().Contain(job => job.Name == "innlogget-eksport");
+    }
+
+    [Fact]
+    public async Task ClaimAnonymousExports_TransfersHistoryToAuthenticatedUser()
+    {
+        var authenticatedUserId = Guid.NewGuid().ToString();
+
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        var anonymousUserId = await GetAnonymousTokenAsync(anonymousClient);
+        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", anonymousUserId);
+        (await StartExportAsync(anonymousClient, "eksport-fra-gjest")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var authenticatedClient = _factory.CreateClient();
+        authenticatedClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        authenticatedClient.DefaultRequestHeaders.Add("X-Test-UserId", authenticatedUserId);
+        authenticatedClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", anonymousUserId);
+
+        var claimResponse = await authenticatedClient.PostAsJsonAsync("/api/export/csv/claim-anonymous", new { });
+
+        claimResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var claimResult = await claimResponse.Content.ReadFromJsonAsync<Dictionary<string, int>>();
+        claimResult.Should().ContainKey("claimedCount");
+        claimResult!["claimedCount"].Should().Be(1);
+
+        var history = await authenticatedClient.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+        history.Should().Contain(job => job.Name == "eksport-fra-gjest");
+
+        var secondClaim = await authenticatedClient.PostAsJsonAsync("/api/export/csv/claim-anonymous", new { });
+        var secondClaimResult = await secondClaim.Content.ReadFromJsonAsync<Dictionary<string, int>>();
+        secondClaimResult!["claimedCount"].Should().Be(0);
+
+        var anonymousHistory = await anonymousClient.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+        anonymousHistory.Should().NotContain(job => job.Name == "eksport-fra-gjest");
+    }
+
+    [Fact]
+    public async Task ClaimAnonymousExports_RequiresAuthenticatedUser()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+
+        var response = await client.PostAsJsonAsync("/api/export/csv/claim-anonymous", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private static async Task<string> GetAnonymousTokenAsync(HttpClient client)
+    {
+        using var response = await client.PostAsJsonAsync("/api/export/csv/anonymous-session", new { });
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content.ReadFromJsonAsync<AnonymousSessionResponse>();
+        return session?.Token ?? throw new InvalidOperationException("Anonymous session response did not contain a token.");
+    }
+
+    private sealed record AnonymousSessionResponse(string Token);
 }

@@ -7,6 +7,7 @@ using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 
 namespace Artskart3.Infrastructure.Persistence.Services;
@@ -83,27 +84,22 @@ public class ExportService : IExportService
         return string.IsNullOrEmpty(sanitized) ? "eksport" : sanitized;
     }
 
-    public async Task<int> StartExportAsync(Guid userId, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
+    public async Task<int> StartExportAsync(Guid userId, bool isAnonymous, ObservationSearchFilterDto filter, List<string> columns, string? name, CancellationToken cancellationToken)
     {
         var hardLimit = _configuration.GetValue("CsvExport:Limits:HardRowLimit", 100_000);
-        var maxConcurrent = _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
+        var maxConcurrent = isAnonymous
+            ? _configuration.GetValue("CsvExport:Limits:MaxConcurrentAnonymousPerUser", 1)
+            : _configuration.GetValue("CsvExport:Limits:MaxConcurrentPerUser", 3);
 
-        // Sjekk antall samtidige jobber for bruker.
-        // Merk: dette er en TOCTOU-sjekk (les-så-skriv uten serializable transaksjon),
-        // men med forventet lavt volum er race condition ikke et reelt problem.
-        // Revurder hvis volumet øker vesentlig.
+        // Sjekk tidlig for å unngå den kostbare filterspørringen når grensen allerede
+        // er nådd. Antall sjekkes på nytt under en database-lås før jobben lagres.
         var activeJobCutoffHours = _configuration.GetValue("CsvExport:Limits:ActiveJobCutoffHours", 24);
         var activeJobCutoff = DateTime.UtcNow.AddHours(-activeJobCutoffHours);
 
-        var activeJobCount = await _context.Set<CsvExportJob>()
-            .CountAsync(j => j.UserId == userId &&
-                j.CreatedAt >= activeJobCutoff &&
-                (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing), cancellationToken);
+        var activeJobCount = await CountActiveJobsAsync(userId, activeJobCutoff, cancellationToken);
 
         if (activeJobCount >= maxConcurrent)
-            throw new InvalidOperationException(
-                $"Maks {maxConcurrent} samtidige eksportjobber per bruker. " +
-                "Vent til en av dem er ferdig, eller avbryt en av dem i Mitt Artskart.");
+            throw CreateConcurrencyLimitException(maxConcurrent, isAnonymous);
 
         // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
         var query = await BuildFilteredQueryAsync(filter, cancellationToken);
@@ -112,6 +108,13 @@ public class ExportService : IExportService
         if (exceedsLimit)
             throw new InvalidOperationException(
                 $"Antall rader overstiger grensen ({hardLimit}). Bruk summary-endepunktet for nøyaktig antall.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        await AcquireExportStartLockAsync(userId, cancellationToken);
+
+        activeJobCount = await CountActiveJobsAsync(userId, activeJobCutoff, cancellationToken);
+        if (activeJobCount >= maxConcurrent)
+            throw CreateConcurrencyLimitException(maxConcurrent, isAnonymous);
 
         var job = new CsvExportJob
         {
@@ -124,8 +127,50 @@ public class ExportService : IExportService
 
         _context.Set<CsvExportJob>().Add(job);
         await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return job.Id;
+    }
+
+    private Task<int> CountActiveJobsAsync(Guid userId, DateTime cutoff, CancellationToken cancellationToken)
+    {
+        return _context.Set<CsvExportJob>()
+            .CountAsync(j => j.UserId == userId &&
+                j.CreatedAt >= cutoff &&
+                (j.Status == CsvExportStatus.Pending || j.Status == CsvExportStatus.Processing), cancellationToken);
+    }
+
+    private static InvalidOperationException CreateConcurrencyLimitException(int maxConcurrent, bool isAnonymous)
+    {
+        var userType = isAnonymous ? "anonym bruker" : "bruker";
+        return new InvalidOperationException(
+            $"Maks {maxConcurrent} samtidige eksportjobber per {userType}. " +
+            "Vent til en av dem er ferdig, eller avbryt en av dem i Mitt Artskart.");
+    }
+
+    private async Task AcquireExportStartLockAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var connection = _context.Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
+        command.CommandText = """
+            DECLARE @result int;
+            EXEC @result = sp_getapplock
+                @Resource = @resource,
+                @LockMode = 'Exclusive',
+                @LockOwner = 'Transaction',
+                @LockTimeout = 5000;
+            SELECT @result;
+            """;
+
+        var resource = command.CreateParameter();
+        resource.ParameterName = "@resource";
+        resource.Value = $"CsvExport:{userId:N}";
+        command.Parameters.Add(resource);
+
+        var result = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+        if (result < 0)
+            throw new InvalidOperationException("En annen eksportstart pågår. Prøv igjen.");
     }
 
     public async Task<CsvExportJobDto?> GetJobStatusAsync(int jobId, Guid userId, CancellationToken cancellationToken)
@@ -191,6 +236,19 @@ public class ExportService : IExportService
             .ToListAsync(cancellationToken);
 
         return jobs.Select(MapToDto).ToList();
+    }
+
+    public async Task<int> ClaimAnonymousExportsAsync(Guid userId, Guid anonymousUserId, CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty || anonymousUserId == Guid.Empty)
+            throw new ArgumentException("Export owner IDs must be valid GUIDs.");
+
+        if (userId == anonymousUserId)
+            return 0;
+
+        return await _context.Set<CsvExportJob>()
+            .Where(j => j.UserId == anonymousUserId)
+            .ExecuteUpdateAsync(update => update.SetProperty(j => j.UserId, userId), cancellationToken);
     }
 
     private Task<IQueryable<Observation>> BuildFilteredQueryAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken)
