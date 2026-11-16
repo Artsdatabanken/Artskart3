@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261111112446_RebuildCountCaches")]
-    partial class RebuildCountCaches
+    [Migration("20261106112308_BackfillObservationHiddenByAnnotation")]
+    partial class BackfillObservationHiddenByAnnotation
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1460,6 +1460,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("HashCode")
                         .HasColumnType("int");
 
+                    b.Property<bool>("HiddenByAnnotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
@@ -1560,6 +1565,13 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasFilter("[HasMediaFiles] = 1");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId" });
+
+                    b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_HiddenByAnnotation")
+                        .HasFilter("[HiddenByAnnotation] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex("Introduced", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
@@ -1789,6 +1801,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("HasMediaFiles")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("HiddenByAnnotation")
                         .HasColumnType("bit");
 
                     b.Property<int?>("InstitutionOrgId")

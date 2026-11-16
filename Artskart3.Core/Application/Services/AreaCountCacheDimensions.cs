@@ -400,8 +400,10 @@ public static class AreaCountCacheDimensions
     ///
     /// 2: MinRegistrationStatusId og MaxRegistrationStatusId på
     /// LocationCountCacheLevel1.
+    /// 3: HiddenByAnnotation i Mask. I en eldre buffer er biten alltid 0, så skjulte
+    /// funn ville blitt talt med i standardfilteret.
     /// </summary>
-    private const uint RowLayoutVersion = 2;
+    private const uint RowLayoutVersion = 3;
 
     private static int ComputeSchemaVersion()
     {

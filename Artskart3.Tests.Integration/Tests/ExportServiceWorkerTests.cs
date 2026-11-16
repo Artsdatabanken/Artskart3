@@ -91,7 +91,7 @@ public class ExportServiceWorkerTests
         var blobStorage = new FakeBlobStorage();
         var service = CreateService(context, blobStorage);
 
-        var expectedRows = await context.Set<Observation>().CountAsync();
+        var expectedRows = await context.Set<Observation>().CountAsync(o => !o.HiddenByAnnotation);
         expectedRows.Should().BeGreaterThan(0, "testdatabasen må ha observasjoner for at testen skal si noe");
 
         var job = await CreateJobAsync(context, "test-eksport");

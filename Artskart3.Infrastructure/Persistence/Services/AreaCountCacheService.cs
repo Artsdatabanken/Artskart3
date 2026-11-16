@@ -101,12 +101,9 @@ public class AreaCountCacheService : IAreaCountCacheService
         //
         // Null dimensjoner er derimot et GYLDIG oppslag nå — bool-filtrene ligger i
         // masken og teller ikke som dimensjoner, så «bare sensitiv» er null
-        // dimensjoner pluss et maskeutvalg. Uten maske og uten dimensjoner er det
-        // ingenting å slå opp.
+        // dimensjoner pluss et maskeutvalg. Uten maske heller er det «alle funn», og da
+        // er svaret summen av alle cellene.
         if (active.Count > 2)
-            return null;
-
-        if (active.Count == 0 && !maske.IsActive)
             return null;
 
         if (active.Count == 2 && !_options.EnableLevel2)

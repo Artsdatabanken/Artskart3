@@ -485,8 +485,9 @@
           (change)="onAnnotationFilterChange($event)"
         >
           <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
-          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
-          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+          <adb-radio value="excludeHidden">{{ 'sidebar.annotationExcludeHidden' | translate }}</adb-radio>
+          <adb-radio value="hidden">{{ 'sidebar.annotationHidden' | translate }}</adb-radio>
+          <adb-radio value="annotated">{{ 'sidebar.annotationAnnotated' | translate }}</adb-radio>
         </adb-radio-group>
       </div>
     </adb-accordion-item>

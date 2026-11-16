@@ -1,10 +1,11 @@
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Application.Services;
 
 /// <summary>
-/// De fem bool-filtrene pakket i én bitmaske, lagret som tredje nøkkel på hver
-/// bufferrad i stedet for som fem egne dimensjoner.
+/// Bool-filtrene pakket i én bitmaske, lagret som tredje nøkkel på hver bufferrad i
+/// stedet for som egne dimensjoner.
 ///
 /// HVORFOR
 /// Bufferen svarer på maksimalt to aktive dimensjoner. Som egne dimensjoner spiste
@@ -45,9 +46,10 @@ public static class FilterMask
     public const byte UncertainIdentification = 4;
     public const byte Introduced = 8;
     public const byte HasMediaFiles = 16;
+    public const byte HiddenByAnnotation = 32;
 
-    /// <summary>Antall gyldige maskeverdier, 0 til og med 31.</summary>
-    public const int Count = 32;
+    /// <summary>Antall gyldige maskeverdier, 0 til og med 63.</summary>
+    public const int Count = 64;
 
     /// <summary>
     /// Uttrykket byggeskriptene grupperer på. Kolonnealiaset <c>i</c> er
@@ -56,14 +58,15 @@ public static class FilterMask
     public const string SqlExpression =
         "CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 " +
         "+ CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 " +
-        "+ CAST(i.HasMediaFiles AS INT) * 16";
+        "+ CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32";
 
     /// <summary>
     /// Hvilke bit filteret bryr seg om, og hvilke verdier det vil ha.
     ///
     /// Oppslaget blir <c>(Mask &amp; Care) == Want</c> — ett restledd, ikke en
     /// IN-liste over opptil 16 maskeverdier. Er <see cref="Care"/> null, er ingen
-    /// bool satt, og predikatet utelates helt slik at cellens masker summeres.
+    /// bool satt, og predikatet utelates helt slik at cellens masker summeres. Det
+    /// skjer bare med «alle funn»: standardfilteret utelater skjulte funn.
     /// </summary>
     public readonly record struct Selection(byte Care, byte Want)
     {
@@ -80,6 +83,7 @@ public static class FilterMask
         Add(filter.UncertainIdentification, UncertainIdentification);
         Add(filter.Introduced, Introduced);
         Add(filter.WithImages, HasMediaFiles);
+        Add(filter.HiddenObservations.RequiredHiddenValue(), HiddenByAnnotation);
 
         return new Selection(care, want);
 
@@ -101,6 +105,7 @@ public static class FilterMask
         Add(filter.UncertainIdentification, UncertainIdentification);
         Add(filter.Introduced, Introduced);
         Add(filter.WithImages, HasMediaFiles);
+        Add(filter.HiddenObservations.RequiredHiddenValue(), HiddenByAnnotation);
 
         return new Selection(care, want);
 

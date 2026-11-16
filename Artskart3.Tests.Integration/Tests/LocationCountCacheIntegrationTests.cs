@@ -109,6 +109,30 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         await AssertSameAsCountingAsync(new LocationSearchFilterDto());
     }
 
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude)]
+    [InlineData(HiddenObservationFilter.Only)]
+    [InlineData(HiddenObservationFilter.Include)]
+    public async Task Skjulte_funn_gir_samme_lokasjoner_som_telling(HiddenObservationFilter skjulte)
+    {
+        await SettSkjultAsync(true);
+        try
+        {
+            await BuildAsync(LocationCountCacheService.NoFilterDimensionId, _ => LocationCountCacheService.NoFilterBucketId);
+
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = skjulte });
+        }
+        finally
+        {
+            await SettSkjultAsync(false);
+        }
+    }
+
+    private Task SettSkjultAsync(bool skjult) =>
+        _context.Set<ObservationEntityIndex>()
+            .Where(r => r.TaxonGroupId == TaksongruppeB)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenByAnnotation, skjult));
+
     /// <summary>
     /// FLERE MASKEVERDIER PÅ SAMME LOKASJON
     ///
@@ -800,7 +824,8 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
         + (r.Sensitive ? FilterMask.Sensitive : 0)
         + (r.UncertainIdentification ? FilterMask.UncertainIdentification : 0)
         + (r.Introduced ? FilterMask.Introduced : 0)
-        + (r.HasMediaFiles ? FilterMask.HasMediaFiles : 0));
+        + (r.HasMediaFiles ? FilterMask.HasMediaFiles : 0)
+        + (r.HiddenByAnnotation ? FilterMask.HiddenByAnnotation : 0));
 
     private async Task<Location> EnsureLocationAsync(string lookupId, int east, int north)
     {

@@ -1,3 +1,5 @@
+using Artskart3.Core.Domain.Enums;
+
 namespace Artskart3.Core.Application.DTOs;
 
 /// <summary>
@@ -61,6 +63,12 @@ public interface IObservationFilter
     /// observasjoner som har en annotering uten at noe ble endret.
     /// </summary>
     bool? ChangedByAnnotation { get; }
+
+    /// <summary>
+    /// Funn skjult av annotering. Exclude er standardutvalget og regnes ikke som et
+    /// aktivt filter.
+    /// </summary>
+    HiddenObservationFilter HiddenObservations { get; }
 
     /// <summary>
     /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.

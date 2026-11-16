@@ -15,6 +15,29 @@ namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 public static class ObservationQueryBuilder
 {
     /// <summary>
+    /// Filteret på skjulte funn. Predikatet er en konstant, ikke en parameter, fordi den
+    /// filtrerte indeksen bare kan brukes når optimizeren ser verdien.
+    /// </summary>
+    public static IQueryable<Observation> ApplyHiddenFilter(
+        IQueryable<Observation> query, HiddenObservationFilter filter) =>
+        filter.RequiredHiddenValue() switch
+        {
+            true => query.Where(o => o.HiddenByAnnotation),
+            false => query.Where(o => !o.HiddenByAnnotation),
+            null => query,
+        };
+
+    /// <summary>Samme filter på indekstabellen.</summary>
+    public static IQueryable<ObservationEntityIndex> ApplyHiddenFilter(
+        IQueryable<ObservationEntityIndex> query, HiddenObservationFilter filter) =>
+        filter.RequiredHiddenValue() switch
+        {
+            true => query.Where(idx => idx.HiddenByAnnotation),
+            false => query.Where(idx => !idx.HiddenByAnnotation),
+            null => query,
+        };
+
+    /// <summary>
     /// Asynkron fordi matrikkelenhetene i filteret slås opp mot Kartverket før
     /// spørringen bygges.
     /// </summary>
@@ -193,6 +216,8 @@ public static class ObservationQueryBuilder
             var changedByAnnotation = filter.ChangedByAnnotation.Value;
             query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
         }
+
+        query = ApplyHiddenFilter(query, filter.HiddenObservations);
 
         if (filter.Sensitive.HasValue)
         {

@@ -488,6 +488,7 @@ public class SearchRepository : ISearchRepository
         public int[]? ObservationIds => inner.ObservationIds;
         public bool? WithImages => inner.WithImages;
         public bool? ChangedByAnnotation => inner.ChangedByAnnotation;
+        public HiddenObservationFilter HiddenObservations => inner.HiddenObservations;
         public bool? Sensitive => inner.Sensitive;
         public bool? UncertainIdentification => inner.UncertainIdentification;
         public bool? Introduced => inner.Introduced;
@@ -1131,6 +1132,8 @@ public class SearchRepository : ISearchRepository
             var changedByAnnotation = filter.ChangedByAnnotation.Value;
             query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
+
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
 
         if (filter.Sensitive.HasValue)
         {
@@ -1843,6 +1846,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
         }
 
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
+
         if (filter.Sensitive.HasValue)
         {
             var sensitive = filter.Sensitive.Value;
@@ -2030,23 +2035,35 @@ public class SearchRepository : ISearchRepository
 
             dynamicCounts ??= await ComputeFilteredAreaCounts(areas, filter!, areasAreNarrowed, cancellationToken);
         }
-        else if (hasAreaSelection)
+        else
         {
-            var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
-            var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
-
-            if (hasMunicipalityFilter && areasAreCounties)
+            // Area.ObservationCount teller med skjulte funn, som standardutvalget
+            // utelater. Bufferen gir derfor tallene når den er klar. Ellers brukes de
+            // forhåndsberegnede: litt for høye, men uten å telle hele tabellen.
+            if (_areaCountCache is not null)
             {
-                municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
-                    filter.MunicipalityIds!, cancellationToken);
+                dynamicCounts = await _areaCountCache.TryGetCountsAsync(
+                    filter ?? new LocationSearchFilterDto(), areas, areasAreNarrowed, cancellationToken);
+            }
+
+            if (dynamicCounts is null && hasAreaSelection)
+            {
+                var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
+                var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+
+                if (hasMunicipalityFilter && areasAreCounties)
+                {
+                    municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
+                        filter.MunicipalityIds!, cancellationToken);
+                }
             }
         }
 
         int CountFor(Area a)
         {
-            if (needsDynamicCounts)
+            if (dynamicCounts is not null)
             {
-                return CountFromCells(dynamicCounts!, a);
+                return CountFromCells(dynamicCounts, a);
             }
 
             if (municipalityCountsByCounty != null)
@@ -2441,6 +2458,8 @@ public class SearchRepository : ISearchRepository
             var changedByAnnotation = filter.ChangedByAnnotation.Value;
             query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
+
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
 
         if (filter.Sensitive.HasValue)
         {
