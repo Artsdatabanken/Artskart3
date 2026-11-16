@@ -13,7 +13,14 @@ export interface FullscreenControlLabels {
   tipLabel: string;
 }
 
+const PSEUDO_FULLSCREEN_CLASS = 'map-pseudo-fullscreen';
+
+// OpenLayers setter denne klassen når nettleseren mangler Fullscreen API (f.eks. iPhone)
+const OL_UNSUPPORTED_CLASS = 'ol-unsupported';
+
 export class ArtskartFullscreenControl extends FullScreen {
+  private readonly pseudoTarget?: HTMLElement;
+
   constructor(labels: FullscreenControlLabels, source?: HTMLElement) {
     super({
       className: 'artskart-fullscreen',
@@ -22,7 +29,17 @@ export class ArtskartFullscreenControl extends FullScreen {
       tipLabel: labels.tipLabel,
       source,
     });
+    this.pseudoTarget = source;
+    this.element.querySelector('button')?.addEventListener('click', () => this.togglePseudoFullscreen());
     this.updateLabels(labels);
+  }
+
+  // Fallback når Fullscreen API mangler: kartbeholderen fyller viewporten via CSS i stedet.
+  private togglePseudoFullscreen(): void {
+    if (!this.pseudoTarget || !this.element.classList.contains(OL_UNSUPPORTED_CLASS)) return;
+    const active = this.pseudoTarget.classList.toggle(PSEUDO_FULLSCREEN_CLASS);
+    this.element.querySelector('button')?.replaceChildren(createSvgIcon(active ? EXIT_FULLSCREEN_SVG : FULLSCREEN_SVG));
+    this.getMap()?.updateSize();
   }
 
   updateLabels(labels: FullscreenControlLabels): void {
