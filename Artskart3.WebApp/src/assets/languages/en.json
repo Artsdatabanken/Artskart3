@@ -137,8 +137,8 @@
     "exceedsLimitMessage": "The result contains {{totalRows}} rows, which exceeds the limit of {{hardLimit}} rows for export. Please narrow down your filter to reduce the number of results.",
     "summaryFailed": "Could not check export size. Please try again later.",
     "notLoggedIn": "Not logged in",
-    "exportsNotSaved": "Exports that aren't linked to an account are only available temporarily",
-    "downloadExportToSave": "Download the export to keep a copy"
+    "exportsNotSaved": "Exports that aren't linked to an account are only available temporarily.",
+    "downloadExportToSave": "Download the export to keep a copy."
   },
   "mittArtskart": {
     "title": "My Artskart",
