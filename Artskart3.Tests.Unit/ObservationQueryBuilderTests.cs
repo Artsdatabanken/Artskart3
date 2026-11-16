@@ -6,6 +6,7 @@ using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using FluentAssertions;
 using FluentAssertions.Execution;
 using Microsoft.EntityFrameworkCore;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
@@ -409,6 +410,28 @@ public class ObservationQueryBuilderTests
     // ---------------------------------------------------------------------
 
     [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, new[] { 2 })]
+    [InlineData(HiddenObservationFilter.Only, new[] { 1 })]
+    [InlineData(HiddenObservationFilter.Include, new[] { 1, 2 })]
+    public void ApplyFilters_HiddenObservations_SplitsOnDenormalisedColumn(HiddenObservationFilter filter, int[] expectedIds)
+    {
+        using var context = CreateInMemoryContext();
+        var skjult = CreateObservation(1);
+        var synlig = CreateObservation(2);
+
+        skjult.HiddenByAnnotation = true;
+
+        SeedObservationsWithTags(context,
+            (skjult, [(int)TagEnum.Blocked]),
+            (synlig, [(int)TagEnum.Absent]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HiddenObservations = filter });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo(expectedIds);
+    }
+
+    [Theory]
     [InlineData(true, 1)]
     [InlineData(false, 2)]
     public void ApplyFilters_ChangedByAnnotation_SplitsOnDenormalisedColumn(bool changedByAnnotation, int expectedId)
@@ -602,6 +625,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
+        // Observasjonen er ikke skjult.
+        [nameof(IObservationFilter.HiddenObservations)] = f => f.HiddenObservations = HiddenObservationFilter.Only,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
         // Observasjonen har ingen tagger — altså sikker artsbestemmelse.

@@ -1,3 +1,5 @@
+using Artskart3.Core.Domain.Enums;
+
 namespace Artskart3.Core.Application.DTOs;
 
 public class LocationSearchFilterDto : IObservationFilter
@@ -42,6 +44,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public bool? ChangedByAnnotation { get; set; }
 
+    public HiddenObservationFilter HiddenObservations { get; set; }
+
     public bool? Sensitive { get; set; }
 
     public bool? UncertainIdentification { get; set; }
@@ -74,6 +78,7 @@ public class LocationSearchFilterDto : IObservationFilter
         ObservationIds?.Length > 0 ||
         WithImages != null ||
         ChangedByAnnotation != null ||
+        HiddenObservations != HiddenObservationFilter.Exclude ||
         Sensitive != null ||
         UncertainIdentification != null ||
         Introduced != null;
@@ -105,6 +110,7 @@ public class LocationSearchFilterDto : IObservationFilter
         ObservationIds?.Length > 0 ||
         WithImages != null ||
         ChangedByAnnotation != null ||
+        HiddenObservations != HiddenObservationFilter.Exclude ||
         Sensitive != null ||
         UncertainIdentification != null ||
         Introduced != null;

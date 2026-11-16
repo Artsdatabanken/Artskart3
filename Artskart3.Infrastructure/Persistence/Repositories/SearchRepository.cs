@@ -488,6 +488,7 @@ public class SearchRepository : ISearchRepository
         public int[]? ObservationIds => inner.ObservationIds;
         public bool? WithImages => inner.WithImages;
         public bool? ChangedByAnnotation => inner.ChangedByAnnotation;
+        public HiddenObservationFilter HiddenObservations => inner.HiddenObservations;
         public bool? Sensitive => inner.Sensitive;
         public bool? UncertainIdentification => inner.UncertainIdentification;
         public bool? Introduced => inner.Introduced;
@@ -1131,6 +1132,8 @@ public class SearchRepository : ISearchRepository
             var changedByAnnotation = filter.ChangedByAnnotation.Value;
             query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
+
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
 
         if (filter.Sensitive.HasValue)
         {
@@ -1843,6 +1846,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
         }
 
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
+
         if (filter.Sensitive.HasValue)
         {
             var sensitive = filter.Sensitive.Value;
@@ -2030,23 +2035,27 @@ public class SearchRepository : ISearchRepository
 
             dynamicCounts ??= await ComputeFilteredAreaCounts(areas, filter!, areasAreNarrowed, cancellationToken);
         }
-        else if (hasAreaSelection)
+        else
         {
-            var hasMunicipalityFilter = filter!.MunicipalityIds?.Length > 0;
-            var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter.MunicipalityIds?.Contains(a.Fid) == true);
+            var hasMunicipalityFilter = hasAreaSelection && filter!.MunicipalityIds?.Length > 0;
+            var areasAreCounties = areas.Count > 0 && !areas.Any(a => filter?.MunicipalityIds?.Contains(a.Fid) == true);
 
             if (hasMunicipalityFilter && areasAreCounties)
             {
                 municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
-                    filter.MunicipalityIds!, cancellationToken);
+                    filter!.MunicipalityIds!, cancellationToken);
+            }
+            else if (_areaCountCache is not null)
+            {
+                dynamicCounts = await CountVisibleInAreasAsync(areas, areasAreNarrowed, cancellationToken);
             }
         }
 
         int CountFor(Area a)
         {
-            if (needsDynamicCounts)
+            if (dynamicCounts is not null)
             {
-                return CountFromCells(dynamicCounts!, a);
+                return CountFromCells(dynamicCounts, a);
             }
 
             if (municipalityCountsByCounty != null)
@@ -2059,6 +2068,18 @@ public class SearchRepository : ISearchRepository
 
         return (areas, CountFor);
     }
+
+    /// <summary>
+    /// Totalene per område uten skjulte funn. Area.ObservationCount teller dem med, så
+    /// standardutvalget må lese bufferen. Null når den ikke er klar: da brukes de
+    /// forhåndsberegnede tallene, litt for høye, framfor å telle hele tabellen.
+    ///
+    /// Filteret er tomt med vilje, også med områdevalg. Områdene er allerede luket, og
+    /// geografi-dimensjonen ville gitt samme tall, men målt 37 mot 568 ms.
+    /// </summary>
+    private Task<Dictionary<(int EntityTypeId, int EntityId), int>?> CountVisibleInAreasAsync(
+        List<Area> areas, bool areasAreNarrowed, CancellationToken cancellationToken) =>
+        _areaCountCache!.TryGetCountsAsync(new LocationSearchFilterDto(), areas, areasAreNarrowed, cancellationToken);
 
     private int CountFromCells(Dictionary<(int entityTypeId, int entityId), int> counts, Area area)
     {
@@ -2201,10 +2222,14 @@ public class SearchRepository : ISearchRepository
     {
         var fidsSet = municipalityFids.ToHashSet();
 
-        var municipalityAreas = await _context.Set<Area>()
-            .Where(a => a.IsCurrent && fidsSet.Contains(a.Fid))
-            .Select(a => new { a.Fid, a.ParentFid, a.ObservationCount })
+        var municipalityAreas = await SelectAreas(
+                _context.Set<Area>().AsNoTracking().Where(a => a.IsCurrent && fidsSet.Contains(a.Fid)),
+                includeGeometry: false)
             .ToListAsync(cancellationToken);
+
+        var visible = _areaCountCache is null
+            ? null
+            : await CountVisibleInAreasAsync(municipalityAreas, areasAreNarrowed: true, cancellationToken);
 
         var countsByCounty = new Dictionary<string, int>();
 
@@ -2214,7 +2239,7 @@ public class SearchRepository : ISearchRepository
             if (countyFid == null) continue;
 
             countsByCounty.TryGetValue(countyFid, out var current);
-            countsByCounty[countyFid] = current + (m.ObservationCount ?? 0);
+            countsByCounty[countyFid] = current + (visible is null ? m.ObservationCount ?? 0 : CountFromCells(visible, m));
         }
 
         return countsByCounty;
@@ -2441,6 +2466,8 @@ public class SearchRepository : ISearchRepository
             var changedByAnnotation = filter.ChangedByAnnotation.Value;
             query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
         }
+
+        query = ObservationQueryBuilder.ApplyHiddenFilter(query, filter.HiddenObservations);
 
         if (filter.Sensitive.HasValue)
         {

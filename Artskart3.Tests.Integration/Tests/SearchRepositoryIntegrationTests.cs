@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 using RegistrationStatus = Artskart3.Core.Domain.Enums.RegistrationStatus;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
@@ -862,8 +863,19 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
     [Fact]
     public Task GetAreaCountsAsync_ChangedByAnnotationFilter_SplitsOnAnnotatedChangesTag() =>
-        AssertAreaCountsSplitOnTagAsync(982000, TagEnum.AnnotatedChanges,
+        AssertAreaCountsSplitOnTagAsync(988000, TagEnum.AnnotatedChanges,
             hasTag => new LocationSearchFilterDto { ChangedByAnnotation = hasTag });
+
+    // Taksongruppen holder kallet på tellingen. Standardvalget alene leser ellers de
+    // forhåndsberegnede tallene på Area.
+    [Fact]
+    public Task GetAreaCountsAsync_HiddenObservationsFilter_SplitsOnBlockedTag() =>
+        AssertAreaCountsSplitOnTagAsync(986000, TagEnum.Blocked,
+            hasTag => new LocationSearchFilterDto
+            {
+                TaxonGroupIds = [TestObservationTaxonGroupOneId],
+                HiddenObservations = hasTag ? HiddenObservationFilter.Only : HiddenObservationFilter.Exclude,
+            });
 
     [Fact]
     public Task GetAreaCountsAsync_SensitiveFilter_SplitsOnSensitiveTag() =>
@@ -899,6 +911,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         SeedArea(areaFid, $"{tag} test kommune");
         SeedIndexRow(taggedObservationId, areaEntityId,
             changedByAnnotation: tag == TagEnum.AnnotatedChanges,
+            hiddenByAnnotation: tag == TagEnum.Blocked,
             sensitive: tag == TagEnum.Sensitive,
             uncertainIdentification: tag == TagEnum.UnsureIdentification,
             introduced: tag == TagEnum.Unspontaneus);
@@ -999,6 +1012,74 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
         antall.Count.Should().Be(1);
     }
+
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, false)]
+    [InlineData(HiddenObservationFilter.Only, true)]
+    [InlineData(HiddenObservationFilter.Include, true)]
+    public async Task GetObservationsAsync_HiddenObservation_FollowsFilter(HiddenObservationFilter filter, bool expected)
+    {
+        var hiddenId = await _context.Set<Observation>().OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        await SetHiddenAsync(hiddenId, true);
+        try
+        {
+            var result = await CreateCompleteFilterRepository().GetObservationsAsync(new ObservationSearchFilterDto
+            {
+                ObservationIds = [hiddenId],
+                HiddenObservations = filter,
+            });
+
+            result.Any(o => o.Id == hiddenId).Should().Be(expected);
+        }
+        finally
+        {
+            await SetHiddenAsync(hiddenId, false);
+        }
+    }
+
+    /// <summary>Områdestien leser indekstabellen og går utenom Observation-filtrene.</summary>
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, false)]
+    [InlineData(HiddenObservationFilter.Only, true)]
+    [InlineData(HiddenObservationFilter.Include, true)]
+    public async Task GetObservationsAsync_HiddenObservationInArea_FollowsFilter(HiddenObservationFilter filter, bool expected)
+    {
+        const int areaEntityId = 986110;
+        var hiddenId = await _context.Set<Observation>().OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+
+        _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = hiddenId,
+            EntityTypeId = (int)ObservationIndexEntityType.Municipality,
+            EntityId = areaEntityId,
+            TaxonGroupId = TestObservationTaxonGroupOneId,
+            BasisOfRecordId = TestBasisOfRecordOneId,
+            HiddenByAnnotation = true,
+        });
+        await _context.SaveChangesAsync();
+        try
+        {
+            var result = await CreateCompleteFilterRepository().GetObservationsAsync(new ObservationSearchFilterDto
+            {
+                MunicipalityIds = [areaEntityId.ToString()],
+                HiddenObservations = filter,
+            });
+
+            result.Any(o => o.Id == hiddenId).Should().Be(expected);
+        }
+        finally
+        {
+            await _context.Set<ObservationEntityIndex>()
+                .Where(i => i.EntityId == areaEntityId)
+                .ExecuteDeleteAsync();
+        }
+    }
+
+    private Task SetHiddenAsync(int observationId, bool hidden) =>
+        _context.Set<Observation>()
+            .Where(o => o.Id == observationId)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.HiddenByAnnotation, hidden));
 
     [Fact]
     public async Task GetObservationsAsync_WithCadastralUnit_ReturnsOnlyObservationsAtItsLocations()
@@ -1256,6 +1337,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         int? datasetOrgId = null,
         byte? behaviorId = null,
         bool changedByAnnotation = false,
+        bool hiddenByAnnotation = false,
         bool sensitive = false,
         bool uncertainIdentification = false,
         bool introduced = false) =>
@@ -1271,6 +1353,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             DatasetOrgId = datasetOrgId,
             BehaviorId = behaviorId,
             ChangedByAnnotation = changedByAnnotation,
+            HiddenByAnnotation = hiddenByAnnotation,
             Sensitive = sensitive,
             UncertainIdentification = uncertainIdentification,
             Introduced = introduced,

@@ -77,6 +77,9 @@ public class ObservationEntityIndex
     /// </summary>
     public bool ChangedByAnnotation { get; set; }
 
+    /// <summary>Denormalisert fra taggen Blocked. Se <see cref="ChangedByAnnotation"/>.</summary>
+    public bool HiddenByAnnotation { get; set; }
+
     /// <summary>Denormalisert fra taggen Sensitive. Se <see cref="ChangedByAnnotation"/>.</summary>
     public bool Sensitive { get; set; }
 

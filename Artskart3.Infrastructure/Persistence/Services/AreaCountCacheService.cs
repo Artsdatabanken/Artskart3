@@ -101,12 +101,9 @@ public class AreaCountCacheService : IAreaCountCacheService
         //
         // Null dimensjoner er derimot et GYLDIG oppslag nå — bool-filtrene ligger i
         // masken og teller ikke som dimensjoner, så «bare sensitiv» er null
-        // dimensjoner pluss et maskeutvalg. Uten maske og uten dimensjoner er det
-        // ingenting å slå opp.
+        // dimensjoner pluss et maskeutvalg. Uten maske heller er det «alle funn», og da
+        // er svaret summen av alle cellene.
         if (active.Count > 2)
-            return null;
-
-        if (active.Count == 0 && !maske.IsActive)
             return null;
 
         if (active.Count == 2 && !_options.EnableLevel2)
@@ -364,7 +361,7 @@ public class AreaCountCacheService : IAreaCountCacheService
             .AsNoTracking()
             .Where(r => r.DimensionId == regstatus);
 
-        query = FiltrerPaaMaske(query, maske);
+        query = query.WhereMask(maske);
         query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
         if (entityIds is not null)
             query = query.Where(r => entityIds.Contains(r.EntityId));
@@ -375,20 +372,6 @@ public class AreaCountCacheService : IAreaCountCacheService
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(r => (r.EntityTypeId, r.EntityId), r => r.Count);
-    }
-
-    /// <summary>
-    /// Maskepredikatet. Er ingen bool satt, legges ingenting til, og cellens masker
-    /// summeres av GroupBy-en som følger.
-    /// </summary>
-    private static IQueryable<T> FiltrerPaaMaske<T>(IQueryable<T> query, FilterMask.Selection maske)
-        where T : class, IHarFilterMaske
-    {
-        if (!maske.IsActive) return query;
-
-        var care = maske.Care;
-        var want = maske.Want;
-        return query.Where(r => (r.Mask & care) == want);
     }
 
     private async Task<Dictionary<(int EntityTypeId, int EntityId), int>> LookupLevel1Async(
@@ -421,7 +404,7 @@ public class AreaCountCacheService : IAreaCountCacheService
             }
         }
 
-        query = FiltrerPaaMaske(query, maske);
+        query = query.WhereMask(maske);
         query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
         if (entityIds is not null)
             query = query.Where(r => entityIds.Contains(r.EntityId));
@@ -478,7 +461,7 @@ public class AreaCountCacheService : IAreaCountCacheService
             }
         }
 
-        query = FiltrerPaaMaske(query, maske);
+        query = query.WhereMask(maske);
         query = query.Where(r => entityTypeIds.Contains(r.EntityTypeId));
         if (entityIds is not null)
             query = query.Where(r => entityIds.Contains(r.EntityId));

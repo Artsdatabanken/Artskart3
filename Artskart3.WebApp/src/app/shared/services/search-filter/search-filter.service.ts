@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { AreaService } from '../area/area.service';
 import {
   annotationFilterToChangedByAnnotation,
-  changedByAnnotationToAnnotationFilter,
+  annotationFilterToHiddenObservations,
   FilterStateService,
   identificationFilterToUncertainIdentification,
   imageFilterToWithImages,
@@ -12,6 +12,7 @@ import {
   sameIds,
   sensitiveFilterToSensitive,
   sensitiveToSensitiveFilter,
+  toAnnotationFilter,
   uncertainIdentificationToIdentificationFilter,
   withImagesToImageFilter,
 } from '../filter-state/filter-state.service';
@@ -62,6 +63,7 @@ export class SearchFilterService {
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const hiddenObservations = annotationFilterToHiddenObservations(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const uncertainIdentification = identificationFilterToUncertainIdentification(this.filterState.identificationFilter());
       const introduced = originFilterToIntroduced(this.filterState.originFilter());
@@ -86,6 +88,7 @@ export class SearchFilterService {
         observationIds: catalogObservationIds.length ? catalogObservationIds : undefined,
         withImages: withImages,
         changedByAnnotation,
+        hiddenObservations,
         sensitive,
         uncertainIdentification,
         introduced,
@@ -133,7 +136,7 @@ export class SearchFilterService {
     state.selectedProjects.set((filter.projectOrgIds ?? []).map((id) => ({ id, name: '' })));
     state.setCatalogObservationIds(filter.observationIds ?? []);
     state.setImageFilter(withImagesToImageFilter(filter.withImages));
-    state.setAnnotationFilter(changedByAnnotationToAnnotationFilter(filter.changedByAnnotation));
+    state.setAnnotationFilter(toAnnotationFilter(filter.hiddenObservations, filter.changedByAnnotation));
     state.setSensitiveFilter(sensitiveToSensitiveFilter(filter.sensitive));
     state.setIdentificationFilter(uncertainIdentificationToIdentificationFilter(filter.uncertainIdentification));
     state.setOriginFilter(introducedToOriginFilter(filter.introduced));

@@ -29,6 +29,11 @@ public static class ObservationFilterValidator
             return $"{nameof(filter.RegistrationStatusId)} must be between 1 and 3.";
         }
 
+        if (!Enum.IsDefined(filter.HiddenObservations))
+        {
+            return $"{nameof(filter.HiddenObservations)} is not a valid value.";
+        }
+
         if (GetPeriodError(filter) is { } periodError)
         {
             return periodError;
