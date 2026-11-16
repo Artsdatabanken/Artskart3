@@ -30,6 +30,13 @@ public interface IObservationFilter
     /// </summary>
     string[]? CadastralUnitIds { get; }
 
+    /// <summary>
+    /// Historiske fylker, kommuner og havområder (Area.Id for områder med
+    /// IsCurrent = 0). OR-es med de andre områdefiltrene. Slås opp via lokasjonene i
+    /// HistoricalAreaLocation, ikke via ObservationEntityIndex.
+    /// </summary>
+    int[]? HistoricalAreaIds { get; }
+
     int[]? BehaviorIds { get; }
     int[]? BasisOfRecordIds { get; }
     int? RegistrationStatusId { get; }

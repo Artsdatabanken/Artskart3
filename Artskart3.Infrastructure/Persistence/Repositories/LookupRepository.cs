@@ -1,6 +1,7 @@
 using Artskart3.Core.Constants;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
@@ -313,6 +314,125 @@ public class LookupRepository : ILookupRepository
             _logger.LogError(ex, "Feil ved henting av organisasjon med id: {Id}", id);
             throw new ApplicationException("Feil ved henting av organisasjon", ex);
         }
+    }
+
+    private static readonly int[] SearchableAreaTypeIds =
+    [
+        (int)Core.Domain.Enums.AreaType.Municipality,
+        (int)Core.Domain.Enums.AreaType.County,
+        (int)Core.Domain.Enums.AreaType.OceanArea,
+        (int)Core.Domain.Enums.AreaType.SvalbardBjørnøyaAndJanMayen,
+    ];
+
+    /// <summary>
+    /// Typeahead for fylker, kommuner og havområder, gjeldende og historiske. Treffer navnet
+    /// hvor som helst, eller nummeret (Fid) fra starten, slik at «1902» finner Tromsø 1902.
+    ///
+    /// Historiske områder tas bare med når de har lokasjoner i HistoricalAreaLocation. Er
+    /// tabellen ikke bygget, ville et valg ellers gitt et tomt søk uten forklaring.
+    ///
+    /// Treff som begynner med søketeksten kommer først, deretter gjeldende før historiske.
+    ///
+    /// Historiske områder får ikke antall: Area.ObservationCount står fast fra da de var
+    /// gjeldende. Målt lokalt: Tromsø 1902 har 82 494 der, men 450 066 observasjoner på
+    /// lokasjonene sine.
+    /// </summary>
+    public async Task<IEnumerable<AreaSearchResultDto>> SearchAreasAsync(
+        string search, int maxCount, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(search))
+            {
+                return Enumerable.Empty<AreaSearchResultDto>();
+            }
+
+            var term = search.Trim().EscapeSqlLikePattern();
+            var startsWith = term + "%";
+            var contains = "%" + term + "%";
+
+            var treff = _context.Set<Area>()
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted
+                    && SearchableAreaTypeIds.Contains(a.AreaTypeId)
+                    && (a.IsCurrent || _context.Set<HistoricalAreaLocation>().Any(h => h.AreaId == a.Id))
+                    && (EF.Functions.Like(a.Name, contains) || EF.Functions.Like(a.Fid, startsWith)))
+                .OrderBy(a => EF.Functions.Like(a.Name, startsWith) ? 0 : 1)
+                .ThenBy(a => a.IsCurrent ? 0 : 1)
+                .ThenBy(a => a.AreaTypeId == (int)Core.Domain.Enums.AreaType.County ? 0
+                    : a.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality ? 1 : 2)
+                .ThenBy(a => a.Name)
+                .ThenByDescending(a => a.TimeStamp)
+                .Take(maxCount);
+
+            return (await AreaSearchRows(treff).ToListAsync(cancellationToken)).Select(ToAreaSearchResult).ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved søk etter områder: {Search}", search);
+            throw new ApplicationException("Feil ved søk etter områder", ex);
+        }
+    }
+
+    public async Task<AreaSearchResultDto?> GetAreaByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var rad = await AreaSearchRows(_context.Set<Area>().AsNoTracking().Where(a => !a.IsDeleted && a.Id == id))
+                .FirstOrDefaultAsync(cancellationToken);
+            return rad == null ? null : ToAreaSearchResult(rad);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av område med id: {Id}", id);
+            throw new ApplicationException("Feil ved henting av område", ex);
+        }
+    }
+
+    /// <summary>
+    /// Feltene områdesøket og oppslaget trenger, med navnet på fylket en kommune hører til.
+    /// Sluttåret regnes ut etterpå, i <see cref="ToAreaSearchResult"/>.
+    /// </summary>
+    private IQueryable<AreaSearchRow> AreaSearchRows(IQueryable<Area> areas) =>
+        areas.Select(a => new AreaSearchRow
+        {
+            Id = a.Id,
+            Fid = a.Fid,
+            Name = a.Name,
+            AreaTypeId = a.AreaTypeId,
+            IsCurrent = a.IsCurrent,
+            TimeStamp = a.TimeStamp,
+            ObservationCount = a.ObservationCount,
+            CountyName = a.AreaTypeId == (int)Core.Domain.Enums.AreaType.Municipality
+                ? _context.Set<Area>()
+                    .Where(f => f.AreaTypeId == (int)Core.Domain.Enums.AreaType.County && !f.IsDeleted && f.Fid == a.ParentFid)
+                    .Select(f => f.Name)
+                    .FirstOrDefault()
+                : null,
+        });
+
+    private static AreaSearchResultDto ToAreaSearchResult(AreaSearchRow rad) => new()
+    {
+        Id = rad.Id,
+        Fid = rad.Fid,
+        Name = rad.Name,
+        AreaTypeId = rad.AreaTypeId,
+        IsCurrent = rad.IsCurrent,
+        CountyName = rad.CountyName,
+        EndYear = rad.IsCurrent ? null : HistoricalAreaRules.EndYear(rad.AreaTypeId, rad.Fid, rad.TimeStamp),
+        ObservationCount = rad.IsCurrent ? rad.ObservationCount : null,
+    };
+
+    private sealed class AreaSearchRow
+    {
+        public int Id { get; init; }
+        public string Fid { get; init; } = null!;
+        public string Name { get; init; } = null!;
+        public int AreaTypeId { get; init; }
+        public bool IsCurrent { get; init; }
+        public DateTime TimeStamp { get; init; }
+        public int? ObservationCount { get; init; }
+        public string? CountyName { get; init; }
     }
 
     /// <summary>

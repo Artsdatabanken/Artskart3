@@ -52,4 +52,26 @@ public class ObservationFilterValidatorTests
 
         ObservationFilterValidator.GetError(filter).Should().Contain(nameof(filter.CadastralUnitIds));
     }
+
+    [Fact]
+    public void GetError_WithTooManyHistoricalAreaIds_ReturnsError()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            HistoricalAreaIds = Enumerable.Range(1, SearchConstants.MaxHistoricalAreaFilterSize + 1).ToArray()
+        };
+
+        ObservationFilterValidator.GetError(filter).Should().Contain(nameof(filter.HistoricalAreaIds));
+    }
+
+    [Fact]
+    public void GetError_WithMaxHistoricalAreaIds_ReturnsNull()
+    {
+        var filter = new ObservationSearchFilterDto
+        {
+            HistoricalAreaIds = Enumerable.Range(1, SearchConstants.MaxHistoricalAreaFilterSize).ToArray()
+        };
+
+        ObservationFilterValidator.GetError(filter).Should().BeNull();
+    }
 }
