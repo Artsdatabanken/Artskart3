@@ -32,4 +32,34 @@ describe('ArtskartFullscreenControl tooltip', () => {
     new OlMap({ target: document.createElement('div'), controls: [control], interactions: [] });
     expect(control['element'].parentElement).toBe(target);
   });
+
+  it('toggles pseudo-fullscreen and its accessible state when unsupported', () => {
+    const source = document.createElement('div');
+    const control = new ArtskartFullscreenControl(labels, { source });
+    const button = control['element'].querySelector('button')!;
+    const tooltip = control['element'].querySelector('.map-control-tooltip')!;
+    const initialIcon = button.innerHTML;
+    control['element'].classList.add('ol-unsupported');
+
+    button.click();
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(tooltip.textContent).toBe('Exit fullscreen');
+    expect(button.innerHTML).not.toBe(initialIcon);
+
+    button.click();
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(false);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(tooltip.textContent).toBe('Show the map in fullscreen');
+    expect(button.innerHTML).toBe(initialIcon);
+  });
+
+  it('does nothing when the Fullscreen API is supported', () => {
+    const source = document.createElement('div');
+    const control = new ArtskartFullscreenControl(labels, { source });
+    const button = control['element'].querySelector('button')!;
+    button.click();
+
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(false);
+  });
 });
