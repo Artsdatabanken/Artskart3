@@ -154,9 +154,14 @@ export class AuthService {
 
   private sessionsAreEqual(left: Session, right: Session): boolean {
     if (left === null || right === null) return left === right;
-    if (left.length !== right.length) return false;
 
-    return left.every((claim, index) => claim.type === right[index].type && claim.value === right[index].value);
+    const leftClaims = left.filter((claim) => !claim.type.startsWith('bff:'));
+    const rightClaims = right.filter((claim) => !claim.type.startsWith('bff:'));
+    if (leftClaims.length !== rightClaims.length) return false;
+
+    return leftClaims.every(
+      (claim, index) => claim.type === rightClaims[index].type && claim.value === rightClaims[index].value
+    );
   }
 
   private notifyOtherTabs(message: 'session-changed' | 'logout'): void {
