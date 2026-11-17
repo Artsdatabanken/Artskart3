@@ -67,6 +67,9 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
 
     private const string Matrikkelnummer = "1101-1/2";
 
+    // Stubben slår polygonet opp til lokasjonene testen oppgir; geometrien brukes ikke.
+    private const string EgendefinertOmraade = "POLYGON ((0 0, 4000 0, 4000 4000, 0 0))";
+
     /// <summary>Rektangel: fem koordinatpar, altså en rutenettrute.</summary>
     private const string Rektangel = "POLYGON ((0 0, 4000 0, 4000 4000, 0 4000, 0 0))";
 
@@ -253,6 +256,48 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Egendefinert_omraade_gir_begge_stier_samme_polygoner()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, egendefinert: [_myr.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    /// <summary>
+    /// Matrikkelenheten OR-es med områdene, men det egendefinerte området AND-es med
+    /// alt: bare lokasjonen som er i begge, skal med.
+    /// </summary>
+    [Fact]
+    public async Task Egendefinert_omraade_og_matrikkelenhet_gir_bare_lokasjonene_i_begge()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CadastralUnitIds = [Matrikkelnummer], CustomAreaWkt = EgendefinertOmraade },
+            eiendom: [_myr.Id, _sensitivRute.Id],
+            egendefinert: [_myr.Id, _rute.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    [Fact]
+    public async Task Egendefinert_omraade_uten_lokasjoner_gir_tomt_fra_begge_stier()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, egendefinert: []);
+
+        treff.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Egendefinert_omraade_uten_oppslaatte_lokasjoner_gir_null()
+    {
+        var minnelager = await MinnelagerAsync();
+
+        minnelager.TryQuery(new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, 1000)
+            .Should().BeNull("lokasjonene må slås opp av kalleren");
+    }
+
+    [Fact]
     public async Task Matrikkelenhet_uten_oppslaatte_lokasjoner_gir_null()
     {
         var minnelager = await MinnelagerAsync();
@@ -390,16 +435,18 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// </summary>
     /// <summary>
     /// <paramref name="eiendom"/> er lokasjonene matrikkelenheten <see cref="Matrikkelnummer"/>
-    /// slås opp til. Returnerer lokasjonene begge stiene ga.
+    /// slås opp til, og <paramref name="egendefinert"/> de i <see cref="EgendefinertOmraade"/>.
+    /// Returnerer lokasjonene begge stiene ga.
     /// </summary>
-    private async Task<List<int>> AssertSammeSomDatabasenAsync(LocationSearchFilterDto filter, int[]? eiendom = null)
+    private async Task<List<int>> AssertSammeSomDatabasenAsync(
+        LocationSearchFilterDto filter, int[]? eiendom = null, int[]? egendefinert = null)
     {
         const int maxResults = 1000;
 
-        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults, eiendom?.ToHashSet());
+        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults, eiendom?.ToHashSet(), egendefinert?.ToHashSet());
         fraMinnet.Should().NotBeNull("minnelageret er bygget, så det skal svare");
 
-        var fraBasen = await UtenMinnelager(eiendom).GetLocationPolygonsAsync(filter);
+        var fraBasen = await UtenMinnelager(eiendom, egendefinert).GetLocationPolygonsAsync(filter);
 
         fraMinnet!.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId)
             .Should().Equal(fraBasen.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId));
@@ -426,10 +473,11 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         return store;
     }
 
-    private SearchRepository UtenMinnelager(int[]? eiendom = null) =>
+    private SearchRepository UtenMinnelager(int[]? eiendom = null, int[]? egendefinert = null) =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
             new StubAreaHierarchyService(), new StubTaxonHierarchyService(),
-            new StubCadastralUnitService(eiendom == null ? null : new() { [Matrikkelnummer] = eiendom }));
+            new StubCadastralUnitService(eiendom == null ? null : new() { [Matrikkelnummer] = eiendom }),
+            new StubCustomAreaService(egendefinert == null ? null : new() { [EgendefinertOmraade] = egendefinert }));
 
     /// <summary>
     /// PolygonLocationStore henter konteksten fra et scope. Her er det samme

@@ -84,6 +84,33 @@ public class LocationSearchFilterDtoTests
     }
 
     [Fact]
+    public void CustomAreaWkt_KreverDynamiskTelling()
+    {
+        var sut = new LocationSearchFilterDto { CustomAreaWkt = "POLYGON ((0 0, 10 0, 10 10, 0 0))" };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
+        sut.HasLocationLists.Should().BeTrue();
+    }
+
+    [Fact]
+    public void WithoutLocationLists_FjernerMatrikkelenheterOgEgendefinertOmraade()
+    {
+        var sut = new LocationSearchFilterDto
+        {
+            CadastralUnitIds = ["1101-1/2"],
+            CustomAreaWkt = "POLYGON ((0 0, 10 0, 10 10, 0 0))",
+            TaxonGroupIds = [8],
+        };
+
+        var uten = sut.WithoutLocationLists();
+
+        uten.HasLocationLists.Should().BeFalse();
+        uten.TaxonGroupIds.Should().Equal(8);
+        sut.HasLocationLists.Should().BeTrue();
+    }
+
+    [Fact]
     public void AlleEgenskaper_KanSettes()
     {
         var sut = new LocationSearchFilterDto

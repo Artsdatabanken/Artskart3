@@ -287,6 +287,15 @@ describe('FilterChipsComponent', () => {
       expect(component.chips().find((c) => c.id === 'historicalArea:669')!.text).toBe('sidebar.areaSearch: #669');
     });
 
+    it('viser chip for egendefinert område, og lukking fjerner det', () => {
+      flushLookups();
+      filterState.setCustomArea('POLYGON((0 0,10 0,10 10,0 0))');
+      const chip = component.chips().find((c) => c.id === 'customArea')!;
+      expect(chip.text).toBe('sidebar.customArea.heading');
+      chip.clear();
+      expect(filterState.customAreaWkt()).toBeNull();
+    });
+
     it('viser chip for katalognummer', () => {
       flushLookups();
       filterState.setCatalogNumber('ABC-123');

@@ -1074,6 +1074,50 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("LocationCountCacheState", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LocationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("LocationLists", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationListEntry", b =>
+                {
+                    b.Property<int>("ListId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ListId", "LocationId");
+
+                    b.ToTable("LocationListEntries", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.MapLayer", b =>
                 {
                     b.Property<int>("Id")

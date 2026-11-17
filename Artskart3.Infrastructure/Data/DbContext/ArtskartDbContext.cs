@@ -1360,6 +1360,22 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
         });
 
+        // Se LocationListStore. Ingen fremmednøkkel: ryddingen sletter listeraden først og
+        // radene etterpå, i porsjoner.
+        modelBuilder.Entity<LocationList>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("LocationLists");
+            entity.Property(e => e.Hash).HasMaxLength(32).IsFixedLength();
+            entity.HasIndex(e => e.Hash).IsUnique();
+        });
+
+        modelBuilder.Entity<LocationListEntry>(entity =>
+        {
+            entity.HasKey(e => new { e.ListId, e.LocationId });
+            entity.ToTable("LocationListEntries");
+        });
+
         modelBuilder.Entity<ObservationProject>(entity =>
         {
             entity.HasKey(e => new { e.ObservationId, e.ProjectOrgId });

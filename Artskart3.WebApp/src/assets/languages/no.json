@@ -329,6 +329,19 @@
       "historicalCounty": "historisk fylke, før {{year}}",
       "historicalArea": "historisk område, før {{year}}"
     },
+    "customArea": {
+      "heading": "Egendefinert område",
+      "description": "Filtrer på et område ved å tegne i kartet.",
+      "draw": "Tegn i kart",
+      "finish": "Fullfør tegning",
+      "undo": "Angre siste punkt",
+      "cancel": "Avbryt tegning",
+      "remove": "Fjern området",
+      "tooManyLocations": "Området inneholder for mange lokaliteter (over {{max}}). Gjør det mindre ved å dra i hjørnene, eller tegn et nytt.",
+      "tooManyLocationsWithAreas": "Sammen med de andre områdefiltrene teller hele det tegnede området, og det inneholder for mange lokaliteter (over {{max}}). Gjør det mindre, eller fjern de andre områdefiltrene.",
+      "tooManyCorners": "Området har for mange hjørner (over {{max}}). Tegn det med færre hjørner. Tegner du med Shift nede, blir hver bevegelse et hjørne.",
+      "checkFailed": "Kunne ikke sjekke området. Flytt et hjørne for å prøve igjen."
+    },
     "image": "Bilde",
     "imageAll": "Alle (standard)",
     "imageWith": "Med bilde",

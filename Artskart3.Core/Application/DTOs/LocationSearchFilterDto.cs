@@ -28,6 +28,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public int[]? HistoricalAreaIds { get; set; }
 
+    public string? CustomAreaWkt { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int? RegistrationStatusId { get; set; }
@@ -70,6 +72,7 @@ public class LocationSearchFilterDto : IObservationFilter
         OceanAreaIds?.Length > 0 ||
         CadastralUnitIds?.Length > 0 ||
         HistoricalAreaIds?.Length > 0 ||
+        CustomAreaWkt != null ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -89,9 +92,9 @@ public class LocationSearchFilterDto : IObservationFilter
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
     /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.), verneområder
-    /// (som krysser fylkes-/kommunegrenser), matrikkelenheter og historiske områder (som
-    /// ikke er forhåndstalt). Gjeldende fylker, kommuner og havområder bruker
-    /// pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
+    /// (som krysser fylkes-/kommunegrenser), matrikkelenheter, historiske områder og
+    /// egendefinerte områder (som ikke er forhåndstalt). Gjeldende fylker, kommuner og
+    /// havområder bruker pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
     /// </summary>
     public bool HasObservationAttributeFilters =>
         TaxonGroupIds?.Length > 0 ||
@@ -103,6 +106,7 @@ public class LocationSearchFilterDto : IObservationFilter
         RestrictedAreaIds?.Length > 0 ||
         CadastralUnitIds?.Length > 0 ||
         HistoricalAreaIds?.Length > 0 ||
+        CustomAreaWkt != null ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -148,6 +152,38 @@ public class LocationSearchFilterDto : IObservationFilter
         var copy = (LocationSearchFilterDto)MemberwiseClone();
         copy.CadastralUnitIds = null;
         copy.HistoricalAreaIds = null;
+        return copy;
+    }
+
+    /// <summary>
+    /// Om filteret har lokasjonslister fra matrikkelenheter eller et egendefinert område.
+    /// </summary>
+    public bool HasLocationLists => CadastralUnitIds?.Length > 0 || CustomAreaWkt != null;
+
+    /// <summary>
+    /// Samme filter uten matrikkelenhetene, de historiske områdene og det egendefinerte området.
+    /// </summary>
+    public LocationSearchFilterDto WithoutLocationLists()
+    {
+        var copy = WithoutLocationBasedAreas();
+        copy.CustomAreaWkt = null;
+        return copy;
+    }
+
+    /// <summary>
+    /// Samme filter med det egendefinerte området uttrykt som områdene helt innenfor det og
+    /// en lokasjonsliste for kanten, som behandles som en matrikkelenhet. Bare for filtre uten
+    /// andre områdevalg, siden områdene og listen OR-es.
+    /// </summary>
+    public LocationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey)
+    {
+        var copy = (LocationSearchFilterDto)MemberwiseClone();
+        copy.MunicipalityIds = municipalityIds.Length > 0 ? municipalityIds : null;
+        copy.OceanAreaIds = oceanAreaIds.Length > 0 ? oceanAreaIds : null;
+        // Svalbard, Bjørnøya og Jan Mayen slås opp med fylkes-ID-ene, som ellers i løsningen.
+        copy.CountyIds = countyIds.Length > 0 ? countyIds : null;
+        copy.CadastralUnitIds = [edgeLocationsKey];
+        copy.CustomAreaWkt = null;
         return copy;
     }
 }

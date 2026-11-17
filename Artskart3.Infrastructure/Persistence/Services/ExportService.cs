@@ -24,19 +24,22 @@ public class ExportService : IExportService
     private readonly ExportColumnRegistry _columnRegistry;
     private readonly ITaxonHierarchyService _taxonHierarchy;
     private readonly ICadastralUnitService _cadastralUnits;
+    private readonly ICustomAreaService _customAreas;
 
     public ExportService(
         IArtsKartDbContext context,
         IConfiguration configuration,
         ExportColumnRegistry columnRegistry,
         ITaxonHierarchyService taxonHierarchy,
-        ICadastralUnitService cadastralUnits)
+        ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas)
     {
         _context = context;
         _configuration = configuration;
         _columnRegistry = columnRegistry;
         _taxonHierarchy = taxonHierarchy;
         _cadastralUnits = cadastralUnits;
+        _customAreas = customAreas;
     }
 
     public Task<IReadOnlyList<ExportColumnDefinition>> GetAvailableColumnsAsync()
@@ -268,7 +271,7 @@ public class ExportService : IExportService
     private Task<IQueryable<Observation>> BuildFilteredQueryAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken)
     {
         var query = _context.Set<Observation>().AsNoTracking();
-        return ObservationQueryBuilder.ApplyFiltersAsync(_context, _taxonHierarchy, _cadastralUnits, query, filter, cancellationToken);
+        return ObservationQueryBuilder.ApplyFiltersAsync(_context, _taxonHierarchy, _cadastralUnits, _customAreas, query, filter, cancellationToken);
     }
 
     private static CsvExportJobDto MapToDto(CsvExportJob job) => new()

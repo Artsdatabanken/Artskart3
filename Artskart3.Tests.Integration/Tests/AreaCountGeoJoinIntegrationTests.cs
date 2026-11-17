@@ -63,7 +63,7 @@ public class AreaCountGeoJoinIntegrationTests : IAsyncLifetime
 
     private SearchRepository Repo() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new HierarkiStub(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+            new HierarkiStub(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     private async Task<int?> AntallFor(int zoom, LocationSearchFilterDto filter, string fid)
     {

@@ -150,6 +150,7 @@ $fixtures = [PSCustomObject]@{
     dimensions = $dims;  envelopes = $script:PerfEnvelopes
     matrikkel  = (New-PerfCadastralDimension)
     historisk  = (New-PerfHistoricalAreaDimension)
+    egendefinert = (New-PerfCustomAreaDimension)
 } | ConvertTo-Json -Depth 12 | ConvertFrom-Json
 
 # ---------------------------------------------------------------------------
@@ -358,8 +359,8 @@ Assert-Perf 'Quick har tung og lett' ($quickMatrikkel.Count -eq 2) "$($quickMatr
 
 # Kom matrikkelen inn i parene eller utvalgene, ville case-noeklene for alle de
 # andre casene endret seg, og ingen gammel baseline vaert sammenlignbar. Historisk-
-# laget er haandplukket som dette, og har ett case med matrikkel.
-$lekket = @($cases | Where-Object { $_.Layer -notin 'matrikkel', 'historisk' -and $_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds') })
+# og egendefinert-laget er haandplukket som dette, og har case med matrikkel.
+$lekket = @($cases | Where-Object { $_.Layer -notin 'matrikkel', 'historisk', 'egendefinert' -and $_.Filter -and $_.Filter.ContainsKey('cadastralUnitIds') })
 Assert-Perf 'Matrikkel bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
 
 # Eiendommene ligger i oslo-utsnittet. Andre utsnitt ville maalt et tomt svar,
@@ -477,6 +478,55 @@ Set-FalskeOmraader -FeilFid 663
 Assert-Perf 'Sjekk: annen Fid' (-not (Test-PerfHistoricalAreas 6>$null)) 'godtok feil omraade'
 
 Remove-Item Function:\Invoke-PerfApi
+
+# ---------------------------------------------------------------------------
+# Egendefinerte omraader
+# ---------------------------------------------------------------------------
+
+Write-Host "`nEgendefinert:" -ForegroundColor Cyan
+
+$egendefinertCase = @($cases | Where-Object Layer -eq 'egendefinert')
+Assert-Perf 'Egendefinert-laget bygget' ($egendefinertCase.Count -eq 22) "$($egendefinertCase.Count) av 22"
+
+$quick = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick')
+$quickEgendefinert = @($quick | Where-Object Layer -eq 'egendefinert')
+Assert-Perf 'Quick har tung og delt' ($quickEgendefinert.Count -eq 2) "$($quickEgendefinert.Count) case"
+
+# Samme grunn som for matrikkelen: et polygon i parene ville endret alle noeklene.
+$lekket = @($cases | Where-Object { $_.Layer -ne 'egendefinert' -and $_.Filter -and $_.Filter.ContainsKey('customAreaWkt') })
+Assert-Perf 'Egendefinert bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
+
+# Polygonene ligger i oslo-utsnittet, som eiendommene.
+foreach ($level in @('Standard', 'Full')) {
+    $lvlCases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $level | Where-Object Layer -eq 'egendefinert')
+    $lvlEps   = @(New-PerfEndpointMatrix -Level $level -Envelopes $fixtures.envelopes | Where-Object { $_.Extra.envelope })
+    $utsnitt  = @($lvlEps | Where-Object { $ep = $_; @($lvlCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count -gt 0 } |
+                  ForEach-Object Variant | Sort-Object -Unique)
+    Assert-Perf "Egendefinert bare paa oslo ($level)" (($utsnitt -join ',') -eq 'oslo') "kjoerer paa: $($utsnitt -join ', ')"
+}
+
+# Ett oppslag per polygon, pluss ett over grensen. POST med polygonet, én kjoering, og
+# foer soekene: oppslaget bufres, saa en senere eller gjentatt maaling ville maalt bufferen.
+$oppslagEgendefinert = @($cases | Where-Object CaseKey -like 'oppslag:egendefinert-*')
+Assert-Perf 'Oppslag per polygon og for stort' ($oppslagEgendefinert.Count -eq ($script:PerfCustomAreas.Count + 1)) `
+    "$($oppslagEgendefinert.Count) av $($script:PerfCustomAreas.Count + 1)"
+$feil = @($oppslagEgendefinert | Where-Object {
+    $_.Layer -ne 'oppslag' -or $_.LookupPath -ne '/api/Lookup/CustomArea' -or $_.LookupBody.wkt -notlike 'POLYGON((*' -or $_.LookupRuns -ne 1
+})
+Assert-Perf 'Oppslagene er POST med polygon, én gang' ($feil.Count -eq 0) "$($feil.Count) feil, f.eks. $(@($feil)[0].CaseKey)"
+$noekler = @($cases.CaseKey)
+$sisteOppslag = [Math]::Max(0, @($oppslagEgendefinert | ForEach-Object { [array]::IndexOf($noekler, $_.CaseKey) } | Measure-Object -Maximum).Maximum)
+$foersteSoek  = @($egendefinertCase | ForEach-Object { [array]::IndexOf($noekler, $_.CaseKey) } | Measure-Object -Minimum).Minimum
+Assert-Perf 'Oppslagene foer soekene' ($sisteOppslag -lt $foersteSoek) "siste oppslag $sisteOppslag, foerste soek $foersteSoek"
+$quickOppslag = @($quick | Where-Object CaseKey -like 'oppslag:egendefinert-*')
+Assert-Perf 'Quick har tre oppslag' ($quickOppslag.Count -eq 3) "$($quickOppslag.Count) oppslag"
+
+# Et polygon som ikke er lukket, avvises av API-et med 400, og hele laget maaler feil.
+$aapne = @(@($script:PerfCustomAreas.Values) + @($script:PerfCustomAreaTooLarge) | Where-Object {
+    $punkter = @(($_.Wkt -replace '^POLYGON\(\(|\)\)$', '') -split ',')
+    $punkter[0].Trim() -ne $punkter[-1].Trim() -or $punkter.Count -lt 4
+} | ForEach-Object Label)
+Assert-Perf 'Polygonene er lukket' ($aapne.Count -eq 0) ($aapne -join ', ')
 
 # ---------------------------------------------------------------------------
 # Oppdagelseshjelperne

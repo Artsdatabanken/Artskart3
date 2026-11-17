@@ -26,6 +26,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
 
     public int[]? HistoricalAreaIds { get; set; }
 
+    public string? CustomAreaWkt { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int[]? BasisOfRecordIds { get; set; }
@@ -61,6 +63,23 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     {
         var copy = (ObservationSearchFilterDto)MemberwiseClone();
         copy.WithImages = true;
+        return copy;
+    }
+
+    /// <summary>
+    /// Samme filter med det egendefinerte området uttrykt som områdene helt innenfor det og
+    /// en lokasjonsliste for kanten, som behandles som en matrikkelenhet. Bare for filtre uten
+    /// andre områdevalg, siden områdene og listen OR-es.
+    /// </summary>
+    public ObservationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey)
+    {
+        var copy = (ObservationSearchFilterDto)MemberwiseClone();
+        copy.MunicipalityIds = municipalityIds.Length > 0 ? municipalityIds : null;
+        copy.OceanAreaIds = oceanAreaIds.Length > 0 ? oceanAreaIds : null;
+        // Svalbard, Bjørnøya og Jan Mayen slås opp med fylkes-ID-ene, som ellers i løsningen.
+        copy.CountyIds = countyIds.Length > 0 ? countyIds : null;
+        copy.CadastralUnitIds = [edgeLocationsKey];
+        copy.CustomAreaWkt = null;
         return copy;
     }
 }

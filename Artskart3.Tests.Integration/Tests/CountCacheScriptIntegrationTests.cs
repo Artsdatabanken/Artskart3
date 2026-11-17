@@ -345,14 +345,14 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
 
     private SearchRepository WithCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), null,
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService(), null,
             new LocationCountCacheService(_context, new StubTaxonHierarchyService(),
                 new StubAreaHierarchyService(), Options.Create(new LocationCountCacheOptions()),
                 NullLogger<LocationCountCacheService>.Instance));
 
     private SearchRepository WithoutCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     /// <summary>
     /// Samme filter med og uten buffer skal gi identisk resultat, lokasjon for

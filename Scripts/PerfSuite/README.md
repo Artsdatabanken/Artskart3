@@ -188,6 +188,7 @@ fortsatt er brukbar:
 | `reise` | Håndplukkede, realistiske brukerflyter med 3–8 filtre |
 | `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
 | `historisk` | Historiske fylker og kommuner, alene og med utvalgte filtre. Se under |
+| `egendefinert` | Polygoner tegnet i kartet, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` og `ObservationImages`
@@ -436,6 +437,65 @@ Area.Id er ikke garantert lik på tvers av databaser, og uten rader i
 derfor opp hvert område i API-et og stopper hvis det har feil Fid, er gjeldende,
 eller ikke vises i områdesøket. Søket viser bare historiske områder med
 lokasjoner, så sjekken trenger ingen databasetilkobling.
+
+## Egendefinerte områder
+
+Polygonfilteret (`customAreaWkt`) har et eget lag, `egendefinert`, bygget på åtte
+håndplukkede polygoner i `$PerfCustomAreas` i `Fixtures.ps1`. Som matrikkelenhetene
+er de konstanter utenfor `fixtures.dimensions`, så de andre case-nøklene ikke endrer
+seg. Polygonene er valgt etter hvilken vei søket tar:
+
+- Under 20 000 lokasjoner sendes listen som JSON (`OPENJSON`). Over det lagres den i
+  `LocationListEntries` og joines (`LocationListStore`).
+- Ligger et område helt innenfor polygonet, deles søket: områdene leses som et
+  vanlig områdefilter, og bare kanten sendes som liste. Grensen på 600 000 lokasjoner
+  (`SearchConstants.MaxCustomAreaLocations`) gjelder da kanten.
+
+| Nivå | Polygon | Lokasjoner som liste | Vei |
+|---|---|---|---|
+| `skog` (`lett`) | 3 × 3 km i Nordmarka | 235 | JSON |
+| `liten` | 2 × 2 km i sentrale Oslo | 6 366 | JSON |
+| `tung` | 16 × 12 km over Oslo | 123 960 | lagret liste |
+| `stor` | 32 × 25 km over Oslo | 276 599 | lagret liste |
+| `stripe` | 24 km bred stripe Drammen–Lillestrøm | 384 500 | lagret liste, ingen områder helt innenfor |
+| `delt` | 40 × 32 km | 332 739 i kanten | delt, Lørenskog helt innenfor |
+| `mange` | 90 × 72 km | 222 139 i kanten | delt, 15 områder helt innenfor |
+| `maks` | Kryss med 14 km brede armer | 471 987 i kanten | delt, Ås helt innenfor |
+
+Tallene er målt mot `Artskart3TestMigrations` 13.11.2026. Alle polygonene ligger i
+`oslo`-utsnittet, og `Locations` og `LocationPolygons` kjører laget bare der.
+
+Laget har 22 case: hvert polygon alene, og kombinasjoner valgt etter kodestiene:
+tunge og sjeldne filtre mot én spørring over hele listen, sjeldne filtre der
+områdene i et delt søk må lese langt, kommune og matrikkel (da deles ikke
+polygonet), og én brukerreise. `Quick` tar bare `tung` og `delt` alene.
+
+### Oppslaget måles for seg, og bare kaldt
+
+Frontend kaller `POST /api/Lookup/CustomArea` når tegningen er ferdig. Oppslaget
+finner lokasjonene, deler polygonet og starter lagringen av listen i bakgrunnen.
+Svaret bufres i en time, så bare første kall måler arbeidet. Derfor har hvert
+polygon sitt eget oppslag i `oppslag`-laget, `oppslag:egendefinert-<nivå>`, som
+kjøres én gang (`LookupRuns`) og før søkene. I tillegg kommer
+`oppslag:egendefinert-forstor`, et kryss med 26 km brede armer og 660 761 lokasjoner
+i kanten. Det svarer `tooManyLocations` og måler hvor lang tid avvisningen tar.
+`Quick` slår opp `tung` og `delt` i tillegg til det for store.
+
+`-Layer egendefinert` tar ikke med oppslagene. Søkene gjør da oppslaget selv, og det
+havner i den kalde tiden til det første søket per polygon.
+
+Laget gir 11 nye målinger på `Quick`, 185 på `Standard` og 229 på `Full`. Med
+`fixtures.json` fra 27.10.2026 og `historisk`-laget blir matrisen dermed 513, 3 447 og
+11 546 målinger (`Run.ps1 -ListOnly`, 17.11.2026).
+
+### Start API-et på nytt før hver kjøring
+
+Bufferen i API-et er grunnen til at oppslagene bare måles kaldt, og den overlever
+ikke en omstart. De lagrede listene gjør det: de ligger i databasen til de ikke har
+vært brukt på to timer. En ny kjøring samme dag finner listene og trenger bare å
+oppdatere `LastUsedAt`, der den første må skrive dem. Forskjellen synes i den kalde
+tiden til første søk per polygon (søket venter på lagringen i opptil 2 sekunder),
+ikke i den varme tiden `Compare.ps1` sammenligner.
 
 ## Indekssporing
 

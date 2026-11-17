@@ -20,6 +20,7 @@
       reise      - haandplukkede, realistiske brukerflyter med mange filtre
       matrikkel  - matrikkelenheter, alene og med utvalgte filtre
       historisk  - historiske fylker og kommuner, alene og med utvalgte filtre
+      egendefinert - polygoner tegnet i kartet, alene og med utvalgte filtre
       oppslag    - typeahead-endepunktene, som ikke tar filterkropp
 
     Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
@@ -372,6 +373,85 @@ function New-PerfCaseMatrix {
         }
     }
 
+    # --- Lag 8: egendefinerte omraader --------------------------------------
+    # Eget lag, som matrikkelen, og av samme grunn: som dimensjon i parene ville det
+    # endret utvalget og noeklene for alle de andre casene. Se $PerfCustomAreas.
+    #
+    # OPPSLAGET FOERST, OG KALDT
+    # Frontend kaller POST /api/Lookup/CustomArea naar tegningen er ferdig. Det finner
+    # lokasjonene, deler polygonet og starter lagringen av listen i bakgrunnen, og
+    # svaret bufres en time. Bare foerste kall maaler arbeidet, saa oppslagene kjoeres
+    # én gang (LookupRuns), og foer soekene, som ellers ville bufret det. De ligger i
+    # oppslag-laget fordi Run.ps1 kjenner oppslag paa laget; -Layer egendefinert
+    # kjoerer derfor soekene uten dem.
+    #
+    # Kombinasjonene er valgt etter kodestiene:
+    #   tetthet   tunge og sjeldne filtre mot én spoerring for alle lokasjonene
+    #   deling    omraadene helt innenfor leses hvert for seg, nyeste foerst; sjeldne
+    #             filtre faar grenene til aa lese langt
+    #   omraade   med kommune eller matrikkel deles ikke polygonet, og hele listen
+    #             gaar til databasen sammen med det andre filteret
+    $egendefinert = $Fixtures.egendefinert
+    if ($egendefinert) {
+        $oppslagNavn = if ($Level -eq 'Quick') { @('tung', 'delt') }
+                       else { @($egendefinert.tiers | ForEach-Object { $_.key -replace '^egendefinert:', '' }) }
+        $polygonOppslag = @($oppslagNavn | ForEach-Object {
+            $tier = Get-PerfTierByKey -Dimensions @($egendefinert) -Key "egendefinert:$_"
+            @{ Key = "oppslag:egendefinert-$_"; Wkt = $tier.filter.customAreaWkt; Label = $tier.label }
+        })
+        $polygonOppslag += @{ Key = 'oppslag:egendefinert-forstor'; Wkt = $script:PerfCustomAreaTooLarge.Wkt
+                              Label = $script:PerfCustomAreaTooLarge.Label }
+
+        foreach ($o in $polygonOppslag) {
+            $cases.Add([PSCustomObject]@{
+                CaseKey = $o.Key; Layer = 'oppslag'; Dimensions = ''
+                Label = "POST /api/Lookup/CustomArea: $($o.Label)"; Filter = $null
+                LookupPath = '/api/Lookup/CustomArea'; LookupBody = @{ wkt = $o.Wkt }; LookupRuns = 1
+            })
+        }
+
+        $egendefinertCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('egendefinert:tung') }, @{ Keys = @('egendefinert:delt') })
+        }
+        else {
+            @($egendefinert.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # tetthet
+                @{ Keys = @('egendefinert:tung', 'taksongruppe:tung') },
+                @{ Keys = @('egendefinert:tung', 'taksongruppe:lett') },
+                @{ Keys = @('egendefinert:tung', 'kategori:lett') },
+                @{ Keys = @('egendefinert:tung', 'periode:lett') },
+                @{ Keys = @('egendefinert:tung', 'bilder:lett') },
+                @{ Keys = @('egendefinert:stor', 'taksongruppe:tung') },
+                # deling
+                @{ Keys = @('egendefinert:delt', 'taksongruppe:tung') },
+                @{ Keys = @('egendefinert:delt', 'kategori:lett') },
+                @{ Keys = @('egendefinert:mange', 'taksongruppe:lett') },
+                @{ Keys = @('egendefinert:mange', 'kategori:tung') },
+                @{ Keys = @('egendefinert:maks', 'taksongruppe:tung') },
+                # omraade
+                @{ Keys = @('egendefinert:tung', 'kommune:mange') },
+                @{ Keys = @('egendefinert:tung', 'matrikkel:tung') },
+                # En ornitolog som ser hvilke fugler som er sett rundt Oslo de siste aarene.
+                @{ Keys = @('egendefinert:stor', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:egendefinert' }
+            )
+        }
+
+        $alleDims = @(@($dims) + @($matrikkel) + @($egendefinert) | Where-Object { $null -ne $_ })
+        foreach ($e in $egendefinertCase) {
+            $tiers = @($e.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            # Samme grunn som for reisene: et delvis filter ville faatt samme noekkel
+            # som det fulle i baselinen.
+            if ($tiers.Count -ne $e.Keys.Count) {
+                Write-Warning "$($e.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'egendefinert' -Tiers $tiers -KeyOverride $e.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
     # --- Lag 5: oppslag (typeahead) ----------------------------------------
     # Strengsoeket forsvant ikke fra loesningen, det flyttet hit da filtrene gikk
     # over til aa ta IDer. Maales derfor for seg: gevinsten i filterspoerringen er
@@ -579,9 +659,9 @@ function New-PerfEndpointMatrix {
         # De fire store. Paa Quick er oslo (over taket) og kristiansand (under)
         # med; de to andre foerst fra Standard.
         #
-        # Matrikkel-laget kjoerer bare paa oslo, der alle eiendommene ligger, og det
-        # samme gjelder historisk-laget.
-        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk') }; Full=@{} }
+        # Matrikkel-, historisk- og egendefinert-laget kjoerer bare paa oslo, der alle
+        # eiendommene og polygonene og de fleste historiske omraadene ligger.
+        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk', 'egendefinert') }; Full=@{} }
         @{ Navn='trondheim';    Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt','par') } }
         @{ Navn='trollheimen';  Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt') } }
         @{ Navn='kristiansand'; Quick=$qQuick; Standard=$qStige; Full=@{ Layers=@('enkelt') } }

@@ -565,11 +565,11 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
 
     private SearchRepository WithCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), CreateCacheService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService(), CreateCacheService());
 
     private SearchRepository WithoutCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     private AreaCountCacheService CreateCacheService(AreaCountCacheOptions? options = null) =>
         new(_context, new StubTaxonHierarchyService(), new StubAreaHierarchyService(),

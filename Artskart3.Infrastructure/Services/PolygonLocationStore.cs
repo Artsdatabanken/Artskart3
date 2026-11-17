@@ -141,12 +141,13 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
     /// <inheritdoc />
     public IReadOnlyList<LocationPolygonDto>? TryQuery(
-        LocationSearchFilterDto filter, int maxResults, IReadOnlySet<int>? cadastralLocationIds = null)
+        LocationSearchFilterDto filter, int maxResults,
+        IReadOnlySet<int>? cadastralLocationIds = null, IReadOnlySet<int>? customAreaLocationIds = null)
     {
         if (!IsReady) return null;
 
-        // Matrikkelenhetene slås opp mot Kartverket av kalleren. Uten lokasjonene kan
-        // filteret ikke evalueres her.
+        // Matrikkelenhetene og det egendefinerte området slås opp til lokasjoner av
+        // kalleren. Uten lokasjonene kan filteret ikke evalueres her.
         if (filter.CadastralUnitIds?.Length > 0 && cadastralLocationIds is null) return null;
 
         // Et historisk område som ikke fantes da lageret ble bygget, er fylt etterpå.
@@ -156,6 +157,9 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             return null;
 
         var eiendom = LokasjonsbaserteValg(filter, cadastralLocationIds);
+
+        var egendefinert = filter.CustomAreaWkt != null ? customAreaLocationIds : null;
+        if (filter.CustomAreaWkt != null && egendefinert is null) return null;
 
         var p = BuildPredicate(filter, harEiendom: eiendom is not null);
 
@@ -190,6 +194,9 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             // områdevalg er de hele geografifilteret, og andre lokasjoner hoppes over.
             var iEiendom = eiendom?.Contains(_locId[loc]) == true;
             if (eiendom is not null && p.GeoBucket is null && !iEiendom) continue;
+
+            // Det egendefinerte området AND-es med alt annet, også områdene.
+            if (egendefinert is not null && !egendefinert.Contains(_locId[loc])) continue;
 
             var slutt = _obsStart[loc + 1];
             var antall = 0;

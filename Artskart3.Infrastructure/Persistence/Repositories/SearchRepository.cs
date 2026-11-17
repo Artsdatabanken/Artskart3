@@ -1,19 +1,21 @@
 using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Services;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.BusinessModels;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
-using Artskart3.Core.Application.Services;
-using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
+using Artskart3.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Runtime.CompilerServices;
 using AreaType = Artskart3.Core.Domain.Enums.AreaType;
 
 namespace Artskart3.Infrastructure.Persistence.Repositories;
@@ -28,6 +30,7 @@ public class SearchRepository : ISearchRepository
     private readonly IAreaHierarchyService _areaHierarchy;
     private readonly ITaxonHierarchyService _taxonHierarchy;
     private readonly ICadastralUnitService _cadastralUnits;
+    private readonly ICustomAreaService _customAreas;
 
     /// <summary>
     /// Områdebufferen. Valgfri med vilje: null betyr «tell som før», og det er riktig
@@ -56,6 +59,7 @@ public class SearchRepository : ISearchRepository
         IAreaHierarchyService areaHierarchy,
         ITaxonHierarchyService taxonHierarchy,
         ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
         IAreaCountCacheService? areaCountCache = null,
         ILocationCountCacheService? locationCountCache = null,
         IPolygonLocationStore? polygonStore = null)
@@ -67,6 +71,7 @@ public class SearchRepository : ISearchRepository
         _areaHierarchy = areaHierarchy ?? throw new ArgumentNullException(nameof(areaHierarchy));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
         _cadastralUnits = cadastralUnits ?? throw new ArgumentNullException(nameof(cadastralUnits));
+        _customAreas = customAreas ?? throw new ArgumentNullException(nameof(customAreas));
         _areaCountCache = areaCountCache;
         _locationCountCache = locationCountCache;
     }
@@ -193,7 +198,9 @@ public class SearchRepository : ISearchRepository
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
+        filter = await SplitCustomAreaAsync(filter, cancellationToken);
         var locationSelection = await ResolveLocationsAsync(filter, cancellationToken);
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
 
         // Taggen plukkes opp av QueryHintInterceptor, som legger på
         // OPTION (RECOMPILE) og valg av riktig query plan.
@@ -226,7 +233,7 @@ public class SearchRepository : ISearchRepository
             // Med IX_OEI_AreaListView, nøklet (EntityTypeId, EntityId,
             // DateTimeCollected DESC, ObservationId DESC), kommer radene ut ferdig
             // sortert innenfor hvert område — og da kan TOP-en stoppe tidlig.
-            var ids = await GetAreaFilteredObservationIdsAsync(filter, locationSelection, skip, take, cancellationToken);
+            var ids = await GetAreaFilteredObservationIdsAsync(filter, locationSelection, customAreaLocationIds, skip, take, cancellationToken);
             if (ids.Count == 0)
             {
                 return [];
@@ -242,11 +249,30 @@ public class SearchRepository : ISearchRepository
             return await ProjectObservationsAsync(query, cancellationToken);
         }
 
+        // EGENDEFINERT OMRÅDE: les fra indekstabellen, se GetCustomAreaObservationIdsAsync.
+        if (customAreaLocationIds != null && locationSelection == null)
+        {
+            var egendefinert = await GetCustomAreaObservationIdsAsync(filter, customAreaLocationIds, skip, take, cancellationToken);
+            if (egendefinert != null)
+            {
+                if (egendefinert.Count == 0)
+                {
+                    return [];
+                }
+
+                query = query.Where(o => egendefinert.Contains(o.Id))
+                             .OrderByDescending(o => o.DateTimeCollected)
+                             .ThenByDescending(o => o.Id);
+
+                return await ProjectObservationsAsync(query, cancellationToken);
+            }
+        }
+
         // FLERVERDIFILTER PÅ EN SORTERT INDEKS: én gren per verdi.
         //
         // Se GetBranchedObservationIdsAsync. Returnerer null når grening ikke
         // gjelder, og da faller vi gjennom til den vanlige stien under.
-        var grenIds = await GetBranchedObservationIdsAsync(filter, locationSelection, skip, take, cancellationToken);
+        var grenIds = await GetBranchedObservationIdsAsync(filter, locationSelection, customAreaLocationIds, skip, take, cancellationToken);
         if (grenIds != null)
         {
             if (grenIds.Count == 0)
@@ -273,7 +299,7 @@ public class SearchRepository : ISearchRepository
         // ID-spørringen en dårligere plan, 4,4 s til 7,4 s.
         if (locationSelection is { HistoricalAreaIds: not null, CadastralLocationIds: null })
         {
-            IQueryable<Observation> sideIder = ApplyCommonFilters(query, filter, locationSelection)
+            IQueryable<Observation> sideIder = ApplyCommonFilters(query, filter, locationSelection, customAreaLocationIds)
                 .OrderByDescending(o => o.DateTimeCollected)
                 .ThenByDescending(o => o.Id);
             if (skip > 0)
@@ -294,7 +320,7 @@ public class SearchRepository : ISearchRepository
         }
 
         // Felles filtre (taksongruppe, kategori, område, atferd, presisjon, periode)
-        query = ApplyCommonFilters(query, filter, locationSelection);
+        query = ApplyCommonFilters(query, filter, locationSelection, customAreaLocationIds);
 
         query = query.OrderByDescending(o => o.DateTimeCollected)
                      .ThenByDescending(o => o.Id);
@@ -406,7 +432,8 @@ public class SearchRepository : ISearchRepository
     /// <see cref="GetAreaFilteredObservationIdsAsync"/> hviler på.
     /// </summary>
     private async Task<List<int>?> GetBranchedObservationIdsAsync(
-        IObservationFilter filter, LocationSelection? locationSelection, int skip, int take, CancellationToken cancellationToken)
+        IObservationFilter filter, LocationSelection? locationSelection, int[]? customAreaLocationIds, int skip, int take,
+        CancellationToken cancellationToken)
     {
         // Institusjon først: den har det klart verste utslaget. Er begge
         // dimensjonene flerverdi, blir den andre et restledd inne i hver gren —
@@ -460,7 +487,8 @@ public class SearchRepository : ISearchRepository
                         .AsNoTracking()
                         .TagWith(QueryHintInterceptor.RecompileTag),
                     lagGrenfilter(verdi),
-                    locationSelection)
+                    locationSelection,
+                    customAreaLocationIds)
                 .OrderByDescending(o => o.DateTimeCollected)
                 .ThenByDescending(o => o.Id)
                 .Take(trengs)
@@ -511,6 +539,7 @@ public class SearchRepository : ISearchRepository
         public string[]? OceanAreaIds => inner.OceanAreaIds;
         public string[]? CadastralUnitIds => inner.CadastralUnitIds;
         public int[]? HistoricalAreaIds => inner.HistoricalAreaIds;
+        public string? CustomAreaWkt => inner.CustomAreaWkt;
         public int[]? BehaviorIds => inner.BehaviorIds;
         public int[]? BasisOfRecordIds => inner.BasisOfRecordIds;
         public int? RegistrationStatusId => inner.RegistrationStatusId;
@@ -545,7 +574,8 @@ public class SearchRepository : ISearchRepository
     /// ville en observasjon dukket opp flere ganger i lista.
     /// </summary>
     private async Task<List<int>> GetAreaFilteredObservationIdsAsync(
-        ObservationSearchFilterDto filter, LocationSelection? locationSelection, int skip, int take, CancellationToken cancellationToken)
+        ObservationSearchFilterDto filter, LocationSelection? locationSelection, int[]? customAreaLocationIds,
+        int skip, int take, CancellationToken cancellationToken)
     {
         // Alle de fem listene forhåndsfiltreres mot områder som faktisk finnes i
         // indeksen, ikke bare fylkene. Hver gjenstående id blir én egen spørring i
@@ -625,14 +655,23 @@ public class SearchRepository : ISearchRepository
         // i minnet. Hver gren henter TOP(skip + take), så et dypt offset gjør en
         // lovlig grenmengde til hundrevis av megabyte. Se MaxBranchCandidates.
         //
-        // Matrikkelenhetene og de historiske områdene er én gren til, se under løkka.
-        var grener = omraader.Sum(o => o.Ids.Length) + (locationSelection == null ? 0 : 1);
+        // Matrikkelenhetene og de historiske områdene er én gren til, se under løkka. Kanten til
+        // et oppdelt egendefinert område kommer på samme plass og leses som polygonet ellers, se
+        // CustomAreaLocationBranchesAsync.
+        var kant = IsCustomAreaEdge(filter);
+        var lokasjonsgrener = locationSelection == null ? 0 : (kant ? 2 : 1);
+        var grener = omraader.Sum(o => o.Ids.Length) + lokasjonsgrener;
+        var overTaket = BrukEllerFormen(grener, skip + take);
 
-        if (BrukEllerFormen(grener, skip + take))
+        // Med lokasjonene til et egendefinert område må hver gren lese hele området fra
+        // columnstore, så grenene stopper ikke tidlig og koster én skanning hver. ELLER-formen
+        // gjør det i én. Målt 16.11.2026 med Oslo-polygonet: 60 kommuner 13 s som grener.
+        if (overTaket || customAreaLocationIds != null)
         {
-            _logger.LogInformation(
-                "Områdefilteret ga {Grener} grener og {Kandidater} kandidatrader (tak {GrenTak} / {KandidatTak}). Bruker ELLER-formen.",
-                grener, (long)grener * (skip + take), MaxAreaBranches, MaxBranchCandidates);
+            if (overTaket)
+                _logger.LogInformation(
+                    "Områdefilteret ga {Grener} grener og {Kandidater} kandidatrader (tak {GrenTak} / {KandidatTak}). Bruker ELLER-formen.",
+                    grener, (long)grener * (skip + take), MaxAreaBranches, MaxBranchCandidates);
 
             var orIds = new AreaFilterIds(
                 municipalityIds, countyIds, svalbardIds, restrictedIds, oceanIds,
@@ -654,16 +693,32 @@ public class SearchRepository : ISearchRepository
             // Max(dato) velger én verdi deterministisk. Grenformen tar g.First(),
             // som ved drift kan velge en annen rad — men den driften er en
             // datafeil, ikke et tilfelle noen av stiene skal gi et pent svar på.
-            return await ApplyAreaFilterToEntityIndex(
+            var rader = ApplyAreaFilterToEntityIndex(
                     ApplyListViewFiltersToEntityIndex(
                         _context.Set<ObservationEntityIndex>()
                             .AsNoTracking()
                             .TagWith(QueryHintInterceptor.RecompileTag),
-                        filter),
+                        filter,
+                        customAreaLocationIds),
                     orIds,
                     locationSelection)
-                .GroupBy(idx => idx.ObservationId)
-                .Select(g => new { ObservationId = g.Key, Dato = g.Max(idx => idx.DateTimeCollected) })
+                .Select(idx => new { idx.ObservationId, idx.DateTimeCollected });
+
+            // Kantlokasjoner uten områderader har ingen rader i indekstabellen, så de hentes fra
+            // Observation som i grenformen, se CustomAreaLocationBranchesAsync. Det er sjelden noen.
+            var utenOmraader = kant
+                ? await _customAreas.GetLocationsWithoutAreasAsync(locationSelection!.CadastralLocationIds!, cancellationToken)
+                : [];
+            if (utenOmraader.Length > 0)
+            {
+                rader = rader.Concat(
+                    ApplyCommonFilters(_context.Set<Observation>().AsNoTracking(), filter, null, utenOmraader, NoAreaFilter)
+                        .Select(o => new { ObservationId = o.Id, o.DateTimeCollected }));
+            }
+
+            return await rader
+                .GroupBy(x => x.ObservationId)
+                .Select(g => new { ObservationId = g.Key, Dato = g.Max(x => x.DateTimeCollected) })
                 .OrderByDescending(x => x.Dato)
                 .ThenByDescending(x => x.ObservationId)
                 .Skip(skip)
@@ -674,28 +729,12 @@ public class SearchRepository : ISearchRepository
 
         var trengs = skip + take;
         var kandidater = new List<(int ObservationId, DateTime? Dato)>();
-        var utenRadmaal = NeedsLookupsOutsideAreaListIndexes(filter);
 
         foreach (var (type, ids) in omraader)
         {
             foreach (var id in ids)
             {
-                var kilde = _context.Set<ObservationEntityIndex>()
-                    .AsNoTracking()
-                    .TagWith(QueryHintInterceptor.RecompileTag);
-                if (utenRadmaal)
-                    kilde = kilde.TagWith(QueryHintInterceptor.NoRowGoalTag);
-
-                var gren = ApplyListViewFiltersToEntityIndex(
-                        kilde.Where(idx => idx.EntityTypeId == type && idx.EntityId == id),
-                        filter)
-                    .OrderByDescending(idx => idx.DateTimeCollected)
-                    .ThenByDescending(idx => idx.ObservationId)
-                    .Take(trengs)
-                    .Select(idx => new { idx.ObservationId, idx.DateTimeCollected });
-
-                foreach (var rad in await gren.ToListAsync(cancellationToken))
-                    kandidater.Add((rad.ObservationId, rad.DateTimeCollected));
+                kandidater.AddRange(await AreaBranchAsync(type, id, filter, trengs, cancellationToken));
             }
         }
 
@@ -707,30 +746,146 @@ public class SearchRepository : ISearchRepository
         // ville TOP-en talt flere rader per observasjon og levert for få.
         if (locationSelection != null)
         {
-            var gren = ApplyCommonFilters(
-                    _context.Set<Observation>()
-                        .AsNoTracking()
-                        .TagWith(QueryHintInterceptor.RecompileTag),
-                    filter,
-                    locationSelection,
-                    NoAreaFilter)
-                .OrderByDescending(o => o.DateTimeCollected)
-                .ThenByDescending(o => o.Id)
-                .Take(trengs)
-                .Select(o => new { o.Id, o.DateTimeCollected });
-
-            foreach (var rad in await gren.ToListAsync(cancellationToken))
-                kandidater.Add((rad.Id, rad.DateTimeCollected));
+            kandidater.AddRange(kant
+                ? await CustomAreaLocationBranchesAsync(filter, locationSelection.CadastralLocationIds!, trengs, cancellationToken)
+                : await LocationBranchAsync(filter, locationSelection, customAreaLocationIds, trengs, cancellationToken));
         }
 
-        // Deduplisering er nødvendig, ikke defensiv: en observasjon kan ligge i
-        // flere av de valgte områdene — en kommune og fylket over den, eller to
-        // overlappende verneområder — og ville ellers dukket opp flere ganger.
-        //
-        // Sorteringen må være identisk med den databasestien hadde:
-        // DateTimeCollected synkende, deretter ObservationId synkende. NULL-dato
-        // sorterer sist, som i SQL med DESC.
-        return kandidater
+        return MergeBranches(kandidater, skip, take);
+    }
+
+    /// <summary>
+    /// Listevisningen for et egendefinert område uten andre områdefiltre, se
+    /// <see cref="CustomAreaLocationBranchesAsync"/>.
+    ///
+    /// Uten dette må alle funnene på polygonets lokasjoner hentes fra Observation og sorteres
+    /// før siden kan tas: målt 4-5 s for sentrale Oslo. Null når grenene blir for mange, og da
+    /// brukes den vanlige stien.
+    /// </summary>
+    private async Task<List<int>?> GetCustomAreaObservationIdsAsync(
+        IObservationFilter filter, int[] customAreaLocationIds, int skip, int take, CancellationToken cancellationToken)
+    {
+        var trengs = skip + take;
+        if (BrukEllerFormen(2, trengs)) return null;
+
+        return MergeBranches(await CustomAreaLocationBranchesAsync(filter, customAreaLocationIds, trengs, cancellationToken), skip, take);
+    }
+
+    /// <summary>
+    /// De <paramref name="trengs"/> nyeste funnene i ett område. Området er nøkkelen det søkes
+    /// på, og dato neste nøkkelkolonne, så TOP-en kan stoppe tidlig.
+    /// </summary>
+    private async Task<List<(int ObservationId, DateTime? Dato)>> AreaBranchAsync(
+        int type, int id, IObservationFilter filter, int trengs, CancellationToken cancellationToken)
+    {
+        var kilde = _context.Set<ObservationEntityIndex>()
+            .AsNoTracking()
+            .TagWith(QueryHintInterceptor.RecompileTag);
+        if (NeedsLookupsOutsideAreaListIndexes(filter))
+            kilde = kilde.TagWith(QueryHintInterceptor.NoRowGoalTag);
+
+        var rader = await ApplyListViewFiltersToEntityIndex(
+                kilde.Where(idx => idx.EntityTypeId == type && idx.EntityId == id),
+                filter,
+                null)
+            .OrderByDescending(idx => idx.DateTimeCollected)
+            .ThenByDescending(idx => idx.ObservationId)
+            .Take(trengs)
+            .Select(idx => new { idx.ObservationId, idx.DateTimeCollected })
+            .ToListAsync(cancellationToken);
+
+        return rader.Select(rad => (rad.ObservationId, rad.DateTimeCollected)).ToList();
+    }
+
+    // Områdetypene alle lokasjoner med områderader har en rad i, de samme som
+    // CustomAreaService deler polygonet etter.
+    private static readonly int[] LocationAreaEntityTypes =
+    [
+        (int)ObservationIndexEntityType.Municipality,
+        (int)ObservationIndexEntityType.OceanArea,
+        (int)ObservationIndexEntityType.SvalbardBjørnøyaAndJanMayen,
+    ];
+
+    /// <summary>
+    /// De <paramref name="trengs"/> nyeste funnene på lokasjonene i et egendefinert område, eller
+    /// på kanten av et oppdelt.
+    ///
+    /// Én spørring mot indekstabellen for alle lokasjonene, gruppert på observasjonen fordi en
+    /// lokasjon ved kysten kan ligge i både en kommune og et havområde. Målt rundt Oslo med
+    /// 210 000-277 000 lokasjoner: 0,26-0,28 s for galleriet og 0,34-0,44 s for listen. Med én
+    /// spørring per område polygonet dekker mye av og én mot Observation for resten var det
+    /// 0,46-0,99 s, og med én per område for kanten alene 2,0-2,3 s.
+    ///
+    /// Lokasjonene uten områderader har ingen rader av disse typene, så de hentes fra
+    /// Observation. Det er sjelden noen.
+    /// </summary>
+    private async Task<List<(int ObservationId, DateTime? Dato)>> CustomAreaLocationBranchesAsync(
+        IObservationFilter filter, int[] locationIds, int trengs, CancellationToken cancellationToken)
+    {
+        var types = LocationAreaEntityTypes;
+        var rader = await ApplyListViewFiltersToEntityIndex(
+                _context.Set<ObservationEntityIndex>()
+                    .AsNoTracking()
+                    .TagWith(QueryHintInterceptor.RecompileTag)
+                    .Where(idx => types.Contains(idx.EntityTypeId)),
+                filter,
+                locationIds)
+            .GroupBy(idx => idx.ObservationId)
+            .Select(g => new { ObservationId = g.Key, Dato = g.Max(idx => idx.DateTimeCollected) })
+            .OrderByDescending(x => x.Dato)
+            .ThenByDescending(x => x.ObservationId)
+            .Take(trengs)
+            .ToListAsync(cancellationToken);
+        var kandidater = rader.Select(rad => (rad.ObservationId, rad.Dato)).ToList();
+
+        var utenOmraader = await _customAreas.GetLocationsWithoutAreasAsync(locationIds, cancellationToken);
+        if (utenOmraader.Length > 0)
+        {
+            kandidater.AddRange(await LocationBranchAsync(filter, null, utenOmraader, trengs, cancellationToken));
+        }
+
+        return kandidater;
+    }
+
+    /// <summary>
+    /// De <paramref name="trengs"/> nyeste funnene på et sett lokasjoner. Grenen går mot
+    /// Observation, som har én rad per observasjon og IX_Observation_LocationId. Mot
+    /// indekstabellen ville TOP-en talt flere rader per observasjon og levert for få.
+    /// </summary>
+    private async Task<List<(int ObservationId, DateTime? Dato)>> LocationBranchAsync(
+        IObservationFilter filter, LocationSelection? locationSelection, int[]? customAreaLocationIds, int trengs,
+        CancellationToken cancellationToken)
+    {
+        var rader = await ApplyCommonFilters(
+                _context.Set<Observation>()
+                    .AsNoTracking()
+                    .TagWith(QueryHintInterceptor.RecompileTag),
+                filter,
+                locationSelection,
+                customAreaLocationIds,
+                NoAreaFilter)
+            .OrderByDescending(o => o.DateTimeCollected)
+            .ThenByDescending(o => o.Id)
+            .Take(trengs)
+            .Select(o => new { o.Id, o.DateTimeCollected })
+            .ToListAsync(cancellationToken);
+
+        return rader.Select(rad => (rad.Id, rad.DateTimeCollected)).ToList();
+    }
+
+    /// <summary>
+    /// Fletter grenene til én side.
+    ///
+    /// Deduplisering er nødvendig, ikke defensiv: en observasjon kan ligge i
+    /// flere av de valgte områdene — en kommune og fylket over den, eller to
+    /// overlappende verneområder — og ville ellers dukket opp flere ganger.
+    ///
+    /// Sorteringen må være identisk med den databasestien hadde:
+    /// DateTimeCollected synkende, deretter ObservationId synkende. NULL-dato
+    /// sorterer sist, som i SQL med DESC.
+    /// </summary>
+    private static List<int> MergeBranches(List<(int ObservationId, DateTime? Dato)> kandidater, int skip, int take) =>
+        kandidater
             .GroupBy(x => x.ObservationId)
             .Select(g => (ObservationId: g.Key, Dato: g.First().Dato))
             .OrderByDescending(x => x.Dato.HasValue)
@@ -740,7 +895,6 @@ public class SearchRepository : ISearchRepository
             .Take(take)
             .Select(x => x.ObservationId)
             .ToList();
-    }
 
     /// <summary>
     /// Speiler ApplyCommonFilters, men mot ObservationEntityIndex.
@@ -759,9 +913,9 @@ public class SearchRepository : ISearchRepository
     /// for å få én rad per observasjon, så områdevalget må slås opp på søsterrader.
     /// </summary>
     private IQueryable<ObservationEntityIndex> ApplyAreaFilterToEntityIndex(
-        IQueryable<ObservationEntityIndex> query, AreaFilterIds ids, LocationSelection? locationSelection)
+        IQueryable<ObservationEntityIndex> query, AreaFilterIds ids, LocationSelection? locationSelection, bool useStoredList = true)
     {
-        var locationRows = locationSelection?.Apply(_context, query);
+        var locationRows = locationSelection?.Apply(_context, query, useStoredList);
 
         if (ids.IsUnset)
         {
@@ -826,7 +980,7 @@ public class SearchRepository : ISearchRepository
 
     /// <summary>
     /// RECOMPILE for lokasjons- og områdetellingene med historiske områder, og med
-    /// matrikkelenheter når filteret har andre filtre enn geografi.
+    /// matrikkelenheter eller et egendefinert område når filteret har andre filtre enn geografi.
     ///
     /// Historiske områder får det alltid. Lokasjonene kommer fra en delspørring, og
     /// antallet varierer fra noen tusen for en kommune til flere hundre tusen for et
@@ -837,7 +991,8 @@ public class SearchRepository : ISearchRepository
     /// planen fra matrikkel:tung + taksongruppe:lett (1 observasjon) gjenbrukt for
     /// taksongruppe:tung (fugler) går over 60 s. Uten dem blir planen den samme
     /// uansett verdier: lokasjonslisten går som OPENJSON, som får samme estimat
-    /// uansett innhold, og områdene kjøres uten RECOMPILE også ellers. Kompileringen
+    /// uansett innhold, eller som en lagret liste, som statistikken nesten aldri
+    /// kjenner ennå, og områdene kjøres uten RECOMPILE også ellers. Kompileringen
     /// koster 150–185 ms per kall, målt under Rosetta, så eiendommer alene skal ikke
     /// betale for den.
     ///
@@ -848,12 +1003,20 @@ public class SearchRepository : ISearchRepository
     public static bool NeedsRecompileWithLocationBasedAreas(LocationSearchFilterDto filter)
     {
         if (filter.HistoricalAreaIds?.Length > 0) return true;
-        if (!(filter.CadastralUnitIds?.Length > 0)) return false;
+        if (!filter.HasLocationLists) return false;
 
-        var attributes = filter.WithoutLocationBasedAreas();
+        var attributes = filter.WithoutLocationLists();
         attributes.RestrictedAreaIds = null;
         return attributes.HasObservationAttributeFilters;
     }
+
+    /// <summary>
+    /// Bare radene i det egendefinerte området. AND-es med resten av filteret, også
+    /// områdene. Null betyr at filteret ikke har noe egendefinert område.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> WhereInCustomArea(
+        IQueryable<ObservationEntityIndex> query, int[]? customAreaLocationIds) =>
+        customAreaLocationIds == null ? query : LocationListStore.WhereAtLocations(_context, query, customAreaLocationIds);
 
     /// <summary>
     /// Områdefilteret oversatt til EntityId-er, luket mot kartutsnittet.
@@ -910,7 +1073,26 @@ public class SearchRepository : ISearchRepository
     /// har noen. Slås opp før spørringen bygges, fordi matrikkelgeometrien kommer fra Kartverket.
     /// </summary>
     private Task<LocationSelection?> ResolveLocationsAsync(IObservationFilter filter, CancellationToken cancellationToken) =>
-        LocationSelection.ResolveAsync(filter, _cadastralUnits, cancellationToken);
+        LocationSelection.ResolveAsync(filter, _cadastralUnits, _customAreas, cancellationToken);
+
+    private Task<LocationSearchFilterDto> SplitCustomAreaAsync(LocationSearchFilterDto filter, CancellationToken cancellationToken) =>
+        CustomAreaFilters.SplitAsync(filter, _customAreas, cancellationToken);
+
+    private Task<ObservationSearchFilterDto> SplitCustomAreaAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken) =>
+        CustomAreaFilters.SplitAsync(filter, _customAreas, cancellationToken);
+
+    private Task<int[]?> ResolveCustomAreaLocationIdsAsync(IObservationFilter filter, CancellationToken cancellationToken) =>
+        CustomAreaFilters.ResolveLocationIdsAsync(filter, _customAreas, cancellationToken);
+
+    private static bool IsCustomAreaEdge(IObservationFilter filter) => CustomAreaFilters.IsEdge(filter);
+
+    // Listene til egendefinerte områder er bufret, så samme liste kommer igjen ved hver
+    // panorering. Settet lages én gang per liste i stedet for ett på opptil 600 000 lokasjoner
+    // per kall.
+    private static readonly ConditionalWeakTable<int[], HashSet<int>> LocationSets = new();
+
+    private static IReadOnlySet<int>? LocationSetOf(int[]? locationIds) =>
+        locationIds == null ? null : LocationSets.GetValue(locationIds, ids => [.. ids]);
 
     /// <summary>
     /// Slår opp områdefilteret og fjerner områder som ikke kan nå kartutsnittet.
@@ -1019,8 +1201,10 @@ public class SearchRepository : ISearchRepository
     }
 
     private IQueryable<ObservationEntityIndex> ApplyListViewFiltersToEntityIndex(
-        IQueryable<ObservationEntityIndex> query, IObservationFilter filter)
+        IQueryable<ObservationEntityIndex> query, IObservationFilter filter, int[]? customAreaLocationIds)
     {
+        query = WhereInCustomArea(query, customAreaLocationIds);
+
         if (filter.TaxonGroupIds?.Any() == true)
         {
             var taxonGroupIds = filter.TaxonGroupIds.ToList();
@@ -1270,7 +1454,9 @@ public class SearchRepository : ISearchRepository
 
     public async Task<List<ObservationImageDto>> GetObservationImagesAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
+        filter = await SplitCustomAreaAsync(filter, cancellationToken);
         var locationSelection = await ResolveLocationsAsync(filter, cancellationToken);
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
 
         var take = filter.ResultsPerPage!.Value * _paginationOptions.LookaheadMultiplier;
         var skip = (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value;
@@ -1286,18 +1472,21 @@ public class SearchRepository : ISearchRepository
         // siden for dyp til å holde ID-ene i minnet, sorterer og paginerer databasen
         // bildene selv: alltid riktig, men tregere.
         var medMediefiler = filter.WithMediaFilesOnly();
-        var perOmraade = SelectedAreaCount(filter) is > 0 and <= MaxGalleryAreaBranches;
+        var perOmraade = SelectedAreaCount(filter) is > 0 and <= MaxGalleryAreaBranches || IsCustomAreaEdge(filter);
+        var egendefinert = SelectedAreaCount(filter) == 0 && customAreaLocationIds != null && locationSelection == null;
         var trengs = skip + take;
         var maksFunn = Math.Min(4 * trengs, MaxGalleryObservationIds);
 
         for (var funnTrengs = trengs; funnTrengs <= maksFunn; funnTrengs *= 2)
         {
             var ids = perOmraade
-                ? await GetAreaFilteredObservationIdsAsync(medMediefiler, locationSelection, 0, funnTrengs, cancellationToken)
-                : await ApplyCommonFilters(
+                ? await GetAreaFilteredObservationIdsAsync(medMediefiler, locationSelection, customAreaLocationIds, 0, funnTrengs, cancellationToken)
+                : (egendefinert ? await GetCustomAreaObservationIdsAsync(medMediefiler, customAreaLocationIds!, 0, funnTrengs, cancellationToken) : null)
+                  ?? await ApplyCommonFilters(
                         _context.Set<Observation>().AsNoTracking().TagWith(QueryHintInterceptor.RecompileTag),
                         medMediefiler,
-                        locationSelection)
+                        locationSelection,
+                        customAreaLocationIds)
                     .OrderByDescending(o => o.DateTimeCollected)
                     .ThenByDescending(o => o.Id)
                     .Take(funnTrengs)
@@ -1319,7 +1508,8 @@ public class SearchRepository : ISearchRepository
         var funn = ApplyCommonFilters(
             _context.Set<Observation>().AsNoTracking().TagWith(QueryHintInterceptor.RecompileTag),
             medMediefiler,
-            locationSelection);
+            locationSelection,
+            customAreaLocationIds);
         return await ImagesPageAsync(funn, skip, take, cancellationToken);
     }
 
@@ -1365,10 +1555,11 @@ public class SearchRepository : ISearchRepository
 
     public async Task<IEnumerable<ObservationListInfoDto>> GetObservationListInfo(ObservationListInfoRequestDto request, CancellationToken cancellationToken = default)
     {
-        var filter = request.Filter ?? new ObservationSearchFilterDto();
+        var filter = await SplitCustomAreaAsync(request.Filter ?? new ObservationSearchFilterDto(), cancellationToken);
         var locationSelection = await ResolveLocationsAsync(filter, cancellationToken);
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
         var query = _context.Set<Observation>().AsNoTracking();
-        query = ApplyCommonFilters(query, filter, locationSelection);
+        query = ApplyCommonFilters(query, filter, locationSelection, customAreaLocationIds);
         query = query.Where(o => o.LocationId.HasValue && request.Ids.Contains(o.LocationId.Value))
             .OrderByDescending(o => o.DateTimeCollected)
             .ThenByDescending(o => o.Id);
@@ -1432,7 +1623,7 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
-            filter ??= new LocationSearchFilterDto();
+            filter = await SplitCustomAreaAsync(filter ?? new LocationSearchFilterDto(), cancellationToken);
 
             var maxResults = filter.MaxResults > 0 && filter.MaxResults <= SearchConstants.MaxLocationResults
                 ? filter.MaxResults
@@ -1450,6 +1641,7 @@ public class SearchRepository : ISearchRepository
                     "Ingen av de valgte områdene overlapper kartutsnittet. Returnerer tomt uten å spørre databasen.");
                 return [];
             }
+            var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
 
             // LOKASJONSBUFFEREN FØRST
             //
@@ -1524,7 +1716,7 @@ public class SearchRepository : ISearchRepository
                 indexQuery = indexQuery.TagWith(QueryHintInterceptor.RecompileTag);
             }
 
-            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter);
+            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter, customAreaLocationIds);
             indexQuery = ApplyEnvelopeFilterToEntityIndex(indexQuery, filter.Envelope);
             indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, areaIds, locationSelection);
 
@@ -1608,7 +1800,7 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
-            filter ??= new LocationSearchFilterDto();
+            filter = await SplitCustomAreaAsync(filter ?? new LocationSearchFilterDto(), cancellationToken);
 
             // Samme luking som GetLocationsAsync: når ingen av de valgte områdene
             // kan nå kartutsnittet, er svaret tomt og databasen slipper å bli spurt.
@@ -1620,6 +1812,7 @@ public class SearchRepository : ISearchRepository
                     "Ingen av de valgte områdene overlapper kartutsnittet. Returnerer 0 uten å spørre databasen.");
                 return new LocationCountDto { Count = 0, Truncated = false };
             }
+            var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
 
             // SAMME KILDE SOM GetLocationsAsync
             //
@@ -1664,9 +1857,13 @@ public class SearchRepository : ISearchRepository
                 .AsNoTracking()
                 .Where(idx => idx.LocationId != null);
 
-            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter);
+            indexQuery = ApplyListViewFiltersToEntityIndex(indexQuery, filter, customAreaLocationIds);
             indexQuery = ApplyEnvelopeFilterToEntityIndex(indexQuery, filter.Envelope);
-            indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, areaIds, locationSelection);
+
+            // Kanten av et egendefinert område kommer hit som lokasjonsliste ved siden av
+            // områdene helt innenfor. Den tellingen ble tregere med listen lagret enn som
+            // JSON: målt 0,39 mot 0,22 s for 220 000 lokasjoner rundt Oslo.
+            indexQuery = ApplyAreaFilterToEntityIndex(indexQuery, areaIds, locationSelection, useStoredList: false);
 
             // TELLES I DATABASEN, IKKE OVER LEDNINGEN
             //
@@ -1735,7 +1932,8 @@ public class SearchRepository : ISearchRepository
     /// riktig for listevisningen, der det ikke finnes noe utsnitt å luke mot.
     /// </summary>
     private IQueryable<Observation> ApplyCommonFilters(
-        IQueryable<Observation> query, IObservationFilter filter, LocationSelection? locationSelection, AreaFilterIds? areaIds = null)
+        IQueryable<Observation> query, IObservationFilter filter, LocationSelection? locationSelection, int[]? customAreaLocationIds,
+        AreaFilterIds? areaIds = null)
     {
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -1776,6 +1974,7 @@ public class SearchRepository : ISearchRepository
         // brukes de. Ellers slås de opp her, som før.
         var area = areaIds ?? ResolveAreaFilterIds(filter, envelope: null);
         query = ObservationQueryBuilder.WhereInAreasOrLocations(_context, query, SelectedAreaIndexRows(area), locationSelection);
+        query = ObservationQueryBuilder.WhereInCustomArea(_context, query, customAreaLocationIds);
 
         // Institusjonsfilter (AND — separat fra geografiske filtre).
         // Denormalisert kolonne, ikke lenger self-join mot indekstabellen.
@@ -2178,19 +2377,26 @@ public class SearchRepository : ISearchRepository
         List<Area> areas, LocationSearchFilterDto filter, CancellationToken cancellationToken)
     {
         var locationSelection = (await ResolveLocationsAsync(filter, cancellationToken))!;
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
         var inSelectedAreas = SelectedAreaIndexRows(ResolveAreaFilterIds(filter, envelope: null))!;
         var entityTypeIds = areas.Select(a => a.AreaTypeId).Distinct().ToArray();
 
-        var query = locationSelection
-            .Apply(_context, _context.Set<ObservationEntityIndex>().Where(idx => entityTypeIds.Contains(idx.EntityTypeId)))
-            .Where(idx => !inSelectedAreas.Any(geo => geo.ObservationId == idx.ObservationId));
+        var query = locationSelection.Apply(
+            _context, _context.Set<ObservationEntityIndex>().Where(idx => entityTypeIds.Contains(idx.EntityTypeId)));
+
+        // Kantlokasjonene til et oppdelt egendefinert område har per definisjon ingen rader i
+        // områdene, så utelukkelsen er unødvendig der. Den er ett oppslag per observasjon.
+        if (!IsCustomAreaEdge(filter))
+        {
+            query = query.Where(idx => !inSelectedAreas.Any(geo => geo.ObservationId == idx.ObservationId));
+        }
 
         if (NeedsRecompileWithLocationBasedAreas(filter))
         {
             query = query.TagWith(QueryHintInterceptor.RecompileTag);
         }
 
-        var counts = await ApplyAttributeFiltersToEntityIndex(query, filter)
+        var counts = await ApplyAttributeFiltersToEntityIndex(query, filter, customAreaLocationIds)
             .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
             .ToListAsync(cancellationToken);
@@ -2202,6 +2408,7 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
+            if (filter != null) filter = await SplitCustomAreaAsync(filter, cancellationToken);
             var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken);
             var (filteredAreas, countFor) = await FilterAndComputeCounts(areas, filter, cancellationToken);
 
@@ -2242,6 +2449,7 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
+            if (filter != null) filter = await SplitCustomAreaAsync(filter, cancellationToken);
             // Uten geometri: endepunktet returnerer Fid og antall, og rører aldri
             // polygonene. Se LoadAreasForZoomLevel for målingene.
             var areas = await LoadAreasForZoomLevel(zoomLevel, filter, cancellationToken, includeGeometry: false);
@@ -2373,7 +2581,8 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => entityIds.Contains(idx.EntityId));
         }
 
-        query = ApplyAttributeFiltersToEntityIndex(query, filter);
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
+        query = ApplyAttributeFiltersToEntityIndex(query, filter, customAreaLocationIds);
 
         // Geografiske filtre via ObservationEntityIndex (OR — observasjon i minst ett av områdene)
         var hasMunicipality = filter.MunicipalityIds?.Any() == true;
@@ -2434,7 +2643,8 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
-    /// Attributtfiltrene på indekstabellen — alt som ikke er geografi.
+    /// Attributtfiltrene på indekstabellen — alt som ikke er geografi, pluss det
+    /// egendefinerte området, som AND-es på samme måte.
     ///
     /// Trukket ut fordi to stier trenger dem: <c>ComputeFilteredAreaCounts</c>,
     /// som ankrer på utdatacellen, og <c>ComputeRolledUpAreaCounts</c>, som
@@ -2443,8 +2653,10 @@ public class SearchRepository : ISearchRepository
     /// zoomnivåene.
     /// </summary>
     private IQueryable<ObservationEntityIndex> ApplyAttributeFiltersToEntityIndex(
-        IQueryable<ObservationEntityIndex> query, LocationSearchFilterDto filter)
+        IQueryable<ObservationEntityIndex> query, LocationSearchFilterDto filter, int[]? customAreaLocationIds)
     {
+        query = WhereInCustomArea(query, customAreaLocationIds);
+
         // Denormaliserte filtre — anvendes direkte på indekstabellen
         if (filter.TaxonGroupIds?.Any() == true)
         {
@@ -2679,6 +2891,7 @@ public class SearchRepository : ISearchRepository
 
         if (plan is null) return null;
 
+        var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
         var resultat = new Dictionary<(int entityTypeId, int entityId), int>();
 
         // Én spørring per utdatafylke. I praksis én: velger man kommuner, er de
@@ -2689,7 +2902,8 @@ public class SearchRepository : ISearchRepository
                 _context.Set<ObservationEntityIndex>()
                     .Where(idx => idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality
                                   && kommuneEntityIds.Contains(idx.EntityId)),
-                filter);
+                filter,
+                customAreaLocationIds);
 
             if (HasPeriodRange(filter))
                 query = query.TagWith(QueryHintInterceptor.CountColumnstoreTag);
@@ -2996,7 +3210,7 @@ public class SearchRepository : ISearchRepository
     /// nettopp det. Se QueryHintInterceptor.
     /// </summary>
     private IQueryable<Observation> BuildPolygonLocationsQuery(
-        LocationSearchFilterDto filter, AreaFilterIds areaIds, LocationSelection? locationSelection)
+        LocationSearchFilterDto filter, AreaFilterIds areaIds, LocationSelection? locationSelection, int[]? customAreaLocationIds)
     {
         // Drives FRA Location. Kandidatsettet er de 1,5 % av lokasjonene som ikke
         // er punkt — 10 902 for Oslo-utsnittet mot 967 649 totalt.
@@ -3005,7 +3219,7 @@ public class SearchRepository : ISearchRepository
                 l => (int?)l.Id, o => o.LocationId, (l, o) => o)
             .AsNoTracking();
 
-        return ApplyCommonFilters(polygonQuery, filter, locationSelection, areaIds);
+        return ApplyCommonFilters(polygonQuery, filter, locationSelection, customAreaLocationIds, areaIds);
     }
 
     private async Task<List<(int LocationId, int ObservationCount)>> AggregateLocationObservations(
@@ -3039,7 +3253,7 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
-            filter ??= new LocationSearchFilterDto();
+            filter = await SplitCustomAreaAsync(filter ?? new LocationSearchFilterDto(), cancellationToken);
 
             // Samme luking som lokasjonssøket: når ingen av de valgte områdene
             // kan nå kartutsnittet, finnes det ingen polygoner å hente heller.
@@ -3051,6 +3265,7 @@ public class SearchRepository : ISearchRepository
                     "Ingen av de valgte områdene overlapper kartutsnittet. Returnerer tomt uten å spørre databasen.");
                 return [];
             }
+            var customAreaLocationIds = await ResolveCustomAreaLocationIdsAsync(filter, cancellationToken);
 
             var polygonMaxResults = filter.MaxResults > 0
                 ? Math.Min(filter.MaxResults, SearchConstants.MaxPolygonResults)
@@ -3067,7 +3282,8 @@ public class SearchRepository : ISearchRepository
             // som før.
             if (_polygonStore is not null)
             {
-                var fraMinnet = _polygonStore.TryQuery(filter, polygonMaxResults, locationSelection?.CadastralLocationIds?.ToHashSet());
+                var fraMinnet = _polygonStore.TryQuery(
+                    filter, polygonMaxResults, LocationSetOf(locationSelection?.CadastralLocationIds), LocationSetOf(customAreaLocationIds));
                 if (fraMinnet is not null)
                 {
                     _logger.LogDebug("Polygonsøket besvart fra minnet med {Count} polygoner.", fraMinnet.Count);
@@ -3083,7 +3299,7 @@ public class SearchRepository : ISearchRepository
             // gjøre databasestien rask nok til daglig bruk, og er fjernet med
             // vilje — i et oppstartsvindu er «aldri katastrofal» verdt mer enn
             // «rask i snitt», og den uhintede planen er nettopp det.
-            var query = BuildPolygonLocationsQuery(filter, areaIds, locationSelection);
+            var query = BuildPolygonLocationsQuery(filter, areaIds, locationSelection, customAreaLocationIds);
             var aggregated = await AggregateLocationObservations(query, polygonMaxResults, cancellationToken);
 
             if (aggregated.Count == 0) return [];

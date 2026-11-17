@@ -19,17 +19,20 @@ public class ExportController : ControllerBase
     private readonly IBlobStorageService _blobStorageService;
     private readonly IAnonymousUserTokenService _anonymousUserTokens;
     private readonly ILogger<ExportController> _logger;
+    private readonly ICustomAreaService _customAreas;
 
     public ExportController(
         IExportService exportService,
         IBlobStorageService blobStorageService,
         IAnonymousUserTokenService anonymousUserTokens,
-        ILogger<ExportController> logger)
+        ILogger<ExportController> logger,
+        ICustomAreaService customAreas)
     {
         _exportService = exportService;
         _blobStorageService = blobStorageService;
         _anonymousUserTokens = anonymousUserTokens;
         _logger = logger;
+        _customAreas = customAreas;
     }
 
     [AllowAnonymous]
@@ -51,6 +54,9 @@ public class ExportController : ControllerBase
         if (ValidateFilter(request.Filter) is { } filterError)
             return filterError;
 
+        if (await CustomAreaSizeErrorAsync(request.Filter, cancellationToken) is { } customAreaError)
+            return customAreaError;
+
         var summary = await _exportService.GetExportSummaryAsync(request.Filter, request.SelectedColumns ?? [], request.Name, cancellationToken);
         return Ok(summary);
     }
@@ -68,6 +74,9 @@ public class ExportController : ControllerBase
 
         var error = TryGetUserId(out var userId);
         if (error != null) return error;
+
+        if (await CustomAreaSizeErrorAsync(request.Filter, cancellationToken) is { } customAreaError)
+            return customAreaError;
 
         var isAnonymous = User.Identity?.IsAuthenticated != true;
 
@@ -194,6 +203,11 @@ public class ExportController : ControllerBase
         var error = ObservationFilterValidator.GetError(filter);
         return error == null ? null : BadRequest(new { error });
     }
+
+    private async Task<BadRequestObjectResult?> CustomAreaSizeErrorAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken) =>
+        await ObservationFilterValidator.GetCustomAreaSizeErrorAsync(filter, _customAreas, cancellationToken) is { } error
+            ? BadRequest(new { error })
+            : null;
 
     /// <summary>
     /// Innloggede brukere identifiseres med «sub»-claimet. Anonyme brukere må ha et
