@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { catchError, shareReplay, tap, Observable } from 'rxjs';
 import { of } from 'rxjs';
@@ -34,7 +34,7 @@ export class AuthService {
    *
    * Nå kan unauthorizedInterceptor be om en ny vurdering når API-et svarer 401.
    */
-  private readonly sessionSignal = signal<Session>(ANONYMOUS);
+  private readonly sessionSignal = signal<Session>(ANONYMOUS, { equal: (left, right) => this.sessionsAreEqual(left, right) });
   private readonly sessionResolvedSignal = signal(false);
 
   public session: Signal<Session> = this.sessionSignal.asReadonly();
@@ -98,7 +98,12 @@ export class AuthService {
   public getSession(ignoreCache = false): Observable<Session> {
     if (!this.session$ || ignoreCache) {
       this.session$ = this.http.get<Session>('bff/user').pipe(
-        catchError(() => of(ANONYMOUS)),
+        catchError((error: unknown) => {
+          // Only a 401 means logged out. Other failures (e.g. offline right after
+          // waking from sleep) keep the last known session.
+          const loggedOut = error instanceof HttpErrorResponse && error.status === 401;
+          return of(loggedOut || !this.sessionResolvedSignal() ? ANONYMOUS : this.sessionSignal());
+        }),
         tap((session) => {
           const wasResolved = this.sessionResolvedSignal();
           const previousSession = this.sessionSignal();

@@ -98,6 +98,45 @@ describe('AuthService', () => {
     expect(channel.postMessage).toHaveBeenCalledWith('session-changed');
   });
 
+  it('keeps the same session value when only BFF claims change', () => {
+    const session = [
+      { type: 'sub', value: '25db4012-849e-4411-8616-f46b94a390dd' },
+      { type: 'bff:session_expires_in', value: '300' },
+    ];
+    httpTesting.expectOne('bff/user').flush(session);
+    const sessionBefore = service.session();
+
+    window.dispatchEvent(new Event('focus'));
+    httpTesting.expectOne('bff/user').flush([{ ...session[0] }, { type: 'bff:session_expires_in', value: '299' }]);
+
+    expect(service.session()).toBe(sessionBefore);
+  });
+
+  it('keeps the session when the lookup fails for a reason other than 401', () => {
+    const channel = MockBroadcastChannel.instances[0];
+    httpTesting.expectOne('bff/user').flush([{ type: 'sub', value: '25db4012-849e-4411-8616-f46b94a390dd' }]);
+    localStorage.setItem(STORAGE_KEY, 'anonymous-token');
+    channel.postMessage.mockClear();
+
+    window.dispatchEvent(new Event('focus'));
+    httpTesting.expectOne('bff/user').error(new ProgressEvent('error'));
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(channel.postMessage).not.toHaveBeenCalled();
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('anonymous-token');
+  });
+
+  it('treats a 401 from the session lookup as logged out', () => {
+    const channel = MockBroadcastChannel.instances[0];
+    httpTesting.expectOne('bff/user').flush([{ type: 'sub', value: '25db4012-849e-4411-8616-f46b94a390dd' }]);
+
+    window.dispatchEvent(new Event('focus'));
+    httpTesting.expectOne('bff/user').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(service.isAnonymous()).toBe(true);
+    expect(channel.postMessage).toHaveBeenCalledWith('logout');
+  });
+
   it('clears the anonymous token when logging out', () => {
     httpTesting.expectOne('bff/user').flush(null);
     localStorage.setItem(STORAGE_KEY, 'anonymous-token');

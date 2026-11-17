@@ -101,6 +101,20 @@ public class ExportService : IExportService
         if (activeJobCount >= maxConcurrent)
             throw CreateConcurrencyLimitException(maxConcurrent, isAnonymous);
 
+        // Anonyme ID-er er gratis å lage, så grensen per ID stopper ikke en klient som
+        // fyller køen. Er køen allerede lang, avvises anonyme starter, slik at innloggede
+        // brukere ikke må vente bak dem.
+        if (isAnonymous)
+        {
+            var maxPendingJobs = _configuration.GetValue("CsvExport:Limits:MaxPendingJobsForAnonymousStart", 10);
+            var pendingJobCount = await _context.Set<CsvExportJob>()
+                .CountAsync(j => j.Status == CsvExportStatus.Pending && j.CreatedAt >= activeJobCutoff, cancellationToken);
+
+            if (pendingJobCount >= maxPendingJobs)
+                throw new InvalidOperationException(
+                    "Eksportkøen er full akkurat nå. Prøv igjen om litt, eller logg inn for å eksportere.");
+        }
+
         // Sjekk hard limit uten full COUNT — stopp tidlig hvis rad N+1 finnes
         var query = await BuildFilteredQueryAsync(filter, cancellationToken);
         var exceedsLimit = await query.OrderBy(o => o.Id).Skip(hardLimit).AnyAsync(cancellationToken);

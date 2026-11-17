@@ -96,7 +96,7 @@ public class ExportControllerTests
     public async Task StartExport_WithNonGuidSubClaim_ReturnsUnauthorized()
     {
         var exportService = new Mock<IExportService>(MockBehavior.Strict);
-        var tokenService = CreateTokenService();
+        var tokenService = CreateTokenService(acceptToken: true);
         var controller = CreateController(exportService, tokenService, new Claim("sub", "Kari Nordmann"));
         controller.Request.Headers["X-Anonymous-User-Id"] = ValidAnonymousToken;
 

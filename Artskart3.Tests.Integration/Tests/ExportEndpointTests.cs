@@ -2,8 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
+using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -368,19 +374,44 @@ public class ExportEndpointTests : IAsyncLifetime
     [Fact]
     public async Task StartExport_LoggedInWithAnonymousHeader_UsesSubClaim()
     {
-        var userId = Guid.NewGuid().ToString();
+        using var anonymousClient = _factory.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        var anonymousToken = await GetAnonymousTokenAsync(anonymousClient);
+        anonymousClient.DefaultRequestHeaders.Add("X-Anonymous-User-Id", anonymousToken);
 
         using var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-CSRF", "1");
-        client.DefaultRequestHeaders.Add("X-Test-UserId", userId);
-        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", Guid.NewGuid().ToString());
+        client.DefaultRequestHeaders.Add("X-Test-UserId", Guid.NewGuid().ToString());
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", anonymousToken);
 
-        await StartExportAsync(client, "innlogget-eksport");
+        (await StartExportAsync(client, "innlogget-eksport")).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var history = await client.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+        history.Should().Contain(job => job.Name == "innlogget-eksport");
 
-        history.Should().NotBeNull();
-        history!.Should().Contain(job => job.Name == "innlogget-eksport");
+        var anonymousHistory = await anonymousClient.GetFromJsonAsync<List<CsvExportJobDto>>("/api/export/csv/history");
+        anonymousHistory.Should().NotContain(job => job.Name == "innlogget-eksport");
+    }
+
+    [Fact]
+    public async Task StartExport_AnonymousWhenQueueIsFull_Returns409ButLoggedInUsersCanStillExport()
+    {
+        var pendingJobs = await CountPendingJobsAsync();
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("CsvExport:Limits:MaxPendingJobsForAnonymousStart", (pendingJobs + 1).ToString()));
+
+        using var firstAnonymousClient = await CreateAnonymousClientAsync(factory);
+        (await StartExportAsync(firstAnonymousClient, "anonym-eksport-før-full-kø")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var secondAnonymousClient = await CreateAnonymousClientAsync(factory);
+        var rejected = await StartExportAsync(secondAnonymousClient, "anonym-eksport-i-full-kø");
+        rejected.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await rejected.Content.ReadAsStringAsync()).Should().Contain("køen");
+
+        using var loggedInClient = factory.CreateClient();
+        loggedInClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        loggedInClient.DefaultRequestHeaders.Add("X-Test-UserId", Guid.NewGuid().ToString());
+        (await StartExportAsync(loggedInClient, "innlogget-eksport-i-full-kø")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -427,6 +458,23 @@ public class ExportEndpointTests : IAsyncLifetime
         var response = await client.PostAsJsonAsync("/api/export/csv/claim-anonymous", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private async Task<int> CountPendingJobsAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var cutoff = DateTime.UtcNow.AddHours(-24);
+        return await context.Set<CsvExportJob>()
+            .CountAsync(job => job.Status == CsvExportStatus.Pending && job.CreatedAt >= cutoff);
+    }
+
+    private static async Task<HttpClient> CreateAnonymousClientAsync(WebApplicationFactory<Program> factory)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+        client.DefaultRequestHeaders.Add("X-Anonymous-User-Id", await GetAnonymousTokenAsync(client));
+        return client;
     }
 
     private static async Task<string> GetAnonymousTokenAsync(HttpClient client)

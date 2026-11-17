@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { Observable, Subscription, timer, switchMap, takeWhile, last, of, map, tap, finalize, shareReplay, catchError } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
 import { CsvExportJobDto, CSV_EXPORT_STATUS, ExportSummaryDto, ObservationSearchFilter, StartExportRequestDto } from '../../types/api.types';
@@ -22,6 +22,16 @@ export class ExportService {
 
   /** Incremented when an export completes — use as a dependency to trigger refetch. */
   readonly historyVersion = signal(0);
+
+  constructor() {
+    // Claim right after login, so anonymous exports aren't lost if the user
+    // logs out again before history or status has been fetched.
+    effect(() => {
+      if (this.authService.isAuthenticated()) {
+        untracked(() => this.claimAnonymousExports().subscribe());
+      }
+    });
+  }
 
   getSummary(filter: ObservationSearchFilter, name: string): Observable<ExportSummaryDto> {
     const request: StartExportRequestDto = {

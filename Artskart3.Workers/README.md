@@ -91,6 +91,7 @@ Viktige innstillinger i `appsettings.json`:
 | `CsvExport:Limits:HardRowLimit` | 500 000 | Blokkerer eksport |
 | `CsvExport:Limits:MaxConcurrentPerUser` | 3 | Maks samtidige jobber per innlogget bruker |
 | `CsvExport:Limits:MaxConcurrentAnonymousPerUser` | 1 | Maks samtidige jobber per anonym ID |
+| `CsvExport:Limits:MaxPendingJobsForAnonymousStart` | 10 | Anonyme eksporter avvises når så mange jobber allerede venter i køen |
 | `CsvExport:Worker:BatchSize` | 5 000 | Rader per database-batch |
 | `CsvExport:Worker:InterBatchDelayMs` | 100 | Pause mellom batcher (ms) |
 | `CsvExport:Worker:ExpiresAtDays` | 180 | Dager før ferdige eksporter slettes. Det er ikke avklart om eksporter skal utløpe eller beholdes permanent — dette må tas stilling til i prosjektet. |

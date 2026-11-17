@@ -27,7 +27,10 @@ describe('ExportService', () => {
       providers: [
         provideHttpClient(withInterceptors([anonymousUserInterceptor])),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { getSession: () => of(session), isAnonymous: () => session === null } },
+        {
+          provide: AuthService,
+          useValue: { getSession: () => of(session), isAnonymous: () => session === null, isAuthenticated: () => session !== null },
+        },
         { provide: AlertService, useValue: { showError: vi.fn(), showSuccess: vi.fn() } },
         { provide: TranslateService, useValue: { instant: (key: string) => key } },
       ],
@@ -119,6 +122,16 @@ describe('ExportService', () => {
       { id: 42, status: CSV_EXPORT_STATUS.Pending } as CsvExportJobDto,
     );
     await expect(statusPromise).resolves.toMatchObject({ id: 42 });
+  });
+
+  it('claims anonymous exports as soon as the user is authenticated', () => {
+    TestBed.tick();
+
+    const claimRequest = httpTesting.expectOne('/api/export/csv/claim-anonymous');
+    expect(claimRequest.request.headers.get('X-Anonymous-User-Id')).toBe(ANONYMOUS_USER_ID);
+    claimRequest.flush({ claimedCount: 1 });
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
   it('does not claim exports for anonymous history requests', async () => {
