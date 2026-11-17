@@ -215,7 +215,16 @@ public class SearchRepository : ISearchRepository
             ? (filter.PageNumber!.Value - 1) * filter.ResultsPerPage!.Value
             : 0;
 
-        if (HasAreaFilter(filter))
+        // KUN SKJULTE FUNN: la den filtrerte indeksen drive spørringen.
+        //
+        // Skjulte funn er så få (7 267 av 61 millioner, 17.11.2026) at grenene under må lese
+        // hele området eller verdien sin før TOP-en er fylt. IX_Observation_HiddenByAnnotation
+        // har bare de skjulte, sortert på dato, så den vanlige stien finner siden der og
+        // sjekker resten av filteret per rad. Målt direkte i SQL for 8 fylker: 0,5-0,6 s per
+        // fylke som grener, 4,1 s i alt, mot 29-35 ms fra indeksen.
+        var kunSkjulte = filter.HiddenObservations == HiddenObservationFilter.Only;
+
+        if (HasAreaFilter(filter) && !kunSkjulte)
         {
             // OMRÅDEFILTER: la ObservationEntityIndex drive spørringen.
             //
@@ -250,7 +259,7 @@ public class SearchRepository : ISearchRepository
         }
 
         // EGENDEFINERT OMRÅDE: les fra indekstabellen, se GetCustomAreaObservationIdsAsync.
-        if (customAreaLocationIds != null && locationSelection == null)
+        if (customAreaLocationIds != null && locationSelection == null && !kunSkjulte)
         {
             var egendefinert = await GetCustomAreaObservationIdsAsync(filter, customAreaLocationIds, skip, take, cancellationToken);
             if (egendefinert != null)
@@ -272,7 +281,9 @@ public class SearchRepository : ISearchRepository
         //
         // Se GetBranchedObservationIdsAsync. Returnerer null når grening ikke
         // gjelder, og da faller vi gjennom til den vanlige stien under.
-        var grenIds = await GetBranchedObservationIdsAsync(filter, locationSelection, customAreaLocationIds, skip, take, cancellationToken);
+        var grenIds = kunSkjulte
+            ? null
+            : await GetBranchedObservationIdsAsync(filter, locationSelection, customAreaLocationIds, skip, take, cancellationToken);
         if (grenIds != null)
         {
             if (grenIds.Count == 0)

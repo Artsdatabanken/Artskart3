@@ -1038,7 +1038,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         }
     }
 
-    /// <summary>Områdestien leser indekstabellen og går utenom Observation-filtrene.</summary>
+    /// <summary>
+    /// Områdestien leser indekstabellen og går utenom Observation-filtrene. «Kun skjulte»
+    /// går motsatt vei, fra Observation, så funnet er merket i begge tabellene, som i ekte data.
+    /// </summary>
     [Theory]
     [InlineData(HiddenObservationFilter.Exclude, false)]
     [InlineData(HiddenObservationFilter.Only, true)]
@@ -1047,6 +1050,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         const int areaEntityId = 986110;
         var hiddenId = await _context.Set<Observation>().OrderBy(o => o.Id).Select(o => o.Id).FirstAsync();
+        await SetHiddenAsync(hiddenId, true);
 
         _context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
         {
@@ -1073,6 +1077,47 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             await _context.Set<ObservationEntityIndex>()
                 .Where(i => i.EntityId == areaEntityId)
                 .ExecuteDeleteAsync();
+            await SetHiddenAsync(hiddenId, false);
+        }
+    }
+
+    /// <summary>
+    /// «Kun skjulte» går utenom grenene per område. Siden skal likevel bare ha skjulte funn
+    /// i området, nyeste først.
+    /// </summary>
+    [Fact]
+    public async Task GetObservationsAsync_OnlyHiddenInSeveralAreas_ReturnsTheHiddenObservationsInThem()
+    {
+        const int areaOne = 986111;
+        const int areaTwo = 986112;
+        var ids = await _context.Set<Observation>().OrderBy(o => o.Id).Select(o => o.Id).Take(3).ToListAsync();
+        foreach (var id in ids) await SetHiddenAsync(id, true);
+        _context.Set<ObservationEntityIndex>().AddRange(
+            new ObservationEntityIndex { ObservationId = ids[0], EntityTypeId = (int)ObservationIndexEntityType.Municipality, EntityId = areaOne, HiddenByAnnotation = true },
+            new ObservationEntityIndex { ObservationId = ids[1], EntityTypeId = (int)ObservationIndexEntityType.Municipality, EntityId = areaTwo, HiddenByAnnotation = true });
+        await _context.SaveChangesAsync();
+        try
+        {
+            var expected = await _context.Set<Observation>()
+                .Where(o => o.Id == ids[0] || o.Id == ids[1])
+                .OrderByDescending(o => o.DateTimeCollected).ThenByDescending(o => o.Id)
+                .Select(o => o.Id)
+                .ToListAsync();
+
+            var result = await CreateCompleteFilterRepository().GetObservationsAsync(new ObservationSearchFilterDto
+            {
+                MunicipalityIds = [areaOne.ToString(), areaTwo.ToString()],
+                HiddenObservations = HiddenObservationFilter.Only,
+            });
+
+            result.Select(o => o.Id).Should().Equal(expected);
+        }
+        finally
+        {
+            await _context.Set<ObservationEntityIndex>()
+                .Where(i => i.EntityId == areaOne || i.EntityId == areaTwo)
+                .ExecuteDeleteAsync();
+            foreach (var id in ids) await SetHiddenAsync(id, false);
         }
     }
 
