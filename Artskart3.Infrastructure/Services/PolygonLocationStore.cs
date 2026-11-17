@@ -64,6 +64,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private byte[] _behavior = [];          // 0 = ingen
     private bool[] _harBilder = [];
     private bool[] _annotert = [];
+    private bool[] _skjult = [];
     private bool[] _sensitiv = [];
     private bool[] _usikkerBestemmelse = [];
     private bool[] _innfoert = [];
@@ -87,6 +88,13 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private Dictionary<int, int> _tettTaksonIdx = new();
     private int _taksonAntall;
     private Dictionary<int, int[]> _geoBucketsForMedlem = new();
+
+    // Lokasjonene i hvert historiske område, av dem som ligger her. Historiske områder
+    // finnes ikke i indekstabellen og kan ikke bli geobøtter, men filteret på dem er en
+    // lokasjonsmengde, som matrikkelenhetene. Nøklene er alle områdene som hadde rader i
+    // HistoricalAreaLocation da lageret ble bygget, også de uten lokasjoner her. Null når
+    // lastingen feilet.
+    private Dictionary<int, int[]>? _historiskeLokasjoner = new();
     private Dictionary<int, int[]> _projBucketsForMedlem = new();
     private int _geoBucketAntall, _projBucketAntall;
 
@@ -139,8 +147,15 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
 
         // Matrikkelenhetene slås opp mot Kartverket av kalleren. Uten lokasjonene kan
         // filteret ikke evalueres her.
-        var eiendom = filter.CadastralUnitIds?.Length > 0 ? cadastralLocationIds : null;
-        if (filter.CadastralUnitIds?.Length > 0 && eiendom is null) return null;
+        if (filter.CadastralUnitIds?.Length > 0 && cadastralLocationIds is null) return null;
+
+        // Et historisk område som ikke fantes da lageret ble bygget, er fylt etterpå.
+        // Databasen har lokasjonene, lageret ikke.
+        if (filter.HistoricalAreaIds?.Length > 0 &&
+            (_historiskeLokasjoner is not { } kjente || !filter.HistoricalAreaIds.All(kjente.ContainsKey)))
+            return null;
+
+        var eiendom = LokasjonsbaserteValg(filter, cadastralLocationIds);
 
         var p = BuildPredicate(filter, harEiendom: eiendom is not null);
 
@@ -170,9 +185,9 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 if (n < minY || n > maxY) continue;
             }
 
-            // Matrikkelenhetene OR-es med områdene: en observasjon på en lokasjon i
-            // eiendommen slipper geografisjekken. Uten områdevalg er eiendommen hele
-            // geografifilteret, og andre lokasjoner hoppes over.
+            // Matrikkelenhetene og de historiske områdene OR-es med områdene: en
+            // observasjon på en av lokasjonene deres slipper geografisjekken. Uten
+            // områdevalg er de hele geografifilteret, og andre lokasjoner hoppes over.
             var iEiendom = eiendom?.Contains(_locId[loc]) == true;
             if (eiendom is not null && p.GeoBucket is null && !iEiendom) continue;
 
@@ -266,6 +281,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         // i en løkke som kjører millioner av ganger.
         public bool AnnotertSatt { get; init; }
         public bool Annotert { get; init; }
+        public bool SkjultSatt { get; init; }
+        public bool Skjult { get; init; }
         public bool SensitivSatt { get; init; }
         public bool Sensitiv { get; init; }
         public bool UsikkerBestemmelseSatt { get; init; }
@@ -285,6 +302,25 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         public bool[]? Takson { get; init; }         // tett taksonindeks -> treffer
         public bool[]? GeoBucket { get; init; }      // tett bucketindeks -> treffer
         public bool[]? ProjBucket { get; init; }
+    }
+
+    /// <summary>
+    /// Lokasjonene til matrikkelenhetene og de historiske områdene i filteret, som én
+    /// mengde, eller null når filteret ikke har noen av dem.
+    /// </summary>
+    private IReadOnlySet<int>? LokasjonsbaserteValg(LocationSearchFilterDto filter, IReadOnlySet<int>? matrikkel)
+    {
+        var harMatrikkel = filter.CadastralUnitIds?.Length > 0;
+        var historiske = filter.HistoricalAreaIds;
+        if (historiske is not { Length: > 0 } || _historiskeLokasjoner is not { } lokasjoner)
+            return harMatrikkel ? matrikkel : null;
+
+        var mengde = harMatrikkel && matrikkel is not null ? new HashSet<int>(matrikkel) : new HashSet<int>();
+        foreach (var omraade in historiske)
+        {
+            if (lokasjoner.TryGetValue(omraade, out var ider)) mengde.UnionWith(ider);
+        }
+        return mengde;
     }
 
     private bool Matcher(int i, in Predikat p, bool iEiendom)
@@ -322,6 +358,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         if (p.HarBilderSatt && _harBilder[i] != p.HarBilder) return false;
 
         if (p.AnnotertSatt && _annotert[i] != p.Annotert) return false;
+        if (p.SkjultSatt && _skjult[i] != p.Skjult) return false;
         if (p.SensitivSatt && _sensitiv[i] != p.Sensitiv) return false;
         if (p.UsikkerBestemmelseSatt && _usikkerBestemmelse[i] != p.UsikkerBestemmelse) return false;
         if (p.InnfoertSatt && _innfoert[i] != p.Innfoert) return false;
@@ -507,6 +544,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
             HarBilderSatt = f.WithImages.HasValue,
             AnnotertSatt = f.ChangedByAnnotation.HasValue,
             Annotert = f.ChangedByAnnotation ?? false,
+            SkjultSatt = f.HiddenObservations.RequiredHiddenValue().HasValue,
+            Skjult = f.HiddenObservations.RequiredHiddenValue() ?? false,
             SensitivSatt = f.Sensitive.HasValue,
             Sensitiv = f.Sensitive ?? false,
             UsikkerBestemmelseSatt = f.UncertainIdentification.HasValue,
@@ -558,11 +597,31 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _logger.LogInformation("PolygonLocationStore: {Geo} geobøtter, {Proj} prosjektbøtter",
             _geoBucketAntall, _projBucketAntall);
 
+        // Uten de historiske områdene kan resten av lageret brukes som før. Filtre med
+        // historiske områder går da til databasen, se TryQuery.
+        try
+        {
+            await LastHistoriskeOmraaderAsync(context, cancellationToken);
+            _logger.LogInformation("PolygonLocationStore: {Omraader} historiske områder etter {Sek}s",
+                _historiskeLokasjoner!.Count, klokke.Elapsed.TotalSeconds.ToString("F1"));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _historiskeLokasjoner = null;
+            _logger.LogWarning(ex, "PolygonLocationStore: historiske områder kunne ikke lastes, de slås opp i databasen");
+        }
+
         _ready = true;
         _beskrivelse = $"{_locId.Length:N0} lokasjoner, {_obsId.Length:N0} observasjoner, " +
                        $"bygget på {klokke.Elapsed.TotalSeconds:F1}s";
         _logger.LogInformation("PolygonLocationStore klar: {Beskrivelse}", _beskrivelse);
     }
+
+    private static readonly LocationGeometryType[] Geometrityper =
+    [
+        LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
+        LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
+    ];
 
     /// <summary>
     /// Lokasjonene, med WKT, omsluttende boks og rutenettflagg regnet ut én
@@ -572,14 +631,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private async Task<Dictionary<int, int>> LastLokasjonerAsync(
         IArtsKartDbContext context, CancellationToken ct)
     {
-        var typer = new[]
-        {
-            LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
-            LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
-        };
-
         var rader = await context.Set<Location>().AsNoTracking()
-            .Where(l => typer.Contains(l.GeometryTypeId) && l.Geometry != null)
+            .Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null)
             .OrderBy(l => l.Id)
             .Select(l => new { l.Id, l.East, l.North, l.Locality, l.Geometry, l.LookupId })
             .ToListAsync(ct);
@@ -611,6 +664,33 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         }
 
         return indeks;
+    }
+
+    /// <summary>
+    /// Hvilke av lokasjonene her som ligger i hvert historiske område. Samme
+    /// lokasjonsutvalg som LastLokasjonerAsync, så bare noen titusen rader kommer ut av
+    /// HistoricalAreaLocation.
+    /// </summary>
+    private async Task LastHistoriskeOmraaderAsync(IArtsKartDbContext context, CancellationToken ct)
+    {
+        var rader = await context.Set<HistoricalAreaLocation>().AsNoTracking()
+            .Join(context.Set<Location>().Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null),
+                h => h.LocationId, l => l.Id, (h, l) => new { h.AreaId, h.LocationId })
+            .ToListAsync(ct);
+
+        // Også områdene uten lokasjoner her, så de gir et tomt svar i stedet for et oppslag i
+        // databasen. De hentes fra Area: de distinkte AreaId-ene i koblingstabellen ville
+        // kostet en lesing av alle 12,6 millioner radene.
+        var utenLokasjoner = await context.Set<Area>().AsNoTracking()
+            .Where(a => !a.IsCurrent && context.Set<HistoricalAreaLocation>().Any(h => h.AreaId == a.Id))
+            .Select(a => a.Id)
+            .ToListAsync(ct);
+
+        var lokasjoner = rader
+            .GroupBy(r => r.AreaId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.LocationId).ToArray());
+        foreach (var id in utenLokasjoner) lokasjoner.TryAdd(id, []);
+        _historiskeLokasjoner = lokasjoner;
     }
 
     /// <summary>
@@ -789,7 +869,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                    o.RegistrationStatusId, o.BehaviorId, o.HasMediaFiles,
                    o.CoordinatePrecisionInMeters, o.DateTimeCollected, o.MonthCollected,
                    g.BucketId AS GeoBucket, p.BucketId AS ProjBucket,
-                   o.ChangedByAnnotation, o.Sensitive, o.UncertainIdentification, o.Introduced
+                   o.ChangedByAnnotation, o.Sensitive, o.UncertainIdentification, o.Introduced,
+                   o.HiddenByAnnotation
             FROM dbo.Observation o
             JOIN dbo.Location l ON l.Id = o.LocationId
             LEFT JOIN #geo g ON g.ObservationId = o.Id
@@ -876,7 +957,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _institusjon = new int[n]; _taksongruppe = new int[n]; _datasett = new int[n];
         _koordpresisjon = new int[n]; _samletTicks = new long[n]; _maaned = new byte[n];
         _taksonIdx = new int[n]; _geoBucketIdx = new int[n]; _projBucketIdx = new int[n];
-        _annotert = new bool[n]; _sensitiv = new bool[n];
+        _annotert = new bool[n]; _skjult = new bool[n]; _sensitiv = new bool[n];
         _usikkerBestemmelse = new bool[n]; _innfoert = new bool[n];
 
         var teller = new int[_locId.Length + 1];
@@ -935,6 +1016,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 _sensitiv[i] = leser.GetBoolean(17);
                 _usikkerBestemmelse[i] = leser.GetBoolean(18);
                 _innfoert[i] = leser.GetBoolean(19);
+                _skjult[i] = leser.GetBoolean(20);
                 i++;
             }
         }
@@ -980,7 +1062,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         Array.Resize(ref _samletTicks, stoerrelse); Array.Resize(ref _maaned, stoerrelse);
         Array.Resize(ref _taksonIdx, stoerrelse); Array.Resize(ref _geoBucketIdx, stoerrelse);
         Array.Resize(ref _projBucketIdx, stoerrelse);
-        Array.Resize(ref _annotert, stoerrelse); Array.Resize(ref _sensitiv, stoerrelse);
+        Array.Resize(ref _annotert, stoerrelse); Array.Resize(ref _skjult, stoerrelse);
+        Array.Resize(ref _sensitiv, stoerrelse);
         Array.Resize(ref _usikkerBestemmelse, stoerrelse); Array.Resize(ref _innfoert, stoerrelse);
     }
 

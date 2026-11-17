@@ -8,6 +8,8 @@ public static class SearchConstants
     public const int MinTaxonResults = 1;
     public const int DefaultMaxOrganizationCount = 10;
     public const int MaxOrganizationCount = 50;
+    public const int DefaultMaxAreaSearchCount = 20;
+    public const int MaxAreaSearchCount = 50;
 
     // Location search constants
     public const int DefaultMaxLocations = 100000;
@@ -57,6 +59,10 @@ public static class SearchConstants
 
     // Matrikkelenheter slås opp én og én mot Kartverket.
     public const int MaxCadastralUnitFilterSize = 20;
+
+    // Hvert historisk område er lokasjonene sine i HistoricalAreaLocation. Alle 443 i
+    // ett filter gir en delspørring på 12,6 millioner rader, kompilert på nytt hver gang.
+    public const int MaxHistoricalAreaFilterSize = 20;
 
     // Minstelengde for katalognummer-oppslaget, håndhevet på serveren.
     // 1 tegn ville krevd DISTINCT over millioner av indeksrader for hvert

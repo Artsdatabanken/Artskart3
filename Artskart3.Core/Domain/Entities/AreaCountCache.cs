@@ -23,7 +23,7 @@ public class AreaCountCacheLevel1 : IHarFilterMaske
     public int EntityId { get; set; }
 
     /// <summary>
-    /// Bitmaske over de fem bool-filtrene. Se <c>FilterMask</c> i Application.Services.
+    /// Bitmaske over bool-filtrene. Se <c>FilterMask</c> i Application.Services.
     ///
     /// Ligger SIST i nøkkelen med vilje: hver celle får 1-3 rader som da havner rett
     /// etter hverandre, så et oppslag uten bool-filter summerer dem i én

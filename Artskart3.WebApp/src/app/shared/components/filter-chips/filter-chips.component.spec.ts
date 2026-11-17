@@ -268,6 +268,25 @@ describe('FilterChipsComponent', () => {
       expect(chip().text).toBe('sidebar.restrictedArea: Ytre Hvaler nasjonalpark');
     });
 
+    it('shows a chip per historical area with its kind', () => {
+      flushLookups();
+      filterState.addHistoricalArea({ id: 2, fid: '1902', name: 'Tromsø', areaTypeId: 1, isCurrent: false, countyName: 'Troms', endYear: 2020 });
+      filterState.addHistoricalArea({ id: 669, fid: '54', name: 'Troms og Finnmark', areaTypeId: 2, isCurrent: false, endYear: 2024 });
+      const chips = component.chips().filter((c) => c.id.startsWith('historicalArea:'));
+      expect(chips.map((c) => c.text)).toEqual([
+        'sidebar.areaSearch: Tromsø (sidebar.areaSearchType.historicalMunicipality)',
+        'sidebar.areaSearch: Troms og Finnmark (sidebar.areaSearchType.historicalCounty)',
+      ]);
+      chips[0].clear();
+      expect(filterState.selectedHistoricalAreaIds()).toEqual([669]);
+    });
+
+    it('shows the id of a historical area that has not been looked up yet', () => {
+      flushLookups();
+      filterState.selectedHistoricalAreas.set([{ id: 669, isCurrent: false }]);
+      expect(component.chips().find((c) => c.id === 'historicalArea:669')!.text).toBe('sidebar.areaSearch: #669');
+    });
+
     it('viser chip for katalognummer', () => {
       flushLookups();
       filterState.setCatalogNumber('ABC-123');
@@ -281,7 +300,7 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.setRegistrationStatus(null);
       filterState.setImageFilter('all');
-      filterState.setAnnotationFilter('all');
+      filterState.setAnnotationFilter('excludeHidden');
       filterState.setSensitiveFilter('all');
       expect(component.chips().find((c) => c.id === 'registrationStatus')).toBeUndefined();
       expect(component.chips().find((c) => c.id === 'imageFilter')).toBeUndefined();
@@ -293,13 +312,13 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
-      filterState.setAnnotationFilter('notChanged');
+      filterState.setAnnotationFilter('hidden');
       filterState.setSensitiveFilter('sensitive');
       const chips = component.chips();
       // Uten lastede oversettelser returnerer instant() nøklene
       expect(chips.find((c) => c.id === 'registrationStatus')!.text).toContain('sidebar.registreringStatus.absent');
       expect(chips.find((c) => c.id === 'imageFilter')!.text).toContain('sidebar.imageWithout');
-      expect(chips.find((c) => c.id === 'annotationFilter')!.text).toContain('sidebar.annotationNotChanged');
+      expect(chips.find((c) => c.id === 'annotationFilter')!.text).toContain('sidebar.annotationHidden');
       expect(chips.find((c) => c.id === 'sensitiveFilter')!.text).toBe('sidebar.sensitivity: sidebar.sensitiveOnly');
     });
 
@@ -307,7 +326,7 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.setRegistrationStatus(2);
       filterState.setImageFilter('withoutImage');
-      filterState.setAnnotationFilter('changed');
+      filterState.setAnnotationFilter('annotated');
       filterState.setSensitiveFilter('notSensitive');
       const chips = component.chips();
       chips.find((c) => c.id === 'registrationStatus')!.clear();
@@ -316,8 +335,18 @@ describe('FilterChipsComponent', () => {
       chips.find((c) => c.id === 'sensitiveFilter')!.clear();
       expect(filterState.selectedRegistrationStatusId()).toBeNull();
       expect(filterState.imageFilter()).toBe('all');
-      expect(filterState.annotationFilter()).toBe('all');
+      expect(filterState.annotationFilter()).toBe('excludeHidden');
       expect(filterState.sensitiveFilter()).toBe('all');
+    });
+
+    it.each([
+      ['all', 'sidebar.annotationAll'],
+      ['hidden', 'sidebar.annotationHidden'],
+      ['annotated', 'sidebar.annotationAnnotated'],
+    ] as const)('viser riktig tekst for annoteringsvalget %s', (option, expected) => {
+      flushLookups();
+      filterState.setAnnotationFilter(option);
+      expect(component.chips().find((c) => c.id === 'annotationFilter')!.text).toContain(expected);
     });
   });
 

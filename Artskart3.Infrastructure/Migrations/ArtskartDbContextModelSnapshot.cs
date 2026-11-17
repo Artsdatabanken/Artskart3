@@ -723,6 +723,19 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("geometry_columns", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.HistoricalAreaLocation", b =>
+                {
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AreaId", "LocationId");
+
+                    b.ToTable("HistoricalAreaLocation", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ImportLog", b =>
                 {
                     b.Property<int>("Id")
@@ -1457,6 +1470,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("HashCode")
                         .HasColumnType("int");
 
+                    b.Property<bool>("HiddenByAnnotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
@@ -1556,7 +1574,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasDatabaseName("IX_Observation_HasMediaFiles")
                         .HasFilter("[HasMediaFiles] = 1");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId" });
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId", "HiddenByAnnotation" });
+
+                    b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_HiddenByAnnotation")
+                        .HasFilter("[HiddenByAnnotation] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex("Introduced", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
@@ -1587,6 +1613,9 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UncertainIdentification", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), new[] { "DateTimeCollected", "BasisOfRecordId", "TaxonId", "TaxonGroupId", "YearCollected", "MonthCollected", "Id", "HiddenByAnnotation" });
 
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 
@@ -1786,6 +1815,9 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("HasMediaFiles")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("HiddenByAnnotation")
                         .HasColumnType("bit");
 
                     b.Property<int?>("InstitutionOrgId")

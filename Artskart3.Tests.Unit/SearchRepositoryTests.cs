@@ -980,19 +980,22 @@ public class SearchRepositoryTests
         { new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], Sensitive = true }, true },
         // Uten matrikkelenhet gjelder ikke regelen.
         { new LocationSearchFilterDto { TaxonGroupIds = [8] }, false },
+        // Historiske områder alltid: antallet lokasjoner varierer med området.
+        { new LocationSearchFilterDto { HistoricalAreaIds = [669] }, true },
+        { new LocationSearchFilterDto { HistoricalAreaIds = [669], MunicipalityIds = ["4206"] }, true },
     };
 
     [Theory]
     [MemberData(nameof(MatrikkelfiltreOgRecompile))]
-    public void NeedsRecompileWithCadastralUnits_BareMedAndreFiltreEnnGeografi(LocationSearchFilterDto filter, bool forventet) =>
-        SearchRepository.NeedsRecompileWithCadastralUnits(filter).Should().Be(forventet);
+    public void NeedsRecompileWithLocationBasedAreas_MatrikkelBareMedAndreFiltreEnnGeografi(LocationSearchFilterDto filter, bool forventet) =>
+        SearchRepository.NeedsRecompileWithLocationBasedAreas(filter).Should().Be(forventet);
 
     [Fact]
-    public void NeedsRecompileWithCadastralUnits_EndrerIkkeFilteret()
+    public void NeedsRecompileWithLocationBasedAreas_EndrerIkkeFilteret()
     {
         var filter = new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], RestrictedAreaIds = ["Naturbase VV00000575"] };
 
-        SearchRepository.NeedsRecompileWithCadastralUnits(filter);
+        SearchRepository.NeedsRecompileWithLocationBasedAreas(filter);
 
         filter.CadastralUnitIds.Should().NotBeNull();
         filter.RestrictedAreaIds.Should().NotBeNull();

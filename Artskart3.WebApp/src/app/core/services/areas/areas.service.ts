@@ -12,7 +12,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AreaMarkerFeature, LocationPolygonDto } from '@shared/models/area/area-marker.model';
-import { AreaMarkerDto, CadastralUnitDto, LocationCountResult } from '@shared/types/api.types';
+import { AreaMarkerDto, CadastralUnitDto, HiddenObservationFilter, LocationCountResult } from '@shared/types/api.types';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { RegistrationStatus, registrationStatusFromId } from '@shared/helpers/registration-status/registration-status';
@@ -293,6 +293,7 @@ export interface LocationSearchFilter {
   restrictedAreaIds?: string[];
   oceanAreaIds?: string[];
   cadastralUnitIds?: string[];
+  historicalAreaIds?: number[];
   coordinatePrecisionFrom?: number | null;
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
@@ -303,6 +304,7 @@ export interface LocationSearchFilter {
   observationIds?: number[] | null;
   withImages?: boolean | null;
   changedByAnnotation?: boolean | null;
+  hiddenObservations?: HiddenObservationFilter;
   sensitive?: boolean | null;
   // true = usikker artsbestemmelse, true = innfoert forekomst. Backend stoetter
   // begge; sidebaren har ennaa ingen kontroll som setter dem.
@@ -508,6 +510,7 @@ export class AreasService {
       if (filter.restrictedAreaIds?.length) body['restrictedAreaIds'] = filter.restrictedAreaIds;
       if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
       if (filter.cadastralUnitIds?.length) body['cadastralUnitIds'] = filter.cadastralUnitIds;
+      if (filter.historicalAreaIds?.length) body['historicalAreaIds'] = filter.historicalAreaIds;
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }
@@ -523,6 +526,7 @@ export class AreasService {
       if (filter.observationIds?.length) body['observationIds'] = filter.observationIds;
       if (filter.withImages != null) body['withImages'] = filter.withImages;
       if (filter.changedByAnnotation != null) body['changedByAnnotation'] = filter.changedByAnnotation;
+      if (filter.hiddenObservations != null) body['hiddenObservations'] = filter.hiddenObservations;
       if (filter.sensitive != null) body['sensitive'] = filter.sensitive;
       if (filter.uncertainIdentification != null) body['uncertainIdentification'] = filter.uncertainIdentification;
       if (filter.introduced != null) body['introduced'] = filter.introduced;

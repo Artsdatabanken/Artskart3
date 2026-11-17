@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -39,6 +40,10 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     private const int ObservationBaseId = 982000;
     private const int AreaEntityOneId = 982010;
     private const int AreaEntityTwoId = 982011;
+
+    // Som i produksjon stemmer Area.ObservationCount med indekstabellen. Kommunefilter
+    // alene leser tallet herfra når det ikke finnes noen buffer.
+    private const int ObservationsPerArea = 3;
     private const string AreaFidOne = "982010";
     private const string AreaFidTwo = "982011";
 
@@ -194,7 +199,7 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Kommune_alene()
     {
-        await BuildGeographyCacheAsync();
+        await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
 
         await AssertSameAsCountingAsync(new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
     }
@@ -216,7 +221,7 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Kommune_og_havomraade_samtidig()
     {
-        await BuildGeographyCacheAsync();
+        await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
 
         await AssertSameAsCountingAsync(new LocationSearchFilterDto
         {
@@ -334,6 +339,139 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
         result.Should().NotBeNull("ett filter pluss fem maskebit er fortsatt én dimensjon");
     }
 
+    [Theory]
+    [InlineData(HiddenObservationFilter.Only)]
+    [InlineData(HiddenObservationFilter.Include)]
+    public async Task Skjulte_funn_gir_samme_tall_som_telling(HiddenObservationFilter skjulte)
+    {
+        await SkjulObservasjonIKommuneAAsync(true);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var fraBuffer = await CreateCacheService().TryGetCountsAsync(
+                new LocationSearchFilterDto { HiddenObservations = skjulte }, await AreasAsync(), areasAreNarrowed: false);
+            fraBuffer.Should().NotBeNull("ellers sammenligner testen tellingen med seg selv");
+
+            await AssertSameAsCountingAsync(new LocationSearchFilterDto { HiddenObservations = skjulte });
+        }
+        finally
+        {
+            await SkjulObservasjonIKommuneAAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// Area.ObservationCount teller med skjulte funn, så standardutvalget må lese
+    /// bufferen for at tallene skal gå opp med de andre annoteringsvalgene.
+    /// </summary>
+    [Fact]
+    public async Task Standardutvalget_teller_fra_bufferen_uten_skjulte_funn()
+    {
+        await SkjulObservasjonIKommuneAAsync(true);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(2, new LocationSearchFilterDto());
+
+            result.Single(a => a.Fid == AreaFidOne).ObservationCount.Should().Be(2);
+            result.Single(a => a.Fid == AreaFidTwo).ObservationCount.Should().Be(3);
+        }
+        finally
+        {
+            await SkjulObservasjonIKommuneAAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// Områdevalg alene skal lese totalene for de valgte områdene, ikke gå via
+    /// geografi-dimensjonen: den ble målt 15 ganger tregere for samme tall.
+    /// </summary>
+    [Fact]
+    public async Task Kommunevalg_alene_leser_totalene_uten_geografidimensjonen()
+    {
+        await SkjulObservasjonIKommuneAAsync(true);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(2, new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
+
+            result.Single(a => a.Fid == AreaFidOne).ObservationCount.Should().Be(ObservationsPerArea - 1);
+        }
+        finally
+        {
+            await SkjulObservasjonIKommuneAAsync(false);
+        }
+    }
+
+    /// <summary>
+    /// På fylkesnivå skal en valgt kommune gi kommunens andel, ikke hele fylket, og
+    /// andelen skal være uten skjulte funn.
+    /// </summary>
+    [Fact]
+    public async Task Kommunevalg_paa_fylkesnivaa_gir_kommunens_andel_uten_skjulte_funn()
+    {
+        const string fylkeFid = "98";
+
+        var fylke = NewArea(fylkeFid, "Buffer fylke");
+        fylke.AreaTypeId = AreaCountCacheDimensions.AreaTypeCounty;
+        fylke.ZoomLevel = 1;
+        fylke.ObservationCount = 1000;
+        _context.Set<Area>().Add(fylke);
+        await _context.SaveChangesAsync();
+
+        await SkjulObservasjonIKommuneAAsync(true);
+        await SettForelderAsync(fylkeFid);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(1, new LocationSearchFilterDto { MunicipalityIds = [AreaFidOne] });
+
+            result.Single(a => a.Fid == fylkeFid).ObservationCount.Should().Be(ObservationsPerArea - 1);
+        }
+        finally
+        {
+            await SettForelderAsync("buffer-parent");
+            await SkjulObservasjonIKommuneAAsync(false);
+            await _context.Set<Area>().Where(a => a.Fid == fylkeFid).ExecuteDeleteAsync();
+        }
+    }
+
+    private Task SettForelderAsync(string parentFid) =>
+        _context.Set<Area>()
+            .Where(a => a.Fid == AreaFidOne)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.ParentFid, parentFid));
+
+    [Fact]
+    public async Task Standardutvalget_bruker_forhaandsberegnede_tall_uten_klar_buffer()
+    {
+        await ClearCacheAsync();
+        await SettAreaAntallAsync(7);
+        try
+        {
+            var result = await WithCache().GetAreaCountsAsync(2, new LocationSearchFilterDto());
+
+            result.Single(a => a.Fid == AreaFidOne).ObservationCount.Should().Be(7);
+        }
+        finally
+        {
+            await SettAreaAntallAsync(ObservationsPerArea);
+        }
+    }
+
+    private Task SkjulObservasjonIKommuneAAsync(bool skjult) =>
+        _context.Set<ObservationEntityIndex>()
+            .Where(r => r.ObservationId == ObservationBaseId && r.EntityId == AreaEntityOneId)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenByAnnotation, skjult));
+
+    private Task SettAreaAntallAsync(int antall) =>
+        _context.Set<Area>()
+            .Where(a => a.Fid == AreaFidOne)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.ObservationCount, antall));
+
     [Fact]
     public async Task Katalognummer_gir_null()
     {
@@ -410,6 +548,9 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
     // -----------------------------------------------------------------------
     // Oppsett
     // -----------------------------------------------------------------------
+
+    private static byte RegistrationStatusDimensionId =>
+        AreaCountCacheDimensions.All.Single(d => d.Name == "Regstatus").Id;
 
     private static byte TaxonGroupDimensionId =>
         AreaCountCacheDimensions.All.Single(d => d.Name == "Taksongruppe").Id;
@@ -501,13 +642,16 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
         var rows = await _context.Set<ObservationEntityIndex>().AsNoTracking().ToListAsync();
 
         _context.Set<AreaCountCacheLevel1>().AddRange(rows
-            .GroupBy(r => (Bucket: bucketOf(r) ?? AreaCountCacheDimensions.NullBucket, r.EntityTypeId, r.EntityId))
+            .GroupBy(r => (
+                Bucket: bucketOf(r) ?? AreaCountCacheDimensions.NullBucket, r.EntityTypeId, r.EntityId,
+                Mask: r.HiddenByAnnotation ? FilterMask.HiddenByAnnotation : (byte)0))
             .Select(g => new AreaCountCacheLevel1
             {
                 DimensionId = dimensionId,
                 BucketId = g.Key.Bucket,
                 EntityTypeId = g.Key.EntityTypeId,
                 EntityId = g.Key.EntityId,
+                Mask = g.Key.Mask,
                 // Rader, ikke distinkte observasjoner — samme som g.Count() i
                 // ComputeFilteredAreaCounts.
                 ObservationCount = g.Count(),
@@ -725,7 +869,7 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
         ZoomLevel = 2,
         ParentFid = "buffer-parent",
         SyncDateTime = DateTime.UtcNow,
-        ObservationCount = 0,
+        ObservationCount = ObservationsPerArea,
         Bbox = "bbox",
         TimeStamp = DateTime.UtcNow,
         IsCurrent = true,

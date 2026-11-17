@@ -1,4 +1,5 @@
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 
 namespace Artskart3.Tests.Unit;
@@ -29,6 +30,28 @@ public class LocationSearchFilterDtoTests
         sut.Epsg.Should().BeNull();
     }
 
+    // Standardutvalget må holde det ufiltrerte kallet på de ferdige svarene.
+    [Fact]
+    public void UtelatteSkjulteFunn_ErIkkeEtAktivtFilter()
+    {
+        var sut = new LocationSearchFilterDto();
+
+        sut.HiddenObservations.Should().Be(HiddenObservationFilter.Exclude);
+        sut.HasActiveFilters.Should().BeFalse();
+        sut.HasObservationAttributeFilters.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(HiddenObservationFilter.Include)]
+    [InlineData(HiddenObservationFilter.Only)]
+    public void AndreValgForSkjulteFunn_KreverDynamiskTelling(HiddenObservationFilter value)
+    {
+        var sut = new LocationSearchFilterDto { HiddenObservations = value };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
+    }
+
     [Fact]
     public void CadastralUnitIds_KreverDynamiskTelling()
     {
@@ -36,6 +59,28 @@ public class LocationSearchFilterDtoTests
 
         sut.HasActiveFilters.Should().BeTrue();
         sut.HasObservationAttributeFilters.Should().BeTrue();
+    }
+
+    [Fact]
+    public void HistoricalAreaIds_KreverDynamiskTelling()
+    {
+        var sut = new LocationSearchFilterDto { HistoricalAreaIds = [669] };
+
+        sut.HasActiveFilters.Should().BeTrue();
+        sut.HasObservationAttributeFilters.Should().BeTrue();
+        sut.HasLocationBasedAreas.Should().BeTrue();
+    }
+
+    [Fact]
+    public void WithoutLocationBasedAreas_FjernerMatrikkelOgHistoriskeOmraader()
+    {
+        var sut = new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], HistoricalAreaIds = [669], MunicipalityIds = ["0301"] };
+
+        var copy = sut.WithoutLocationBasedAreas();
+
+        copy.HasLocationBasedAreas.Should().BeFalse();
+        copy.MunicipalityIds.Should().Equal("0301");
+        sut.HistoricalAreaIds.Should().Equal(669);
     }
 
     [Fact]

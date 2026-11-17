@@ -1,3 +1,5 @@
+using Artskart3.Core.Domain.Enums;
+
 namespace Artskart3.Core.Application.DTOs;
 
 /// <summary>
@@ -27,6 +29,13 @@ public interface IObservationFilter
     /// Slås opp mot Kartverket og blir til lokasjoner via ICadastralUnitService.
     /// </summary>
     string[]? CadastralUnitIds { get; }
+
+    /// <summary>
+    /// Historiske fylker, kommuner og havområder (Area.Id for områder med
+    /// IsCurrent = 0). OR-es med de andre områdefiltrene. Slås opp via lokasjonene i
+    /// HistoricalAreaLocation, ikke via ObservationEntityIndex.
+    /// </summary>
+    int[]? HistoricalAreaIds { get; }
 
     int[]? BehaviorIds { get; }
     int[]? BasisOfRecordIds { get; }
@@ -61,6 +70,12 @@ public interface IObservationFilter
     /// observasjoner som har en annotering uten at noe ble endret.
     /// </summary>
     bool? ChangedByAnnotation { get; }
+
+    /// <summary>
+    /// Funn skjult av annotering. Exclude er standardutvalget og regnes ikke som et
+    /// aktivt filter.
+    /// </summary>
+    HiddenObservationFilter HiddenObservations { get; }
 
     /// <summary>
     /// Taggen Sensitive. Søket skal aldri røre SensitiveObservationData.

@@ -85,7 +85,7 @@ describe('SearchFilterService', () => {
     filterState.addProject({ id: 9, name: 'Prosjekt' });
     filterState.setCatalogObservationIds([10]);
     filterState.setImageFilter('withImage');
-    filterState.setAnnotationFilter('changed');
+    filterState.setAnnotationFilter('annotated');
     filterState.setSensitiveFilter('sensitive');
 
     const filter = service.observationFilter();
@@ -161,6 +161,10 @@ describe('SearchFilterService.applyFilter', () => {
     httpTesting
       .match('/api/Lookup/CatalogNumbers/ByObservationIds')
       .forEach((req) => req.flush({ catalogNumber: 'O-123', observationIds: req.request.body }));
+    httpTesting.match((req) => /^\/api\/Lookup\/Areas\/\d+$/.test(req.url)).forEach((req) => {
+      const id = Number(req.request.url.split('/').pop());
+      req.flush({ id, fid: '54', name: `Område ${id}`, areaTypeId: 2, isCurrent: false, endYear: 2021 });
+    });
   }
 
   it('gir samme filter tilbake når det bygges, brukes og bygges igjen', async () => {
@@ -181,9 +185,10 @@ describe('SearchFilterService.applyFilter', () => {
     filterState.addDataset({ id: 8, name: 'Datasett' });
     filterState.addDataset({ id: 80, name: 'Datasett 2' });
     filterState.addProject({ id: 9, name: 'Prosjekt' });
+    filterState.addHistoricalArea({ id: 669, fid: '54', name: 'Troms og Finnmark', areaTypeId: 2, isCurrent: false, endYear: 2021 });
     filterState.setCatalogObservationIds([10, 11]);
     filterState.setImageFilter('withoutImage');
-    filterState.setAnnotationFilter('notChanged');
+    filterState.setAnnotationFilter('hidden');
     filterState.setSensitiveFilter('notSensitive');
     const saved = service.observationFilter();
 
@@ -201,6 +206,9 @@ describe('SearchFilterService.applyFilter', () => {
       { id: 80, name: 'Organisasjon 80' },
     ]);
     expect(filterState.selectedProjects()).toEqual([{ id: 9, name: 'Organisasjon 9' }]);
+    expect(filterState.selectedHistoricalAreas()).toEqual([
+      { id: 669, fid: '54', name: 'Område 669', areaTypeId: 2, isCurrent: false, endYear: 2021 },
+    ]);
     expect(filterState.catalogNumber()).toBe('O-123');
   });
 
@@ -222,6 +230,7 @@ describe('SearchFilterService.applyFilter', () => {
       oceanAreaIds: ['h1'],
       restrictedAreaIds: ['Naturbase VV00001234'],
       cadastralUnitIds: ['1101-1/2'],
+      historicalAreaIds: [669],
       behaviorIds: [5],
       basisOfRecordIds: [6],
       registrationStatusId: 1,
@@ -232,6 +241,7 @@ describe('SearchFilterService.applyFilter', () => {
       observationIds: [9],
       withImages: true,
       changedByAnnotation: true,
+      hiddenObservations: 'Only',
       sensitive: false,
       uncertainIdentification: true,
       introduced: false,
@@ -240,7 +250,31 @@ describe('SearchFilterService.applyFilter', () => {
     await service.applyFilter(sample);
     flushNameLookups();
 
-    expect(service.observationFilter()).toEqual(sample);
+    // Both annotation fields share one radio group, and 'only hidden' takes priority.
+    expect(service.observationFilter()).toEqual({ ...sample, changedByAnnotation: undefined });
+  });
+
+  it('sender ingen skjult-felt for standardvalget, så det ikke regnes som et aktivt filter', () => {
+    expect(service.observationFilter().hiddenObservations).toBeUndefined();
+    expect(service.hasActiveFilter()).toBe(false);
+  });
+
+  it.each([
+    ['all', 'Include'],
+    ['hidden', 'Only'],
+  ] as const)('sender valget %s som %s', (option, expected) => {
+    filterState.setAnnotationFilter(option);
+
+    expect(service.observationFilter().hiddenObservations).toBe(expected);
+    expect(service.hasActiveFilter()).toBe(true);
+  });
+
+  it('gjenoppretter Exclude fra et lagret filter som standardvalget', async () => {
+    filterState.setAnnotationFilter('hidden');
+
+    await service.applyFilter({ hiddenObservations: 'Exclude' });
+
+    expect(filterState.annotationFilter()).toBe('excludeHidden');
   });
 
   it('fjerner det som var satt fra før', async () => {
@@ -259,6 +293,15 @@ describe('SearchFilterService.applyFilter', () => {
     flushNameLookups();
 
     expect(filterState.selectedDatasets()).toEqual([{ id: 12, name: 'Organisasjon 12' }]);
+  });
+
+  it('keeps a historical area by id when its lookup fails', async () => {
+    await service.applyFilter({ historicalAreaIds: [669] });
+
+    httpTesting.expectOne('/api/Lookup/Areas/669').flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect(filterState.selectedHistoricalAreas()).toEqual([{ id: 669, isCurrent: false }]);
+    expect(service.observationFilter().historicalAreaIds).toEqual([669]);
   });
 
   it('beholder valget uten navn når navneoppslaget feiler', async () => {

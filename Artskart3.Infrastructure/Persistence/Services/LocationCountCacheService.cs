@@ -166,8 +166,9 @@ public class LocationCountCacheService : ILocationCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return (false, null, null);
 
-        // Matrikkelenheter er lokasjoner fra Kartverket, ikke områder i bufferen.
-        if (filter.CadastralUnitIds?.Length > 0)
+        // Matrikkelenheter er lokasjoner fra Kartverket, og historiske områder er ikke i
+        // indeksen bufferen er bygget fra.
+        if (filter.HasLocationBasedAreas)
             return (false, null, null);
 
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
@@ -394,14 +395,7 @@ public class LocationCountCacheService : ILocationCountCacheService
             }
         }
 
-        // Maskepredikatet. Er ingen bool satt, legges ingenting til, og cellens
-        // masker summeres av grupperingen under.
-        if (maske.IsActive)
-        {
-            var care = maske.Care;
-            var want = maske.Want;
-            query = query.Where(r => (r.Mask & care) == want);
-        }
+        query = query.WhereMask(maske);
 
         // Samme avkorting til int som ApplyEnvelopeFilterToEntityIndex. Formen må
         // være lik på fortegnet nøyaktig: (int) på et negativt tall runder mot

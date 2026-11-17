@@ -374,6 +374,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Areas/Search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    maxCount?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AreaSearchResultDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Lookup/Areas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AreaSearchResultDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/Institutions": {
         parameters: {
             query?: never;
@@ -1830,6 +1905,20 @@ export interface components {
             oceanAreas?: components["schemas"]["AreaTypeDto"];
             "svalbardBj\u00F8rn\u00F8yaAndJanMayen"?: components["schemas"]["AreaTypeDto"];
         };
+        AreaSearchResultDto: {
+            /** Format: int32 */
+            id?: number;
+            fid?: string;
+            name?: string;
+            /** Format: int32 */
+            areaTypeId?: number;
+            isCurrent?: boolean;
+            countyName?: null | string;
+            /** Format: int32 */
+            endYear?: null | number;
+            /** Format: int32 */
+            observationCount?: null | number;
+        };
         AreaTypeDto: {
             /** Format: int32 */
             id?: number;
@@ -1952,6 +2041,8 @@ export interface components {
             /** Format: int32 */
             hardLimit?: number;
         };
+        /** @enum {string} */
+        HiddenObservationFilter: "Exclude" | "Include" | "Only";
         InstitutionDto: {
             /** Format: int32 */
             id?: number;
@@ -1985,6 +2076,7 @@ export interface components {
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
             cadastralUnitIds?: null | string[];
+            historicalAreaIds?: null | number[];
             behaviorIds?: null | number[];
             /** Format: int32 */
             registrationStatusId?: null | number;
@@ -1995,6 +2087,7 @@ export interface components {
             observationIds?: null | number[];
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
+            hiddenObservations?: components["schemas"]["HiddenObservationFilter"];
             sensitive?: null | boolean;
             uncertainIdentification?: null | boolean;
             introduced?: null | boolean;
@@ -2005,6 +2098,7 @@ export interface components {
             /** Format: int32 */
             maxResults?: number;
             envelope?: components["schemas"]["EnvelopeDto"];
+            readonly hasLocationBasedAreas?: boolean;
         };
         MapExtentDto: {
             /** Format: double */
@@ -2177,6 +2271,7 @@ export interface components {
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
             cadastralUnitIds?: null | string[];
+            historicalAreaIds?: null | number[];
             behaviorIds?: null | number[];
             basisOfRecordIds?: null | number[];
             /** Format: int32 */
@@ -2188,6 +2283,7 @@ export interface components {
             observationIds?: null | number[];
             withImages?: null | boolean;
             changedByAnnotation?: null | boolean;
+            hiddenObservations?: components["schemas"]["HiddenObservationFilter"];
             sensitive?: null | boolean;
             uncertainIdentification?: null | boolean;
             introduced?: null | boolean;
