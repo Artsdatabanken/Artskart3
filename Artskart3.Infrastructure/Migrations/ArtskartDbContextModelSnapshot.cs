@@ -1873,8 +1873,24 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
+                    b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_OEI_AreaListView")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), new[] { "TaxonGroupId", "CategoryId", "HiddenByAnnotation" });
+
                     b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
                         .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+                    b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView")
+                        .IsDescending(false, false, true, true)
+                        .HasFilter("[HasMediaFiles] = 1")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), new[] { "CategoryId", "TaxonGroupId", "HiddenByAnnotation" });
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });

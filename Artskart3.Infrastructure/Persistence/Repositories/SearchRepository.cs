@@ -674,16 +674,20 @@ public class SearchRepository : ISearchRepository
 
         var trengs = skip + take;
         var kandidater = new List<(int ObservationId, DateTime? Dato)>();
+        var utenRadmaal = NeedsLookupsOutsideAreaListIndexes(filter);
 
         foreach (var (type, ids) in omraader)
         {
             foreach (var id in ids)
             {
+                var kilde = _context.Set<ObservationEntityIndex>()
+                    .AsNoTracking()
+                    .TagWith(QueryHintInterceptor.RecompileTag);
+                if (utenRadmaal)
+                    kilde = kilde.TagWith(QueryHintInterceptor.NoRowGoalTag);
+
                 var gren = ApplyListViewFiltersToEntityIndex(
-                        _context.Set<ObservationEntityIndex>()
-                            .AsNoTracking()
-                            .TagWith(QueryHintInterceptor.RecompileTag)
-                            .Where(idx => idx.EntityTypeId == type && idx.EntityId == id),
+                        kilde.Where(idx => idx.EntityTypeId == type && idx.EntityId == id),
                         filter)
                     .OrderByDescending(idx => idx.DateTimeCollected)
                     .ThenByDescending(idx => idx.ObservationId)
@@ -1184,6 +1188,29 @@ public class SearchRepository : ISearchRepository
 
         return query;
     }
+
+    /// <summary>
+    /// Om områdegrenene må slå opp i klyngeindeksen for å sjekke filteret. IX_OEI_AreaListView
+    /// dekker område, dato, observasjon, artsgruppe, kategori og skjulte funn, og
+    /// IX_OEI_MediaListView i tillegg «med bilder». Se QueryHintInterceptor.NoRowGoalTag. Et nytt filter i
+    /// ApplyListViewFiltersToEntityIndex hører hjemme her også.
+    /// </summary>
+    private static bool NeedsLookupsOutsideAreaListIndexes(IObservationFilter filter) =>
+        filter.TaxonIds?.Any() == true
+        || filter.OrganizationIds?.Any() == true
+        || filter.BehaviorIds?.Any() == true
+        || filter.BasisOfRecordIds?.Any() == true
+        || filter.RegistrationStatusId.HasValue
+        || filter.WithImages == false
+        || filter.CoordinatePrecision?.From.HasValue == true
+        || filter.CoordinatePrecision?.To.HasValue == true
+        || filter.Period?.Months?.Any() == true
+        || filter.DatasetOrgIds?.Any() == true
+        || filter.ProjectOrgIds?.Any() == true
+        || filter.ChangedByAnnotation.HasValue
+        || filter.Sensitive.HasValue
+        || filter.UncertainIdentification.HasValue
+        || filter.Introduced.HasValue;
 
     /// <summary>
     /// Projiserer et allerede filtrert og begrenset observasjonssett til DTO-er.
@@ -2393,6 +2420,11 @@ public class SearchRepository : ISearchRepository
             query = query.TagWith(QueryHintInterceptor.RecompileTag);
         }
 
+        if (areasAreNarrowed && HasPeriodRange(filter))
+        {
+            query = query.TagWith(QueryHintInterceptor.CountColumnstoreTag);
+        }
+
         var counts = await query
             .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
@@ -2593,6 +2625,14 @@ public class SearchRepository : ISearchRepository
     }
 
     /// <summary>
+    /// Om filteret har en periode med år. Avgrenset til bestemte områder blir den et
+    /// intervall i IX_OEI_AreaListView (EntityTypeId, EntityId, DateTimeCollected), og da
+    /// leses områdetellingene fra columnstore i stedet. Se QueryHintInterceptor.CountColumnstoreTag.
+    /// </summary>
+    private static bool HasPeriodRange(IObservationFilter filter) =>
+        filter.Period?.From.HasValue == true || filter.Period?.To.HasValue == true;
+
+    /// <summary>
     /// Teller ved å ankre på det FINE nivået og rulle opp, i stedet for å ankre
     /// på utdatacellen og filtrere ned til valget.
     ///
@@ -2650,6 +2690,9 @@ public class SearchRepository : ISearchRepository
                     .Where(idx => idx.EntityTypeId == (int)ObservationIndexEntityType.Municipality
                                   && kommuneEntityIds.Contains(idx.EntityId)),
                 filter);
+
+            if (HasPeriodRange(filter))
+                query = query.TagWith(QueryHintInterceptor.CountColumnstoreTag);
 
             var antall = await query
                 .Select(idx => idx.ObservationId)

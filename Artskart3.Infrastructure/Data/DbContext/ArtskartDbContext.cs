@@ -1243,6 +1243,38 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
 
+            // Listevisningen med områdefilter leser hvert område nyeste først og stopper når
+            // siden er full, se SearchRepository.GetAreaFilteredObservationIdsAsync. Uten denne
+            // skanner hver områdegren columnstore, målt til 140-200 ms per gren.
+            //
+            // Artsgruppe og kategori er med, fordi et sjeldent filter ellers leser hele området med
+            // et oppslag per rad: målt 0,8-1,0 s for 14 kommuner med sommerfugler eller kritisk
+            // truede. HiddenByAnnotation er med fordi standardfilteret alltid sjekker den. Andre
+            // filterkolonner slås opp i klyngeindeksen for radene som leses.
+            //
+            // LocationId og koordinatpresisjon er ikke med, med vilje. Med dem dekket indeksen
+            // kartets tellinger, og da valgte optimizeren den framfor columnstore: målt 0,12 til
+            // 1,7 s for LocationCount med bare fylke, og 0,28 til 1,5 s for fylke og fugler med
+            // alle filterkolonnene inkludert.
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.DateTimeCollected, e.ObservationId })
+                .HasDatabaseName("IX_OEI_AreaListView")
+                .IsDescending(false, false, true, true)
+                .IncludeProperties(e => new { e.TaxonGroupId, e.CategoryId, e.HiddenByAnnotation })
+                .UseDataCompression(DataCompressionType.Page)
+                .IsCreatedOnline();
+
+            // Galleriet leser bare funn med mediefiler, rundt 6 % av radene. Med et sjeldent
+            // filter i tillegg leste hver områdegren i IX_OEI_AreaListView hele området med et
+            // oppslag per rad: målt 1,0-1,2 s per kommune for kritisk truede med bilder. Her
+            // ligger bare radene med mediefiler, og kategori, artsgruppe og skjulte funn sjekkes
+            // uten oppslag.
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.DateTimeCollected, e.ObservationId }, "IX_OEI_MediaListView")
+                .IsDescending(false, false, true, true)
+                .HasFilter("[HasMediaFiles] = 1")
+                .IncludeProperties(e => new { e.CategoryId, e.TaxonGroupId, e.HiddenByAnnotation })
+                .UseDataCompression(DataCompressionType.Page)
+                .IsCreatedOnline();
+
             // Taksonkolonnene (SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId)
             // har bevisst ingen rowstore-indekser — de betjenes av columnstore-indeksen
             // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
