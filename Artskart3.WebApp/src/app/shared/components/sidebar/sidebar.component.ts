@@ -135,7 +135,10 @@ export class SidebarComponent {
   readonly institutions = this.institutionsResource.value;
   readonly behaviors = this.behaviorsResource.value;
   readonly basisOfRecords = computed(() => {
-    const list = this.basisOfRecordsResource.value() ?? [];
+    const selected = this.filterState.selectedBasisOfRecordIds();
+    const list = (this.basisOfRecordsResource.value() ?? []).filter(
+      (b) => (b.observationCount ?? 0) > 0 || (b.id !== undefined && b.id !== null && selected.includes(b.id)),
+    );
     return [...list].sort((a, b) => {
       const nameA = this.getBasisOfRecordDisplayName(a).toLowerCase();
       const nameB = this.getBasisOfRecordDisplayName(b).toLowerCase();
