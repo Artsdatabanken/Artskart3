@@ -27,6 +27,8 @@ import Cluster from 'ol/source/Cluster';
 import { get as getProjection, transform } from 'ol/proj';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
+import { ImageSourceEvent, type ImageSourceEventTypes } from 'ol/source/Image';
+import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -36,6 +38,9 @@ import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
+
+const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image: ImageWrapper) =>
+  source.dispatchEvent(new ImageSourceEvent(type, image));
 
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
@@ -261,6 +266,9 @@ describe('MapComponent', () => {
       expect(refreshSpy).not.toHaveBeenCalled();
 
       source.dispatchEvent('imageloaderror');
+      const failedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', failedImage);
+      dispatchImageEvent(source, 'imageloaderror', failedImage);
       expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(true);
       expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
 
@@ -268,8 +276,45 @@ describe('MapComponent', () => {
       expect(refreshSpy).toHaveBeenCalledOnce();
       expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
 
-      source.dispatchEvent('imageloadend');
+      const retriedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', retriedImage);
+      dispatchImageEvent(source, 'imageloadend', retriedImage);
       expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores load results from WMS images that a newer request has replaced', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: { id: 5, name: 'Slow WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
+        visible: true,
+      });
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+      const isFailed = () => component['mapLayerService'].failedLayerIds().has(5);
+
+      const slowImage = {} as ImageWrapper;
+      const failingImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', slowImage);
+      dispatchImageEvent(source, 'imageloadstart', failingImage);
+      dispatchImageEvent(source, 'imageloaderror', failingImage);
+      dispatchImageEvent(source, 'imageloadend', slowImage);
+      expect(isFailed()).toBe(true);
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
+
+      const lateFailingImage = {} as ImageWrapper;
+      const loadedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', lateFailingImage);
+      dispatchImageEvent(source, 'imageloadstart', loadedImage);
+      dispatchImageEvent(source, 'imageloadend', loadedImage);
+      dispatchImageEvent(source, 'imageloaderror', lateFailingImage);
+      expect(isFailed()).toBe(false);
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
     } finally {
       vi.useRealTimers();
     }

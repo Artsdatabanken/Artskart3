@@ -80,6 +80,7 @@ import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
+import type ImageWrapper from 'ol/Image';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
@@ -1853,13 +1854,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
 
     const source = overlay.getSource();
-    this.mapOverlayLoadKeys.push(
-      useSingleImage
-        ? (source as ImageWMS).on('imageloaderror', markFailedIfVisible)
-        : (source as TileWMS).on('tileloaderror', markFailedIfVisible),
-    );
     if (useSingleImage) {
-      this.mapOverlayLoadKeys.push((source as ImageWMS).on('imageloadend', markLoadedIfVisible));
+      const imageSource = source as ImageWMS;
+      // OpenLayers also reports results for images that a newer request has replaced.
+      let latestImage: ImageWrapper | undefined;
+      this.mapOverlayLoadKeys.push(
+        imageSource.on('imageloadstart', (event) => {
+          latestImage = event.image;
+        }),
+        imageSource.on('imageloaderror', (event) => {
+          if (event.image === latestImage) markFailedIfVisible();
+        }),
+        imageSource.on('imageloadend', (event) => {
+          if (event.image === latestImage) markLoadedIfVisible();
+        }),
+      );
+    } else {
+      this.mapOverlayLoadKeys.push((source as TileWMS).on('tileloaderror', markFailedIfVisible));
     }
 
     this.mapOverlayLayers.set(layer.id, overlay);
