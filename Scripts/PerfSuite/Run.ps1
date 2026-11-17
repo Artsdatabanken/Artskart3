@@ -103,7 +103,7 @@ param(
     # Kjoer bare case der noekkel, lag eller dimensjon inneholder denne teksten.
     [string] $Only,
 
-    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'historisk', 'egendefinert', 'oppslag')]
+    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'historisk', 'egendefinert', 'skjult', 'oppslag')]
     [string[]] $Layer,
 
     # Porten Kartverket-stubben lytter paa. API-et maa startes med

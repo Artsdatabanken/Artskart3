@@ -21,6 +21,7 @@
       matrikkel  - matrikkelenheter, alene og med utvalgte filtre
       historisk  - historiske fylker og kommuner, alene og med utvalgte filtre
       egendefinert - polygoner tegnet i kartet, alene og med utvalgte filtre
+      skjult     - kun skjulte og alle funn, alene og med utvalgte filtre
       oppslag    - typeahead-endepunktene, som ikke tar filterkropp
 
     Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
@@ -389,8 +390,10 @@ function New-PerfCaseMatrix {
     #   tetthet   tunge og sjeldne filtre mot én spoerring for alle lokasjonene
     #   deling    omraadene helt innenfor leses hvert for seg, nyeste foerst; sjeldne
     #             filtre faar grenene til aa lese langt
-    #   omraade   med kommune eller matrikkel deles ikke polygonet, og hele listen
-    #             gaar til databasen sammen med det andre filteret
+    #   omraade   med kommune, matrikkel eller historisk omraade deles ikke
+    #             polygonet, og hele listen gaar til databasen sammen med det andre
+    #             filteret
+    #   skjulte   kun skjulte funn leses fra sin egen indeks, ikke per omraade
     $egendefinert = $Fixtures.egendefinert
     if ($egendefinert) {
         $oppslagNavn = if ($Level -eq 'Quick') { @('tung', 'delt') }
@@ -431,12 +434,16 @@ function New-PerfCaseMatrix {
                 # omraade
                 @{ Keys = @('egendefinert:tung', 'kommune:mange') },
                 @{ Keys = @('egendefinert:tung', 'matrikkel:tung') },
+                @{ Keys = @('egendefinert:delt', 'historisk:kommune') },
+                # skjulte
+                @{ Keys = @('egendefinert:delt', 'skjult:kun') },
                 # En ornitolog som ser hvilke fugler som er sett rundt Oslo de siste aarene.
                 @{ Keys = @('egendefinert:stor', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:egendefinert' }
             )
         }
 
-        $alleDims = @(@($dims) + @($matrikkel) + @($egendefinert) | Where-Object { $null -ne $_ })
+        $alleDims = @(@($dims) + @($matrikkel) + @($Fixtures.historisk) + @($egendefinert) + @($Fixtures.skjult) |
+            Where-Object { $null -ne $_ })
         foreach ($e in $egendefinertCase) {
             $tiers = @($e.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
 
@@ -448,6 +455,55 @@ function New-PerfCaseMatrix {
             }
 
             $case = New-PerfCase -Layer 'egendefinert' -Tiers $tiers -KeyOverride $e.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
+    # --- Lag 9: skjulte funn ------------------------------------------------
+    # Eget lag fordi dimensjonen 'skjulte' ikke er i fixtures.json foer neste
+    # -RefreshFixtures - se New-PerfHiddenDimension. Alle andre case maaler
+    # standardvalget, der skjulte funn utelates.
+    #
+    # Kun skjulte funn er 7 267 av 61 millioner. Listevisningen leser dem fra
+    # IX_Observation_HiddenByAnnotation og hopper over grenene per omraade og per
+    # verdi, som ellers maatte lest hele omraadet foer siden var fylt.
+    # Kombinasjonene er valgt etter kodestiene:
+    #   omraade   ett, mange og over taket for grenene
+    #   grening   to institusjoner gaar ellers gjennom GetBranchedObservationIdsAsync
+    #   historisk ID-spoerringen for historiske omraader
+    #   alle      uten maske i tellebufferne, og uten predikatet i grenene
+    $skjult = $Fixtures.skjult
+    if ($skjult) {
+        $skjultCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('skjult:kun') }, @{ Keys = @('skjult:kun', 'fylke:mange') })
+        }
+        else {
+            @($skjult.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # omraade
+                @{ Keys = @('skjult:kun', 'fylke:tung') },
+                @{ Keys = @('skjult:kun', 'kommune:mange') },
+                @{ Keys = @('skjult:kun', 'fylke:mange') },
+                # grening
+                @{ Keys = @('skjult:kun', 'institusjon:x2-tung-lett') },
+                # historisk
+                @{ Keys = @('skjult:kun', 'historisk:tung') },
+                # En annoterer som gaar gjennom de skjulte fuglefunnene.
+                @{ Keys = @('skjult:kun', 'taksongruppe:tung') },
+                # alle
+                @{ Keys = @('skjult:alle', 'fylke:tung') }
+            )
+        }
+
+        $alleDims = @(@($dims) + @($Fixtures.historisk) + @($skjult) | Where-Object { $null -ne $_ })
+        foreach ($k in $skjultCase) {
+            $tiers = @($k.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            if ($tiers.Count -ne $k.Keys.Count) {
+                Write-Warning "$($k.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'skjult' -Tiers $tiers
             if ($case) { $cases.Add($case) }
         }
     }
@@ -660,8 +716,9 @@ function New-PerfEndpointMatrix {
         # med; de to andre foerst fra Standard.
         #
         # Matrikkel-, historisk- og egendefinert-laget kjoerer bare paa oslo, der alle
-        # eiendommene og polygonene og de fleste historiske omraadene ligger.
-        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk', 'egendefinert') }; Full=@{} }
+        # eiendommene og polygonene og de fleste historiske omraadene ligger. Det
+        # samme gjoer skjult-laget, som ellers bare ville gjentatt seg.
+        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk', 'egendefinert', 'skjult') }; Full=@{} }
         @{ Navn='trondheim';    Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt','par') } }
         @{ Navn='trollheimen';  Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt') } }
         @{ Navn='kristiansand'; Quick=$qQuick; Standard=$qStige; Full=@{ Layers=@('enkelt') } }

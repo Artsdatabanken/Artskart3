@@ -189,6 +189,7 @@ fortsatt er brukbar:
 | `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
 | `historisk` | Historiske fylker og kommuner, alene og med utvalgte filtre. Se under |
 | `egendefinert` | Polygoner tegnet i kartet, alene og med utvalgte filtre. Se under |
+| `skjult` | Kun skjulte og alle funn, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` og `ObservationImages`
@@ -465,10 +466,11 @@ seg. Polygonene er valgt etter hvilken vei søket tar:
 Tallene er målt mot `Artskart3TestMigrations` 13.11.2026. Alle polygonene ligger i
 `oslo`-utsnittet, og `Locations` og `LocationPolygons` kjører laget bare der.
 
-Laget har 22 case: hvert polygon alene, og kombinasjoner valgt etter kodestiene:
+Laget har 24 case: hvert polygon alene, og kombinasjoner valgt etter kodestiene:
 tunge og sjeldne filtre mot én spørring over hele listen, sjeldne filtre der
-områdene i et delt søk må lese langt, kommune og matrikkel (da deles ikke
-polygonet), og én brukerreise. `Quick` tar bare `tung` og `delt` alene.
+områdene i et delt søk må lese langt, kommune, matrikkel og historisk område (da
+deles ikke polygonet), kun skjulte funn, og én brukerreise. `Quick` tar bare `tung`
+og `delt` alene.
 
 ### Oppslaget måles for seg, og bare kaldt
 
@@ -484,9 +486,8 @@ i kanten. Det svarer `tooManyLocations` og måler hvor lang tid avvisningen tar.
 `-Layer egendefinert` tar ikke med oppslagene. Søkene gjør da oppslaget selv, og det
 havner i den kalde tiden til det første søket per polygon.
 
-Laget gir 11 nye målinger på `Quick`, 185 på `Standard` og 229 på `Full`. Med
-`fixtures.json` fra 27.10.2026 og `historisk`-laget blir matrisen dermed 513, 3 447 og
-11 546 målinger (`Run.ps1 -ListOnly`, 17.11.2026).
+Laget gir 11 målinger på `Quick`, 201 på `Standard` og 249 på `Full`, oppslagene
+medregnet.
 
 ### Start API-et på nytt før hver kjøring
 
@@ -496,6 +497,29 @@ vært brukt på to timer. En ny kjøring samme dag finner listene og trenger bar
 oppdatere `LastUsedAt`, der den første må skrive dem. Forskjellen synes i den kalde
 tiden til første søk per polygon (søket venter på lagringen i opptil 2 sekunder),
 ikke i den varme tiden `Compare.ps1` sammenligner.
+
+## Skjulte funn
+
+Filteret på skjulte funn (`hiddenObservations`) har dimensjonen `skjulte` i
+`New-PerfFixtures`, men den kommer først med i `fixtures.json` ved neste
+`-RefreshFixtures`, og det forkaster alle baselinjer. Til da måles de to valgene i et
+eget lag, `skjult`, bygget av `New-PerfHiddenDimension` i `Fixtures.ps1`. Nøklene er
+`skjult:kun` og `skjult:alle`, så de ikke kolliderer med dimensjonen når den kommer.
+Alle andre case måler standardvalget, der skjulte funn utelates.
+
+Kun skjulte funn er 7 267 av 61 millioner. Listevisningen leser dem fra
+`IX_Observation_HiddenByAnnotation` og hopper over grenene per område og per verdi,
+som ellers måtte lest hele området før siden var fylt: 8 fylker tok 4,1 s som grener,
+mot 29–35 ms fra indeksen, målt direkte i SQL 17.11.2026.
+
+Laget har 9 case: hvert valg alene, kun skjulte med ett fylke, de 15 tyngste kommunene
+og de 8 tyngste fylkene, med to institusjoner (grening), med et historisk fylke og med
+fugler, og alle funn med ett fylke. `Quick` tar kun skjulte alene og med de 8 fylkene.
+`Locations` og `LocationPolygons` kjører laget bare på `oslo`. Laget gir 8 målinger på
+`Quick`, 72 på `Standard` og 90 på `Full`.
+
+Med `fixtures.json` fra 27.10.2026 og lagene `historisk`, `egendefinert` og `skjult`
+blir matrisen 521, 3 535 og 11 656 målinger (`Run.ps1 -ListOnly`, 17.11.2026).
 
 ## Indekssporing
 

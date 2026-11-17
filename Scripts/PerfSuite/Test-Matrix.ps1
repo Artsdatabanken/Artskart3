@@ -92,7 +92,13 @@ $dims = @(
     )),
     (New-FakeDimension 'funntype'     'basisOfRecordIds'),
     (New-FakeDimension 'atferd'       'behaviorIds'),
-    (New-FakeDimension 'fylke'        'countyIds'         -AsString),
+    # Med et mange-nivaa, fordi skjult-laget bruker det.
+    (New-PerfDimension -Name 'fylke' -Tiers @(
+        New-PerfTier -Key 'fylke:tung'  -Role 'tung'  -Label 'fylke tung'  -Filter @{ countyIds = @('1') }
+        New-PerfTier -Key 'fylke:lett'  -Role 'lett'  -Label 'fylke lett'  -Filter @{ countyIds = @('2') }
+        New-PerfTier -Key 'fylke:annen' -Role 'annen' -Label 'fylke annen' -Filter @{ countyIds = @('3') }
+        New-PerfTier -Key 'fylke:mange' -Role 'annen' -Label '8 tyngste'   -Filter @{ countyIds = @('1', '2', '3') }
+    )),
     (New-FakeDimension 'verneomraade' 'restrictedAreaIds' -AsString),
     (New-FakeDimension 'havomraade'   'oceanAreaIds'      -AsString),
     (New-FakeDimension 'datasett'     'datasetOrgIds'),
@@ -151,6 +157,7 @@ $fixtures = [PSCustomObject]@{
     matrikkel  = (New-PerfCadastralDimension)
     historisk  = (New-PerfHistoricalAreaDimension)
     egendefinert = (New-PerfCustomAreaDimension)
+    skjult     = (New-PerfHiddenDimension)
 } | ConvertTo-Json -Depth 12 | ConvertFrom-Json
 
 # ---------------------------------------------------------------------------
@@ -424,7 +431,9 @@ $quickHistorisk = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick' | Wher
 Assert-Perf 'Quick har tung og lett' ($quickHistorisk.Count -eq 2) "$($quickHistorisk.Count) case"
 
 # Samme grunn som for matrikkelen: case-noeklene til de andre lagene skal staa.
-$lekket = @($cases | Where-Object { $_.Layer -ne 'historisk' -and $_.Filter -and $_.Filter.ContainsKey('historicalAreaIds') })
+# Egendefinert- og skjult-laget er haandplukket som dette, og har ett case hver med
+# et historisk omraade.
+$lekket = @($cases | Where-Object { $_.Layer -notin 'historisk', 'egendefinert', 'skjult' -and $_.Filter -and $_.Filter.ContainsKey('historicalAreaIds') })
 Assert-Perf 'Historisk bare i eget lag' ($lekket.Count -eq 0) "$($lekket.Count) case, f.eks. $(@($lekket)[0].CaseKey)"
 
 foreach ($level in @('Standard', 'Full')) {
@@ -486,7 +495,7 @@ Remove-Item Function:\Invoke-PerfApi
 Write-Host "`nEgendefinert:" -ForegroundColor Cyan
 
 $egendefinertCase = @($cases | Where-Object Layer -eq 'egendefinert')
-Assert-Perf 'Egendefinert-laget bygget' ($egendefinertCase.Count -eq 22) "$($egendefinertCase.Count) av 22"
+Assert-Perf 'Egendefinert-laget bygget' ($egendefinertCase.Count -eq 24) "$($egendefinertCase.Count) av 24"
 
 $quick = @(New-PerfCaseMatrix -Fixtures $fixtures -Level 'Quick')
 $quickEgendefinert = @($quick | Where-Object Layer -eq 'egendefinert')
@@ -527,6 +536,35 @@ $aapne = @(@($script:PerfCustomAreas.Values) + @($script:PerfCustomAreaTooLarge)
     $punkter[0].Trim() -ne $punkter[-1].Trim() -or $punkter.Count -lt 4
 } | ForEach-Object Label)
 Assert-Perf 'Polygonene er lukket' ($aapne.Count -eq 0) ($aapne -join ', ')
+
+# ---------------------------------------------------------------------------
+# Skjulte funn
+# ---------------------------------------------------------------------------
+
+Write-Host "`nSkjult:" -ForegroundColor Cyan
+
+$skjultCase = @($cases | Where-Object Layer -eq 'skjult')
+Assert-Perf 'Skjult-laget bygget' ($skjultCase.Count -eq 9) "$($skjultCase.Count) av 9"
+
+$quickSkjult = @($quick | Where-Object Layer -eq 'skjult')
+Assert-Perf 'Quick har kun skjulte, alene og med mange fylker' ($quickSkjult.Count -eq 2) "$($quickSkjult.Count) case"
+
+# Noeklene skal ikke kollidere med dimensjonen 'skjulte' naar den kommer med i
+# fixtures.json. Testfixturene over har den alt, saa 'Unike case-noekler' dekker
+# kollisjonen; her sjekkes at laget faktisk bruker sine egne noekler.
+$feilNoekkel = @($skjultCase | Where-Object { $_.CaseKey -match '(^|\+)skjulte:' })
+Assert-Perf 'Skjult-laget har egne noekler' ($feilNoekkel.Count -eq 0) "$($feilNoekkel.Count) case, f.eks. $(@($feilNoekkel)[0].CaseKey)"
+
+$utenFilter = @($skjultCase | Where-Object { -not ($_.Filter -and $_.Filter.ContainsKey('hiddenObservations')) })
+Assert-Perf 'Skjult-casene filtrerer paa skjulte funn' ($utenFilter.Count -eq 0) "$($utenFilter.Count) case"
+
+foreach ($level in @('Standard', 'Full')) {
+    $lvlCases = @(New-PerfCaseMatrix -Fixtures $fixtures -Level $level | Where-Object Layer -eq 'skjult')
+    $lvlEps   = @(New-PerfEndpointMatrix -Level $level -Envelopes $fixtures.envelopes | Where-Object { $_.Extra.envelope })
+    $utsnitt  = @($lvlEps | Where-Object { $ep = $_; @($lvlCases | Where-Object { Test-PerfEndpointRunsCase -Endpoint $ep -Case $_ }).Count -gt 0 } |
+                  ForEach-Object Variant | Sort-Object -Unique)
+    Assert-Perf "Skjult bare paa oslo ($level)" (($utsnitt -join ',') -eq 'oslo') "kjoerer paa: $($utsnitt -join ', ')"
+}
 
 # ---------------------------------------------------------------------------
 # Oppdagelseshjelperne

@@ -275,6 +275,23 @@ function New-PerfCustomAreaDimension {
     return New-PerfDimension -Name 'egendefinert' -Tiers @($tiers)
 }
 
+function New-PerfHiddenDimension {
+    <#
+        Skjulte funn (hiddenObservations) for skjult-laget i Cases.ps1.
+
+        Dimensjonen 'skjulte' i New-PerfFixtures kommer foerst med i
+        fixtures.dimensions ved neste -RefreshFixtures, som forkaster alle
+        baselinjer. Laget maaler de samme to valgene som haandplukkede case
+        allerede naa, med egne noekler saa de ikke kolliderer med dimensjonen naar
+        den kommer. Verdiene er konstanter og trenger ikke oppdages.
+    #>
+    $tiers = @(
+        New-PerfTier -Key 'skjult:kun'  -Role 'lett' -Label 'kun skjulte funn'         -Filter @{ hiddenObservations = 'Only' }
+        New-PerfTier -Key 'skjult:alle' -Role 'tung' -Label 'alle funn, ogsaa skjulte' -Filter @{ hiddenObservations = 'Include' }
+    )
+    return New-PerfDimension -Name 'skjult' -Tiers $tiers
+}
+
 function ConvertTo-PerfHashtable {
     <#
         JSON-runden gjoer hashtables om til PSCustomObject. Filterfragmentene maa
@@ -810,6 +827,7 @@ function New-PerfFixtures {
         matrikkel  = New-PerfCadastralDimension
         historisk  = New-PerfHistoricalAreaDimension
         egendefinert = New-PerfCustomAreaDimension
+        skjult     = New-PerfHiddenDimension
     }
 
     $antallNivaa = ($fixtures.dimensions | ForEach-Object { $_.tiers.Count } | Measure-Object -Sum).Sum
@@ -831,8 +849,8 @@ function Get-PerfFixtureSet {
         endring her stille ignorert til noen kjoerer -RefreshFixtures - som samtidig
         forkaster alle baselinjer. Derfor overstyres de alltid fra $PerfEnvelopes.
         Det samme gjelder matrikkelenhetene i $PerfCadastralUnits, de historiske
-        omraadene i $PerfHistoricalAreas og de egendefinerte omraadene i
-        $PerfCustomAreas.
+        omraadene i $PerfHistoricalAreas, de egendefinerte omraadene i
+        $PerfCustomAreas og de skjulte funnene i New-PerfHiddenDimension.
     #>
     param(
         [Parameter(Mandatory)] [string] $Path,
@@ -864,6 +882,9 @@ function Get-PerfFixtureSet {
         $egendefinert = New-PerfCustomAreaDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
         $fixtures | Add-Member -NotePropertyName 'egendefinert' -NotePropertyValue $egendefinert -Force
         Write-Host ("  Egendefinerte omraader fra Fixtures.ps1: {0}" -f $script:PerfCustomAreas.Count) -ForegroundColor DarkGray
+
+        $skjult = New-PerfHiddenDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+        $fixtures | Add-Member -NotePropertyName 'skjult' -NotePropertyValue $skjult -Force
         return $fixtures
     }
 
