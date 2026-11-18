@@ -6,6 +6,7 @@ using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using FluentAssertions;
 using FluentAssertions.Execution;
 using Microsoft.EntityFrameworkCore;
+using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
 namespace Artskart3.Tests.Unit;
@@ -73,6 +74,51 @@ public class ObservationQueryBuilderTests
         var result = Apply(context, new ObservationSearchFilterDto { ObservationIds = [1, 3] });
 
         result.Select(o => o.Id).Should().BeEquivalentTo([1, 3]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithCadastralUnitId_ReturnsObservationsAtItsLocations()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 11),
+            CreateObservation(3, locationId: 20));
+        context.SaveChanges();
+        var cadastralUnits = new StubCadastralUnitService(new() { ["1101-1/2"] = [10, 11] });
+
+        var result = Apply(context, new ObservationSearchFilterDto { CadastralUnitIds = ["1101-1/2"] }, cadastralUnits: cadastralUnits);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    /// <summary>
+    /// Matrikkelenheter er et område på linje med kommune og fylke: velger man begge,
+    /// skal treff i ett av dem være med.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithCadastralUnitAndMunicipality_ReturnsObservationsInEither()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = 2,
+            EntityTypeId = (int)ObservationIndexEntityType.Municipality,
+            EntityId = 301
+        });
+        context.SaveChanges();
+        var cadastralUnits = new StubCadastralUnitService(new() { ["1101-1/2"] = [10] });
+
+        var result = Apply(
+            context,
+            new ObservationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], MunicipalityIds = ["0301"] },
+            cadastralUnits: cadastralUnits);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
     }
 
     [Fact]
@@ -541,6 +587,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.CountyIds)] = f => f.CountyIds = ["99"],
         [nameof(IObservationFilter.RestrictedAreaIds)] = f => f.RestrictedAreaIds = ["Naturbase VV9999"],
         [nameof(IObservationFilter.OceanAreaIds)] = f => f.OceanAreaIds = ["9999"],
+        // Stubben kjenner ingen matrikkelenheter, så den har ingen lokasjoner.
+        [nameof(IObservationFilter.CadastralUnitIds)] = f => f.CadastralUnitIds = ["9999-1/1"],
         [nameof(IObservationFilter.BehaviorIds)] = f => f.BehaviorIds = [999],
         [nameof(IObservationFilter.BasisOfRecordIds)] = f => f.BasisOfRecordIds = [999],
         // Observasjonen har ingen tagger, så «ikke registrert» treffer ikke.
@@ -656,13 +704,17 @@ public class ObservationQueryBuilderTests
     private static List<Observation> Apply(
         ArtskartDbContext context,
         ObservationSearchFilterDto filter,
-        ITaxonHierarchyService? taxonHierarchy = null) =>
+        ITaxonHierarchyService? taxonHierarchy = null,
+        ICadastralUnitService? cadastralUnits = null) =>
         ObservationQueryBuilder
-            .ApplyFilters(
+            .ApplyFiltersAsync(
                 context,
                 taxonHierarchy ?? new StubTaxonHierarchyService(),
+                cadastralUnits ?? new StubCadastralUnitService(),
                 context.Set<Observation>().AsNoTracking(),
-                filter)
+                filter,
+                CancellationToken.None)
+            .GetAwaiter().GetResult()
             .ToList();
 
     private static ArtskartDbContext CreateInMemoryContext()
@@ -751,7 +803,7 @@ public class ObservationQueryBuilderTests
         public List<int> GetDescendantIdsAtRank(int taxonId, int targetRankId) => [];
     }
 
-    private static Observation CreateObservation(int id, int? datasetOrgId = null, int taxonId = 1) =>
+    private static Observation CreateObservation(int id, int? datasetOrgId = null, int taxonId = 1, int locationId = 1) =>
         new()
         {
             Id = id,
@@ -772,7 +824,7 @@ public class ObservationQueryBuilderTests
             CoordinatePrecisionInMeters = 25,
             East = 1000,
             North = 2000,
-            LocationId = 1,
+            LocationId = locationId,
             InstitutionOrgId = 1,
             DatasetOrgId = datasetOrgId,
             HashCode = id,

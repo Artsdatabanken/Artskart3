@@ -1,0 +1,24 @@
+:host {
+  display: block;
+}
+
+/* adb-search's default input width is also its minimum, and would overflow the sidebar.
+   It also pads the field by 4px inside its shadow DOM, which would indent the field
+   from the heading and the hint. */
+adb-search {
+  display: flex;
+  width: calc(100% + 4px);
+  margin-inline-start: -4px;
+  --adb-search-width: 100%;
+}
+
+.message {
+  margin: var(--adb-spacing-3xsm) 0 0;
+  font-size: var(--adb-font-size-3);
+  font-weight: var(--adb-font-weight-primary);
+  color: var(--adb-text-base-secondary);
+}
+
+.message--error {
+  color: var(--adb-text-brand-1);
+}

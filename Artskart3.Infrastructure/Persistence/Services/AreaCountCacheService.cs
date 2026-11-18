@@ -73,6 +73,10 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return null;
 
+        // Matrikkelenheter er lokasjoner fra Kartverket, ikke områder i bufferen.
+        if (filter.CadastralUnitIds?.Length > 0)
+            return null;
+
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
         var active = new List<(CacheDimension Dimension, BucketSelection Buckets)>();
 

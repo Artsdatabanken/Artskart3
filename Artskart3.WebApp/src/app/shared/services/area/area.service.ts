@@ -1,9 +1,18 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, computed } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, of, shareReplay } from 'rxjs';
+import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 import { AreaResponseDto, AreaDto } from '../../types/api.types';
 import { FilterStateService } from '../filter-state/filter-state.service';
+
+const MAX_RESTRICTED_AREA_SUGGESTIONS = 50;
+
+export type RestrictedArea = AreaDto & { fid: string };
+
+interface SearchableRestrictedArea {
+  area: RestrictedArea;
+  lowerCaseName: string;
+}
 
 export interface CountyGroup {
   county: AreaDto;
@@ -56,6 +65,38 @@ export class AreaService {
     if (!response?.svalbardBjørnøyaAndJanMayen) return [];
     return (response.svalbardBjørnøyaAndJanMayen.areas ?? []).filter((a): a is AreaDto & { fid: string } => !!a.fid && !!a.isCurrent);
   });
+
+  readonly restrictedAreas = computed(() => currentRestrictedAreas(this.areaResponse()));
+
+  // Undefined when the area list couldn't be loaded.
+  private readonly searchableRestrictedAreas$: Observable<SearchableRestrictedArea[] | undefined> = this.areas$.pipe(
+    map((response) =>
+      response
+        ? currentRestrictedAreas(response).map((area) => ({ area, lowerCaseName: (area.name ?? '').toLocaleLowerCase('nb') }))
+        : undefined,
+    ),
+    shareReplay(1),
+  );
+
+  private readonly restrictedAreaNamesByFid = computed(() => new Map(this.restrictedAreas().map((a) => [a.fid, a.name ?? ''])));
+
+  restrictedAreaName(fid: string): string | undefined {
+    return this.restrictedAreaNamesByFid().get(fid) || undefined;
+  }
+
+  /**
+   * Protected areas with every word of the term in their name, those starting with the first
+   * word first. Searched in the area list, which already has all of them. Fails when the list
+   * couldn't be loaded, so the field doesn't claim there are no matches.
+   */
+  searchRestrictedAreas(term: string): Observable<RestrictedArea[]> {
+    return this.searchableRestrictedAreas$.pipe(
+      map((areas) => {
+        if (!areas) throw new Error('The area list could not be loaded');
+        return matchByWords(areas, term).slice(0, MAX_RESTRICTED_AREA_SUGGESTIONS);
+      }),
+    );
+  }
 
   readonly oceanAreaGroup = computed<CountyGroup | null>(() => {
     const response = this.areaResponse();
@@ -175,4 +216,20 @@ export class AreaService {
     const fids = new Set(areas.map((a) => a.fid));
     return this.filterState.selectedCountyIds().filter((fid) => fids.has(fid)).length;
   });
+}
+
+function currentRestrictedAreas(response: AreaResponseDto | undefined): RestrictedArea[] {
+  return (response?.restrictedAreas?.areas ?? []).filter((a): a is RestrictedArea => !!a.fid && !!a.isCurrent);
+}
+
+function matchByWords(areas: SearchableRestrictedArea[], term: string): RestrictedArea[] {
+  const words = term.toLocaleLowerCase('nb').split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const startsWith: RestrictedArea[] = [];
+  const contains: RestrictedArea[] = [];
+  for (const { area, lowerCaseName } of areas) {
+    if (!words.every((word) => lowerCaseName.includes(word))) continue;
+    (lowerCaseName.startsWith(words[0]) ? startsWith : contains).push(area);
+  }
+  return [...startsWith, ...contains];
 }

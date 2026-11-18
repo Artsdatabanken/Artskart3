@@ -1,7 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ObservationListInfoDto, ObservationDetailDto, ObservationSearchFilter, PagedObservationResponse } from '../../types/api.types';
+import {
+  ObservationListInfoDto,
+  ObservationDetailDto,
+  ObservationSearchFilter,
+  PagedObservationImageResponse,
+  PagedObservationResponse,
+} from '../../types/api.types';
 
 @Injectable({
   providedIn: 'root',
@@ -14,8 +20,16 @@ export class ObservationService {
     return this.http.get<ObservationDetailDto>(`/api/observations/${id}`);
   }
 
+  findIdByOccurrenceId(occurrenceId: string): Observable<number> {
+    return this.http.get<number>('/api/observations/by-occurrence-id', { params: { occurrenceId } });
+  }
+
   searchObservations(filter: ObservationSearchFilter): Observable<PagedObservationResponse> {
     return this.http.post<PagedObservationResponse>(`${this.SearchObservationEndpoint}Observation`, filter);
+  }
+
+  searchObservationImages(filter: ObservationSearchFilter): Observable<PagedObservationImageResponse> {
+    return this.http.post<PagedObservationImageResponse>(`${this.SearchObservationEndpoint}ObservationImages`, filter);
   }
 
   getObservationByLocation(ids: number[], filter: ObservationSearchFilter): Observable<ObservationListInfoDto[]> {

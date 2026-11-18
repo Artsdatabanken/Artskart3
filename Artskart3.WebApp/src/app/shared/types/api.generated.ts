@@ -598,6 +598,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/CadastralUnit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CadastralUnitDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/CatalogNumbers/ByObservationIds": {
         parameters: {
             query?: never;
@@ -949,6 +986,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/observations/by-occurrence-id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    occurrenceId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": number;
+                        "application/json": number;
+                        "text/json": number;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/observations/{id}/media/{mediaId}/image": {
         parameters: {
             query?: never;
@@ -1217,6 +1315,47 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PagedObservationResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/Search/ObservationImages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ObservationSearchFilterDto"];
+                    "text/json": components["schemas"]["ObservationSearchFilterDto"];
+                    "application/*+json": components["schemas"]["ObservationSearchFilterDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PagedObservationImageResponseDto"];
                     };
                 };
             };
@@ -1715,6 +1854,11 @@ export interface components {
             observationCount?: null | number;
             description?: null | string;
         };
+        CadastralUnitDto: {
+            id?: string;
+            wktPolygon?: string;
+            extent?: components["schemas"]["MapExtentDto"];
+        };
         CatalogNumberMatchDto: {
             catalogNumber?: string;
             observationIds?: number[];
@@ -1840,6 +1984,7 @@ export interface components {
             countyIds?: null | string[];
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
+            cadastralUnitIds?: null | string[];
             behaviorIds?: null | number[];
             /** Format: int32 */
             registrationStatusId?: null | number;
@@ -1903,6 +2048,7 @@ export interface components {
             id?: number;
             popularName?: null | string;
             scientificName?: null | string;
+            author?: null | string;
             /** Format: int32 */
             externalTaxonId?: number;
             categoryCode?: null | string;
@@ -1947,6 +2093,17 @@ export interface components {
             dateTimeCollected?: null | string;
             /** Format: int32 */
             coordinatePrecisionInMeters?: null | number;
+        };
+        ObservationImageDto: {
+            /** Format: int32 */
+            observationId?: number;
+            popularName?: null | string;
+            scientificName?: null | string;
+            author?: null | string;
+            point?: components["schemas"]["ObservationPointDto"];
+            /** Format: int32 */
+            coordinatePrecision?: null | number;
+            image?: components["schemas"]["ObservationMediaDto"];
         };
         ObservationListInfoDto: {
             /** Format: int32 */
@@ -2019,6 +2176,7 @@ export interface components {
             countyIds?: null | string[];
             restrictedAreaIds?: null | string[];
             oceanAreaIds?: null | string[];
+            cadastralUnitIds?: null | string[];
             behaviorIds?: null | number[];
             basisOfRecordIds?: null | number[];
             /** Format: int32 */
@@ -2040,6 +2198,16 @@ export interface components {
             name?: string;
             /** Format: int32 */
             observationCount?: null | number;
+        };
+        PagedObservationImageResponseDto: {
+            items?: null | components["schemas"]["ObservationImageDto"][];
+            /** Format: int32 */
+            pageNumber?: number;
+            /** Format: int32 */
+            resultsPerPage?: number;
+            /** Format: int32 */
+            lookaheadCount?: number;
+            hasMorePages?: boolean;
         };
         PagedObservationResponseDto: {
             items?: null | components["schemas"]["ObservationDto"][];

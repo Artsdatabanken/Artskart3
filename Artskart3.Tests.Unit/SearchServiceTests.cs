@@ -20,6 +20,59 @@ public class SearchServiceTests
     }
 
     // -----------------------------------------------------------------------
+    // GetObservationImagesAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetObservationImagesAsync_ClearsOriginsThatAreNotWebUrls()
+    {
+        var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10 };
+        _repositoryMock
+            .Setup(r => r.GetObservationImagesAsync(filter))
+            .ReturnsAsync(new List<ObservationImageDto>
+            {
+                new() { ObservationId = 1, Image = new ObservationMediaDto { Id = 1, Origin = "https://example.org/a.jpg" } },
+                new() { ObservationId = 1, Image = new ObservationMediaDto { Id = 2, Origin = "javascript:alert(1)" } },
+                new() { ObservationId = 2, Image = new ObservationMediaDto { Id = 3, Origin = "https://user:secret@example.org/b.jpg" } },
+                new() { ObservationId = 2, Image = new ObservationMediaDto { Id = 4, Origin = null } },
+            });
+
+        var result = await _sut.GetObservationImagesAsync(filter);
+
+        result.Select(i => i.Image.Origin).Should().Equal("https://example.org/a.jpg", null, null, null);
+    }
+
+    [Fact]
+    public async Task GetObservationImagesAsync_ClearsUnusableCoordinates()
+    {
+        var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10 };
+        var usable = new ObservationPointDto(59.9, 10.7, 262000, 6650000);
+        _repositoryMock
+            .Setup(r => r.GetObservationImagesAsync(filter))
+            .ReturnsAsync(new List<ObservationImageDto>
+            {
+                new() { ObservationId = 1, Point = usable },
+                new() { ObservationId = 2, Point = new ObservationPointDto(0, 0, 0, 0) },
+                new() { ObservationId = 3, Point = new ObservationPointDto(59.9, 10.7, 262000, -1) },
+            });
+
+        var result = await _sut.GetObservationImagesAsync(filter);
+
+        result.Select(i => i.Point).Should().Equal(usable, null, null);
+    }
+
+    [Fact]
+    public async Task GetObservationImagesAsync_WithoutImagesFilter_ReturnsEmptyWithoutQuerying()
+    {
+        var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10, WithImages = false };
+
+        var result = await _sut.GetObservationImagesAsync(filter);
+
+        result.Should().BeEmpty();
+        _repositoryMock.Verify(r => r.GetObservationImagesAsync(It.IsAny<ObservationSearchFilterDto>()), Times.Never);
+    }
+
+    // -----------------------------------------------------------------------
     // GetTaxonsAsync
     // -----------------------------------------------------------------------
 

@@ -384,7 +384,10 @@ CLOSE c1; DEALLOCATE c1;
 -- ---------------------------------------------------------------------------
 -- Ferdig
 -- ---------------------------------------------------------------------------
-UPDATE STATISTICS dbo.LocationCountCacheLevel1;
+-- FULLSCAN, ikke standard utvalg -- se den tilsvarende kommentaren i
+-- BuildAreaCountCache.sql. Denne tabellen er den verste: 73,7 millioner rader fikk
+-- 0,7 % utvalg da skriptet kjoerte uten FULLSCAN.
+UPDATE STATISTICS dbo.LocationCountCacheLevel1 WITH FULLSCAN;
 
 -- @SourceRows ble lest FOER aggregeringen, se der.
 UPDATE dbo.LocationCountCacheState

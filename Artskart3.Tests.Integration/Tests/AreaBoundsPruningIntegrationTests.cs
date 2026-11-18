@@ -236,7 +236,7 @@ public class AreaBoundsPruningIntegrationTests : IAsyncLifetime
 
     private SearchRepository NewRepository(StubAreaHierarchyService areaHierarchy) =>
         new(_context, NullLogger<SearchRepository>.Instance,
-            Options.Create(new PaginationOptions()), areaHierarchy, new StubTaxonHierarchyService());
+            Options.Create(new PaginationOptions()), areaHierarchy, new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
     private async Task SeedAsync()
     {

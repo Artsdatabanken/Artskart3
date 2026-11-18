@@ -2,10 +2,14 @@ using Artskart3.Api.Controllers;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
+using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -55,6 +59,56 @@ public class ObservationDetailsTests
         (await controller.Map(42, "arbitrary", default)).Should().BeOfType<BadRequestObjectResult>();
         maps.VerifyNoOtherCalls();
     }
+
+    [Fact]
+    public async Task Controller_ResolvesTrimmedOccurrenceIdAndRejectsBlankValues()
+    {
+        var details = new Mock<IObservationDetailsService>();
+        details.Setup(d => d.FindIdByOccurrenceIdAsync("urn:catalog:O:L:37", default)).ReturnsAsync(42);
+        var controller = CreateController(details, new Mock<IObservationMapService>());
+        (await controller.FindByOccurrenceId(" urn:catalog:O:L:37 ", default)).Result
+            .Should().BeOfType<OkObjectResult>().Which.Value.Should().Be(42);
+        (await controller.FindByOccurrenceId("urn:catalog:O:L:38", default)).Result.Should().BeOfType<NotFoundObjectResult>();
+        (await controller.FindByOccurrenceId("  ", default)).Result.Should().BeOfType<BadRequestObjectResult>();
+        (await controller.FindByOccurrenceId(null, default)).Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Repository_ResolvesOccurrenceIdToLowestLiveObservation()
+    {
+        await using var context = CreateInMemoryContext();
+        context.Observations.AddRange(
+            new Observation { Id = 3, OccurrenceId = "urn:catalog:O:L:37" },
+            new Observation { Id = 1, OccurrenceId = "urn:catalog:O:L:37", IsDeleted = true },
+            new Observation { Id = 2, OccurrenceId = "urn:catalog:O:L:37" },
+            new Observation { Id = 4, OccurrenceId = "urn:catalog:O:L:38", IsDeleted = true });
+        await context.SaveChangesAsync();
+        var repository = new ObservationDetailsRepository(context, NullLogger<ObservationDetailsRepository>.Instance);
+
+        (await repository.FindIdByOccurrenceIdAsync("urn:catalog:O:L:37", default)).Should().Be(2);
+        (await repository.FindIdByOccurrenceIdAsync("urn:catalog:O:L:38", default)).Should().BeNull();
+        (await repository.FindIdByOccurrenceIdAsync(new string('x', 256), default)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Repository_FallsBackToProxyIdOnlyWhenNoOccurrenceIdMatches()
+    {
+        await using var context = CreateInMemoryContext();
+        context.Observations.AddRange(
+            new Observation { Id = 7, OccurrenceId = "0008EF28-6C98", ProxyId = "nina/skandobs/0008ef28-6c98" },
+            new Observation { Id = 8, ProxyId = "shared" },
+            new Observation { Id = 9, OccurrenceId = "shared" },
+            new Observation { Id = 10, ProxyId = "nina/skandobs/deleted", IsDeleted = true });
+        await context.SaveChangesAsync();
+        var repository = new ObservationDetailsRepository(context, NullLogger<ObservationDetailsRepository>.Instance);
+
+        (await repository.FindIdByOccurrenceIdAsync("nina/skandobs/0008ef28-6c98", default)).Should().Be(7);
+        (await repository.FindIdByOccurrenceIdAsync("shared", default)).Should().Be(9);
+        (await repository.FindIdByOccurrenceIdAsync("nina/skandobs/deleted", default)).Should().BeNull();
+    }
+
+    private static ArtskartDbContext CreateInMemoryContext() =>
+        new(new DbContextOptionsBuilder<ArtskartDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
 
     [Fact]
     public async Task Controller_MapsRequirePublicCoordinatesAndSurfaceUpstreamFailures()

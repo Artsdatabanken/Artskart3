@@ -152,15 +152,14 @@ public class SearchController : ControllerBase
                 // Repositoriet har allerede gjort Skip i SQL — her henter vi bare første side fra lookahead-vinduet
                 var allItems = await _searchService.GetObservationsAsync(filter, cancellationToken);
                 var resultsPerPage = filter.ResultsPerPage!.Value;
-                var pageNumber = filter.PageNumber!.Value;
-                var lookaheadLimit = resultsPerPage * _paginationOptions.LookaheadMultiplier;
+                var (lookaheadCount, hasMorePages) = Lookahead(allItems.Count, resultsPerPage);
                 var pagedResult = new PagedObservationResponseDto
                 {
                     Items = allItems.Take(resultsPerPage),
-                    PageNumber = pageNumber,
+                    PageNumber = filter.PageNumber!.Value,
                     ResultsPerPage = resultsPerPage,
-                    LookaheadCount = Math.Max(0, (allItems.Count + resultsPerPage - 1) / resultsPerPage - 1),
-                    HasMorePages = allItems.Count >= lookaheadLimit
+                    LookaheadCount = lookaheadCount,
+                    HasMorePages = hasMorePages
                 };
 
                 return Ok(pagedResult);
@@ -172,6 +171,46 @@ public class SearchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Feil ved henting av observasjoner med filter: {Filter}", filter);
+            throw; // håndteres av global filter
+        }
+    }
+
+    /// <summary>
+    /// Søker etter bilder fra funn som treffer filteret, ett element per bilde, nyeste funn først.
+    /// Bruker samme lookahead-paginering som <see cref="GetObservations"/>. PageNumber og ResultsPerPage er påkrevd.
+    /// </summary>
+    [HttpPost("ObservationImages")]
+    [Produces("application/json")]
+    [ServiceFilter(typeof(SlowQueryLoggingFilter))]
+    public async Task<ActionResult<PagedObservationImageResponseDto>> GetObservationImages([FromBody] ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        if (!ValidateObservationSearchFilter(filter, out var validationError))
+        {
+            return validationError!;
+        }
+
+        if (!filter.IsPaginated)
+        {
+            return BadRequest(new { error = "PageNumber and ResultsPerPage are required." });
+        }
+
+        try
+        {
+            var allItems = await _searchService.GetObservationImagesAsync(filter, cancellationToken);
+            var resultsPerPage = filter.ResultsPerPage!.Value;
+            var (lookaheadCount, hasMorePages) = Lookahead(allItems.Count, resultsPerPage);
+            return Ok(new PagedObservationImageResponseDto
+            {
+                Items = allItems.Take(resultsPerPage),
+                PageNumber = filter.PageNumber!.Value,
+                ResultsPerPage = resultsPerPage,
+                LookaheadCount = lookaheadCount,
+                HasMorePages = hasMorePages
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av bilder med filter: {Filter}", filter);
             throw; // håndteres av global filter
         }
     }
@@ -366,6 +405,10 @@ public class SearchController : ControllerBase
 
         return true;
     }
+
+    private (int LookaheadCount, bool HasMorePages) Lookahead(int fetchedCount, int resultsPerPage) =>
+        (Math.Max(0, (fetchedCount + resultsPerPage - 1) / resultsPerPage - 1),
+         fetchedCount >= resultsPerPage * _paginationOptions.LookaheadMultiplier);
 
     /// <summary>
     /// Validates observation search filter parameters.

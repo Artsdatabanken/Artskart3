@@ -24,13 +24,9 @@ article {
   bottom: 0.5rem;
 }
 .metadata {
-  padding: 0.5rem;
+  padding: var(--adb-spacing-sm);
   font-size: 0.875rem;
-  overflow-wrap: anywhere;
 }
 p {
   margin: 0.5rem;
-}
-a {
-  color: var(--adb-text-accent-primary);
 }

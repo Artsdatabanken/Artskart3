@@ -65,7 +65,7 @@ public class BranchedFilterIntegrationTests : IAsyncLifetime
 
     private SearchRepository Repository() =>
         new(_context, NullLogger<SearchRepository>.Instance,
-            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService());
+            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
 
     // -----------------------------------------------------------------------
 
@@ -300,18 +300,33 @@ public class BranchedFilterIntegrationTests : IAsyncLifetime
 
         // OrganizationType har IKKE identity-nøkkel: en ny rad får Id 0, og den
         // er allerede tatt av en annen testklasse når hele suiten kjører. Typen
-        // betyr ingenting for grenlogikken, så vi låner en som finnes.
+        // betyr ingenting for grenlogikken, så vi låner en som finnes. Kjøres
+        // klassen alene, finnes ingen, og da opprettes én med eksplisitt id.
         var typeId = await _context.Set<OrganizationType>()
             .OrderBy(t => t.Id)
-            .Select(t => t.Id)
-            .FirstAsync();
+            .Select(t => (int?)t.Id)
+            .FirstOrDefaultAsync();
+
+        if (typeId == null)
+        {
+            var nyType = new OrganizationType
+            {
+                Id = 985500,
+                Name = "Grentest-type",
+                Description = "Opprettet av BranchedFilterIntegrationTests",
+            };
+
+            _context.Set<OrganizationType>().Add(nyType);
+            await _context.SaveChangesAsync();
+            typeId = nyType.Id;
+        }
 
         // Tosifret nummer: sortert på navn skal 10 ikke komme før 2.
         var nye = Enumerable.Range(0, 9)
             .Select(i => new Organization
             {
                 Name = $"{navnPrefiks}{i:D2}",
-                OrganizationTypeId = typeId,
+                OrganizationTypeId = typeId.Value,
                 DateCreated = DateTime.UtcNow,
                 DateModified = DateTime.UtcNow,
             })

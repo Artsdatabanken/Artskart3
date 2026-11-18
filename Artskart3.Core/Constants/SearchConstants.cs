@@ -33,6 +33,7 @@ public static class SearchConstants
     // nøyaktig samme streng — en skrivefeil i attributtet gir en 500 ved oppstart av
     // forespørselen, ikke en kompileringsfeil.
     public const string SearchRateLimitPolicy = "search";
+    public const string CadastralLookupRateLimitPolicy = "cadastral-lookup";
 
     // Hvor langt ut i treffmengden paginering kan nå: (PageNumber - 1) * ResultsPerPage.
     //
@@ -53,6 +54,9 @@ public static class SearchConstants
     // 500 ville et helt legitimt valg blitt avvist. Grensen finnes fortsatt for å
     // begrense IN-klausulen på dette anonyme endepunktet.
     public const int MaxObservationIdFilterSize = 5000;
+
+    // Matrikkelenheter slås opp én og én mot Kartverket.
+    public const int MaxCadastralUnitFilterSize = 20;
 
     // Minstelengde for katalognummer-oppslaget, håndhevet på serveren.
     // 1 tegn ville krevd DISTINCT over millioner av indeksrader for hvert

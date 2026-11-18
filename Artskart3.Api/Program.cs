@@ -111,7 +111,7 @@ try
     // eldste postene forsvinner framfor at prosessen vokser.
     //
     // MERK: med SizeLimit satt MÅ hver Set oppgi Size, ellers kaster den. Alle Set-ene
-    // på denne bufferen ligger i SearchService.
+    // på denne bufferen ligger i SearchService og CadastralUnitService.
     builder.Services.AddMemoryCache(options => options.SizeLimit = 128 * 1024 * 1024);
     builder.Services.AddRateLimiter(options =>
     {
@@ -124,12 +124,19 @@ try
         {
             var sti = context.HttpContext.Request.Path.Value ?? "ukjent";
             var erSoek = sti.StartsWith("/api/Search", StringComparison.OrdinalIgnoreCase);
+            var erEiendomsoppslag = sti.StartsWith("/api/Lookup/CadastralUnit", StringComparison.OrdinalIgnoreCase);
 
             if (erSoek)
             {
                 logger.LogWarning("Search request queue is full ({Path})", sti);
                 await context.HttpContext.Response.WriteAsJsonAsync(
                     new { error = "Too many search requests. Please retry." }, cancellationToken);
+            }
+            else if (erEiendomsoppslag)
+            {
+                logger.LogWarning("Cadastral unit lookup queue is full ({Path})", sti);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Too many property lookups. Please retry." }, cancellationToken);
             }
             else
             {
@@ -142,6 +149,16 @@ try
         {
             limiter.PermitLimit = 4;
             limiter.QueueLimit = 16;
+            limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        });
+
+        // Hvert nytt nummer er et kall til Kartverket. Eget tak, så oppslag som henger der
+        // ikke bruker opp søketaket. Plassen rommer et lagret filter med 20 eiendommer,
+        // som slår opp alle samtidig.
+        options.AddConcurrencyLimiter(SearchConstants.CadastralLookupRateLimitPolicy, limiter =>
+        {
+            limiter.PermitLimit = 8;
+            limiter.QueueLimit = 32;
             limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
         });
 
@@ -282,6 +299,8 @@ try
         client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
     });
+    builder.Services.AddCadastralUnitService(
+        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

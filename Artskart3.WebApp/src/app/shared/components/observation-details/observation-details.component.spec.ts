@@ -113,7 +113,7 @@ describe('ObservationDetails', () => {
     expect(element.querySelectorAll('.navigation > button, .pager > button')).toHaveLength(0);
     for (const host of element.querySelectorAll('adb-icon-button, adb-minimal-button')) {
       expect(host.getAttribute('aria-label')).toBeTruthy();
-      expect(host.querySelector('.visually-hidden')?.textContent).toBe(host.getAttribute('aria-label'));
+      expect(host.querySelector('.visually-hidden, .adb-sr-only')?.textContent).toBe(host.getAttribute('aria-label'));
     }
     buttons[1].click();
     buttons[2].click();
