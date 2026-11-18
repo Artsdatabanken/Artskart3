@@ -12,6 +12,7 @@ using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Extensions;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using Artskart3.Infrastructure.Services;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -1096,6 +1097,28 @@ public class SearchRepository : ISearchRepository
         CustomAreaFilters.ResolveLocationIdsAsync(filter, _customAreas, cancellationToken);
 
     private static bool IsCustomAreaEdge(IObservationFilter filter) => CustomAreaFilters.IsEdge(filter);
+
+    // 308: indeksen finnes ikke. 315: den er deaktivert. BackfillAll.sql gjør begge deler mens det
+    // kjører, og da ville et tvunget indekshint gitt 500 i stedet for en tregere telling.
+    private static readonly int[] MissingIndexErrors = [308, 315];
+
+    /// <summary>
+    /// Kjører tellingen med <see cref="QueryHintInterceptor.CountColumnstoreTag"/>, og uten hintet hvis
+    /// IX_OEI_Columnstore mangler.
+    /// </summary>
+    private static async Task<T> WithColumnstoreHintAsync<T>(
+        IQueryable<ObservationEntityIndex> query, bool useHint, Func<IQueryable<ObservationEntityIndex>, Task<T>> run)
+    {
+        if (!useHint) return await run(query);
+        try
+        {
+            return await run(query.TagWith(QueryHintInterceptor.CountColumnstoreTag));
+        }
+        catch (SqlException e) when (MissingIndexErrors.Contains(e.Number))
+        {
+            return await run(query);
+        }
+    }
 
     // Listene til egendefinerte områder er bufret, så samme liste kommer igjen ved hver
     // panorering. Settet lages én gang per liste i stedet for ett på opptil 600 000 lokasjoner
@@ -2659,15 +2682,10 @@ public class SearchRepository : ISearchRepository
             query = query.TagWith(QueryHintInterceptor.RecompileTag);
         }
 
-        if (areasAreNarrowed && HasPeriodRange(filter))
-        {
-            query = query.TagWith(QueryHintInterceptor.CountColumnstoreTag);
-        }
-
-        var counts = await query
+        var counts = await WithColumnstoreHintAsync(query, areasAreNarrowed && HasPeriodRange(filter), q => q
             .GroupBy(idx => new { idx.EntityTypeId, idx.EntityId })
             .Select(g => new { g.Key.EntityTypeId, g.Key.EntityId, Count = g.Count() })
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken));
 
         return counts.ToDictionary(x => (x.EntityTypeId, x.EntityId), x => x.Count);
     }
@@ -2935,13 +2953,10 @@ public class SearchRepository : ISearchRepository
                 filter,
                 customAreaLocationIds);
 
-            if (HasPeriodRange(filter))
-                query = query.TagWith(QueryHintInterceptor.CountColumnstoreTag);
-
-            var antall = await query
+            var antall = await WithColumnstoreHintAsync(query, HasPeriodRange(filter), q => q
                 .Select(idx => idx.ObservationId)
                 .Distinct()
-                .CountAsync(cancellationToken);
+                .CountAsync(cancellationToken));
 
             if (antall > 0)
                 resultat[((int)ObservationIndexEntityType.County, fylkeEntityId)] = antall;

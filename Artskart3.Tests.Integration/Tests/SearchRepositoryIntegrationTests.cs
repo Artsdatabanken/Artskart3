@@ -2,6 +2,7 @@ using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.Data.Interceptors;
 using Artskart3.Infrastructure.Persistence.Repositories;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
@@ -1794,6 +1795,50 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             _context.Set<ObservationEntityIndex>().AddRange(rowsAtThree);
             await _context.SaveChangesAsync();
             _context.ChangeTracker.Clear();
+        }
+    }
+
+    /// <summary>
+    /// BackfillAll.sql sletter IX_OEI_Columnstore og deaktiverer de andre indeksene mens det kjører,
+    /// og en ny database har den ikke før backfillen. Tellingen som ellers tvinges til columnstore,
+    /// skal da gå uten hintet i stedet for å feile.
+    /// </summary>
+    [Fact]
+    public async Task GetAreaCountsAsync_WithPeriodWithoutTheColumnstore_CountsWithoutTheHint()
+    {
+        const string areaFid = "981986";
+        const string otherAreaFid = "981987";
+        await SeedAreaWithObservationsAtLocationsOneAndTwoAsync(areaFid);
+        // Med to områder snevrer valget inn listen, og bare da brukes hintet.
+        await SeedAreaWithObservationsAtLocationsOneAndTwoAsync(otherAreaFid);
+        var filter = new LocationSearchFilterDto { MunicipalityIds = [areaFid], Period = new PeriodDto { From = 1900, To = 2100 } };
+        var hasIndex = await _context.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = 'IX_OEI_Columnstore'")
+            .SingleAsync() > 0;
+
+        try
+        {
+            if (hasIndex)
+                await _context.Database.ExecuteSqlRawAsync("ALTER INDEX IX_OEI_Columnstore ON dbo.ObservationEntityIndex DISABLE");
+
+            // Hintet legges på av QueryHintInterceptor, som API-et registrerer og testkonteksten ikke har.
+            await using var withHints = new ArtskartDbContext(new DbContextOptionsBuilder<ArtskartDbContext>()
+                .UseSqlServer(_db.ConnectionString, x => x.UseNetTopologySuite())
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+                .AddInterceptors(new QueryHintInterceptor())
+                .Options);
+            var repository = new SearchRepository(withHints, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
+                new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
+            var counting = () => repository.GetAreaCountsAsync(2, filter);
+
+            await counting.Should().NotThrowAsync();
+        }
+        finally
+        {
+            if (hasIndex)
+                await _context.Database.ExecuteSqlRawAsync("ALTER INDEX IX_OEI_Columnstore ON dbo.ObservationEntityIndex REBUILD");
+            await RemoveAreaAsync(areaFid);
+            await RemoveAreaAsync(otherAreaFid);
         }
     }
 
