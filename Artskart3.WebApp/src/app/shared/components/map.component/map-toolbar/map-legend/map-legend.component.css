@@ -6,7 +6,12 @@
   width: max-content;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 32px));
-  max-height: 60vh;
+  max-height: min(
+    60vh,
+    calc(
+      100cqh - var(--map-toolbar-bottom-offset) - var(--map-legend-button-size) - var(--adb-spacing-xsm) - var(--map-legend-top-clearance)
+    )
+  );
   overflow-y: auto;
 }
 

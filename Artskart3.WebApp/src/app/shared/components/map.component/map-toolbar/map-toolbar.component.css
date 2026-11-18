@@ -5,6 +5,7 @@
   top: 0;
   left: 0;
   pointer-events: none;
+  container-type: size;
 }
 
 .map-toolbar-top {
@@ -22,15 +23,19 @@
 }
 
 .map-toolbar-bottom {
+  --map-toolbar-bottom-offset: 40px;
+  --map-legend-button-size: 40px;
+  /* Holder legendeboksen fri for stedssøket øverst i kartet */
+  --map-legend-top-clearance: 6rem;
   position: absolute;
   inset-inline-start: var(--adb-spacing-md);
-  inset-block-end: 40px;
+  inset-block-end: var(--map-toolbar-bottom-offset);
   z-index: 100;
   pointer-events: auto;
 }
 
 @media (max-width: 768px) {
   .map-toolbar-bottom {
-    inset-block-end: calc(var(--home-handle-height, 56px) + 64px);
+    --map-toolbar-bottom-offset: calc(var(--home-handle-height, 56px) + 64px);
   }
 }
