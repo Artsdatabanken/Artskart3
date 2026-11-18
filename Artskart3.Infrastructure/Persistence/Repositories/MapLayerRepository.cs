@@ -35,7 +35,12 @@ public class MapLayerRepository : IMapLayerRepository
                     Layers = l.Layers,
                     Format = l.Format,
                     Version = l.Version,
-                    Attribution = l.Attribution
+                    Attribution = l.Attribution,
+                    MinScaleDenominator = l.MinScaleDenominator,
+                    MaxScaleDenominator = l.MaxScaleDenominator,
+                    UseSingleImage = l.UseSingleImage,
+                    RetryAfterSeconds = l.RetryAfterSeconds,
+                    Opacity = l.Opacity
                 })
                 .ToListAsync(cancellationToken);
         }
