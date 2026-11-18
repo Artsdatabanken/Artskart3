@@ -1,0 +1,26 @@
+:host {
+  display: block;
+}
+
+p {
+  max-width: 70ch;
+  margin: 0 0 var(--adb-spacing-xsm);
+  overflow-wrap: anywhere;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.label {
+  font-weight: var(--adb-font-weight-heavy);
+}
+
+a {
+  color: var(--adb-text-accent-primary);
+}
+
+a:focus-visible {
+  outline: 3px solid var(--adb-text-accent-primary);
+  outline-offset: 3px;
+}

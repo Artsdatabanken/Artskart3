@@ -1,10 +1,11 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from './pages/home/home.component';
 import { DesignComponent } from './shared/components/design.component/design.component';
+import { artskart2LinkRouteGuards } from './shared/guards/artskart2-link.guard';
 import { authGuard } from './shared/guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent, title: 'pageTitle.home' },
+  { path: '', component: HomeComponent, title: 'pageTitle.home', ...artskart2LinkRouteGuards },
   { path: 'design', component: DesignComponent },
   {
     path: 'mittartskart',

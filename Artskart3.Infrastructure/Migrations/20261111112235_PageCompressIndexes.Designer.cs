@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261104091607_RebuildCountCaches")]
-    partial class RebuildCountCaches
+    [Migration("20261111112235_PageCompressIndexes")]
+    partial class PageCompressIndexes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1553,6 +1553,13 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasFilter("[ChangedByAnnotation] = 1");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ChangedByAnnotation", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
+
+                    b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_HasMediaFiles")
+                        .HasFilter("[HasMediaFiles] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId" });
 
                     b.HasIndex("Introduced", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)

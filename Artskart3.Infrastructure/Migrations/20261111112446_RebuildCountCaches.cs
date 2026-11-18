@@ -17,14 +17,15 @@ namespace Artskart3.Infrastructure.Migrations;
 /// en tom database stoppet derfor midt i migreringen med «Invalid column name
 /// 'Mask'». Ingenting etter den ble anvendt. Se den migrasjonen for detaljene.
 ///
-/// DENNE MÅ FORTSATT VÆRE DEN SISTE MIGRASJONEN
+/// ETTER DENNE KAN DET BARE KOMME INDEKSENDRINGER
 /// Flyttingen løser problemet bare så lenge alle kolonnene skriptene bruker finnes
-/// når denne kjører. Legger noen til en kolonne i skriptene og en migrasjon for den,
-/// er denne ikke lenger sist, og NØYAKTIG samme feil er tilbake.
+/// når denne kjører. Legger noen til en kolonne i skriptene og en migrasjon for den
+/// etter denne, er NØYAKTIG samme feil tilbake.
 ///
-/// Derfor finnes <c>Byggemigrasjonen_er_den_siste</c> i Artskart3.Tests.Unit: den
-/// feiler hvis en migrasjon får et senere tidsstempel enn denne. Da skal denne
-/// migrasjonen flyttes bakerst på nytt (nytt tidsstempel), ikke testen endres.
+/// Derfor finnes <c>Etter_byggemigrasjonen_kommer_bare_indeksendringer</c> i
+/// Artskart3.Tests.Unit: den feiler hvis en senere migrasjon gjør mer enn å endre
+/// indekser. Da skal denne migrasjonen flyttes bakerst på nytt (nytt tidsstempel),
+/// ikke testen endres.
 ///
 /// 20261021125247_AddFilterMaskToCountCaches tømmer bufferne og bytter
 /// primærnøklene. Denne fyller dem igjen, etter at 20261022115207 har lagt til de

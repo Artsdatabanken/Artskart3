@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { afterNextRender, Component, computed, ElementRef, inject, Injector, input, output, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, concat, map, merge, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { catchError, concat, ignoreElements, map, merge, Observable, of, Subject, switchMap, takeUntil, tap } from 'rxjs';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { LoggingService } from '@shared/logging.service';
 import { ObservationService } from '@shared/services/observation/observation.service';
@@ -43,13 +43,14 @@ export class ObservationPanelComponent {
   private readonly contextKey = computed(() => (this.selection() ? `${this.contextSeed}/${this.selection()!.key}` : null));
   private readonly activeContext = signal<string | null>(null);
   readonly rawId = signal<string | null>(null);
+  private readonly rawIsOccurrenceId = signal(false);
   readonly detailsOpen = computed(() => this.rawId() !== null);
   readonly singleObservation = computed(
     () => this.selection() !== null && this.requestState() === 'ready' && this.observations().length === 1,
   );
   readonly selectedId = computed(() => {
     const value = this.rawId();
-    return value && /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647 ? Number(value) : null;
+    return !this.rawIsOccurrenceId() && value && /^[1-9]\d*$/.test(value) && Number(value) <= 2147483647 ? Number(value) : null;
   });
   readonly state = signal<DetailState>('loading');
   readonly detail = signal<ObservationDetailDto | null>(null);
@@ -65,7 +66,11 @@ export class ObservationPanelComponent {
     merge(this.route.queryParamMap.pipe(map(() => undefined)), this.retryDetail)
       .pipe(
         switchMap(() => {
-          const raw = this.route.snapshot.queryParamMap.get('observationId');
+          const params = this.route.snapshot.queryParamMap;
+          // External apps link by occurrenceId. observationId wins, since in-app navigation merges query params.
+          const observationId = params.get('observationId') || null;
+          const occurrenceId = observationId === null ? params.get('occurrenceId') || null : null;
+          const raw = observationId ?? occurrenceId;
           const history: unknown = this.location.getState();
           this.activeContext.set(
             history && typeof history === 'object' && 'observationContext' in history && typeof history.observationContext === 'string'
@@ -73,6 +78,7 @@ export class ObservationPanelComponent {
               : null,
           );
           const closing = this.rawId() !== null && raw === null;
+          this.rawIsOccurrenceId.set(occurrenceId !== null);
           this.rawId.set(raw);
           this.detail.set(null);
           this.activePoint.emit(null);
@@ -83,6 +89,17 @@ export class ObservationPanelComponent {
             return of({ state: 'loading' as const, detail: null });
           }
           this.detailsOpened.emit();
+          if (occurrenceId?.trim()) {
+            return concat(
+              of({ state: 'loading' as const, detail: null }),
+              this.api.findIdByOccurrenceId(occurrenceId).pipe(
+                takeUntil(this.dismissRequest),
+                tap((id) => this.navigate(id, true, null)),
+                ignoreElements(),
+                catchError((error: unknown) => this.loadFailed(error)),
+              ),
+            );
+          }
           const id = this.selectedId();
           if (id === null) {
             this.logger.warn('Invalid observation URL parameter', 'ObservationPanel', raw);
@@ -93,13 +110,7 @@ export class ObservationPanelComponent {
             this.api.getDetail(id).pipe(
               takeUntil(this.dismissRequest),
               map((detail) => ({ state: 'ready' as const, detail })),
-              catchError((error: unknown) => {
-                this.logger.error('Failed to load observation details', 'ObservationPanel', error);
-                return of({
-                  state: error instanceof HttpErrorResponse && error.status === 404 ? ('notFound' as const) : ('error' as const),
-                  detail: null,
-                });
-              }),
+              catchError((error: unknown) => this.loadFailed(error)),
             ),
           );
         }),
@@ -153,7 +164,7 @@ export class ObservationPanelComponent {
     void this.router
       .navigate([], {
         relativeTo: this.route,
-        queryParams: { observationId: id },
+        queryParams: { observationId: id, occurrenceId: null },
         queryParamsHandling: 'merge',
         replaceUrl,
         state: { observationContext: context },
@@ -162,6 +173,16 @@ export class ObservationPanelComponent {
         if (!success) this.failedNavigation(new Error('Observation navigation was cancelled'));
       })
       .catch((error: unknown) => this.failedNavigation(error));
+  }
+
+  private loadFailed(error: unknown): Observable<{ state: 'notFound' | 'error'; detail: null }> {
+    // Links from other apps can point to observations that no longer exist, so a 404 is expected.
+    if (error instanceof HttpErrorResponse && error.status === 404) {
+      this.logger.warn('Observation not found', 'ObservationPanel', error.url);
+      return of({ state: 'notFound', detail: null });
+    }
+    this.logger.error('Failed to load observation details', 'ObservationPanel', error);
+    return of({ state: 'error', detail: null });
   }
 
   private failedNavigation(error: unknown): void {

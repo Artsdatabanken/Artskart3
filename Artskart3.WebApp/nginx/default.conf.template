@@ -106,21 +106,19 @@ server {
         client_max_body_size 20m;
     }
 
-    # Hashede filnavn kan caches for alltid.
-    location ~* \.(?:js|css|woff2?|ttf|eot|png|jpe?g|svg|gif|ico|webp|avif|json)$ {
+    # Bare filnavn med innholdshash (navn-HASH.ext) kan caches for alltid. Angular
+    # hasher alt som går gjennom bundleren, også språkfilene, men ikke det som
+    # kopieres fra public/. Anførselstegnene kreves fordi uttrykket har krøllparenteser.
+    location ~* "-[\w-]{8}\.(?:js|css|woff2?|ttf|eot|png|jpe?g|svg|gif|ico|webp|avif)$" {
         add_header Cache-Control "public, immutable, max-age=31536000";
         add_header X-Robots-Tag $robots_tag always;
         try_files $uri =404;
     }
 
-    # index.html må aldri caches, ellers peker den på gamle hashede filer etter
-    # en utrulling.
-    location = /index.html {
-        add_header Cache-Control "no-cache";
-        add_header X-Robots-Tag $robots_tag always;
-    }
-
+    # Alt annet revalideres hver gang. For index.html er det avgjørende: en cachet
+    # utgave peker på hashede filer som er borte etter en utrulling.
     location / {
+        add_header Cache-Control "no-cache";
         add_header X-Robots-Tag $robots_tag always;
         try_files $uri $uri/ /index.html;
     }

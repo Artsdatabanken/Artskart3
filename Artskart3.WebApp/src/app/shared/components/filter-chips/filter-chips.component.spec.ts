@@ -38,6 +38,11 @@ describe('FilterChipsComponent', () => {
       name: 'Havområder',
       areas: [{ id: 300, fid: 'ocean1', name: 'Norskehavet', isCurrent: true }],
     },
+    restrictedAreas: {
+      id: 3,
+      name: 'Verneområder',
+      areas: [{ id: 400, fid: 'Naturbase VV00001234', name: 'Ytre Hvaler nasjonalpark', isCurrent: true }],
+    },
   };
 
   const mockCategoryTypes = [
@@ -228,6 +233,39 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.addProject({ id: 42, name: '' });
       expect(component.chips().find((c) => c.id === 'project:42')!.text).toBe('sidebar.project: #42');
+    });
+
+    it('viser én chip per matrikkelenhet, og lukking fjerner bare den', () => {
+      flushLookups();
+      filterState.addCadastralUnit('1101-1/2');
+      filterState.addCadastralUnit('0301-207/1');
+      const cadastralUnitChips = component.chips().filter((c) => c.id.startsWith('cadastralUnit:'));
+      expect(cadastralUnitChips.map((c) => c.text)).toEqual(['sidebar.cadastralUnit: 1101-1/2', 'sidebar.cadastralUnit: 0301-207/1']);
+      cadastralUnitChips[0].clear();
+      expect(filterState.selectedCadastralUnitIds()).toEqual(['0301-207/1']);
+    });
+
+    it('shows a chip per protected area by name, and closing it removes only that one', () => {
+      flushLookups();
+      filterState.addRestrictedArea('Naturbase VV00001234');
+      filterState.addRestrictedArea('Naturbase VV00005678');
+      const chips = component.chips().filter((c) => c.id.startsWith('restrictedArea:'));
+      // The second one isn't in the area list, so it keeps its fid.
+      expect(chips.map((c) => c.text)).toEqual([
+        'sidebar.restrictedArea: Ytre Hvaler nasjonalpark',
+        'sidebar.restrictedArea: Naturbase VV00005678',
+      ]);
+      chips[0].clear();
+      expect(filterState.selectedRestrictedAreaIds()).toEqual(['Naturbase VV00005678']);
+    });
+
+    it('shows the fid of a protected area until the area list has loaded', () => {
+      filterState.addRestrictedArea('Naturbase VV00001234');
+      const chip = () => component.chips().find((c) => c.id === 'restrictedArea:Naturbase VV00001234')!;
+      expect(chip().text).toBe('sidebar.restrictedArea: Naturbase VV00001234');
+
+      flushLookups();
+      expect(chip().text).toBe('sidebar.restrictedArea: Ytre Hvaler nasjonalpark');
     });
 
     it('viser chip for katalognummer', () => {

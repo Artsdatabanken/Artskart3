@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { AreaService } from './area.service';
-import { AreaResponseDto } from '../../types/api.types';
+import { AreaDto, AreaResponseDto } from '../../types/api.types';
 import { FilterStateService } from '../filter-state/filter-state.service';
 
 describe('AreaService', () => {
@@ -184,6 +184,77 @@ describe('AreaService', () => {
       filterState.selectedCountyIds.set(['99']);
 
       expect(service.mainlandSelectionCount()).toBe(2);
+    });
+  });
+
+  describe('searchRestrictedAreas', () => {
+    const restrictedArea = (id: number, name: string, isCurrent = true): AreaDto => ({ id, fid: `Naturbase VV${id}`, name, isCurrent });
+
+    function flushRestrictedAreas(areas: AreaDto[]) {
+      httpTesting.expectOne('/api/Lookup/Areas').flush({ ...mockAreaResponse, restrictedAreas: { id: 3, name: 'Verneområder', areas } });
+    }
+
+    function search(term: string): string[] | undefined {
+      let names: string[] | undefined;
+      service.searchRestrictedAreas(term).subscribe((areas) => (names = areas.map((a) => a.name!)));
+      return names;
+    }
+
+    it('matches anywhere in the name regardless of case, names starting with the term first', () => {
+      flushRestrictedAreas([
+        restrictedArea(1, 'Ytre Hvaler nasjonalpark'),
+        restrictedArea(2, 'Hvalerøyene naturreservat'),
+        restrictedArea(3, 'Øvre Pasvik nasjonalpark'),
+        restrictedArea(4, 'Hvaler fuglefredningsområde'),
+      ]);
+
+      expect(search('HVALER')).toEqual(['Hvalerøyene naturreservat', 'Hvaler fuglefredningsområde', 'Ytre Hvaler nasjonalpark']);
+      expect(search(' øvre ')).toEqual(['Øvre Pasvik nasjonalpark']);
+    });
+
+    it('matches each word on its own, in any order', () => {
+      flushRestrictedAreas([restrictedArea(1, 'Ytre Hvaler nasjonalpark'), restrictedArea(2, 'Hvalerøyene naturreservat')]);
+
+      expect(search('ytre nasjonalpark')).toEqual(['Ytre Hvaler nasjonalpark']);
+      expect(search('nasjonalpark  hvaler')).toEqual(['Ytre Hvaler nasjonalpark']);
+    });
+
+    it('leaves out areas that are no longer current', () => {
+      flushRestrictedAreas([restrictedArea(1, 'Hvaler naturreservat', false), restrictedArea(2, 'Hvaler nasjonalpark')]);
+
+      expect(search('hvaler')).toEqual(['Hvaler nasjonalpark']);
+    });
+
+    it('returns at most 50 areas', () => {
+      flushRestrictedAreas(Array.from({ length: 60 }, (_, i) => restrictedArea(i, `Naturreservat ${i}`)));
+
+      expect(search('naturreservat')).toHaveLength(50);
+    });
+
+    it('fails instead of finding nothing when the area list could not be loaded', () => {
+      httpTesting.expectOne('/api/Lookup/Areas').flush('', { status: 500, statusText: 'Server Error' });
+      let failed = false;
+
+      service.searchRestrictedAreas('hvaler').subscribe({ error: () => (failed = true) });
+
+      expect(failed).toBe(true);
+    });
+
+    it('waits for the area list before searching it', () => {
+      let names: string[] | undefined;
+      service.searchRestrictedAreas('hvaler').subscribe((areas) => (names = areas.map((a) => a.name!)));
+      expect(names).toBeUndefined();
+
+      flushRestrictedAreas([restrictedArea(1, 'Hvaler nasjonalpark')]);
+
+      expect(names).toEqual(['Hvaler nasjonalpark']);
+    });
+
+    it('looks up the name of a selected area by its fid', () => {
+      flushRestrictedAreas([restrictedArea(1, 'Hvaler nasjonalpark')]);
+
+      expect(service.restrictedAreaName('Naturbase VV1')).toBe('Hvaler nasjonalpark');
+      expect(service.restrictedAreaName('Naturbase VV2')).toBeUndefined();
     });
   });
 });

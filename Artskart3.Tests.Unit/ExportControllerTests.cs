@@ -150,6 +150,25 @@ public class ExportControllerTests
         exportService.VerifyNoOtherCalls();
     }
 
+    [Fact]
+    public async Task StartAndSummary_WithInvalidFilter_ReturnBadRequestAndWriteNothing()
+    {
+        var exportService = new Mock<IExportService>(MockBehavior.Strict);
+        var controller = CreateController(exportService, new Claim("sub", UserId.ToString()));
+        var request = new StartExportRequestDto
+        {
+            Filter = new ObservationSearchFilterDto { CadastralUnitIds = ["1101-1"] },
+            SelectedColumns = []
+        };
+
+        var start = await controller.StartExport(request, CancellationToken.None);
+        var summary = await controller.GetSummary(request, CancellationToken.None);
+
+        start.Result.Should().BeOfType<BadRequestObjectResult>();
+        summary.Result.Should().BeOfType<BadRequestObjectResult>();
+        exportService.VerifyNoOtherCalls();
+    }
+
     private static StartExportRequestDto ValidRequest() => new()
     {
         Filter = new ObservationSearchFilterDto(),

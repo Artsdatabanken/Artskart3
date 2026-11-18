@@ -22,6 +22,8 @@ public class LocationSearchFilterDto : IObservationFilter
 
     public string[]? OceanAreaIds { get; set; }
 
+    public string[]? CadastralUnitIds { get; set; }
+
     public int[]? BehaviorIds { get; set; }
 
     public int? RegistrationStatusId { get; set; }
@@ -60,6 +62,7 @@ public class LocationSearchFilterDto : IObservationFilter
         CountyIds?.Length > 0 ||
         RestrictedAreaIds?.Length > 0 ||
         OceanAreaIds?.Length > 0 ||
+        CadastralUnitIds?.Length > 0 ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -77,9 +80,10 @@ public class LocationSearchFilterDto : IObservationFilter
 
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
-    /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.) og verneområder
-    /// (som krysser fylkes-/kommunegrenser). Fylker, kommuner og havområder bruker
-    /// pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
+    /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.), verneområder
+    /// (som krysser fylkes-/kommunegrenser) og matrikkelenheter (som ikke er forhåndstalt).
+    /// Fylker, kommuner og havområder bruker pre-beregnede antall og filtrerer kun hvilke
+    /// områdemarkører som vises.
     /// </summary>
     public bool HasObservationAttributeFilters =>
         TaxonGroupIds?.Length > 0 ||
@@ -89,6 +93,7 @@ public class LocationSearchFilterDto : IObservationFilter
         RegistrationStatusId.HasValue ||
         OrganizationIds?.Length > 0 ||
         RestrictedAreaIds?.Length > 0 ||
+        CadastralUnitIds?.Length > 0 ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -118,4 +123,14 @@ public class LocationSearchFilterDto : IObservationFilter
     /// Kartutsnitt (bounding box) for spatial filtrering i EPSG:25833 (UTM Zone 33N).
     /// </summary>
     public EnvelopeDto? Envelope { get; set; }
+
+    /// <summary>
+    /// Samme filter uten matrikkelenhetene.
+    /// </summary>
+    public LocationSearchFilterDto WithoutCadastralUnits()
+    {
+        var copy = (LocationSearchFilterDto)MemberwiseClone();
+        copy.CadastralUnitIds = null;
+        return copy;
+    }
 }

@@ -97,6 +97,10 @@ export class FilterStateService {
   readonly selectedRegistrationStatusId = signal<number | null>(null);
   readonly selectedTaxonGroupIds = signal<number[]>([]);
   readonly selectedOceanAreaIds = signal<string[]>([]);
+  // Protected areas by fid, like "Naturbase VV00001234". AreaService has the names.
+  readonly selectedRestrictedAreaIds = signal<string[]>([]);
+  // Matrikkelnummer like 1101-1/2. The id doubles as the label.
+  readonly selectedCadastralUnitIds = signal<string[]>([]);
   readonly selectedTaxonIds = signal<number[]>([]);
   readonly includeDescendantTaxa = signal(true);
   // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
@@ -126,6 +130,10 @@ export class FilterStateService {
 
   addCategory(id: number): void {
     this.selectedCategoryIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  addCategories(ids: readonly number[]): void {
+    this.selectedCategoryIds.update((current) => withIds(current, ids));
   }
 
   removeCategory(id: number): void {
@@ -200,6 +208,10 @@ export class FilterStateService {
     this.selectedBehaviorIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
 
+  addBehaviors(ids: readonly number[]): void {
+    this.selectedBehaviorIds.update((current) => withIds(current, ids));
+  }
+
   removeBehavior(id: number): void {
     this.selectedBehaviorIds.update((ids) => {
       if (!ids.includes(id)) return ids;
@@ -217,6 +229,10 @@ export class FilterStateService {
 
   addBasisOfRecord(id: number): void {
     this.selectedBasisOfRecordIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  addBasisOfRecords(ids: readonly number[]): void {
+    this.selectedBasisOfRecordIds.update((current) => withIds(current, ids));
   }
 
   removeBasisOfRecord(id: number): void {
@@ -246,6 +262,10 @@ export class FilterStateService {
     this.selectedTaxonGroupIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
 
+  addTaxonGroups(ids: readonly number[]): void {
+    this.selectedTaxonGroupIds.update((current) => withIds(current, ids));
+  }
+
   removeTaxonGroup(id: number): void {
     this.selectedTaxonGroupIds.update((ids) => {
       if (!ids.includes(id)) return ids;
@@ -263,6 +283,22 @@ export class FilterStateService {
 
   clearOceanAreas(): void {
     this.selectedOceanAreaIds.set([]);
+  }
+
+  addRestrictedArea(fid: string): void {
+    this.selectedRestrictedAreaIds.update((ids) => (ids.includes(fid) ? ids : [...ids, fid]));
+  }
+
+  removeRestrictedArea(fid: string): void {
+    this.selectedRestrictedAreaIds.update((ids) => ids.filter((i) => i !== fid));
+  }
+
+  addCadastralUnit(id: string): void {
+    this.selectedCadastralUnitIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  removeCadastralUnit(id: string): void {
+    this.selectedCadastralUnitIds.update((ids) => ids.filter((i) => i !== id));
   }
 
   addTaxon(taxonId: number): void {
@@ -289,6 +325,8 @@ export class FilterStateService {
     this.selectedCountyIds.set([]);
     this.selectedMunicipalityIds.set([]);
     this.selectedOceanAreaIds.set([]);
+    this.selectedRestrictedAreaIds.set([]);
+    this.selectedCadastralUnitIds.set([]);
   }
 
   clearMunicipalities(): void {
@@ -418,6 +456,12 @@ function idsOf(items: NamedId[]): number[] {
 
 export function sameIds(a: number[], b: number[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+// Returns the same array when nothing is missing, so the signal doesn't fire a new search.
+function withIds(current: number[], ids: readonly number[]): number[] {
+  const missing = ids.filter((id) => !current.includes(id));
+  return missing.length === 0 ? current : [...current, ...missing];
 }
 
 function addNamed(items: NamedId[], item: NamedId): NamedId[] {

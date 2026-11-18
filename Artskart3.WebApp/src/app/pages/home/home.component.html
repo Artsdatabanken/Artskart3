@@ -28,7 +28,12 @@
 
 <div class="home-content">
   <div>
-    <adb-tabs [attr.aria-label]="'tabs.ariaLabel' | translate" (tab-change)="onTabChange($event)" class="tabs">
+    <adb-tabs
+      [attr.aria-label]="'tabs.ariaLabel' | translate"
+      [attr.selected-index]="activeTab()"
+      (tab-change)="onTabChange($event)"
+      class="tabs"
+    >
       <adb-tab slot="tab">
         <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path
@@ -46,6 +51,15 @@
           />
         </svg>
         {{ 'tabs.list' | translate }}
+      </adb-tab>
+      <adb-tab slot="tab">
+        <svg slot="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path
+            d="M2.49967 15.8333C2.04134 15.8333 1.64898 15.6701 1.32259 15.3437C0.996202 15.0173 0.833008 14.625 0.833008 14.1666V5.83329C0.833008 5.37496 0.996202 4.9826 1.32259 4.65621C1.64898 4.32982 2.04134 4.16663 2.49967 4.16663H10.833C11.2913 4.16663 11.6837 4.32982 12.0101 4.65621C12.3365 4.9826 12.4997 5.37496 12.4997 5.83329V14.1666C12.4997 14.625 12.3365 15.0173 12.0101 15.3437C11.6837 15.6701 11.2913 15.8333 10.833 15.8333H2.49967ZM14.9997 9.16663C14.7636 9.16663 14.5656 9.08677 14.4059 8.92704C14.2462 8.76732 14.1663 8.5694 14.1663 8.33329V4.99996C14.1663 4.76385 14.2462 4.56593 14.4059 4.40621C14.5656 4.24649 14.7636 4.16663 14.9997 4.16663H18.333C18.5691 4.16663 18.767 4.24649 18.9268 4.40621C19.0865 4.56593 19.1663 4.76385 19.1663 4.99996V8.33329C19.1663 8.5694 19.0865 8.76732 18.9268 8.92704C18.767 9.08677 18.5691 9.16663 18.333 9.16663H14.9997ZM15.833 7.49996H17.4997V5.83329H15.833V7.49996ZM2.49967 14.1666H10.833V5.83329H2.49967V14.1666ZM3.33301 12.5H9.99967L7.81217 9.58329L6.24967 11.6666L5.10384 10.1458L3.33301 12.5ZM14.9997 15.8333C14.7636 15.8333 14.5656 15.7534 14.4059 15.5937C14.2462 15.434 14.1663 15.2361 14.1663 15V11.6666C14.1663 11.4305 14.2462 11.2326 14.4059 11.0729C14.5656 10.9132 14.7636 10.8333 14.9997 10.8333H18.333C18.5691 10.8333 18.767 10.9132 18.9268 11.0729C19.0865 11.2326 19.1663 11.4305 19.1663 11.6666V15C19.1663 15.2361 19.0865 15.434 18.9268 15.5937C18.767 15.7534 18.5691 15.8333 18.333 15.8333H14.9997ZM15.833 14.1666H17.4997V12.5H15.833V14.1666Z"
+            fill="currentColor"
+          />
+        </svg>
+        {{ 'tabs.gallery' | translate }}
       </adb-tab>
 
       @if (authService.isAuthenticated()) {
@@ -87,6 +101,11 @@
     </div>
     <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 1">
       <app-list-view></app-list-view>
+    </div>
+    <div class="tab-panel" [class.tab-panel-hidden]="activeTab() !== 2">
+      @defer (when activeTab() === 2) {
+        <app-gallery-view [active]="activeTab() === 2" (observationShown)="activeTab.set(0)" />
+      }
     </div>
   </div>
 </div>
