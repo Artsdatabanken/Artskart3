@@ -3,6 +3,7 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ExportService } from '../../shared/services/export/export.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
+import { AuthService, Session } from '../../shared/services/auth/auth.service';
 import { CsvExportJobDto, CSV_EXPORT_STATUS } from '../../shared/types/api.types';
 import { LocaleDateTimePipe } from '../../shared/pipes/locale-date-time.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
@@ -19,17 +20,21 @@ import { SavedFiltersTableComponent } from './saved-filters-table/saved-filters-
 export class MittArtskartComponent implements OnDestroy {
   private readonly exportService = inject(ExportService);
   protected readonly translate = inject(TranslateService);
+  protected readonly authService = inject(AuthService);
   private readonly alertService = inject(AlertService);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
-  readonly historyResource = rxResource<CsvExportJobDto[], void>({
+  readonly historyResource = rxResource<CsvExportJobDto[], Session | undefined>({
+    params: () => this.authService.sessionResolved() ? this.authService.session() : undefined,
     stream: () => this.exportService.getHistory(),
   });
 
   constructor() {
     effect(() => {
       this.exportService.historyVersion();
-      untracked(() => this.historyResource.reload());
+      untracked(() => {
+        if (this.authService.sessionResolved()) this.historyResource.reload();
+      });
     });
 
     effect(() => {

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController, TestRequest } from '@angular/common/http/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MittArtskartComponent } from './mitt-artskart.component';
 import { SavedFiltersTableComponent } from './saved-filters-table/saved-filters-table.component';
@@ -18,6 +18,8 @@ describe('MittArtskartComponent', () => {
   let component: MittArtskartComponent;
   let fixture: ComponentFixture<MittArtskartComponent>;
   let httpTesting: HttpTestingController;
+  let initialSessionRequest: TestRequest;
+  let sessionResolved: boolean;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -35,14 +37,31 @@ describe('MittArtskartComponent', () => {
     httpTesting = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(MittArtskartComponent);
     component = fixture.componentInstance;
+    sessionResolved = false;
+    initialSessionRequest = httpTesting.expectOne('bff/user');
   });
 
   afterEach(() => {
+    fixture.destroy();
+    if (!sessionResolved) {
+      sessionResolved = true;
+      initialSessionRequest.flush(null);
+    }
     httpTesting.verify();
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('waits for the BFF session before rendering guest controls and tabs', () => {
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.status-message')).not.toBeNull();
+    expect(element.querySelector('.log-in')).toBeNull();
+    expect(element.querySelector('.temporary-export-message')).toBeNull();
+    expect(element.querySelector('adb-tabs')).toBeNull();
   });
 
   it('should display export name with progress for processing jobs', () => {
