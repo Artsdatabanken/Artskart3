@@ -2,11 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { By } from '@angular/platform-browser';
+import { provideRouter, Router } from '@angular/router';
 import { ListViewComponent } from './list-view.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { MapViewService } from '../../services/map-view/map-view.service';
+import { ObservationDto } from '../../types/api.types';
 
 describe('ListViewComponent', () => {
   let component: ListViewComponent;
@@ -16,7 +19,7 @@ describe('ListViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ListViewComponent, TranslateModule.forRoot()],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ListViewComponent);
@@ -61,6 +64,87 @@ describe('ListViewComponent', () => {
     const badge = fixture.debugElement.query(By.directive(RiskCategoryBadgeComponent));
     expect(badge).toBeTruthy();
     expect(badge.injector.get(RiskCategoryBadgeComponent).code()).toBe('CR');
+  });
+
+  describe('show on map link', () => {
+    const observation: ObservationDto = { id: 42, point: { east: 262000, north: 6650000 }, coordinatePrecisionInMeters: 100 };
+
+    async function respond(items: ObservationDto[]): Promise<HTMLAnchorElement> {
+      const httpTesting = TestBed.inject(HttpTestingController);
+      httpTesting.expectOne('/api/Lookup/Categories').flush([]);
+      httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+      httpTesting.expectOne('/api/Lookup/Areas').flush({});
+      httpTesting.expectOne('/api/Search/Observation').flush({ items, pageNumber: 1, resultsPerPage: 10, lookaheadCount: 0, hasMorePages: false });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture.nativeElement.querySelector('.show-on-map');
+    }
+
+    it('links to the observation through the observationId query parameter', async () => {
+      const link = await respond([observation]);
+
+      expect(link.getAttribute('href')).toBe('/?observationId=42');
+      link.click();
+      await fixture.whenStable();
+
+      expect(TestBed.inject(Router).url).toBe('/?observationId=42');
+    });
+
+    it('asks the map to show the observation with its coordinate precision and switches to it', async () => {
+      const shown = vi.fn();
+      component.observationShown.subscribe(shown);
+      const link = await respond([observation]);
+
+      link.click();
+
+      expect(TestBed.inject(MapViewService).requestedExtent()).toEqual([257000, 6645000, 267000, 6655000]);
+      expect(shown).toHaveBeenCalled();
+    });
+
+    it('leaves the map as it is when the observation has no usable coordinate', async () => {
+      const shown = vi.fn();
+      component.observationShown.subscribe(shown);
+      const link = await respond([{ ...observation, point: undefined }]);
+
+      link.click();
+
+      expect(TestBed.inject(MapViewService).requestedExtent()).toBeNull();
+      expect(shown).toHaveBeenCalled();
+    });
+
+    it('names the species and date for screen readers, falling back to the scientific name', async () => {
+      TestBed.inject(TranslateService).use('no');
+      await respond([
+        { ...observation, preferredPopularName: 'munk', scientificName: '<i>Sylvia atricapilla</i>', dateTimeCollected: '2026-05-21T10:00:00' },
+        { id: 43, scientificName: '<i>Emberiza schoeniclus</i>' },
+      ]);
+
+      const links: HTMLAnchorElement[] = Array.from(fixture.nativeElement.querySelectorAll('.show-on-map'));
+
+      expect(links.map((link) => link.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+        'listView.showOnMap munk 21. mai 2026',
+        'listView.showOnMap Emberiza schoeniclus',
+      ]);
+      expect(links[0].querySelector<HTMLElement>('.adb-sr-only [lang]')?.textContent?.trim()).toBe('munk');
+      expect(links[0].querySelector<HTMLElement>('.adb-sr-only [lang]')?.lang).toBe('no');
+    });
+
+    it('marks the link text with the interface language inside the Norwegian table body', async () => {
+      TestBed.inject(TranslateService).use('en');
+      const link = await respond([observation]);
+
+      expect(link.lang).toBe('en');
+    });
+
+    it('leaves this tab as it is when the link is opened in a new one', () => {
+      const shown = vi.fn();
+      component.observationShown.subscribe(shown);
+
+      component.showOnMap(observation, new MouseEvent('click', { metaKey: true }));
+
+      expect(TestBed.inject(MapViewService).requestedExtent()).toBeNull();
+      expect(shown).not.toHaveBeenCalled();
+    });
   });
 
   describe('onPageChange', () => {

@@ -24,4 +24,5 @@ public record ObservationDto
 
     public int? CoordinatePrecisionInMeters { get; set; }
 
+    public ObservationPointDto? Point { get; set; }
 }

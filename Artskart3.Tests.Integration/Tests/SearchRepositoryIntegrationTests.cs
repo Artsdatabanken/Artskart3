@@ -1097,6 +1097,20 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         result.Select(o => o.Id).Should().BeEquivalentTo(expected);
     }
 
+    [Fact]
+    public async Task GetObservationsAsync_ReturnsEachObservationsPoint()
+    {
+        var result = await _repository.GetObservationsAsync(new ObservationSearchFilterDto());
+
+        var ids = result.Select(o => o.Id).ToList();
+        var expected = await _context.Set<Observation>()
+            .AsNoTracking()
+            .Where(o => ids.Contains(o.Id))
+            .Select(o => new { o.Id, Point = new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North) })
+            .ToDictionaryAsync(o => o.Id, o => o.Point);
+        result.Should().NotBeEmpty().And.OnlyContain(o => o.Point == expected[o.Id]);
+    }
+
     /// <summary>
     /// Områdestien har ingen gren for matrikkelenheter, så med begge i filteret skal
     /// grenstien (to taksongrupper) ta over og OR-e dem.

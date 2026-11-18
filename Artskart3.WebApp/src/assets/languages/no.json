@@ -165,6 +165,8 @@
     "tabsAriaLabel": "Mitt Artskart-faner"
   },
   "listView": {
+    "showObservation": "Vis funn",
+    "showOnMap": "Vis i kart",
     "name": "Populærnavn (nb)",
     "scientificName": "Vitenskapelig navn",
     "author": "Autor",
