@@ -20,19 +20,6 @@ function historicalKey(area: AreaSearchResultDto): string {
   }
 }
 
-function kindKey(area: AreaSearchResultDto): string | null {
-  switch (area.areaTypeId) {
-    case AreaTypeId.Municipality:
-      return 'sidebar.areaSearchType.municipality';
-    case AreaTypeId.County:
-      return 'sidebar.areaSearchType.county';
-    case AreaTypeId.OceanArea:
-      return 'sidebar.areaSearchType.oceanArea';
-    default:
-      return null;
-  }
-}
-
 /**
  * What tells a historical area apart from the current one and from earlier versions with the
  * same name, e.g. "(historisk kommune i Troms, før 2020)". Empty for current areas.
@@ -48,25 +35,34 @@ export function areaLabel(area: AreaSearchResultDto, translate: Translate): stri
 
 /**
  * Adds the text after each name in the area suggestions. Historical areas always get theirs.
- * A current area only gets one when another current suggestion has the same name: the county
- * when they are all municipalities (Herøy), otherwise the kind of area (Oslo is both).
+ * Current municipalities and counties always say what they are, a municipality with its county,
+ * e.g. "kommune (Trøndelag)". An ocean area only says so when another current suggestion has the
+ * same name.
  */
 export function withSuggestionDetails(areas: AreaSearchResultDto[], translate: Translate): AreaSuggestion[] {
-  const currentByName = new Map<string, AreaSearchResultDto[]>();
+  const currentNameCounts = new Map<string, number>();
   for (const area of areas.filter((a) => a.isCurrent)) {
     const name = area.name ?? '';
-    currentByName.set(name, [...(currentByName.get(name) ?? []), area]);
+    currentNameCounts.set(name, (currentNameCounts.get(name) ?? 0) + 1);
   }
 
   return areas.map((area) => ({
     area,
-    detail: area.isCurrent ? currentDetail(area, currentByName.get(area.name ?? '') ?? [], translate) : areaType(area, translate),
+    detail: area.isCurrent ? currentDetail(area, (currentNameCounts.get(area.name ?? '') ?? 0) > 1, translate) : areaType(area, translate),
   }));
 }
 
-function currentDetail(area: AreaSearchResultDto, sameName: AreaSearchResultDto[], translate: Translate): string {
-  if (sameName.length < 2) return '';
-  if (sameName.every((a) => a.areaTypeId === AreaTypeId.Municipality && a.countyName)) return `(${area.countyName})`;
-  const key = kindKey(area);
-  return key ? `(${translate(key)})` : '';
+function currentDetail(area: AreaSearchResultDto, hasNamesake: boolean, translate: Translate): string {
+  switch (area.areaTypeId) {
+    case AreaTypeId.Municipality: {
+      const kind = translate('sidebar.areaSearchType.municipality');
+      return area.countyName ? `${kind} (${area.countyName})` : kind;
+    }
+    case AreaTypeId.County:
+      return translate('sidebar.areaSearchType.county');
+    case AreaTypeId.OceanArea:
+      return hasNamesake ? `(${translate('sidebar.areaSearchType.oceanArea')})` : '';
+    default:
+      return '';
+  }
 }
