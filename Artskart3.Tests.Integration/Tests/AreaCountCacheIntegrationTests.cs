@@ -440,6 +440,55 @@ public class AreaCountCacheIntegrationTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Et fylke som er valgt selv, telles helt også når en kommune i et annet fylke er valgt.
+    /// Uten det ville det fått summen av de valgte kommunene i det, altså 0.
+    /// </summary>
+    [Fact]
+    public async Task Valgt_fylke_ved_siden_av_valgt_kommune_telles_helt()
+    {
+        const string kommunensFylke = "98";
+        const string valgtFylke = "97";
+        const int valgtFylkeId = 97;
+
+        foreach (var (fid, navn) in new[] { (kommunensFylke, "Buffer fylke"), (valgtFylke, "Buffer valgt fylke") })
+        {
+            var fylke = NewArea(fid, navn);
+            fylke.AreaTypeId = AreaCountCacheDimensions.AreaTypeCounty;
+            fylke.ZoomLevel = 1;
+            fylke.ObservationCount = 1000;
+            _context.Set<Area>().Add(fylke);
+        }
+
+        // Observasjonene i kommune B ligger i det valgte fylket.
+        for (var i = 3; i < 6; i++)
+            AddAreaRow(ObservationBaseId + i, AreaCountCacheDimensions.AreaTypeCounty, valgtFylkeId,
+                i % 2 == 0 ? TaxonGroupA : TaxonGroupB, i < 4 ? CategoryA : CategoryB);
+        await _context.SaveChangesAsync();
+        await SettForelderAsync(kommunensFylke);
+        try
+        {
+            await BuildLevel1Async(RegistrationStatusDimensionId, r => r.RegistrationStatusId);
+
+            var result = await WithCache().GetAreaCountsAsync(1, new LocationSearchFilterDto
+            {
+                MunicipalityIds = [AreaFidOne],
+                CountyIds = [valgtFylke],
+            });
+
+            result.Single(a => a.Fid == kommunensFylke).ObservationCount.Should().Be(ObservationsPerArea);
+            result.Single(a => a.Fid == valgtFylke).ObservationCount.Should().Be(3);
+        }
+        finally
+        {
+            await SettForelderAsync("buffer-parent");
+            await _context.Set<ObservationEntityIndex>()
+                .Where(i => i.EntityTypeId == AreaCountCacheDimensions.AreaTypeCounty && i.EntityId == valgtFylkeId)
+                .ExecuteDeleteAsync();
+            await _context.Set<Area>().Where(a => a.Fid == kommunensFylke || a.Fid == valgtFylke).ExecuteDeleteAsync();
+        }
+    }
+
     private Task SettForelderAsync(string parentFid) =>
         _context.Set<Area>()
             .Where(a => a.Fid == AreaFidOne)

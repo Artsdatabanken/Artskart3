@@ -2259,6 +2259,7 @@ public class SearchRepository : ISearchRepository
         var needsDynamicCounts = hasFilters && filter!.HasObservationAttributeFilters;
         Dictionary<(int entityTypeId, int entityId), int>? dynamicCounts = null;
         Dictionary<string, int>? municipalityCountsByCounty = null;
+        Dictionary<(int AreaTypeId, string Fid), int>? selectedAreaCounts = null;
 
         // Steg 1: Filtrer hvilke områder som vises
         var hasAreaSelection = hasFilters && (
@@ -2310,6 +2311,22 @@ public class SearchRepository : ISearchRepository
             {
                 municipalityCountsByCounty = await AggregateMunicipalityCountsByCounty(
                     filter!.MunicipalityIds!, cancellationToken);
+
+                // Et fylke eller havområde som er valgt selv, telles helt, ikke som summen av de
+                // valgte kommunene i det. Oppdelingen av et egendefinert område gir ofte et slikt
+                // valg, for eksempel Oslo som fylke og Bærum som kommune.
+                var selectedThemselves = areas
+                    .Where(a => filter.CountyIds?.Contains(a.Fid) == true || filter.OceanAreaIds?.Contains(a.Fid) == true)
+                    .ToList();
+                if (selectedThemselves.Count > 0)
+                {
+                    var visible = _areaCountCache is null
+                        ? null
+                        : await CountVisibleInAreasAsync(selectedThemselves, areasAreNarrowed: true, cancellationToken);
+                    selectedAreaCounts = selectedThemselves.ToDictionary(
+                        a => (a.AreaTypeId, a.Fid),
+                        a => visible is null ? a.ObservationCount ?? 0 : CountFromCells(visible, a));
+                }
             }
             else if (_areaCountCache is not null)
             {
@@ -2326,7 +2343,9 @@ public class SearchRepository : ISearchRepository
 
             if (municipalityCountsByCounty != null)
             {
-                return municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0);
+                return selectedAreaCounts?.TryGetValue((a.AreaTypeId, a.Fid), out var own) == true
+                    ? own
+                    : municipalityCountsByCounty.GetValueOrDefault(a.Fid, 0);
             }
 
             return a.ObservationCount ?? 0;
