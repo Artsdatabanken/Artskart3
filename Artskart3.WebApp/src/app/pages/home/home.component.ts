@@ -230,15 +230,6 @@ export class HomeComponent {
     this.isFilterOpen.update((open) => !open);
   }
 
-  toggleMobileTab(): void {
-    this.activeTab.update((tab) => (tab === 0 ? 1 : 0));
-  }
-
-  isMobile(): boolean {
-    this.viewportTick();
-    return this.isMobileViewport();
-  }
-
   onWindowResize(): void {
     this.viewportTick.update((tick) => tick + 1);
   }
