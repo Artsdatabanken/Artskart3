@@ -17,12 +17,18 @@ namespace Artskart3.Tests.Integration.Tests;
 public class ExportEndpointTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
-    private readonly CustomWebApplicationFactory _factory;
+    private readonly CustomWebApplicationFactory _baseFactory;
+    private readonly WebApplicationFactory<Program> _factory;
     private static readonly string TestUserId = "00000000-0000-0000-0000-000000000001";
 
     public ExportEndpointTests(DatabaseFixture db)
     {
-        _factory = new CustomWebApplicationFactory(db.ConnectionString, useTestAuthentication: true);
+        _baseFactory = new CustomWebApplicationFactory(db.ConnectionString, useTestAuthentication: true);
+        // Ingen worker kjører i testene, så jobber fra alle testklassene blir liggende
+        // som Pending i den delte databasen. Køgrensen for anonyme starter testes for
+        // seg i StartExport_AnonymousWhenQueueIsFull_Returns409ButLoggedInUsersCanStillExport.
+        _factory = _baseFactory.WithWebHostBuilder(builder =>
+            builder.UseSetting("CsvExport:Limits:MaxPendingJobsForAnonymousStart", int.MaxValue.ToString()));
         _client = _factory.CreateClient();
         _client.DefaultRequestHeaders.Add("X-CSRF", "1");
         _client.DefaultRequestHeaders.Add("X-Test-UserId", TestUserId);
@@ -33,7 +39,8 @@ public class ExportEndpointTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         _client.Dispose();
-        await _factory.DisposeAsync();
+        // Avledede factories disponeres sammen med basen.
+        await _baseFactory.DisposeAsync();
     }
 
     // -----------------------------------------------------------------------
