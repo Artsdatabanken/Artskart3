@@ -1,0 +1,44 @@
+/* Placed against the viewport, overriding the browser's centred popover defaults. */
+:host {
+  display: none;
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  border: none;
+  /* The arrow sits outside the box. */
+  overflow: visible;
+  max-width: 18rem;
+  padding: var(--adb-spacing-2xsm) var(--adb-spacing-xsm);
+  border-radius: var(--adb-border-radius-sm);
+  background-color: var(--adb-surface-base-invert);
+  color: var(--adb-text-base-invert);
+  font-size: var(--adb-font-size-3);
+  font-weight: var(--adb-font-weight-primary);
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+:host(:popover-open) {
+  display: block;
+}
+
+/* A triangle from the tooltip's edge pointing at its target. */
+.tooltip-arrow {
+  position: absolute;
+  border: 6px solid transparent;
+}
+
+:host([data-placement='right']) .tooltip-arrow {
+  right: 100%;
+  translate: 0 -50%;
+  border-left-width: 0;
+  border-right-color: var(--adb-surface-base-invert);
+}
+
+:host([data-placement='bottom']) .tooltip-arrow {
+  bottom: 100%;
+  translate: -50% 0;
+  border-top-width: 0;
+  border-bottom-color: var(--adb-surface-base-invert);
+}

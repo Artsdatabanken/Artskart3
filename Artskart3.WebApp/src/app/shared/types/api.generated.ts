@@ -2498,6 +2498,8 @@ export interface components {
             /** Format: int32 */
             id?: number;
             parentIds?: number[];
+            validScientificName?: null | string;
+            preferredPopularName?: null | string;
         };
         TaxonDto: {
             /** Format: int32 */

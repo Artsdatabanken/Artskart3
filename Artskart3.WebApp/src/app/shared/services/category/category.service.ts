@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Observable, catchError, of, shareReplay } from 'rxjs';
-import { CategoryTypeDto } from '../../types/api.types';
+import { CategoryDto, CategoryTypeDto } from '../../types/api.types';
+import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 
 @Injectable({
   providedIn: 'root',
@@ -31,4 +32,13 @@ export class CategoryService {
   getCategories(): Observable<CategoryTypeDto[]> {
     return this.categories$;
   }
+}
+
+/** Categories in red list and alien species order, as the filter panel lists them. */
+export function sortCategories(categories: readonly CategoryDto[] | null | undefined): CategoryDto[] {
+  const rank = (category: CategoryDto) => {
+    const index = category.code ? CATEGORY_ORDER.indexOf(category.code) : -1;
+    return index === -1 ? Infinity : index;
+  };
+  return [...(categories ?? [])].sort((a, b) => rank(a) - rank(b));
 }

@@ -275,6 +275,7 @@
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
+    "chipMoreNames": "og {{count}} til",
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",

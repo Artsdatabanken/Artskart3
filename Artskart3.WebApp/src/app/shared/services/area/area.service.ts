@@ -179,21 +179,24 @@ export class AreaService {
     return { countyIds: selectedCounties, municipalityIds: [...selectedMunicipalities] };
   }
 
-  readonly mainlandSelectionCount = computed(() => {
+  /**
+   * The selected mainland areas without implicit selections: a county when all its
+   * municipalities are selected, otherwise the selected municipalities.
+   */
+  readonly mainlandSelectionNames = computed((): string[] => {
     const selectedMunicipalities = this.filterState.selectedMunicipalityIds();
     const selectedCounties = this.filterState.selectedCountyIds();
     const groups = this.countyGroups();
     if (groups.length === 0) {
-      return selectedMunicipalities.length + selectedCounties.length;
+      return [...selectedMunicipalities, ...selectedCounties];
     }
-    let count = 0;
+    const names: string[] = [];
     for (const group of groups) {
-      const municipalityFids = group.municipalities.map((m) => m.fid!);
-      const selected = municipalityFids.filter((fid) => selectedMunicipalities.includes(fid)).length;
-      if (selected > 0) {
-        count += selected === municipalityFids.length ? 1 : selected;
+      const selected = group.municipalities.filter((m) => selectedMunicipalities.includes(m.fid!));
+      if (selected.length > 0) {
+        names.push(...(selected.length === group.municipalities.length ? [group.county] : selected).map(areaName));
       } else if (group.county.fid && selectedCounties.includes(group.county.fid)) {
-        count += 1;
+        names.push(areaName(group.county));
       }
     }
 
@@ -203,9 +206,9 @@ export class AreaService {
       ...groups.map((g) => g.county.fid),
       ...this.svalbardBjornoyaAndJanMayenAreas().map((a) => a.fid),
     ]);
-    count += selectedCounties.filter((fid) => !knownCounties.has(fid)).length;
-    count += this.unknownMunicipalityIds(selectedMunicipalities).length;
-    return count;
+    names.push(...selectedCounties.filter((fid) => !knownCounties.has(fid)));
+    names.push(...this.unknownMunicipalityIds(selectedMunicipalities));
+    return names;
   });
 
   /** Valgte kommuner som ikke hører til noe fylke i dagens inndeling, og derfor ikke vises i panelet. */
@@ -250,12 +253,22 @@ export class AreaService {
     }
   }
 
-  readonly svalbardBjornoyaAndJanMayenSelectionCount = computed(() => {
-    const areas = this.svalbardBjornoyaAndJanMayenAreas();
-    if (areas.length === 0) return 0;
-    const fids = new Set(areas.map((a) => a.fid));
-    return this.filterState.selectedCountyIds().filter((fid) => fids.has(fid)).length;
+  readonly svalbardBjornoyaAndJanMayenSelectionNames = computed(() => {
+    const selected = this.filterState.selectedCountyIds();
+    return this.svalbardBjornoyaAndJanMayenAreas()
+      .filter((a) => selected.includes(a.fid))
+      .map(areaName);
   });
+
+  /** Selected ocean areas by name, or by fid until the area list has loaded. */
+  readonly oceanAreaSelectionNames = computed(() => {
+    const names = new Map((this.oceanAreaGroup()?.municipalities ?? []).map((a) => [a.fid, areaName(a)]));
+    return this.filterState.selectedOceanAreaIds().map((fid) => names.get(fid) ?? fid);
+  });
+}
+
+function areaName(area: AreaDto): string {
+  return area.name || area.fid || '';
 }
 
 function currentRestrictedAreas(response: AreaResponseDto | undefined): RestrictedArea[] {
