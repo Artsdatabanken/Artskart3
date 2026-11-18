@@ -13,7 +13,7 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261116152626_RebuildCountCaches")]
+    [Migration("20261118131407_RebuildCountCaches")]
     partial class RebuildCountCaches
     {
         /// <inheritdoc />
