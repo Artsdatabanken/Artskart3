@@ -30,7 +30,10 @@ describe('SidebarComponent', () => {
     municipalities: {
       id: 2,
       name: 'Municipality',
-      areas: [{ id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true }],
+      areas: [
+        { id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true },
+        { id: 11, fid: '0302', name: 'Testkommune', isCurrent: true },
+      ],
     },
   };
 
@@ -624,6 +627,90 @@ describe('SidebarComponent', () => {
     toggle.dispatchEvent(new Event('change'));
 
     expect(filterState.includeDescendantTaxa()).toBe(false);
+  });
+
+  describe('active filter indicator', () => {
+    const sectionItems = () =>
+      Array.from(fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item')) as Element[];
+    const sectionsWithIndicator = () =>
+      sectionItems()
+        .filter((item) => item.hasAttribute('indicator'))
+        .map((item) => item.getAttribute('heading'));
+
+    beforeEach(() => flushAll());
+
+    it('shows no indicator with the default filter', () => {
+      expect(sectionItems().length).toBe(10);
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('labels the indicator for screen readers', () => {
+      expect(sectionItems().length).toBe(10);
+      for (const item of sectionItems()) {
+        expect(item.getAttribute('indicator-label')).toBe('sidebar.activeSelections');
+      }
+    });
+
+    const cases: [string, string, (state: FilterStateService) => void][] = [
+      ['sidebar.taxonGroups', 'a taxon group', (state) => state.toggleTaxonGroup(1)],
+      ['sidebar.taxonTree', 'a taxon', (state) => state.addTaxon(42)],
+      ['sidebar.categories', 'a category', (state) => state.toggleCategory(10)],
+      ['sidebar.areas', 'a county', (state) => state.toggleCounty('03')],
+      ['sidebar.areas', 'a municipality', (state) => state.toggleMunicipality('0301')],
+      ['sidebar.areas', 'an ocean area', (state) => state.toggleOceanArea('5001')],
+      ['sidebar.areas', 'a protected area', (state) => state.addRestrictedArea('VV00001234')],
+      ['sidebar.areas', 'a cadastral unit', (state) => state.addCadastralUnit('1101-1/2')],
+      ['sidebar.areas', 'a historical area', (state) => state.addHistoricalArea({ id: 99, name: 'Aker', isCurrent: false })],
+      ['sidebar.areas', 'a drawn area', (state) => state.setCustomArea('POLYGON((0 0, 0 1, 1 1, 0 0))')],
+      ['sidebar.coordinatePrecision', 'a lower precision only', (state) => state.setCoordinatePrecision(10, null)],
+      ['sidebar.coordinatePrecision', 'an upper precision only', (state) => state.setCoordinatePrecision(null, 100)],
+      ['sidebar.period', 'a start year only', (state) => state.setPeriod(2000, null)],
+      ['sidebar.period', 'an end year only', (state) => state.setPeriod(null, 2010)],
+      ['sidebar.period', 'a month', (state) => state.toggleMonth(5)],
+      ['sidebar.behaviors', 'a behavior', (state) => state.toggleBehavior(1)],
+      ['sidebar.basisOfRecords', 'a basis of record', (state) => state.toggleBasisOfRecord(1)],
+      ['sidebar.basisOfRecords', 'a registration status', (state) => state.setRegistrationStatus(2)],
+      ['sidebar.institutions', 'an institution', (state) => state.toggleInstitution(1)],
+      ['sidebar.otherProperties', 'a project', (state) => state.addProject({ id: 1, name: 'Prosjekt' })],
+      ['sidebar.otherProperties', 'a dataset', (state) => state.addDataset({ id: 2, name: 'Datasett' })],
+      ['sidebar.otherProperties', 'a catalog number', (state) => state.setCatalogObservationIds([7])],
+      ['sidebar.otherProperties', 'an image filter', (state) => state.setImageFilter('withImage')],
+      ['sidebar.otherProperties', 'a sensitivity filter', (state) => state.setSensitiveFilter('sensitive')],
+      ['sidebar.otherProperties', 'annotated observations', (state) => state.setAnnotationFilter('annotated')],
+      ['sidebar.otherProperties', 'hidden observations included', (state) => state.setAnnotationFilter('all')],
+    ];
+
+    it.each(cases)('shows the indicator only on %s for %s', (heading, _description, select) => {
+      select(filterState);
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([heading]);
+    });
+
+    it('shows no indicator for filters without a control in the sidebar', () => {
+      filterState.setIdentificationFilter('uncertain');
+      filterState.setOriginFilter('introduced');
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('does not count settings that are not a filter on their own', () => {
+      filterState.setIncludeDescendantTaxa(false);
+      filterState.setAnnotationFilter('all');
+      filterState.setAnnotationFilter('excludeHidden');
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('removes the indicators when the filter is cleared', () => {
+      filterState.toggleTaxonGroup(1);
+      filterState.setPeriod(2000, 2010);
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual(['sidebar.taxonGroups', 'sidebar.period']);
+
+      component.onClearFilter();
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
   });
 
   describe('vitenskapelige navn i artstreet', () => {

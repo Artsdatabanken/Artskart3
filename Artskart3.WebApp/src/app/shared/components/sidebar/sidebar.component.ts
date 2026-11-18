@@ -19,6 +19,7 @@ import {
   CategoryDto,
   OrganizationDto,
   CatalogNumberMatchDto,
+  ObservationSearchFilter,
 } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
@@ -53,6 +54,52 @@ function toRegistrationStatusValue(id: number | null): string {
 }
 
 const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
+
+type SidebarSection =
+  | 'taxonGroups'
+  | 'taxonTree'
+  | 'categories'
+  | 'areas'
+  | 'coordinatePrecision'
+  | 'period'
+  | 'behaviors'
+  | 'basisOfRecords'
+  | 'institutions'
+  | 'otherProperties';
+
+// Every field must be listed, so a new filter field won't compile until it is decided which section's dot it lights.
+const FILTER_SECTION: Record<keyof ObservationSearchFilter, SidebarSection | null> = {
+  pageNumber: null,
+  resultsPerPage: null,
+  isPaginated: null,
+  taxonGroupIds: 'taxonGroups',
+  taxonIds: 'taxonTree',
+  includeDescendantTaxa: 'taxonTree',
+  categoryIds: 'categories',
+  countyIds: 'areas',
+  municipalityIds: 'areas',
+  oceanAreaIds: 'areas',
+  restrictedAreaIds: 'areas',
+  cadastralUnitIds: 'areas',
+  historicalAreaIds: 'areas',
+  customAreaWkt: 'areas',
+  coordinatePrecision: 'coordinatePrecision',
+  period: 'period',
+  behaviorIds: 'behaviors',
+  basisOfRecordIds: 'basisOfRecords',
+  registrationStatusId: 'basisOfRecords',
+  organizationIds: 'institutions',
+  projectOrgIds: 'otherProperties',
+  datasetOrgIds: 'otherProperties',
+  observationIds: 'otherProperties',
+  withImages: 'otherProperties',
+  changedByAnnotation: 'otherProperties',
+  hiddenObservations: 'otherProperties',
+  sensitive: 'otherProperties',
+  // No control in the sidebar; only saved filters set these.
+  uncertainIdentification: null,
+  introduced: null,
+};
 
 type SelectAllState = 'none' | 'some' | 'all';
 
@@ -107,6 +154,20 @@ export class SidebarComponent {
     () => this.authService.isAuthenticated() && !this.searchFilter.hasActiveFilter() && this.savedFilterService.defaultFilter() !== null,
   );
   protected readonly translate = inject(TranslateService);
+
+  /**
+   * Sections whose filter differs from Artskart's defaults; each one gets a dot on its accordion heading.
+   * `observationFilter` leaves every field at its default `undefined`, so a defined field is a selection.
+   */
+  readonly sectionsWithSelection = computed(() => {
+    const filter = this.searchFilter.observationFilter();
+    return new Set(
+      (Object.keys(filter) as (keyof ObservationSearchFilter)[]).flatMap((key) => {
+        const section = FILTER_SECTION[key];
+        return section && filter[key] !== undefined ? [section] : [];
+      }),
+    );
+  });
 
   readonly registreringOptions = REGISTRATION_STATUS_OPTIONS.map((option) => ({
     ...option,
