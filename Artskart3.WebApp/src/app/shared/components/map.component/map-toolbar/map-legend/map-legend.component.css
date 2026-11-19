@@ -103,9 +103,9 @@
 }
 
 /* WMS-forklaringene er bilder med svart tekst, så de trenger lys bakgrunn i mørk modus */
-:host-context([data-theme='dark']) .map-legend-image {
+:host-context([data-theme='dark']) .map-legend-images {
   box-sizing: border-box;
   padding: var(--adb-spacing-xsm);
   border-radius: var(--adb-border-radius-sm);
-  background: #fff;
+  background: var(--adb-color-brand-white);
 }
