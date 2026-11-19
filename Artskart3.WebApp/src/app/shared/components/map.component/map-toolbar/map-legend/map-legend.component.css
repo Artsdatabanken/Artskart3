@@ -65,21 +65,21 @@
   stroke-width: 1.5;
 }
 
-/* Samme blå som posisjonsmarkøren i kartkomponenten */
 .position-accuracy {
-  fill: rgba(33, 150, 243, 0.15);
-  stroke: #2196f3;
+  fill: var(--adb-color-brand-freshwater-blue-10);
+  fill-opacity: 0.3;
+  stroke: var(--adb-color-brand-freshwater-blue-10);
   stroke-width: 1;
 }
 
 .position-dot {
-  fill: #2196f3;
-  stroke: #fff;
+  fill: var(--adb-color-brand-freshwater-blue-10);
+  stroke: var(--adb-surface-base-primary);
   stroke-width: 2;
 }
 
 .marker-label {
-  fill: #fff;
+  fill: var(--adb-text-base-invert);
   font: 600 10px 'Chivo', sans-serif;
 }
 
