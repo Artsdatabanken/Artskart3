@@ -45,10 +45,10 @@ public static class ObservationFilterValidator
     }
 
     /// <summary>
-    /// Om søket og eksporten deler det egendefinerte området i områdene helt innenfor og
-    /// kanten. Det gjør de bare uten andre områdevalg: områdene OR-es med hverandre, mens det
-    /// egendefinerte området AND-es med dem, og det kan ikke uttrykkes med en oppdeling.
-    /// Størrelseskontrollen bruker samme regel, så det som slipper gjennom kan alltid søkes på.
+    /// True when the drawn area can be searched as the areas that lie wholly inside it plus the
+    /// locations along its edge. That requires a filter with no other areas selected: selected
+    /// areas are combined with OR, so the parts would be added to them instead of limiting them
+    /// to the drawn area. The size check follows the same rule and then counts only the edge.
     /// </summary>
     public static bool CanSplitCustomArea(IObservationFilter filter) =>
         filter.CustomAreaWkt != null
