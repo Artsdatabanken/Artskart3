@@ -30,7 +30,8 @@
   position: absolute;
   inset-inline-start: var(--adb-spacing-md);
   inset-block-end: var(--map-toolbar-bottom-offset);
-  z-index: 100;
+  /* Under menyene øverst til høyre, som kan overlappe tegnforklaringen på smale skjermer */
+  z-index: 99;
   pointer-events: auto;
 }
 
