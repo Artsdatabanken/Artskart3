@@ -3,10 +3,11 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
 import { FormatNumberPipe } from '@shared/pipes/format-number.pipe';
 import { ClusteringLock } from '../map-toolbar.constants';
+import { MapControlTooltipDirective } from '../../map-control-tooltip/map-control-tooltip.directive';
 
 @Component({
   selector: 'app-map-settings',
-  imports: [TranslateModule, FormatNumberPipe],
+  imports: [TranslateModule, FormatNumberPipe, MapControlTooltipDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-settings.component.html',
   styleUrl: './map-settings.component.css',

@@ -21,6 +21,15 @@
   position: relative;
 }
 
+/*
+ * Only the button gets a layer of its own, to paint above the map that follows the toolbar in the DOM.
+ * A z-index on the toolbar would trap its tooltips and menus under the place search and observation panel.
+ */
+.map-toolbar-menu-container > adb-icon-button {
+  position: relative;
+  z-index: 1;
+}
+
 .map-toolbar-menu-dropdown {
   position: absolute;
   top: calc(-20% + var(--adb-spacing-xsm));
@@ -41,6 +50,76 @@
   width: 100%;
   padding: 0 var(--adb-spacing-xsm);
   color: var(--adb-text-base-primary);
+}
+
+/* Map button tooltips, behaviour in map-control-tooltip.ts. Global because OL controls render outside Angular's encapsulation. */
+.map-control-tooltip-anchor {
+  position: relative;
+}
+
+.map-control-tooltip {
+  /* Clears the button's focus ring */
+  --map-control-tooltip-gap: calc(var(--adb-spacing-sm) + var(--adb-spacing-2xsm));
+  position: absolute;
+  inset-inline-end: calc(100% + var(--map-control-tooltip-gap));
+  top: 50%;
+  transform: translateY(-50%);
+  /* Above open toolbar menus (.map-toolbar-menu-dropdown) */
+  z-index: 1001;
+  width: max-content;
+  max-width: min(24rem, 100cqi - 5rem);
+  padding: var(--adb-spacing-2xsm) var(--adb-spacing-xsm);
+  border-radius: var(--adb-border-radius-sm);
+  background: var(--adb-surface-base-invert);
+  color: var(--adb-text-base-invert);
+  font-size: var(--adb-font-size-small);
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* Bridges the gap so the pointer can move onto the tooltip without it closing (WCAG 1.4.13) */
+.map-control-tooltip::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 100%;
+  width: var(--map-control-tooltip-gap);
+}
+
+.map-control-tooltip::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-inline-start-color: var(--adb-surface-base-invert);
+}
+
+@media (hover: hover) {
+  .map-control-tooltip-anchor:hover > .map-control-tooltip {
+    visibility: visible;
+    opacity: 1;
+    transition:
+      opacity 0.1s ease 1s,
+      visibility 0s 1s;
+  }
+}
+
+/* The rules below match the hover rule's specificity, so their order decides. */
+.map-control-tooltip-anchor--keyboard-focus:focus-within > .map-control-tooltip,
+.map-control-tooltip-anchor:is(:hover, :focus-within) > .map-control-tooltip--immediate {
+  visibility: visible;
+  opacity: 1;
+  transition: none;
+}
+
+/* Hidden with visibility rather than display, so the hover delay still runs once a menu closes */
+.map-control-tooltip-anchor.map-control-tooltip-anchor--dismissed > .map-control-tooltip,
+.map-control-tooltip-anchor:has([aria-expanded='true']) > .map-control-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
 }
 
 @media (max-width: 768px) {

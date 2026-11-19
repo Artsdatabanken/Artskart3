@@ -1,4 +1,4 @@
-<div class="map-toolbar-menu-container">
+<div class="map-toolbar-menu-container" appMapControlTooltip>
   <adb-icon-button
     [attr.variant]="isOpen() ? 'primary' : 'secondary'"
     (click)="toggleMapSettings()"
@@ -14,6 +14,8 @@
       />
     </svg>
   </adb-icon-button>
+  <!-- aria-hidden: aria-describedby cannot reach the <button> in adb-icon-button's shadow DOM -->
+  <span class="map-control-tooltip" aria-hidden="true">{{ 'mapToolbar.settingsTooltip' | translate }}</span>
   @if (isOpen()) {
     <div class="map-toolbar-menu-dropdown" role="group" [attr.aria-label]="'mapToolbar.settingsAriaLabel' | translate">
       <div class="clustering-setting">

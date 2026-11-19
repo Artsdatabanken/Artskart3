@@ -396,6 +396,14 @@
       "eiendomskart": "Property",
       "maritimeGrenser": "Maritime boundaries"
     },
+    "mapTypeTooltip": "Change background map",
+    "layersTooltip": "Add map layers on top of the map",
+    "settingsTooltip": "Map settings",
+    "geolocationTooltip": "Find my location",
+    "fullscreenTooltip": "Show the map in fullscreen",
+    "exitFullscreenTooltip": "Exit fullscreen",
+    "zoomInTooltip": "Move closer in on the map",
+    "zoomOutTooltip": "Move further out on the map",
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
   "design": {
