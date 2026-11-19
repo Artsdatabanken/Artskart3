@@ -36,6 +36,6 @@
 
 @media (max-width: 768px) {
   .map-toolbar-bottom {
-    --map-toolbar-bottom-offset: calc(var(--home-handle-height, 56px) + 64px);
+    --map-toolbar-bottom-offset: calc(var(--home-handle-height, 56px) + 16px);
   }
 }
