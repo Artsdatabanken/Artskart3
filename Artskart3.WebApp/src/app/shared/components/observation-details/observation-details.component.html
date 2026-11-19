@@ -37,7 +37,7 @@
         [disabled]="count() < 2"
         [attr.aria-label]="'observationDetails.previous' | translate"
       >
-        <adb-icon class="previous-icon" name="chevron-down" aria-hidden="true" />
+        <adb-icon class="previous-icon" name="keyboard-arrow-down" aria-hidden="true" />
         <span class="visually-hidden">{{ 'observationDetails.previous' | translate }}</span>
       </adb-icon-button>
       <span role="status" aria-live="polite">{{ 'observationDetails.counter' | translate: { current: position(), total: count() } }}</span>
@@ -48,7 +48,7 @@
         [disabled]="count() < 2"
         [attr.aria-label]="'observationDetails.next' | translate"
       >
-        <adb-icon class="next-icon" name="chevron-down" aria-hidden="true" />
+        <adb-icon class="next-icon" name="keyboard-arrow-down" aria-hidden="true" />
         <span class="visually-hidden">{{ 'observationDetails.next' | translate }}</span>
       </adb-icon-button>
     </div>

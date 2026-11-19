@@ -59,6 +59,16 @@
     color 0.15s;
 }
 
+/* Icon strings from @artsdatabanken/icons/svg have no width/height and would collapse in the flex button */
+::ng-deep .artskart-control-icon {
+  display: flex;
+}
+
+::ng-deep .artskart-control-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
 ::ng-deep .artskart-zoom button:hover,
 ::ng-deep .artskart-fullscreen button:hover,
 ::ng-deep .artskart-geolocation button:hover {
