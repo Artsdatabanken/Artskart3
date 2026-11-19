@@ -2,7 +2,7 @@ using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Application.DTOs;
 
-public class LocationSearchFilterDto : IObservationFilter
+public class LocationSearchFilterDto : IObservationFilter, IAreaSelection
 {
     public int[]? TaxonGroupIds { get; set; }
 
@@ -171,19 +171,8 @@ public class LocationSearchFilterDto : IObservationFilter
     }
 
     /// <summary>
-    /// Samme filter med det egendefinerte området uttrykt som områdene helt innenfor det og
-    /// en lokasjonsliste for kanten, som behandles som en matrikkelenhet. Bare for filtre uten
-    /// andre områdevalg, siden områdene og listen OR-es.
+    /// Samme filter med det egendefinerte området delt opp, se <see cref="IAreaSelection.ReplaceCustomAreaWithAreas"/>.
     /// </summary>
-    public LocationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey)
-    {
-        var copy = (LocationSearchFilterDto)MemberwiseClone();
-        copy.MunicipalityIds = municipalityIds.Length > 0 ? municipalityIds : null;
-        copy.OceanAreaIds = oceanAreaIds.Length > 0 ? oceanAreaIds : null;
-        // Svalbard, Bjørnøya og Jan Mayen slås opp med fylkes-ID-ene, som ellers i løsningen.
-        copy.CountyIds = countyIds.Length > 0 ? countyIds : null;
-        copy.CadastralUnitIds = [edgeLocationsKey];
-        copy.CustomAreaWkt = null;
-        return copy;
-    }
+    public LocationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey) =>
+        IAreaSelection.ReplaceCustomAreaWithAreas((LocationSearchFilterDto)MemberwiseClone(), municipalityIds, oceanAreaIds, countyIds, edgeLocationsKey);
 }
