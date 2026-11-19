@@ -1,6 +1,18 @@
+import type { MapLayerDto } from '@shared/types/api.types';
 import { wmsLegendImages } from './wms-legend';
 
-const wms = { id: 1, name: 'Vern', type: 'WMS', url: 'https://example.test/wms?', layers: 'a, b', format: 'image/png', version: '1.3.0' };
+const wms: MapLayerDto = {
+  id: 1,
+  name: 'Vern',
+  type: 'WMS',
+  url: 'https://example.test/wms?',
+  layers: 'a, b',
+  format: 'image/png',
+  version: '1.3.0',
+  useSingleImage: false,
+  retryAfterSeconds: 0,
+  opacity: 1,
+};
 
 describe('wmsLegendImages', () => {
   it('lager én GetLegendGraphic-adresse per WMS-lag', () => {

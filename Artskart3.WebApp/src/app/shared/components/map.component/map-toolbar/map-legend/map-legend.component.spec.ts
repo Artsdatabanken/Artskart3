@@ -1,9 +1,18 @@
 import { TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
-import { MapLayerDto } from '@shared/types/map-layer.types';
+import { MapLayerDto } from '@shared/types/api.types';
 import { MapLegendComponent } from './map-legend.component';
 
-const layer: MapLayerDto = { id: 1, name: 'Bioseksjoner', type: 'wms', url: 'https://example.test/wms?', layers: 'bioseksjoner' };
+const layer: MapLayerDto = {
+  id: 1,
+  name: 'Bioseksjoner',
+  type: 'wms',
+  url: 'https://example.test/wms?',
+  layers: 'bioseksjoner',
+  useSingleImage: false,
+  retryAfterSeconds: 0,
+  opacity: 1,
+};
 
 async function createLegend(inputs: { isOpen?: boolean; activeLayers?: MapLayerDto[]; geolocationActive?: boolean }) {
   await TestBed.configureTestingModule({ imports: [MapLegendComponent], providers: [provideTranslateService()] }).compileComponents();

@@ -1,4 +1,4 @@
-import type { MapLayerDto } from '@shared/types/map-layer.types';
+import type { MapLayerDto } from '@shared/types/api.types';
 import { MAP_LAYER_LEGEND_LAYERS } from '@shared/config/map/map-layer-legend.config';
 
 export interface WmsLegendImage {

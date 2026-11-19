@@ -2,7 +2,7 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, model, signal } fro
 import { TranslateModule } from '@ngx-translate/core';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
 import { WmsLegendImage, wmsLegendImages } from '@shared/helpers/map-legend/wms-legend';
-import { MapLayerDto } from '@shared/types/map-layer.types';
+import { MapLayerDto } from '@shared/types/api.types';
 
 interface LayerLegend {
   layer: MapLayerDto;

@@ -5,7 +5,7 @@ import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.
 import { MapLayersComponent } from './map-layers/map-layers.component';
 import { MapSettingsComponent } from './map-settings/map-settings.component';
 import { MapLegendComponent } from './map-legend/map-legend.component';
-import { MapLayerDto } from '@shared/types/map-layer.types';
+import { MapLayerDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map-toolbar',
