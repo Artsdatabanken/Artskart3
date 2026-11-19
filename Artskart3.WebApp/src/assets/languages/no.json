@@ -166,6 +166,7 @@
   },
   "listView": {
     "showObservation": "Vis funn",
+    "showDetails": "Se funn",
     "showOnMap": "Vis i kart",
     "name": "Populærnavn (nb)",
     "scientificName": "Vitenskapelig navn",

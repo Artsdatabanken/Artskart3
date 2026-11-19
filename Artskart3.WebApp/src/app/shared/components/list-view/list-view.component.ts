@@ -1,4 +1,17 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, linkedSignal, output } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  CUSTOM_ELEMENTS_SCHEMA,
+  ElementRef,
+  Injector,
+  signal,
+  inject,
+  computed,
+  linkedSignal,
+  input,
+  output,
+} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -20,10 +33,20 @@ import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { ListObservationDetailsComponent } from '../list-observation-details/list-observation-details.component';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, RouterLink, LocaleDatePipe, MeterUnitPipe, LookupNamePipe, RiskCategoryBadgeComponent],
+  imports: [
+    TranslateModule,
+    RouterLink,
+    NgTemplateOutlet,
+    LocaleDatePipe,
+    MeterUnitPipe,
+    LookupNamePipe,
+    RiskCategoryBadgeComponent,
+    ListObservationDetailsComponent,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './list-view.component.html',
   styleUrl: './list-view.component.css',
@@ -36,6 +59,10 @@ export class ListViewComponent {
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly searchFilter = inject(SearchFilterService);
   private readonly mapView = inject(MapViewService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  readonly active = input(true);
 
   /** Needed besides the URL change, which doesn't happen when the observation is already open. */
   readonly observationShown = output<void>();
@@ -113,6 +140,12 @@ export class ListViewComponent {
     return this.pageNumber() + lookahead;
   });
 
+  readonly openObservationId = signal<number | null>(null);
+
+  readonly pageObservationIds = computed(() =>
+    this.observationsResource.hasValue() ? (this.observationsResource.value().items ?? []).flatMap((obs) => obs.id ?? []) : [],
+  );
+
   readonly hasMorePages = computed(() => {
     const response = this.observationsResource.value();
     if (!response) return false;
@@ -126,6 +159,23 @@ export class ListViewComponent {
   onPageSizeChange(size: number) {
     this.resultsPerPage.set(size);
     this.pageNumber.set(1);
+  }
+
+  openDetails(observation: ObservationDto): void {
+    if (observation.id != null) this.openObservationId.set(observation.id);
+  }
+
+  closeDetails(): void {
+    const id = this.openObservationId();
+    this.openObservationId.set(null);
+    afterNextRender(
+      () => {
+        const host = this.host.nativeElement;
+        const button = host.querySelector(`.show-details[data-observation-id="${id}"]`) ?? host.querySelector('.show-details');
+        button?.shadowRoot?.querySelector('button')?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   showOnMap(observation: ObservationDto, event: MouseEvent): void {
