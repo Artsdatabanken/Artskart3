@@ -66,9 +66,11 @@
         <section class="map-legend-layer">
           @let layerLabel = (mapLayerLabels[legend.layer.name] ?? legend.layer.name) | translate;
           <h3 class="map-legend-layer-heading adb-heading-2xsm">{{ layerLabel }}</h3>
-          @for (image of legend.images; track image.url) {
-            <img class="map-legend-image" [src]="image.url" [alt]="layerLabel" loading="lazy" (error)="onImageError(image.url)" />
-          }
+          <div class="map-legend-images">
+            @for (image of legend.images; track image.url) {
+              <img class="map-legend-image" [src]="image.url" [alt]="layerLabel" loading="lazy" (error)="onImageError(image.url)" />
+            }
+          </div>
         </section>
       }
     </div>
