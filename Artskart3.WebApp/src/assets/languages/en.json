@@ -336,7 +336,7 @@
       "finish": "Finish drawing",
       "undo": "Undo last point",
       "cancel": "Cancel drawing",
-      "remove": "Remove the area",
+      "remove": "Remove drawn area",
       "tooManyLocations": "The area contains too many locations (more than {{max}}). Make it smaller by dragging its corners, or draw a new one.",
       "tooManyLocationsWithAreas": "Together with the other area filters, the whole drawn area counts, and it contains too many locations (more than {{max}}). Make it smaller, or remove the other area filters.",
       "tooManyCorners": "The area has too many corners (more than {{max}}). Draw it with fewer corners. Drawing while holding Shift adds a corner for every movement.",

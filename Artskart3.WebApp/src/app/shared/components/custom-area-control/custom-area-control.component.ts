@@ -1,11 +1,11 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, Injector, afterNextRender, inject, viewChild } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, Injector, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { CustomAreaDrawingService } from '../../services/custom-area-drawing/custom-area-drawing.service';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 
 /**
- * Buttons for drawing a custom area on the map. The same button starts and finishes the drawing.
- * The red button cancels a drawing, or removes a polygon rejected for covering too many locations.
+ * Buttons for drawing a custom area on the map. The same button starts and finishes the drawing,
+ * and removes the drawn polygon, whether it's in the filter or rejected. The red button cancels a drawing.
  */
 @Component({
   selector: 'app-custom-area-control',
@@ -15,17 +15,23 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
     <p class="description">{{ 'sidebar.customArea.description' | translate }}</p>
     <div class="actions">
       <adb-button
-        #toggleButton
+        #mainButton
         variant="secondary"
         size="sm"
+        [attr.color]="removesArea() ? 'danger' : null"
         [disabled]="drawing.isDrawing() && !drawing.canFinish()"
-        (click)="toggle()"
+        (click)="mainAction()"
       >
         @if (drawing.isDrawing()) {
           <svg slot="icon-start" class="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
             <path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" fill="currentColor" />
           </svg>
           {{ 'sidebar.customArea.finish' | translate }}
+        } @else if (removesArea()) {
+          <svg slot="icon-start" class="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
+            <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360Z" fill="currentColor" />
+          </svg>
+          {{ 'sidebar.customArea.remove' | translate }}
         } @else {
           <adb-icon slot="icon-start" name="custom/polygon" aria-hidden="true" />
           {{ 'sidebar.customArea.draw' | translate }}
@@ -41,13 +47,13 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
           </svg>
         </adb-icon-button>
       }
-      @if (drawing.isDrawing() || drawing.rejected()) {
+      @if (drawing.isDrawing()) {
         <adb-icon-button
           variant="secondary"
           color="danger"
           size="sm"
           (click)="cancel()"
-          [attr.aria-label]="(drawing.isDrawing() ? 'sidebar.customArea.cancel' : 'sidebar.customArea.remove') | translate"
+          [attr.aria-label]="'sidebar.customArea.cancel' | translate"
         >
           <svg class="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
             <path
@@ -100,21 +106,23 @@ import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 export class CustomAreaControlComponent {
   protected readonly drawing = inject(CustomAreaDrawingService);
   protected readonly translate = inject(TranslateService);
-  private readonly toggleButton = viewChild.required<ElementRef<HTMLElement>>('toggleButton');
+  private readonly mainButton = viewChild.required<ElementRef<HTMLElement>>('mainButton');
   private readonly injector = inject(Injector);
 
-  toggle(): void {
+  protected readonly removesArea = computed(() => !this.drawing.isDrawing() && this.drawing.hasArea());
+
+  mainAction(): void {
     if (this.drawing.isDrawing()) this.drawing.finish();
+    else if (this.removesArea()) this.drawing.remove();
     else this.drawing.start();
   }
 
   cancel(): void {
-    if (this.drawing.isDrawing()) this.drawing.cancel();
-    else this.drawing.dismissRejected();
-    // The red button goes away, so focus moves to the toggle button once it is enabled again.
+    this.drawing.cancel();
+    // The red button goes away, so focus moves to the main button once it is enabled again.
     afterNextRender(
       async () => {
-        const button = this.toggleButton().nativeElement as HTMLElement & { updateComplete?: Promise<unknown> };
+        const button = this.mainButton().nativeElement as HTMLElement & { updateComplete?: Promise<unknown> };
         await button.updateComplete;
         button.shadowRoot?.querySelector('button')?.focus();
       },

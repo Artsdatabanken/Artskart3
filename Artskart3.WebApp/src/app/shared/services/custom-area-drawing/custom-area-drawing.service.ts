@@ -83,6 +83,9 @@ export class CustomAreaDrawingService {
     return { wkt: rejected.wkt, reason: rejected.reason, limit: rejected.limit };
   });
 
+  /** A drawn polygon is on the map, either in the filter or rejected. */
+  readonly hasArea = computed(() => this.rejected() !== null || this.filterState.customAreaWkt() !== null);
+
   private readonly areaSelection = computed<AreaSelection>(
     () => {
       const filter = this.searchFilter.observationFilter();
@@ -200,9 +203,11 @@ export class CustomAreaDrawingService {
     this.stopped();
   }
 
-  /** Removes a rejected polygon from the map. */
-  dismissRejected(): void {
+  /** Removes the drawn polygon from the map and the filter, and drops any check still running for it. */
+  remove(): void {
+    this.pending = undefined;
     this.rejectedArea.set(null);
+    this.filterState.clearCustomArea();
   }
 
   /** Called by the map when a polygon is finished or its corners are moved. */

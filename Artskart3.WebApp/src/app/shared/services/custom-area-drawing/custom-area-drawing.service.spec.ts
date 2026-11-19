@@ -173,8 +173,35 @@ describe('CustomAreaDrawingService', () => {
   it('kan fjerne et avvist polygon', () => {
     service.submit(WKT);
     lookup().flush({ tooManyLocations: true, maxLocationCount: 200000 });
-    service.dismissRejected();
+    expect(service.hasArea()).toBe(true);
 
+    service.remove();
+
+    expect(service.rejected()).toBeNull();
+    expect(service.hasArea()).toBe(false);
+  });
+
+  it('kan fjerne et polygon som er i filteret', () => {
+    service.submit(WKT);
+    lookup().flush({ tooManyLocations: false, maxLocationCount: 200000 });
+    expect(service.hasArea()).toBe(true);
+
+    service.remove();
+
+    expect(filterState.customAreaWkt()).toBeNull();
+    expect(service.hasArea()).toBe(false);
+  });
+
+  it('ser bort fra svaret på en sjekk av et polygon som er fjernet', () => {
+    service.submit(WKT);
+    service.remove();
+    lookup().flush({ tooManyLocations: false, maxLocationCount: 200000 });
+
+    searchFilter.set({ municipalityIds: ['0301'] });
+    TestBed.tick();
+
+    http.expectNone('/api/Lookup/CustomArea');
+    expect(filterState.customAreaWkt()).toBeNull();
     expect(service.rejected()).toBeNull();
   });
 

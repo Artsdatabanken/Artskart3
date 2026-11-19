@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TranslateModule } from '@ngx-translate/core';
 import { CustomAreaControlComponent } from './custom-area-control.component';
 import { CustomAreaDrawingCommand, CustomAreaDrawingService } from '../../services/custom-area-drawing/custom-area-drawing.service';
+import { FilterStateService } from '../../services/filter-state/filter-state.service';
 
 describe('CustomAreaControlComponent', () => {
   let fixture: ComponentFixture<CustomAreaControlComponent>;
@@ -11,7 +12,7 @@ describe('CustomAreaControlComponent', () => {
   let commands: CustomAreaDrawingCommand[];
 
   const buttons = () => [...fixture.nativeElement.querySelectorAll('adb-button, adb-icon-button')] as HTMLElement[];
-  const toggleButton = () => fixture.nativeElement.querySelector('adb-button') as HTMLElement & { disabled: boolean };
+  const mainButton = () => fixture.nativeElement.querySelector('adb-button') as HTMLElement & { disabled: boolean };
   const click = (element: HTMLElement) => {
     element.click();
     fixture.detectChanges();
@@ -32,26 +33,26 @@ describe('CustomAreaControlComponent', () => {
 
   it('viser bare knappen for å tegne før tegningen er startet', () => {
     expect(buttons()).toHaveLength(1);
-    expect(toggleButton().textContent).toContain('sidebar.customArea.draw');
+    expect(mainButton().textContent).toContain('sidebar.customArea.draw');
   });
 
   it('starter og fullfører tegningen med samme knapp', () => {
-    click(toggleButton());
+    click(mainButton());
 
     expect(commands).toEqual(['start']);
-    expect(toggleButton().textContent).toContain('sidebar.customArea.finish');
-    expect(toggleButton().disabled).toBe(true);
+    expect(mainButton().textContent).toContain('sidebar.customArea.finish');
+    expect(mainButton().disabled).toBe(true);
 
     drawing.setPointCount(3);
     fixture.detectChanges();
-    click(toggleButton());
+    click(mainButton());
 
-    expect(toggleButton().disabled).toBe(false);
+    expect(mainButton().disabled).toBe(false);
     expect(commands).toEqual(['start', 'finish']);
   });
 
   it('kan angre et hjørne og avbryte mens tegningen pågår', () => {
-    click(toggleButton());
+    click(mainButton());
     const [undo, cancel] = [...fixture.nativeElement.querySelectorAll('adb-icon-button')] as HTMLElement[];
 
     expect(undo.getAttribute('aria-label')).toBe('sidebar.customArea.undo');
@@ -64,21 +65,41 @@ describe('CustomAreaControlComponent', () => {
     expect(buttons()).toHaveLength(1);
   });
 
-  it('forklarer et avvist polygon og kan fjerne det', () => {
+  const checkPolygon = (tooManyLocations: boolean) => {
     drawing.submit('POLYGON((0 0,10 0,10 10,0 0))');
     TestBed.inject(HttpTestingController)
       .expectOne('/api/Lookup/CustomArea')
-      .flush({ tooManyLocations: true, maxLocationCount: 200000 });
+      .flush({ tooManyLocations, maxLocationCount: 200000 });
     fixture.detectChanges();
+  };
+
+  it('fjerner et tegnet område i filteret med hovedknappen, i farefarge', () => {
+    checkPolygon(false);
+
+    expect(buttons()).toHaveLength(1);
+    expect(mainButton().textContent).toContain('sidebar.customArea.remove');
+    expect(mainButton().getAttribute('color')).toBe('danger');
+
+    click(mainButton());
+
+    expect(TestBed.inject(FilterStateService).customAreaWkt()).toBeNull();
+    expect(commands).toEqual([]);
+    expect(mainButton().textContent).toContain('sidebar.customArea.draw');
+    expect(mainButton().getAttribute('color')).toBeNull();
+  });
+
+  it('forklarer et avvist polygon og fjerner det med hovedknappen', () => {
+    checkPolygon(true);
 
     const message = fixture.nativeElement.querySelector('[role="status"]') as HTMLElement;
-    const remove = fixture.nativeElement.querySelector('adb-icon-button') as HTMLElement;
     expect(message.textContent?.trim()).toBe('sidebar.customArea.tooManyLocations');
-    expect(remove.getAttribute('aria-label')).toBe('sidebar.customArea.remove');
+    expect(buttons()).toHaveLength(1);
+    expect(mainButton().textContent).toContain('sidebar.customArea.remove');
 
-    click(remove);
+    click(mainButton());
 
     expect(drawing.rejected()).toBeNull();
     expect(message.textContent?.trim()).toBe('');
+    expect(mainButton().textContent).toContain('sidebar.customArea.draw');
   });
 });

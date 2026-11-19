@@ -336,7 +336,7 @@
       "finish": "Fullfør tegning",
       "undo": "Angre siste punkt",
       "cancel": "Avbryt tegning",
-      "remove": "Fjern området",
+      "remove": "Fjern tegnet område",
       "tooManyLocations": "Området inneholder for mange lokaliteter (over {{max}}). Gjør det mindre ved å dra i hjørnene, eller tegn et nytt.",
       "tooManyLocationsWithAreas": "Sammen med de andre områdefiltrene teller hele det tegnede området, og det inneholder for mange lokaliteter (over {{max}}). Gjør det mindre, eller fjern de andre områdefiltrene.",
       "tooManyCorners": "Området har for mange hjørner (over {{max}}). Tegn det med færre hjørner. Tegner du med Shift nede, blir hver bevegelse et hjørne.",
