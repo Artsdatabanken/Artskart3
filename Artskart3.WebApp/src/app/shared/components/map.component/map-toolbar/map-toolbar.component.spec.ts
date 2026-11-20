@@ -44,6 +44,8 @@ describe('MapToolbarComponent', () => {
     buttonFor('mapToolbar.legendHeading').dispatchEvent(new Event('click'));
     fixture.detectChanges();
     expect(legendOpen()).toBe(false);
+  });
+
   it('gives each toolbar button a tooltip', () => {
     fixture = TestBed.createComponent(MapToolbarComponent);
     fixture.detectChanges();
