@@ -1,6 +1,5 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, EventEmitter, Input, Output, inject, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, EventEmitter, Input, Output, inject } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapLayerDto } from '@shared/types/api.types';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
@@ -18,9 +17,9 @@ export class MapLayersComponent {
   @Output() mapLayerVisibilityChange = new EventEmitter<{ layer: MapLayerDto; visible: boolean }>();
 
   private readonly mapLayerService = inject(MapLayerService);
-  readonly mapLayers = toSignal(this.mapLayerService.getMapLayers(), { initialValue: [] });
+  readonly mapLayers = this.mapLayerService.mapLayers;
   readonly failedLayerIds = this.mapLayerService.failedLayerIds;
-  readonly enabledLayerIds = signal(new Set<number>());
+  readonly enabledLayerIds = this.mapLayerService.enabledLayerIds;
   readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
   toggleMapLayers(): void {
     this.mapLayersOpenChange.emit(!this.isOpen);
@@ -32,13 +31,7 @@ export class MapLayersComponent {
 
   onLayerChange(layer: MapLayerDto, event: Event): void {
     const visible = Boolean((event.target as HTMLElement & { checked?: boolean }).checked);
-    const enabledLayerIds = new Set(this.enabledLayerIds());
-    if (visible) {
-      enabledLayerIds.add(layer.id);
-    } else {
-      enabledLayerIds.delete(layer.id);
-    }
-    this.enabledLayerIds.set(enabledLayerIds);
+    this.mapLayerService.setLayerEnabled(layer.id, visible);
     this.mapLayerVisibilityChange.emit({ layer, visible });
   }
 }

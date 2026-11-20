@@ -1,11 +1,11 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, input, model, output, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, input, model, output, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { ClusteringLock, MapToolbarMenu, MapToolbarMenuItemChange } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
 import { MapLayersComponent } from './map-layers/map-layers.component';
 import { MapSettingsComponent } from './map-settings/map-settings.component';
 import { MapLegendComponent } from './map-legend/map-legend.component';
-import { MapLayerDto } from '@shared/types/api.types';
 
 @Component({
   selector: 'app-map-toolbar',
@@ -22,7 +22,7 @@ export class MapToolbarComponent {
   readonly geolocationActive = input(false);
 
   protected readonly openMenu = signal<MapToolbarMenu | null>(null);
-  protected readonly activeLayers = signal<readonly MapLayerDto[]>([]);
+  protected readonly activeLayers = inject(MapLayerService).activeLayers;
 
   onButtonClick(iconName: string): void {
     this.iconClick.emit(iconName);
@@ -45,10 +45,6 @@ export class MapToolbarComponent {
   }
 
   onMapToolbarMenuItemChange(event: MapToolbarMenuItemChange): void {
-    this.activeLayers.update((layers) => {
-      const others = layers.filter((layer) => layer.id !== event.layer.id);
-      return event.visible ? [...others, event.layer] : others;
-    });
     this.mapToolbarMenuItemChange.emit(event);
   }
 

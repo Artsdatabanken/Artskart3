@@ -18,8 +18,9 @@ describe('MapLayersComponent load warnings', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(MapLayersComponent);
     fixture.componentRef.setInput('isOpen', true);
-    fixture.componentInstance.enabledLayerIds.set(new Set([1, 2]));
     const service = TestBed.inject(MapLayerService);
+    service.setLayerEnabled(1, true);
+    service.setLayerEnabled(2, true);
     const alerts = TestBed.inject(AlertService);
     const element: HTMLElement = fixture.nativeElement;
     fixture.detectChanges();
