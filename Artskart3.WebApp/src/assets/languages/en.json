@@ -194,6 +194,7 @@
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
+    "activeSelections": "Has active filters",
     "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species List",

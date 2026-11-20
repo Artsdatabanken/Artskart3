@@ -194,6 +194,7 @@
     "areas": "Områder",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
+    "activeSelections": "Har aktive filtervalg",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartslista",
