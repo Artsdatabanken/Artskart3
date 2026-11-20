@@ -2179,6 +2179,7 @@ export interface components {
             wktPolygon?: string;
             /** Format: int32 */
             observationCount?: number;
+            isSensitive?: boolean;
         };
         LocationSearchFilterDto: {
             taxonGroupIds?: null | number[];
@@ -2285,6 +2286,8 @@ export interface components {
             quality?: null | number;
             tags?: string[];
             hasErrors?: boolean;
+            /** Format: int32 */
+            locationId?: null | number;
             locality?: null | string;
             counties?: string[];
             municipalities?: string[];

@@ -32,6 +32,7 @@ import { LocationCountResult } from '@shared/types/api.types';
 import { AreaMarkerDto } from '@shared/types/api.types'
 import { MapLayerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { LanguageService } from '@shared/services/languages/language.service';
 import { MAP_CONFIG } from '@shared/config/map.config';
@@ -92,6 +93,7 @@ import {
   MapFeatureStyles,
   MapFeatureState,
   hasPolygonMarker,
+  isSensitivePolygon,
   popOuts,
   registrationStatusOf,
 } from './map-feature-styles';
@@ -325,15 +327,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   public observationList = signal<ObservationListInfoDto[]>([]);
   readonly observationSelection = signal<ObservationSelection | null>(null);
   readonly observationRequestState = signal<ObservationRequestState>('ready');
-  private readonly selectedLocationIds = computed(
-    () =>
-      new Set(
-        this.showObservationList() && !this.observationPanel()?.detailsOpen() ? (this.observationSelection()?.locationIds ?? []) : [],
-      ),
+  private readonly listedLocationIds = computed(
+    () => new Set(this.showObservationList() ? (this.observationSelection()?.locationIds ?? []) : []),
   );
+  /** The details marker is only a point, so the outline of the open observation's location stays selected. */
+  private readonly selectedPolygonIds = computed(() => {
+    const panel = this.observationPanel();
+    if (!panel?.detailsOpen()) return this.listedLocationIds();
+    const observationId = panel.selectedId();
+    // The list knows the location before the details have loaded.
+    const locationId = this.observationList().find(({ id }) => id === observationId)?.locationId ?? panel.detail()?.locationId;
+    return new Set(locationId != null ? [locationId] : []);
+  });
+  /** Bumped when the drawn points or polygons or their visibility change, which no signal tracks. */
+  private readonly locationLayersRevision = signal(0);
+  /**
+   * A sensitive find's point is only the center of its masking square, so the square's own marker can stand in for
+   * the details marker, as long as it is drawn and shows the same status.
+   */
+  private readonly squareMarkerStandsIn = computed(() => {
+    this.locationLayersRevision();
+    const ids = this.selectedPolygonIds();
+    if (ids.size !== 1 || !this.mapReady) return false;
+    const [locationId] = ids;
+    // Zoomed out, the polygons are kept but hidden.
+    if (!this.map.getLayerById(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getVisible()) return false;
+    const square = this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getFeatureById(locationId);
+    const point = this.locationPoints().source?.getFeatureById(locationId);
+    // Until the details have loaded, the location's status stands in for the find's.
+    const detail = this.observationPanel()?.detail();
+    const found = !detail || registrationStatusFromTags(detail.tags) === 'found';
+    return found && square instanceof Feature && isSensitivePolygon(square) && point instanceof Feature && hasPolygonMarker(point);
+  });
+  /** While details are open, the details marker shows what is selected, unless the square's own marker stands in for it. */
+  private readonly selectedLocationIds = computed(() => {
+    if (!this.observationPanel()?.detailsOpen()) return this.listedLocationIds();
+    return this.squareMarkerStandsIn() ? this.selectedPolygonIds() : new Set<number>();
+  });
   private readonly _redrawSelection = effect(() => {
     this.selectedLocationIds();
+    this.selectedPolygonIds();
     untracked(() => this.redrawLocationStyles());
+  });
+  private readonly _redrawObservationMarker = effect(() => {
+    this.squareMarkerStandsIn();
+    untracked(() => this.highlightObservation(this.activeObservationPoint));
   });
 
   private readonly _onObservationFilterChange = effect(() => {
@@ -493,7 +531,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   highlightObservation(point: ActiveObservationPoint | null): void {
     this.activeObservationPoint = point;
     if (!this.mapReady || !this.mapVisible) return;
-    const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
+    const coordinates: [number, number] | null =
+      point?.east != null && point.north != null && !this.squareMarkerStandsIn() ? [point.east, point.north] : null;
     this.map.updateGeoJSONLayer(
       MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       JSON.stringify({
@@ -865,7 +904,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const points = clustered
       ? this.featuresById(source, [...this.selectedLocationIds()]).filter(hasPolygonMarker)
       : this.featuresById(source, ids);
-    const polygons = this.featuresById(this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID), ids);
+    const polygons = this.featuresById(this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID), [
+      ...new Set([...this.hoveredLocationIds, ...this.selectedPolygonIds()]),
+    ]);
     this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, points);
     this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, polygons);
   }
@@ -931,6 +972,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return new Set(this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getFeatures().map((polygon) => polygon.getId()));
   }
 
+  private locationLayersChanged(): void {
+    this.locationLayersRevision.update((revision) => revision + 1);
+  }
+
   private markPolygonLocationPoints(): void {
     const { source: points, clustered } = this.locationPoints();
     if (!points) return;
@@ -948,12 +993,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return features.map((member): unknown => member.get('id')).filter((id): id is number => typeof id === 'number' && Number.isFinite(id));
   }
 
-  private locationFeatureState(feature: FeatureLike): MapFeatureState {
+  private locationFeatureState(feature: FeatureLike, selectedIds = this.selectedLocationIds()): MapFeatureState {
     const ids = this.locationIdsForFeature(feature);
     if (!ids.length) return 'default';
     // A cluster that also holds unselected locations would suggest its whole count is selected.
-    if (ids.every((id) => this.selectedLocationIds().has(id))) return 'selected';
+    if (ids.every((id) => selectedIds.has(id))) return 'selected';
     return ids.every((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+  }
+
+  private polygonFeatureState(feature: FeatureLike): MapFeatureState {
+    return this.locationFeatureState(feature, this.selectedPolygonIds());
   }
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
@@ -1021,7 +1070,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       pickable: true,
       zIndex: 90,
       zIndexPinned: true,
-      style: { type: 'raw', options: { instance: () => styles.polygon() } },
+      style: { type: 'raw', options: { instance: (feature: FeatureLike) => styles.polygon(isSensitivePolygon(feature)) } },
     });
 
     this.map.addLayer({
@@ -1054,7 +1103,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: {
         type: 'raw',
-        options: { instance: (feature: FeatureLike) => styles.polygonHighlight(this.locationFeatureState(feature)) },
+        options: {
+          instance: (feature: FeatureLike) => styles.polygonHighlight(this.polygonFeatureState(feature), isSensitivePolygon(feature)),
+        },
       },
     });
   }
@@ -1259,6 +1310,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, showLocations);
     this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
     this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.locationLayersChanged();
     this.map.setLayerVisibility(MAP_CONSTANTS.COUNTIES_LAYER_ID, !locationsAtAllZooms);
     this.map.setLayerVisibility(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
 
@@ -1549,6 +1601,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
                 this.clearMarkerHover();
                 this.map.updateGeoJSONLayer(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
                 this.markPolygonLocationPoints();
+                this.locationLayersChanged();
                 this.redrawLocationStyles();
                 underLimit.polygons = count < ZoomConfig.MAX_POLYGONS_PER_FETCH;
                 recordCoverage();
@@ -1799,6 +1852,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
     pointSource.clear(true);
     pointSource.addFeatures(features);
+    this.locationLayersChanged();
     this.refreshLocationHighlights();
     return true;
   }
