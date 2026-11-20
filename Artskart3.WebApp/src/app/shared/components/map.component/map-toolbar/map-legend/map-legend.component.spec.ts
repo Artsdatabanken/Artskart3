@@ -76,4 +76,28 @@ describe('MapLegendComponent', () => {
     fixture.detectChanges();
     expect(element.querySelector('.map-legend-layer')).toBeNull();
   });
+
+  it('prøver igjen etter en mislykket lasting når laget skrus av og på, eller boksen åpnes på nytt', async () => {
+    const { fixture, element } = await createLegend({ isOpen: true, activeLayers: [layer] });
+    const failImage = () => {
+      element.querySelector('.map-legend-image')!.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+    };
+
+    failImage();
+    expect(element.querySelector('.map-legend-image')).toBeNull();
+
+    fixture.componentRef.setInput('activeLayers', []);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('activeLayers', [layer]);
+    fixture.detectChanges();
+    expect(element.querySelector('.map-legend-image')).not.toBeNull();
+
+    failImage();
+    fixture.componentInstance.isOpen.set(false);
+    fixture.detectChanges();
+    fixture.componentInstance.isOpen.set(true);
+    fixture.detectChanges();
+    expect(element.querySelector('.map-legend-image')).not.toBeNull();
+  });
 });

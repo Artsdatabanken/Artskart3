@@ -1,4 +1,4 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, model, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, linkedSignal, model } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
 import { WmsLegendImage, wmsLegendImages } from '@shared/helpers/map-legend/wms-legend';
@@ -22,7 +22,11 @@ export class MapLegendComponent {
   readonly geolocationActive = input(false);
 
   protected readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
-  private readonly failedImageUrls = signal<ReadonlySet<string>>(new Set());
+  // Nullstilles når lagene endres eller boksen åpnes og lukkes, så en feil gir nytt forsøk
+  private readonly failedImageUrls = linkedSignal<unknown, ReadonlySet<string>>({
+    source: () => ({ layers: this.activeLayers(), open: this.isOpen() }),
+    computation: () => new Set<string>(),
+  });
 
   protected readonly layerLegends = computed<LayerLegend[]>(() =>
     this.activeLayers()
