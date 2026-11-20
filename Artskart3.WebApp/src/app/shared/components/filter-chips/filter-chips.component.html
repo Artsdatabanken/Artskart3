@@ -9,7 +9,7 @@
           }
         </button>
         <app-tooltip [anchor]="chipButton" [alignTo]="chipElement">{{ chip.details }}</app-tooltip>
-        <adb-icon-button size="sm" variant="tertiary" [attr.aria-label]="'Remove ' + chip.label + ' filter'" (click)="chip.clear()">
+        <adb-icon-button size="sm" variant="tertiary" [attr.aria-label]="'sidebar.removeFilterAriaLabel' | translate: { filter: chip.label }" (click)="chip.clear()">
           <adb-icon name="close" />
         </adb-icon-button>
       </span>
