@@ -152,3 +152,12 @@
     }
   }
 }
+
+.white-icon {
+  color: var(--adb-color-brand-white);
+}
+
+/* adb-minimal-button doesn't size its icon */
+.minimal-button-sm-icon {
+  --adb-icon-size: 20px;
+}

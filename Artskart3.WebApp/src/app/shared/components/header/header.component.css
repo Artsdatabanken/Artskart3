@@ -183,8 +183,8 @@
   border-radius: var(--adb-border-radius-sm);
 }
 
-.header-btn svg {
-  display: block;
+.dropdown-icon {
+  --adb-icon-size: 20px;
 }
 
 .header-btn.icon-btn {
@@ -364,7 +364,7 @@
   min-width: 0;
 }
 
-.user-control .header-btn svg {
+.user-control .header-btn adb-icon {
   flex-shrink: 0;
 }
 

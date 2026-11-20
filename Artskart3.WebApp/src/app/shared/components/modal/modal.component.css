@@ -49,6 +49,10 @@
   transition: background-color 0.15s;
 }
 
+.modal-close-icon {
+  --adb-icon-size: 20px;
+}
+
 .modal-close-btn:hover {
   background-color: var(--adb-background-subtle);
 }

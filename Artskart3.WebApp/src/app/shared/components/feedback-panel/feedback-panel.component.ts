@@ -1,9 +1,10 @@
-import { Component, ElementRef, signal, viewChild } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, signal, viewChild } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-feedback-panel',
   imports: [TranslateModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './feedback-panel.component.html',
   styleUrl: './feedback-panel.component.css',
   host: {
