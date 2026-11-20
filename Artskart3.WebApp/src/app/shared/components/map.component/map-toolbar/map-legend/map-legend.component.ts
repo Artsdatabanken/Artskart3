@@ -1,0 +1,76 @@
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, input, linkedSignal, model } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
+import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
+import { WmsLegendImage, wmsLegendImages } from '@shared/helpers/map-legend/wms-legend';
+import { MapLayerDto } from '@shared/types/api.types';
+import {
+  BORDER_WIDTH,
+  CLUSTER_MARKER_RADIUS,
+  LABEL_FONT,
+  POLYGON_ICON_VIEWBOX_SIZE,
+  POLYGON_MARKER_SIZE,
+  UNCLUSTERED_LOCATION_RADIUS,
+  negativeGlyphPath,
+  polygonIconBorderWidth,
+  polygonIconPath,
+} from '../../map-feature-styles';
+
+interface LayerLegend {
+  layer: MapLayerDto;
+  images: WmsLegendImage[];
+}
+
+const SYMBOL_SIZE = 36;
+const CENTER = SYMBOL_SIZE / 2;
+// De små markørene står i samme venstrekant som clustermarkøren
+const LOCATION_CX = CENTER - CLUSTER_MARKER_RADIUS + UNCLUSTERED_LOCATION_RADIUS;
+const POLYGON_OFFSET = (SYMBOL_SIZE - POLYGON_MARKER_SIZE) / 2;
+
+@Component({
+  selector: 'app-map-legend',
+  imports: [TranslateModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  templateUrl: './map-legend.component.html',
+  styleUrl: './map-legend.component.css',
+})
+export class MapLegendComponent {
+  readonly isOpen = model(false);
+  readonly activeLayers = input<readonly MapLayerDto[]>([]);
+  readonly geolocationActive = input(false);
+
+  // Symbolene tegnes etter de samme målene som markørene i kartet
+  protected readonly symbolSize = SYMBOL_SIZE;
+  protected readonly viewBox = `0 0 ${SYMBOL_SIZE} ${SYMBOL_SIZE}`;
+  protected readonly center = CENTER;
+  protected readonly locationCx = LOCATION_CX;
+  protected readonly locationRadius = UNCLUSTERED_LOCATION_RADIUS;
+  protected readonly clusterRadius = CLUSTER_MARKER_RADIUS;
+  protected readonly borderWidth = BORDER_WIDTH;
+  protected readonly labelFont = LABEL_FONT;
+  protected readonly absentGlyph = negativeGlyphPath('absent', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
+  protected readonly notRecoveredGlyph = negativeGlyphPath('notRecovered', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
+  protected readonly polygonPath = polygonIconPath();
+  protected readonly polygonBorderWidth = polygonIconBorderWidth(POLYGON_MARKER_SIZE);
+  protected readonly polygonTransform = `translate(${POLYGON_OFFSET} ${POLYGON_OFFSET}) scale(${POLYGON_MARKER_SIZE / POLYGON_ICON_VIEWBOX_SIZE})`;
+
+  protected readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
+  // Nullstilles når lagene endres eller boksen åpnes og lukkes, så en feil gir nytt forsøk
+  private readonly failedImageUrls = linkedSignal<unknown, ReadonlySet<string>>({
+    source: () => ({ layers: this.activeLayers(), open: this.isOpen() }),
+    computation: () => new Set<string>(),
+  });
+
+  protected readonly layerLegends = computed<LayerLegend[]>(() =>
+    this.activeLayers()
+      .map((layer) => ({ layer, images: wmsLegendImages(layer).filter((image) => !this.failedImageUrls().has(image.url)) }))
+      .filter(({ images }) => images.length > 0),
+  );
+
+  toggleMapLegend(): void {
+    this.isOpen.update((open) => !open);
+  }
+
+  protected onImageError(url: string): void {
+    this.failedImageUrls.update((urls) => new Set(urls).add(url));
+  }
+}

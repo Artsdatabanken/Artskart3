@@ -162,6 +162,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private initializationTimer?: ReturnType<typeof setTimeout>;
 
   private readonly pendingAreaDataRequests = signal(0);
+  protected readonly geolocationActive = signal(false);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
   private fetchGeneration = 0;
@@ -568,14 +569,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private adoptGeolocationControl(): void {
-    if (!this.map) return;
-    this.geolocationControl = createGeolocationControl(
-      this.geolocationControlLabels(),
-      { onClick: () => this.map.zoomToGeolocation(14) },
-      this.mapControls().nativeElement,
-    );
-    this.map.adoptControl(this.geolocationControl, 'geolocation');
-  }
+  if (!this.map) return;
+
+  this.geolocationControl = createGeolocationControl(
+    this.geolocationControlLabels(),
+    {
+      onClick: async () => {
+        const located = await this.map.zoomToGeolocation(14);
+        if (located) this.geolocationActive.set(true);
+        return located;
+      },
+    },
+    this.mapControls().nativeElement,
+  );
+
+  this.map.adoptControl(this.geolocationControl, 'geolocation');
+}
 
   private zoomControlLabels(): ZoomControlLabels {
     return {

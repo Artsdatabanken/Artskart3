@@ -18,4 +18,7 @@
       (mapSettingsOpenChange)="onMapSettingsOpenChange($event)"
     ></app-map-settings>
   </div>
+  <div class="map-toolbar-bottom">
+    <app-map-legend [activeLayers]="activeLayers()" [geolocationActive]="geolocationActive()"></app-map-legend>
+  </div>
 </div>

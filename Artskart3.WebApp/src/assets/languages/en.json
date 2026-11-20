@@ -385,6 +385,17 @@
     "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
     "mapTypeHeading": "Background map",
     "loadingObservationsLabel": "Fetching observations...",
+    "legendHeading": "Legend",
+    "legend": {
+      "found": "Found",
+      "absent": "Not found",
+      "notRecovered": "Not recovered",
+      "position": "Your position",
+      "cluster": "Location with multiple records",
+      "polygonCluster": "Area with multiple records",
+      "imageAlt": "Legend for {{layer}}",
+      "imagePartAlt": "Legend for {{layer}}, part {{index}} of {{count}}"
+    },
     "mapTypes": {
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",

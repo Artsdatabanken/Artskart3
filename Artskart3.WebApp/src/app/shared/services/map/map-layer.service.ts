@@ -1,5 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { Observable, catchError, of } from 'rxjs';
 import { ApiClientService } from '@core/services/api-client.service';
 import { MapLayerDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
@@ -13,6 +14,22 @@ export class MapLayerService {
   private readonly failedLayerIdsState = signal<ReadonlySet<number>>(new Set());
   readonly failedLayerIds = this.failedLayerIdsState.asReadonly();
   private layerLoadWarningId: number | null = null;
+
+  readonly mapLayers = toSignal(this.getMapLayers().pipe(catchError(() => of([] as MapLayerDto[]))), { initialValue: [] as MapLayerDto[] });
+  private readonly enabledLayerIdsState = signal<ReadonlySet<number>>(new Set());
+  readonly enabledLayerIds = this.enabledLayerIdsState.asReadonly();
+  /** De påslåtte lagene i samme rekkefølge som kartlagslisten. */
+  readonly activeLayers = computed(() => this.mapLayers().filter((layer) => this.enabledLayerIds().has(layer.id)));
+
+  setLayerEnabled(layerId: number, enabled: boolean): void {
+    const current = this.enabledLayerIdsState();
+    if (current.has(layerId) === enabled) return;
+
+    const next = new Set(current);
+    if (enabled) next.add(layerId);
+    else next.delete(layerId);
+    this.enabledLayerIdsState.set(next);
+  }
 
   setLayerFailed(layerId: number, failed: boolean): void {
     const current = this.failedLayerIdsState();
