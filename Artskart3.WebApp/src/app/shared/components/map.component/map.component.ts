@@ -569,31 +569,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private adoptGeolocationControl(): void {
-    if (!this.map) return;
-    this.geolocationControl = createGeolocationControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+  if (!this.map) return;
+
+  this.geolocationControl = createGeolocationControl(
+    this.geolocationControlLabels(),
+    {
+      onClick: async () => {
+        const located = await this.map.zoomToGeolocation(14);
+        if (located) this.geolocationActive.set(true);
+        return located;
       },
-      {
-        onClick: async () => {
-          const located = await this.map.zoomToGeolocation(14);
-          if (located) this.geolocationActive.set(true);
-          return located;
-        },
-      },
-      this.geolocationControlLabels(),
-      {
-        onClick: async () => {
-          const located = await this.map.zoomToGeolocation(14);
-          if (located) this.geolocationActive.set(true);
-          return located;
-        },
-      },
-      this.mapControls().nativeElement,
-    );
-    this.map.adoptControl(this.geolocationControl, 'geolocation');
-  }
+    },
+    this.mapControls().nativeElement,
+  );
+
+  this.map.adoptControl(this.geolocationControl, 'geolocation');
+}
 
   private zoomControlLabels(): ZoomControlLabels {
     return {
