@@ -71,9 +71,9 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
   });
 
-  async function flushAll(categoryTypes: unknown[] = mockCategoryTypes) {
+  async function flushAll(categoryTypes: unknown[] = mockCategoryTypes, areaResponse: object = mockAreaResponse) {
     httpTesting.expectOne('/api/Lookup/Categories').flush(categoryTypes);
-    httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaResponse);
+    httpTesting.expectOne('/api/Lookup/Areas').flush(areaResponse);
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
     httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush(mockBasisOfRecords);
@@ -738,6 +738,104 @@ describe('SidebarComponent', () => {
 
       expect(component.showScientificNames()).toBe(true);
       expect(localStorage.getItem(storageKey)).toBe('true');
+    });
+  });
+
+  describe('opening a filter from its chip', () => {
+    type AccordionItem = HTMLElement & { open: boolean };
+    // jsdom doesn't implement scrollIntoView.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+      scrollIntoView.mockClear();
+    });
+
+    function section(name: string): AccordionItem {
+      return fixture.nativeElement.querySelector(`adb-accordion-item[data-filter-section="${name}"]`);
+    }
+
+    it('opens and scrolls to the section where the filter is set', async () => {
+      await flushAll();
+      await component.onOpenFilter('institutions');
+
+      expect(section('institutions').open).toBe(true);
+      expect(scrollIntoView.mock.contexts).toEqual([section('institutions')]);
+    });
+
+    it('unfolds the counties where only some municipalities are selected', async () => {
+      await flushAll(mockCategoryTypes, {
+        counties: {
+          areas: [
+            { id: 1, fid: '03', name: 'Oslo', isCurrent: true },
+            { id: 2, fid: '11', name: 'Rogaland', isCurrent: true },
+          ],
+        },
+        municipalities: {
+          id: 2,
+          name: 'Municipality',
+          areas: [
+            { id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true },
+            { id: 11, fid: '1101', name: 'Eigersund', isCurrent: true },
+            { id: 12, fid: '1103', name: 'Stavanger', isCurrent: true },
+          ],
+        },
+      });
+      filterState.addMunicipality('0301');
+      filterState.addMunicipality('1101');
+      fixture.detectChanges();
+
+      await component.onOpenFilter('areas');
+
+      const counties = section('areas').querySelectorAll('adb-accordion adb-accordion-item') as NodeListOf<AccordionItem>;
+      expect([...counties].map((county) => county.open === true)).toEqual([false, true]);
+    });
+
+    it('starts the taxon tree and has it reveal the selected taxa', async () => {
+      await component.onOpenFilter('taxonTree');
+      await component.onOpenFilter('taxonTree');
+
+      expect(component.taxonTreeOpened()).toBe(true);
+      expect(component.taxonTreeReveal()).toBe(2);
+    });
+
+    it('reveals the selected taxa once their ancestries have been looked up', async () => {
+      filterState.addTaxon(42);
+      const opening = component.onOpenFilter('taxonTree');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(component.taxonTreeOpened()).toBe(true);
+      expect(component.taxonTreeReveal()).toBe(0);
+
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([{ id: 42, parentIds: [1] }]);
+      await opening;
+      expect(component.taxonTreeReveal()).toBe(1);
+    });
+
+    it("moves focus to the section's header, since the chip is scrolled out of view", async () => {
+      await flushAll();
+      // Stands in for the accordion item's own shadow DOM, which isn't defined in tests.
+      const summary = document.createElement('summary');
+      summary.tabIndex = 0;
+      section('institutions').attachShadow({ mode: 'open' }).appendChild(summary);
+
+      await component.onOpenFilter('institutions');
+
+      expect(section('institutions').shadowRoot!.activeElement).toBe(summary);
+    });
+
+    it('opens the section of a chip that is clicked', async () => {
+      await flushAll();
+      filterState.addInstitution(1);
+      fixture.detectChanges();
+
+      fixture.nativeElement.querySelector('app-filter-chips .filter-chip-open').click();
+
+      expect(section('institutions').open).toBe(true);
     });
   });
 });

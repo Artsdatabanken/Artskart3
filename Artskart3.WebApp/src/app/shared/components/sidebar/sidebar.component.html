@@ -6,7 +6,7 @@
     </div>
   }
   <app-species-search />
-  <app-filter-chips />
+  <app-filter-chips [showScientificNames]="showScientificNames()" (openFilter)="onOpenFilter($event)" />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     @if (showUseDefaultFilter()) {
@@ -18,6 +18,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="taxonGroups"
       [attr.heading]="'sidebar.taxonGroups' | translate"
       [attr.indicator]="sectionsWithSelection().has('taxonGroups') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -52,6 +53,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="taxonTree"
       [attr.heading]="'sidebar.taxonTree' | translate"
       [attr.indicator]="sectionsWithSelection().has('taxonTree') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -70,13 +72,14 @@
             {{ 'sidebar.scientificNames' | translate }}
           </adb-switch>
         </div>
-        <app-taxon-tree [showScientificNames]="showScientificNames()" />
+        <app-taxon-tree [showScientificNames]="showScientificNames()" [revealSelection]="taxonTreeReveal()" />
       }
     </adb-accordion-item>
   </adb-accordion>
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="categories"
       [attr.heading]="'sidebar.categories' | translate"
       [attr.indicator]="sectionsWithSelection().has('categories') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -96,7 +99,7 @@
                 {{ 'sidebar.selectAll' | translate }}
               </adb-checkbox>
             }
-            @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
+            @for (category of sortCategories(type.categories); track category.id ?? $index) {
               @if (category.id !== undefined) {
                 <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                   <span class="category-content">
@@ -117,6 +120,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="areas"
       [attr.heading]="'sidebar.areas' | translate"
       [attr.indicator]="sectionsWithSelection().has('areas') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -189,7 +193,7 @@
           </h6>
           <adb-accordion>
             @for (group of groups; track group.county.fid) {
-              <adb-accordion-item>
+              <adb-accordion-item [attr.data-partly-selected]="isSomeInCountySelected(group) ? '' : null">
                 <adb-checkbox
                   slot="heading"
                   [attr.checked]="isAllInCountySelected(group) ? '' : null"
@@ -257,6 +261,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="coordinatePrecision"
       [attr.heading]="'sidebar.coordinatePrecision' | translate"
       [attr.indicator]="sectionsWithSelection().has('coordinatePrecision') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -294,6 +299,7 @@
   </adb-accordion>
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="period"
       [attr.heading]="'sidebar.period' | translate"
       [attr.indicator]="sectionsWithSelection().has('period') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -342,6 +348,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="behaviors"
       [attr.heading]="'sidebar.behaviors' | translate"
       [attr.indicator]="sectionsWithSelection().has('behaviors') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -376,6 +383,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="basisOfRecords"
       [attr.heading]="'sidebar.basisOfRecords' | translate"
       [attr.indicator]="sectionsWithSelection().has('basisOfRecords') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -430,6 +438,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="institutions"
       [attr.heading]="'sidebar.institutions' | translate"
       [attr.indicator]="sectionsWithSelection().has('institutions') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
@@ -458,6 +467,7 @@
 
   <adb-accordion>
     <adb-accordion-item
+      data-filter-section="otherProperties"
       [attr.heading]="'sidebar.otherProperties' | translate"
       [attr.indicator]="sectionsWithSelection().has('otherProperties') ? '' : null"
       [attr.indicator-label]="indicatorLabel"
