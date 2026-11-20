@@ -81,6 +81,15 @@
   }
 }
 
+/* The table fills its container; 1% makes this column only as wide as its content. */
+.show-on-map-column {
+  width: 1%;
+}
+
+.show-on-map {
+  white-space: nowrap;
+}
+
 .empty-message {
   text-align: center;
   color: var(--adb-text-base-secondary);

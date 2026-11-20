@@ -12,6 +12,7 @@
       <table class="observations-table">
         <thead>
           <tr>
+            <th class="show-on-map-column">{{ 'listView.showObservation' | translate }}</th>
             <th>{{ 'listView.name' | translate }}</th>
             <th>{{ 'listView.scientificName' | translate }}</th>
             <th>{{ 'listView.author' | translate }}</th>
@@ -27,6 +28,25 @@
         <tbody lang="no">
           @for (obs of observationsResource.value().items; track obs.id ?? $index) {
             <tr>
+              <td class="show-on-map-column">
+                <a
+                  class="adb-link show-on-map"
+                  [attr.lang]="translate.currentLang"
+                  [routerLink]="[]"
+                  [queryParams]="{ observationId: obs.id, occurrenceId: null }"
+                  queryParamsHandling="merge"
+                  (click)="showOnMap(obs, $event)"
+                  >{{ 'listView.showOnMap' | translate }}&ngsp;<span class="adb-sr-only"
+                    ><span lang="no">
+                      @if (obs.preferredPopularName) {
+                        {{ obs.preferredPopularName }}
+                      } @else {
+                        <span [innerHTML]="obs.scientificName"></span>
+                      }
+                    </span>&ngsp;{{ obs.dateTimeCollected | localeDate: translate.currentLang }}</span
+                  ></a
+                >
+              </td>
               <td>{{ obs.preferredPopularName }}</td>
               <td [innerHTML]="obs.scientificName"></td>
               <td>{{ obs.author }}</td>
@@ -52,7 +72,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="10" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+              <td colspan="11" class="empty-message">{{ 'listView.noResults' | translate }}</td>
             </tr>
           }
         </tbody>

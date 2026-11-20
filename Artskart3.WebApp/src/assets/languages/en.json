@@ -165,6 +165,8 @@
     "tabsAriaLabel": "My Artskart tabs"
   },
   "listView": {
+    "showObservation": "Show observation",
+    "showOnMap": "Show on map",
     "name": "Species name",
     "scientificName": "Scientific name",
     "author": "Autor",

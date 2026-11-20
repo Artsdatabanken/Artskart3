@@ -168,6 +168,13 @@ export class ObservationDetailsComponent {
     afterRenderEffect(() => {
       this.observationId();
       this.body().nativeElement.scrollTop = 0;
+      // The list and gallery switch the observation from a tab that is then hidden, taking focus with it.
+      // Reopening lets the dialog move focus into itself.
+      const dialog = this.dialog().nativeElement;
+      if (dialog.open && !this.modal && !dialog.contains(dialog.ownerDocument.activeElement)) {
+        dialog.close();
+        dialog.show();
+      }
     });
   }
 

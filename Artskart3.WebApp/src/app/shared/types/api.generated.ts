@@ -2314,6 +2314,7 @@ export interface components {
             dateTimeCollected?: null | string;
             /** Format: int32 */
             coordinatePrecisionInMeters?: null | number;
+            point?: components["schemas"]["ObservationPointDto"];
         };
         ObservationImageDto: {
             /** Format: int32 */
