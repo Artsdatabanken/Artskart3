@@ -434,6 +434,16 @@ describe('FilterChipsComponent', () => {
       const suffix = el.querySelector('.filter-chip-suffix');
       expect(suffix!.textContent).toContain('(1)');
     });
+
+    it('gir lukkeknappen et oversatt navn med chipens tekst', () => {
+      flushLookups();
+      translate.setTranslation('no', { sidebar: { removeFilterAriaLabel: 'Fjern filter {{filter}}' } }, true);
+      filterState.addProject({ id: 42, name: 'Et prosjekt' });
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const removeButton = el.querySelector('.filter-chip adb-icon-button');
+      expect(removeButton!.getAttribute('aria-label')).toBe(`Fjern filter ${component.chips()[0].label}`);
+    });
   });
 
   it('should update chip text when language changes', () => {
