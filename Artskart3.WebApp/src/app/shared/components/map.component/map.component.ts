@@ -59,9 +59,9 @@ import {
   sensitiveFilterToSensitive,
 } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
-import { ArtskartZoomControl } from './controls/zoom.control';
-import { ArtskartFullscreenControl } from './controls/fullscreen.control';
-import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
+import { ArtskartZoomControl, ZoomControlLabels } from './controls/zoom.control';
+import { ArtskartFullscreenControl, FullscreenControlLabels } from './controls/fullscreen.control';
+import { createGeolocationControl, GeolocationControlLabels, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ActiveObservationPoint, ObservationPanelComponent } from '../observation-panel/observation-panel.component';
@@ -105,6 +105,7 @@ import { MAP_CONSTANTS } from '@core/constants/map-constants';
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
+  private readonly mapControls = viewChild.required<ElementRef<HTMLDivElement>>('mapControls');
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
@@ -554,55 +555,60 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private adoptZoomControl(): void {
     if (!this.map) return;
-    this.zoomControl = new ArtskartZoomControl({
-      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-    });
+    this.zoomControl = new ArtskartZoomControl(this.zoomControlLabels(), this.mapControls().nativeElement);
     this.map.adoptControl(this.zoomControl, 'zoom');
   }
 
   private adoptFullscreenControl(): void {
     if (!this.map) return;
     // Fullscreen the container wrapping the map so the toolbar (map type selector etc.) stays visible
-    const fullscreenSource = this.mapEl.nativeElement.parentElement ?? undefined;
-    this.fullscreenControl = new ArtskartFullscreenControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-      },
-      fullscreenSource,
-    );
+    const source = this.mapEl.nativeElement.parentElement ?? undefined;
+    this.fullscreenControl = new ArtskartFullscreenControl(this.fullscreenControlLabels(), { source, target: this.mapControls().nativeElement });
     this.map.adoptControl(this.fullscreenControl, 'fullscreen');
   }
 
   private adoptGeolocationControl(): void {
     if (!this.map) return;
     this.geolocationControl = createGeolocationControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-      },
-      {
-        onClick: () => this.map.zoomToGeolocation(14),
-      },
+      this.geolocationControlLabels(),
+      { onClick: () => this.map.zoomToGeolocation(14) },
+      this.mapControls().nativeElement,
     );
     this.map.adoptControl(this.geolocationControl, 'geolocation');
+  }
+
+  private zoomControlLabels(): ZoomControlLabels {
+    return {
+      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+      zoomInTooltip: this.translate.instant('mapToolbar.zoomInTooltip'),
+      zoomOutTooltip: this.translate.instant('mapToolbar.zoomOutTooltip'),
+    };
+  }
+
+  private fullscreenControlLabels(): FullscreenControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.fullscreenTooltip'),
+      exitTooltip: this.translate.instant('mapToolbar.exitFullscreenTooltip'),
+    };
+  }
+
+  private geolocationControlLabels(): GeolocationControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.geolocationTooltip'),
+      deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+    };
   }
 
   private listenForLanguageChanges(): void {
     this.translate.onLangChange
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.zoomControl?.updateLabels({
-          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-        });
-        this.fullscreenControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-        });
-        this.geolocationControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-        });
+        this.zoomControl?.updateLabels(this.zoomControlLabels());
+        this.fullscreenControl?.updateLabels(this.fullscreenControlLabels());
+        this.geolocationControl?.updateLabels(this.geolocationControlLabels());
         this.featureStyles?.clearMarkerCache();
         this.redrawLocationStyles();
         this.rebuildAllLayers();

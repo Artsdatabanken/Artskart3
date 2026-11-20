@@ -4,10 +4,11 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { MapLayerDto } from '@shared/types/api.types';
 import { MAP_LAYER_LABELS } from '@shared/config/map/map-layer-labels.config';
+import { MapControlTooltipDirective } from '../../map-control-tooltip/map-control-tooltip.directive';
 
 @Component({
   selector: 'app-map-layers',
-  imports: [TranslateModule],
+  imports: [TranslateModule, MapControlTooltipDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-layers.component.html',
   styleUrl: './map-layers.component.css',
