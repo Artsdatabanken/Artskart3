@@ -49,7 +49,7 @@ public class SearchServiceBenchmarks
 
         _dbContext = new ArtskartDbContext(options);
 
-        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var repository = new SearchRepository(_dbContext, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
         _searchService = new SearchService(repository, new MemoryCache(new MemoryCacheOptions()));
     }
 

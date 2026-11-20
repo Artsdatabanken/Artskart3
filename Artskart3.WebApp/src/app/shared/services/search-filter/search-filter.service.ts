@@ -84,6 +84,7 @@ export class SearchFilterService {
         restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
         cadastralUnitIds: this.filterState.selectedCadastralUnitIds().length ? this.filterState.selectedCadastralUnitIds() : undefined,
         historicalAreaIds: historicalAreaIds.length ? historicalAreaIds : undefined,
+        customAreaWkt: this.filterState.customAreaWkt() ?? undefined,
         coordinatePrecision: hasCoordinatePrecision ? { from: coordinatePrecisionFrom, to: coordinatePrecisionTo } : undefined,
         datasetOrgIds: datasetOrgIds.length ? datasetOrgIds : undefined,
         projectOrgIds: projectOrgIds.length ? projectOrgIds : undefined,
@@ -124,6 +125,7 @@ export class SearchFilterService {
     state.selectedRestrictedAreaIds.set(filter.restrictedAreaIds ?? []);
     state.selectedCadastralUnitIds.set(filter.cadastralUnitIds ?? []);
     state.selectedHistoricalAreas.set((filter.historicalAreaIds ?? []).map((id) => ({ id, isCurrent: false })));
+    state.setCustomArea(filter.customAreaWkt ?? null);
     state.selectedCategoryIds.set(filter.categoryIds ?? []);
     state.selectedInstitutionIds.set(filter.organizationIds ?? []);
     state.selectedBehaviorIds.set(filter.behaviorIds ?? []);

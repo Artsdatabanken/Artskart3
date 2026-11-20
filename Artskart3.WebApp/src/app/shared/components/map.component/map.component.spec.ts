@@ -392,6 +392,8 @@ describe('MapComponent', () => {
         ['--adb-color-brand-sun-70', '#F8AE00'],
         ['--adb-color-special-100', '#F34F39'],
         ['--adb-color-special-110', '#D61900'],
+        ['--adb-color-brand-evergreen-70', '#0C936B'],
+        ['--adb-color-functional-red-70', '#B80738'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;

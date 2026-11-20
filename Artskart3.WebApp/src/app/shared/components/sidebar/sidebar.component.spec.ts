@@ -187,12 +187,17 @@ describe('SidebarComponent', () => {
       expect(component.isMunicipalitySelected('0602')).toBe(false);
     });
 
-    it('puts the protected area search first in the area section, above the cadastral field', async () => {
+    it('orders the area section: custom area, protected area, cadastral unit, county and municipality', async () => {
       await flushAll();
       const headings = Array.from(fixture.nativeElement.querySelectorAll('h6.area-section-heading') as NodeListOf<Element>, (h) =>
         h.textContent?.trim(),
       );
-      expect(headings.slice(0, 2)).toEqual(['sidebar.restrictedArea', 'sidebar.cadastralUnit']);
+      expect(headings.slice(0, 4)).toEqual([
+        'sidebar.customArea.heading',
+        'sidebar.restrictedArea',
+        'sidebar.cadastralUnit',
+        'sidebar.areaSearch',
+      ]);
     });
 
     it('adds a picked protected area to the filter by its fid', () => {

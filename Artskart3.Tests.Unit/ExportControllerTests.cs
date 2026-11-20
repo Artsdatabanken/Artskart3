@@ -299,7 +299,8 @@ public class ExportControllerTests
             exportService.Object,
             new Mock<IBlobStorageService>().Object,
             tokenService.Object,
-            NullLogger<ExportController>.Instance)
+            NullLogger<ExportController>.Instance,
+            new StubCustomAreaService())
         {
             ControllerContext = new ControllerContext
             {

@@ -2,7 +2,7 @@ using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Application.DTOs;
 
-public class LocationSearchFilterDto : IObservationFilter
+public class LocationSearchFilterDto : IObservationFilter, IAreaSelection
 {
     public int[]? TaxonGroupIds { get; set; }
 
@@ -27,6 +27,8 @@ public class LocationSearchFilterDto : IObservationFilter
     public string[]? CadastralUnitIds { get; set; }
 
     public int[]? HistoricalAreaIds { get; set; }
+
+    public string? CustomAreaWkt { get; set; }
 
     public int[]? BehaviorIds { get; set; }
 
@@ -70,6 +72,7 @@ public class LocationSearchFilterDto : IObservationFilter
         OceanAreaIds?.Length > 0 ||
         CadastralUnitIds?.Length > 0 ||
         HistoricalAreaIds?.Length > 0 ||
+        CustomAreaWkt != null ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -89,9 +92,9 @@ public class LocationSearchFilterDto : IObservationFilter
     /// <summary>
     /// Returnerer true dersom det finnes filtre som krever dynamisk telling av observasjoner.
     /// Inkluderer observasjonsattributter (takson, kategori, atferd, etc.), verneområder
-    /// (som krysser fylkes-/kommunegrenser), matrikkelenheter og historiske områder (som
-    /// ikke er forhåndstalt). Gjeldende fylker, kommuner og havområder bruker
-    /// pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
+    /// (som krysser fylkes-/kommunegrenser), matrikkelenheter, historiske områder og
+    /// egendefinerte områder (som ikke er forhåndstalt). Gjeldende fylker, kommuner og
+    /// havområder bruker pre-beregnede antall og filtrerer kun hvilke områdemarkører som vises.
     /// </summary>
     public bool HasObservationAttributeFilters =>
         TaxonGroupIds?.Length > 0 ||
@@ -103,6 +106,7 @@ public class LocationSearchFilterDto : IObservationFilter
         RestrictedAreaIds?.Length > 0 ||
         CadastralUnitIds?.Length > 0 ||
         HistoricalAreaIds?.Length > 0 ||
+        CustomAreaWkt != null ||
         BehaviorIds?.Length > 0 ||
         CoordinatePrecision?.From != null ||
         CoordinatePrecision?.To != null ||
@@ -150,4 +154,25 @@ public class LocationSearchFilterDto : IObservationFilter
         copy.HistoricalAreaIds = null;
         return copy;
     }
+
+    /// <summary>
+    /// Om filteret har lokasjonslister fra matrikkelenheter eller et egendefinert område.
+    /// </summary>
+    public bool HasLocationLists => CadastralUnitIds?.Length > 0 || CustomAreaWkt != null;
+
+    /// <summary>
+    /// Samme filter uten matrikkelenhetene, de historiske områdene og det egendefinerte området.
+    /// </summary>
+    public LocationSearchFilterDto WithoutLocationLists()
+    {
+        var copy = WithoutLocationBasedAreas();
+        copy.CustomAreaWkt = null;
+        return copy;
+    }
+
+    /// <summary>
+    /// Samme filter med det egendefinerte området delt opp, se <see cref="IAreaSelection.ReplaceCustomAreaWithAreas"/>.
+    /// </summary>
+    public LocationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey) =>
+        IAreaSelection.ReplaceCustomAreaWithAreas((LocationSearchFilterDto)MemberwiseClone(), municipalityIds, oceanAreaIds, countyIds, edgeLocationsKey);
 }

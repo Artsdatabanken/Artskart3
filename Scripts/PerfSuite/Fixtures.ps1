@@ -217,6 +217,81 @@ function Test-PerfHistoricalAreas {
     return $true
 }
 
+# Egendefinerte omraader (polygoner tegnet i kartet) for egendefinert-laget i Cases.ps1.
+#
+# HAANDPLUKKET, IKKE OPPDAGET
+# Konstanter, som matrikkelenhetene, saa de ikke bytter identitet ved -RefreshFixtures.
+# Hvert polygon er valgt etter hvilken vei soeket tar:
+#
+#   - Under 20 000 lokasjoner gaar listen som JSON (LocationListStore.MinStoredLength),
+#     over det lagres den i databasen og joines.
+#   - Ligger et omraade helt innenfor polygonet, deles det: omraadene leses som et
+#     vanlig omraadefilter, og bare kanten sendes som liste. Grensen paa 600 000
+#     lokasjoner (SearchConstants.MaxCustomAreaLocations) gjelder da kanten.
+#
+# Alle ligger i oslo-utsnittet, saa Locations og LocationPolygons faar ekte treff.
+#
+# Tallene er lokasjonene soeket maa lese som liste, maalt mot Artskart3TestMigrations
+# 13.11.2026. De staar som dokumentasjon - koden bruker dem ikke.
+$script:PerfCustomAreas = [ordered]@{
+    skog   = @{ Label = '3 x 3 km i Nordmarka'
+                Wkt   = 'POLYGON((253500 6665500,256500 6665500,256500 6668500,253500 6668500,253500 6665500))' }   #     235 lok, JSON
+    liten  = @{ Label = '2 x 2 km i sentrale Oslo'
+                Wkt   = 'POLYGON((261000 6648000,263000 6648000,263000 6650000,261000 6650000,261000 6648000))' }   #   6 366 lok, JSON
+    tung   = @{ Label = '16 x 12 km over Oslo'
+                Wkt   = 'POLYGON((254000 6642600,270000 6642600,270000 6655400,254000 6655400,254000 6642600))' }   # 123 960 lok, lagret
+    stor   = @{ Label = '32 x 25 km over Oslo'
+                Wkt   = 'POLYGON((246000 6636200,278000 6636200,278000 6661800,246000 6661800,246000 6636200))' }   # 276 599 lok, lagret
+    # Stoerst uten omraader helt innenfor: hele listen leses.
+    stripe = @{ Label = '24 km bred stripe Drammen-Lillestroem'
+                Wkt   = 'POLYGON((222753 6640792,294753 6675792,305246 6654207,233246 6619207,222753 6640792))' }   # 384 500 lok, lagret
+    delt   = @{ Label = '40 x 32 km, Loerenskog helt innenfor'
+                Wkt   = 'POLYGON((242000 6633000,282000 6633000,282000 6665000,242000 6665000,242000 6633000))' }   # 332 739 i kanten
+    mange  = @{ Label = '90 x 72 km, 15 omraader helt innenfor'
+                Wkt   = 'POLYGON((217000 6613000,307000 6613000,307000 6685000,217000 6685000,217000 6613000))' }   # 222 139 i kanten
+    # Stoerst kant som slipper gjennom.
+    maks   = @{ Label = 'kryss med 14 km brede armer, Aas helt innenfor'
+                Wkt   = 'POLYGON((182000 6642000,255000 6642000,255000 6570000,269000 6570000,269000 6642000,342000 6642000,342000 6656000,269000 6656000,269000 6728000,255000 6728000,255000 6656000,182000 6656000,182000 6642000))' }   # 471 987 i kanten
+}
+
+# Over grensen, bare for oppslaget. Soekene ville svart 400 og maalt avvisningen.
+$script:PerfCustomAreaTooLarge = @{
+    Label = 'kryss med 26 km brede armer, over grensen'
+    Wkt   = 'POLYGON((172000 6636000,249000 6636000,249000 6559000,275000 6559000,275000 6636000,352000 6636000,352000 6662000,275000 6662000,275000 6739000,249000 6739000,249000 6662000,172000 6662000,172000 6636000))'   # 660 761 i kanten
+}
+
+function New-PerfCustomAreaDimension {
+    <#
+        De egendefinerte omraadene som en dimensjon, for egendefinert-laget i Cases.ps1.
+        Utenfor fixtures.dimensions av samme grunn som matrikkelen, se
+        New-PerfCadastralDimension.
+    #>
+    $tiers = foreach ($navn in $script:PerfCustomAreas.Keys) {
+        $omraade = $script:PerfCustomAreas[$navn]
+        $rolle = switch ($navn) { 'tung' { 'tung' } 'skog' { 'lett' } default { 'annen' } }
+        New-PerfTier -Key "egendefinert:$navn" -Role $rolle -Label $omraade.Label `
+            -Filter @{ customAreaWkt = $omraade.Wkt }
+    }
+    return New-PerfDimension -Name 'egendefinert' -Tiers @($tiers)
+}
+
+function New-PerfHiddenDimension {
+    <#
+        Skjulte funn (hiddenObservations) for skjult-laget i Cases.ps1.
+
+        Dimensjonen 'skjulte' i New-PerfFixtures kommer foerst med i
+        fixtures.dimensions ved neste -RefreshFixtures, som forkaster alle
+        baselinjer. Laget maaler de samme to valgene som haandplukkede case
+        allerede naa, med egne noekler saa de ikke kolliderer med dimensjonen naar
+        den kommer. Verdiene er konstanter og trenger ikke oppdages.
+    #>
+    $tiers = @(
+        New-PerfTier -Key 'skjult:kun'  -Role 'lett' -Label 'kun skjulte funn'         -Filter @{ hiddenObservations = 'Only' }
+        New-PerfTier -Key 'skjult:alle' -Role 'tung' -Label 'alle funn, ogsaa skjulte' -Filter @{ hiddenObservations = 'Include' }
+    )
+    return New-PerfDimension -Name 'skjult' -Tiers $tiers
+}
+
 function ConvertTo-PerfHashtable {
     <#
         JSON-runden gjoer hashtables om til PSCustomObject. Filterfragmentene maa
@@ -751,6 +826,8 @@ function New-PerfFixtures {
         envelopes  = $script:PerfEnvelopes
         matrikkel  = New-PerfCadastralDimension
         historisk  = New-PerfHistoricalAreaDimension
+        egendefinert = New-PerfCustomAreaDimension
+        skjult     = New-PerfHiddenDimension
     }
 
     $antallNivaa = ($fixtures.dimensions | ForEach-Object { $_.tiers.Count } | Measure-Object -Sum).Sum
@@ -771,8 +848,9 @@ function Get-PerfFixtureSet {
         konstanter i denne fila. Leses de fra den lagrede JSON-en i stedet, blir en
         endring her stille ignorert til noen kjoerer -RefreshFixtures - som samtidig
         forkaster alle baselinjer. Derfor overstyres de alltid fra $PerfEnvelopes.
-        Det samme gjelder matrikkelenhetene i $PerfCadastralUnits og de historiske
-        omraadene i $PerfHistoricalAreas.
+        Det samme gjelder matrikkelenhetene i $PerfCadastralUnits, de historiske
+        omraadene i $PerfHistoricalAreas, de egendefinerte omraadene i
+        $PerfCustomAreas og de skjulte funnene i New-PerfHiddenDimension.
     #>
     param(
         [Parameter(Mandatory)] [string] $Path,
@@ -800,6 +878,13 @@ function Get-PerfFixtureSet {
         $historisk = New-PerfHistoricalAreaDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
         $fixtures | Add-Member -NotePropertyName 'historisk' -NotePropertyValue $historisk -Force
         Write-Host ("  Historiske omraader fra Fixtures.ps1: {0}" -f $script:PerfHistoricalAreas.Count) -ForegroundColor DarkGray
+
+        $egendefinert = New-PerfCustomAreaDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+        $fixtures | Add-Member -NotePropertyName 'egendefinert' -NotePropertyValue $egendefinert -Force
+        Write-Host ("  Egendefinerte omraader fra Fixtures.ps1: {0}" -f $script:PerfCustomAreas.Count) -ForegroundColor DarkGray
+
+        $skjult = New-PerfHiddenDimension | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+        $fixtures | Add-Member -NotePropertyName 'skjult' -NotePropertyValue $skjult -Force
         return $fixtures
     }
 

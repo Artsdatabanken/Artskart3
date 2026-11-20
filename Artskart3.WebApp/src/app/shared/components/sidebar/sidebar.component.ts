@@ -41,6 +41,7 @@ import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
 import { CadastralUnitSearchComponent } from '../cadastral-unit-search/cadastral-unit-search.component';
+import { CustomAreaControlComponent } from '../custom-area-control/custom-area-control.component';
 import { MapViewService } from '../../services/map-view/map-view.service';
 import { LoggingService } from '../../logging.service';
 
@@ -79,6 +80,7 @@ function selectAllState(ids: readonly number[], selectedIds: readonly number[]):
     AutocompleteOptionDirective,
     HighlightTextComponent,
     CadastralUnitSearchComponent,
+    CustomAreaControlComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './sidebar.component.html',

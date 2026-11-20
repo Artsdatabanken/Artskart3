@@ -37,6 +37,13 @@ public interface IObservationFilter
     /// </summary>
     int[]? HistoricalAreaIds { get; }
 
+    /// <summary>
+    /// Egendefinert område tegnet i kartet, som WKT-polygon i EPSG:25833. AND-es med
+    /// resten av filteret, også de andre områdefiltrene: bare funn på lokasjoner som
+    /// snitter flaten. Blir til lokasjoner via ICustomAreaService.
+    /// </summary>
+    string? CustomAreaWkt { get; }
+
     int[]? BehaviorIds { get; }
     int[]? BasisOfRecordIds { get; }
     int? RegistrationStatusId { get; }

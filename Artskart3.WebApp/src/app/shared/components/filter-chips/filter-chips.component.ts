@@ -50,6 +50,11 @@ export class FilterChipsComponent {
       return { id, text, label: text, clear };
     };
 
+    const labelChip = (id: string, titleKey: string, clear: () => void): FilterChip => {
+      const text = t(titleKey);
+      return { id, text, label: text, clear };
+    };
+
     const taxonGroups = this.filterState.selectedTaxonGroupIds();
     if (taxonGroups.length > 0) {
       chips.push(countChip('taxonGroups', 'sidebar.taxonGroups', taxonGroups.length, () => this.filterState.clearTaxonGroups()));
@@ -125,6 +130,9 @@ export class FilterChipsComponent {
       const id = area.id!;
       const text = area.name ? areaLabel(area, t) : `#${id}`;
       chips.push(namedChip(`historicalArea:${id}`, 'sidebar.areaSearch', text, () => this.filterState.removeHistoricalArea(id)));
+    }
+    if (this.filterState.customAreaWkt()) {
+      chips.push(labelChip('customArea', 'sidebar.customArea.heading', () => this.filterState.clearCustomArea()));
     }
 
     const precFrom = this.filterState.coordinatePrecisionFrom();
