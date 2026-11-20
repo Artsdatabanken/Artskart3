@@ -1,13 +1,68 @@
 .list-view {
+  container: list-view / inline-size;
+  position: relative;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.results {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
   padding: var(--adb-spacing-md) var(--adb-spacing-lg);
   box-sizing: border-box;
-  overflow: hidden;
 
   @media (max-width: 480px) {
     padding: var(--adb-spacing-sm) var(--adb-spacing-xsm);
+  }
+}
+
+.details-panel {
+  flex: 0 0 28rem;
+  display: flex;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: var(--adb-spacing-md) 0 var(--adb-spacing-md) var(--adb-spacing-lg);
+  /* Slides in from the left and pushes the table aside. */
+  animation: details-push-in 200ms ease-out;
+}
+
+@keyframes details-push-in {
+  from {
+    margin-inline-start: -28rem;
+  }
+}
+
+/* Too narrow for both the details and a usable table, so the details cover the list. */
+@container list-view (max-width: 56rem) {
+  .details-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 101;
+    padding: var(--adb-spacing-sm);
+    background: var(--adb-background-primary);
+    animation-name: details-slide-in;
+  }
+
+  /* Keeps the covered table out of the tab order and away from screen readers, once the panel has slid over it. */
+  .details-panel ~ .results {
+    visibility: hidden;
+    transition: visibility 0s 200ms;
+  }
+}
+
+@keyframes details-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/* Keeps the filter sheet's handle visible on mobile. */
+@media (max-width: 768px) {
+  .details-panel {
+    bottom: var(--home-handle-height);
   }
 }
 
@@ -75,17 +130,26 @@
       background: var(--adb-background-primary);
     }
 
-    &:hover td {
-      background: var(--adb-background-subtle);
+    /* An inset shadow marks the row without moving its content. */
+    &[aria-current] td:first-child {
+      box-shadow: inset 4px 0 0 var(--adb-border-brand-4);
     }
   }
 }
 
 /* The table fills its container; 1% makes this column only as wide as its content. */
-.show-on-map-column {
+.observation-column {
   width: 1%;
 }
 
+.observation-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+}
+
+.show-details,
 .show-on-map {
   white-space: nowrap;
 }

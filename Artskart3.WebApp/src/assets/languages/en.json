@@ -166,6 +166,7 @@
   },
   "listView": {
     "showObservation": "Show observation",
+    "showDetails": "View details",
     "showOnMap": "Show on map",
     "name": "Species name",
     "scientificName": "Scientific name",
