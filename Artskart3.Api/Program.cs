@@ -321,8 +321,10 @@ try
         client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
     });
-    builder.Services.AddCadastralUnitService(
-        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
+    builder.Services.AddAreaLookupServices(
+        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions(),
+        builder.Configuration.GetValue("CustomArea:StoreLocationLists", true));
+    builder.Services.AddCustomAreaWarmup();
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

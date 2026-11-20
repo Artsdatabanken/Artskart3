@@ -6,33 +6,19 @@ using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Constants;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using NetTopologySuite;
 using NetTopologySuite.Geometries;
-using NetTopologySuite.Geometries.Utilities;
-using Location = Artskart3.Core.Domain.Entities.Location;
 
 namespace Artskart3.Infrastructure.Services;
 
 /// <summary>
 /// Slår opp matrikkelenheter i Kartverkets åpne Eiendom API og finner lokasjonene
-/// som snitter dem.
-///
-/// Snittet tas med STIntersects mot Location.Geometry, samme regel som LocationAreas
-/// er bygget med (se Scripts/RebuildLocationAreasForAreaTypes.sql). En lokasjon med
-/// flate- eller linjegeometri treffer derfor selv om punktet (East/North) ligger
-/// utenfor eiendommen.
+/// som snitter dem, se <see cref="LocationIntersection"/>.
 /// </summary>
 public class CadastralUnitService : ICadastralUnitService
 {
     // Kartverket oppdaterer fra Matrikkelen én gang i døgnet.
     private static readonly TimeSpan GeometryCacheDuration = TimeSpan.FromHours(24);
-    private static readonly TimeSpan LocationIdsCacheDuration = TimeSpan.FromHours(1);
-
-    // Tomme svar bufres kort, så en eiendom eller lokasjonsgeometri som kommer til
-    // ikke står som manglende et helt døgn.
-    private static readonly TimeSpan EmptyResultCacheDuration = TimeSpan.FromMinutes(10);
 
     // Feil huskes kort, så forespørsler som venter på samme eiendom feiler med en gang i
     // stedet for å vente på hver sin timeout etter tur.
@@ -41,12 +27,10 @@ public class CadastralUnitService : ICadastralUnitService
     // Samtidige bom på samme eiendom venter på hverandre i stedet for å gjøre hvert sitt
     // oppslag. Statiske fordi tjenesten lages per forespørsel. To sett, så
     // lokasjonsoppslaget kan hente geometrien uten å vente på en lås det selv holder.
-    private static readonly SemaphoreSlim[] GeometryLocks = CreateLocks();
-    private static readonly SemaphoreSlim[] LocationIdsLocks = CreateLocks();
+    private static readonly SemaphoreSlim[] GeometryLocks = LocationIntersection.CreateLocks();
+    private static readonly SemaphoreSlim[] LocationIdsLocks = LocationIntersection.CreateLocks();
 
-    // Omtrentlig størrelse i byte. Den delte bufferen i API-et har SizeLimit, og da må
-    // hver post oppgi Size. Et NTS-punkt er et Coordinate-objekt pluss en referanse.
-    private const long EntryOverheadBytes = 256;
+    // Et NTS-punkt er et Coordinate-objekt pluss en referanse.
     private const long BytesPerPoint = 48;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -96,11 +80,13 @@ public class CadastralUnitService : ICadastralUnitService
     }
 
     private Task<int[]> GetLocationIdsAsync(string id, CancellationToken cancellationToken) =>
-        GetOrCreateOnceAsync($"cadastral_unit_locations_{id}", LocationIdsLocks, async entry =>
+        _cache.GetOrCreateOnceAsync($"cadastral_unit_locations_{id}", LocationIdsLocks, async entry =>
         {
             var ids = await FindLocationIdsAsync(id, cancellationToken);
-            entry.AbsoluteExpirationRelativeToNow = ids == null ? EmptyResultCacheDuration : LocationIdsCacheDuration;
-            entry.Size = EntryOverheadBytes + (ids?.Length ?? 0) * sizeof(int);
+            entry.AbsoluteExpirationRelativeToNow = ids == null
+                ? LocationIntersection.EmptyResultCacheDuration
+                : LocationIntersection.LocationIdsCacheDuration;
+            entry.Size = LocationIntersection.EntryOverheadBytes + (ids?.Length ?? 0) * sizeof(int);
             return ids ?? [];
         }, cancellationToken);
 
@@ -112,69 +98,19 @@ public class CadastralUnitService : ICadastralUnitService
         var geometry = await GetGeometryAsync(id, cancellationToken);
         if (geometry == null) return null;
 
-        var srid = await GetLocationSridAsync(cancellationToken);
-        if (srid == null) return null;
-
-        // SQL Server avviser ugyldige geometrier. Teigene kan være det hver for seg
-        // (selvkrysning) og sammen (overlapp), og Union() kaster på det første.
-        var property = NtsGeometryServices.Instance.CreateGeometryFactory(srid.Value).CreateGeometry(GeometryFixer.Fix(geometry));
-
-        return await _context.Set<Location>()
-            .AsNoTracking()
-            .Where(l => l.Geometry != null && l.Geometry.Intersects(property))
-            .Select(l => l.Id)
-            .ToArrayAsync(cancellationToken);
+        // Teigene kan være ugyldige hver for seg (selvkrysning) og sammen (overlapp).
+        // Oppslaget reparerer dem, siden SQL Server avviser dem.
+        return await LocationIntersection.FindLocationIdsAsync(_context, _cache, geometry, cancellationToken);
     }
-
-    /// <summary>
-    /// SRID-en til Location.Geometry, 32633 i produksjon. Med ulike SRID-er gir
-    /// STIntersects NULL, altså ingen treff og ingen feil, så eiendommen får den samme.
-    /// Null når ingen lokasjon har geometri.
-    /// </summary>
-    private Task<int?> GetLocationSridAsync(CancellationToken cancellationToken) =>
-        _cache.GetOrCreateAsync("location_geometry_srid", async entry =>
-        {
-            var srid = await _context.Set<Location>()
-                .Where(l => l.Geometry != null)
-                .Select(l => (int?)l.Geometry!.SRID)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            entry.AbsoluteExpirationRelativeToNow = srid == null ? EmptyResultCacheDuration : GeometryCacheDuration;
-            entry.Size = EntryOverheadBytes;
-            return srid;
-        });
 
     private Task<MultiPolygon?> GetGeometryAsync(string id, CancellationToken cancellationToken) =>
-        GetOrCreateOnceAsync($"cadastral_unit_geometry_{id}", GeometryLocks, async entry =>
+        _cache.GetOrCreateOnceAsync($"cadastral_unit_geometry_{id}", GeometryLocks, async entry =>
         {
             var geometry = await FetchRememberingFailureAsync(id, cancellationToken);
-            entry.AbsoluteExpirationRelativeToNow = geometry == null ? EmptyResultCacheDuration : GeometryCacheDuration;
-            entry.Size = EntryOverheadBytes + (geometry?.NumPoints ?? 0) * BytesPerPoint;
+            entry.AbsoluteExpirationRelativeToNow = geometry == null ? LocationIntersection.EmptyResultCacheDuration : GeometryCacheDuration;
+            entry.Size = LocationIntersection.EntryOverheadBytes + (geometry?.NumPoints ?? 0) * BytesPerPoint;
             return geometry;
         }, cancellationToken);
-
-    /// <summary>
-    /// Som GetOrCreateAsync, men samtidige bom på samme nøkkel kjører fabrikken bare én gang.
-    /// De andre venter og leser svaret fra bufferen.
-    /// </summary>
-    private async Task<T> GetOrCreateOnceAsync<T>(
-        string key, SemaphoreSlim[] locks, Func<ICacheEntry, Task<T>> create, CancellationToken cancellationToken)
-    {
-        if (_cache.TryGetValue(key, out T? cached)) return cached!;
-
-        var gate = locks[Math.Abs(StringComparer.Ordinal.GetHashCode(key) % locks.Length)];
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            return (await _cache.GetOrCreateAsync(key, create))!;
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
-
-    private static SemaphoreSlim[] CreateLocks() => Enumerable.Range(0, 32).Select(_ => new SemaphoreSlim(1)).ToArray();
 
     private async Task<MultiPolygon?> FetchRememberingFailureAsync(string id, CancellationToken cancellationToken)
     {
@@ -190,7 +126,7 @@ public class CadastralUnitService : ICadastralUnitService
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
-            _cache.Set(failureKey, true, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = FailureCacheDuration, Size = EntryOverheadBytes });
+            _cache.Set(failureKey, true, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = FailureCacheDuration, Size = LocationIntersection.EntryOverheadBytes });
             throw;
         }
     }

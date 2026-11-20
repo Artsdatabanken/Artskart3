@@ -231,6 +231,7 @@ describe('SearchFilterService.applyFilter', () => {
       restrictedAreaIds: ['Naturbase VV00001234'],
       cadastralUnitIds: ['1101-1/2'],
       historicalAreaIds: [669],
+      customAreaWkt: 'POLYGON((0 0,10 0,10 10,0 0))',
       behaviorIds: [5],
       basisOfRecordIds: [6],
       registrationStatusId: 1,

@@ -8,6 +8,8 @@
   ></app-map-toolbar>
   <app-place-search [search]="searchPlaces" (selected)="goToPlace($event)"></app-place-search>
   <div #mapEl class="map"></div>
+  <!-- Map buttons live outside OpenLayers' overlay container, whose stacking context would keep their tooltips under the observation panel -->
+  <div #mapControls class="map-controls"></div>
   <app-observation-panel
     [observations]="observationList()"
     [selection]="showObservationList() ? observationSelection() : null"

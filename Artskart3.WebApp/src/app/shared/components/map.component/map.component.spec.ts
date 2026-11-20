@@ -392,6 +392,8 @@ describe('MapComponent', () => {
         ['--adb-color-brand-sun-70', '#F8AE00'],
         ['--adb-color-special-100', '#F34F39'],
         ['--adb-color-special-110', '#D61900'],
+        ['--adb-color-brand-evergreen-70', '#0C936B'],
+        ['--adb-color-functional-red-70', '#B80738'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
@@ -737,7 +739,7 @@ describe('MapComponent', () => {
 
     it('clears transient hover on drag, camera motion, and viewport exit and removes listeners on destruction', () => {
       const map = new OlMap({ target: document.createElement('div'), controls: [], interactions: [] });
-      const control = new ArtskartZoomControl({ zoomInTipLabel: 'Zoom in', zoomOutTipLabel: 'Zoom out' });
+      const control = new ArtskartZoomControl({ zoomInTipLabel: 'Zoom in', zoomOutTipLabel: 'Zoom out', zoomInTooltip: '', zoomOutTooltip: '' });
       map.addControl(control);
       component['zoomControl'] = control;
       const feature = new Feature<Point>({ id: 1, geometry: new Point([0, 0]) });

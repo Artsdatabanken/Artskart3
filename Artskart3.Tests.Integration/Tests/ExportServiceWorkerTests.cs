@@ -64,7 +64,7 @@ public class ExportServiceWorkerTests
             options,
             NullLogger<ExportService>.Instance,
             new StubTaxonHierarchyService(),
-            new StubCadastralUnitService());
+            new StubCadastralUnitService(), new StubCustomAreaService());
     }
 
     private static async Task<CsvExportJob> CreateJobAsync(ArtskartDbContext context, string name)

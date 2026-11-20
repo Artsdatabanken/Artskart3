@@ -82,6 +82,33 @@ public class QueryHintInterceptorTests
     }
 
     [Fact]
+    public void Omraadegren_utenfor_indeksene_faar_radmaalet_slaatt_av()
+    {
+        const string sql = """
+            -- listview-search
+            -- no-row-goal
+
+            SELECT TOP(@p) [o].[ObservationId] FROM [ObservationEntityIndex] AS [o]
+            """;
+
+        QueryHintInterceptor.Rewrite(sql).Should().EndWith("OPTION (RECOMPILE, USE HINT('DISABLE_OPTIMIZER_ROWGOAL'))");
+    }
+
+    [Fact]
+    public void Omraadetelling_med_omraade_og_periode_leses_fra_columnstore()
+    {
+        const string sql = """
+            -- count-columnstore
+
+            SELECT [o].[EntityTypeId], [o].[EntityId], COUNT(*) AS [Count]
+            FROM [ObservationEntityIndex] AS [o]
+            GROUP BY [o].[EntityTypeId], [o].[EntityId]
+            """;
+
+        QueryHintInterceptor.Rewrite(sql).Should().EndWith("OPTION (TABLE HINT([o], INDEX([IX_OEI_Columnstore])))");
+    }
+
+    [Fact]
     public void To_hint_kjoert_to_ganger_gir_samme_resultat()
     {
         var en = QueryHintInterceptor.Rewrite(LokasjonstellingSql);
@@ -158,6 +185,10 @@ public class QueryHintInterceptorTests
     /// Kommer et planhint tilbake, skal det være et bevisst valg med målinger
     /// fra HELE Full-nivået bak seg. Enkeltmålinger lyver her; det var nettopp
     /// slik det slapp inn begge gangene.
+    ///
+    /// Ett slikt valg finnes: områdetellinger avgrenset til områder og en periode
+    /// tvinges til IX_OEI_Columnstore, se QueryHintInterceptor.CountColumnstoreTag.
+    /// Det gir dem planen de hadde før IX_OEI_AreaListView fantes.
     /// </summary>
     [Fact]
     public void Ingen_spoerring_faar_tvunget_planvalg()

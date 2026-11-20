@@ -598,11 +598,11 @@ public class LocationCountCacheIntegrationTests : IAsyncLifetime
 
     private SearchRepository WithCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), null, CreateCacheService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService(), null, CreateCacheService());
 
     private SearchRepository WithoutCache() =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
-            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+            new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     private LocationCountCacheService CreateCacheService(LocationCountCacheOptions? options = null) =>
         new(_context, new StubTaxonHierarchyService(), new StubAreaHierarchyService(),

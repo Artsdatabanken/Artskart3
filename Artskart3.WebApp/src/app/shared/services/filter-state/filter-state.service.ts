@@ -118,6 +118,12 @@ export class FilterStateService {
   // and is empty until a saved filter's areas have been looked up.
   readonly selectedHistoricalAreas = signal<AreaSearchResultDto[]>([]);
   readonly selectedHistoricalAreaIds = computed(() => this.selectedHistoricalAreas().map((area) => area.id!), { equal: sameIds });
+  // A polygon drawn on the map, as WKT in EPSG:25833. Narrows down all the other filters.
+  readonly customAreaWkt = signal<string | null>(null);
+  // Counts every time the polygon is set or cleared, also to the same value, so an answer
+  // to an older size check, or a polygon rejected by one, can be told apart from the current one.
+  private readonly customAreaChanges = signal(0);
+  readonly customAreaVersion = this.customAreaChanges.asReadonly();
   readonly selectedTaxonIds = signal<number[]>([]);
   readonly includeDescendantTaxa = signal(true);
   // Without selected taxa the setting changes nothing, so it only counts as a filter with them.
@@ -335,6 +341,15 @@ export class FilterStateService {
     this.selectedHistoricalAreas.update((areas) => areas.map((a) => (a.id === area.id ? area : a)));
   }
 
+  setCustomArea(wkt: string | null): void {
+    this.customAreaWkt.set(wkt);
+    this.customAreaChanges.update((n) => n + 1);
+  }
+
+  clearCustomArea(): void {
+    this.setCustomArea(null);
+  }
+
   addTaxon(taxonId: number): void {
     this.selectedTaxonIds.update((ids) => (ids.includes(taxonId) ? ids : [...ids, taxonId]));
   }
@@ -362,6 +377,7 @@ export class FilterStateService {
     this.selectedRestrictedAreaIds.set([]);
     this.selectedCadastralUnitIds.set([]);
     this.selectedHistoricalAreas.set([]);
+    this.clearCustomArea();
   }
 
   clearMunicipalities(): void {

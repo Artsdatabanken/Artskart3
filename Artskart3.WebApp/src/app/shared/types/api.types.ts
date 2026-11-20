@@ -35,6 +35,7 @@ export type MapExtentDto = components['schemas']['MapExtentDto'];
 export type CadastralUnitDto = components['schemas']['CadastralUnitDto'];
 export type AreaSearchResultDto = components['schemas']['AreaSearchResultDto'];
 export type MapLayerDto = components['schemas']['MapLayerDto'];
+export type CustomAreaLookupDto = components['schemas']['CustomAreaLookupDto'];
 
 export type SpeciesDto = components['schemas']['SpeciesDto'];
 export type VernacularNameDto = components['schemas']['VernacularNameDto'];

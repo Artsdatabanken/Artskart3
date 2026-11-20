@@ -165,6 +165,9 @@
     "tabsAriaLabel": "Mitt Artskart-faner"
   },
   "listView": {
+    "showObservation": "Vis funn",
+    "showDetails": "Se funn",
+    "showOnMap": "Vis i kart",
     "name": "Populærnavn (nb)",
     "scientificName": "Vitenskapelig navn",
     "author": "Autor",
@@ -191,6 +194,7 @@
     "areas": "Områder",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
+    "activeSelections": "Har aktive filtervalg",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartslista",
@@ -271,6 +275,7 @@
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
+    "chipMoreNames": "og {{count}} til",
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
@@ -328,6 +333,19 @@
       "historicalMunicipalityWithoutCounty": "historisk kommune, før {{year}}",
       "historicalCounty": "historisk fylke, før {{year}}",
       "historicalArea": "historisk område, før {{year}}"
+    },
+    "customArea": {
+      "heading": "Egendefinert område",
+      "description": "Filtrer på et område ved å tegne i kartet.",
+      "draw": "Tegn i kart",
+      "finish": "Fullfør tegning",
+      "undo": "Angre siste punkt",
+      "cancel": "Avbryt tegning",
+      "remove": "Fjern tegnet område",
+      "tooManyLocations": "Området inneholder for mange lokaliteter (over {{max}}). Gjør det mindre ved å dra i hjørnene, eller tegn et nytt.",
+      "tooManyLocationsWithAreas": "Sammen med de andre områdefiltrene teller hele det tegnede området, og det inneholder for mange lokaliteter (over {{max}}). Gjør det mindre, eller fjern de andre områdefiltrene.",
+      "tooManyCorners": "Området har for mange hjørner (over {{max}}). Tegn det med færre hjørner. Tegner du med Shift nede, blir hver bevegelse et hjørne.",
+      "checkFailed": "Kunne ikke sjekke området. Flytt et hjørne for å prøve igjen."
     },
     "image": "Bilde",
     "imageAll": "Alle (standard)",
@@ -394,6 +412,14 @@
       "eiendomskart": "Eiendom",
       "maritimeGrenser": "Maritime grenser"
     },
+    "mapTypeTooltip": "Endre bakgrunnskart",
+    "layersTooltip": "Legg til ulike kartlag over kartet",
+    "settingsTooltip": "Innstillinger for kart",
+    "geolocationTooltip": "Finn min posisjon",
+    "fullscreenTooltip": "Vis kart i fullskjerm",
+    "exitFullscreenTooltip": "Avslutt fullskjerm",
+    "zoomInTooltip": "Gå nærmere i kartet",
+    "zoomOutTooltip": "Gå lenger ut i kartet",
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },
   "design": {

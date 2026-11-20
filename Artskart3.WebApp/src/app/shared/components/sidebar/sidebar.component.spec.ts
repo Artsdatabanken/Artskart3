@@ -30,7 +30,10 @@ describe('SidebarComponent', () => {
     municipalities: {
       id: 2,
       name: 'Municipality',
-      areas: [{ id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true }],
+      areas: [
+        { id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true },
+        { id: 11, fid: '0302', name: 'Testkommune', isCurrent: true },
+      ],
     },
   };
 
@@ -68,9 +71,9 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
   });
 
-  async function flushAll(categoryTypes: unknown[] = mockCategoryTypes) {
+  async function flushAll(categoryTypes: unknown[] = mockCategoryTypes, areaResponse: object = mockAreaResponse) {
     httpTesting.expectOne('/api/Lookup/Categories').flush(categoryTypes);
-    httpTesting.expectOne('/api/Lookup/Areas').flush(mockAreaResponse);
+    httpTesting.expectOne('/api/Lookup/Areas').flush(areaResponse);
     httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
     httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
     httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush(mockBasisOfRecords);
@@ -187,12 +190,17 @@ describe('SidebarComponent', () => {
       expect(component.isMunicipalitySelected('0602')).toBe(false);
     });
 
-    it('puts the protected area search first in the area section, above the cadastral field', async () => {
+    it('orders the area section: custom area, protected area, cadastral unit, county and municipality', async () => {
       await flushAll();
       const headings = Array.from(fixture.nativeElement.querySelectorAll('h6.area-section-heading') as NodeListOf<Element>, (h) =>
         h.textContent?.trim(),
       );
-      expect(headings.slice(0, 2)).toEqual(['sidebar.restrictedArea', 'sidebar.cadastralUnit']);
+      expect(headings.slice(0, 4)).toEqual([
+        'sidebar.customArea.heading',
+        'sidebar.restrictedArea',
+        'sidebar.cadastralUnit',
+        'sidebar.areaSearch',
+      ]);
     });
 
     it('adds a picked protected area to the filter by its fid', () => {
@@ -621,6 +629,90 @@ describe('SidebarComponent', () => {
     expect(filterState.includeDescendantTaxa()).toBe(false);
   });
 
+  describe('active filter indicator', () => {
+    const sectionItems = () =>
+      Array.from(fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item')) as Element[];
+    const sectionsWithIndicator = () =>
+      sectionItems()
+        .filter((item) => item.hasAttribute('indicator'))
+        .map((item) => item.getAttribute('heading'));
+
+    beforeEach(() => flushAll());
+
+    it('shows no indicator with the default filter', () => {
+      expect(sectionItems().length).toBe(10);
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('labels the indicator for screen readers', () => {
+      expect(sectionItems().length).toBe(10);
+      for (const item of sectionItems()) {
+        expect(item.getAttribute('indicator-label')).toBe('sidebar.activeSelections');
+      }
+    });
+
+    const cases: [string, string, (state: FilterStateService) => void][] = [
+      ['sidebar.taxonGroups', 'a taxon group', (state) => state.toggleTaxonGroup(1)],
+      ['sidebar.taxonTree', 'a taxon', (state) => state.addTaxon(42)],
+      ['sidebar.categories', 'a category', (state) => state.toggleCategory(10)],
+      ['sidebar.areas', 'a county', (state) => state.toggleCounty('03')],
+      ['sidebar.areas', 'a municipality', (state) => state.toggleMunicipality('0301')],
+      ['sidebar.areas', 'an ocean area', (state) => state.toggleOceanArea('5001')],
+      ['sidebar.areas', 'a protected area', (state) => state.addRestrictedArea('VV00001234')],
+      ['sidebar.areas', 'a cadastral unit', (state) => state.addCadastralUnit('1101-1/2')],
+      ['sidebar.areas', 'a historical area', (state) => state.addHistoricalArea({ id: 99, name: 'Aker', isCurrent: false })],
+      ['sidebar.areas', 'a drawn area', (state) => state.setCustomArea('POLYGON((0 0, 0 1, 1 1, 0 0))')],
+      ['sidebar.coordinatePrecision', 'a lower precision only', (state) => state.setCoordinatePrecision(10, null)],
+      ['sidebar.coordinatePrecision', 'an upper precision only', (state) => state.setCoordinatePrecision(null, 100)],
+      ['sidebar.period', 'a start year only', (state) => state.setPeriod(2000, null)],
+      ['sidebar.period', 'an end year only', (state) => state.setPeriod(null, 2010)],
+      ['sidebar.period', 'a month', (state) => state.toggleMonth(5)],
+      ['sidebar.behaviors', 'a behavior', (state) => state.toggleBehavior(1)],
+      ['sidebar.basisOfRecords', 'a basis of record', (state) => state.toggleBasisOfRecord(1)],
+      ['sidebar.basisOfRecords', 'a registration status', (state) => state.setRegistrationStatus(2)],
+      ['sidebar.institutions', 'an institution', (state) => state.toggleInstitution(1)],
+      ['sidebar.otherProperties', 'a project', (state) => state.addProject({ id: 1, name: 'Prosjekt' })],
+      ['sidebar.otherProperties', 'a dataset', (state) => state.addDataset({ id: 2, name: 'Datasett' })],
+      ['sidebar.otherProperties', 'a catalog number', (state) => state.setCatalogObservationIds([7])],
+      ['sidebar.otherProperties', 'an image filter', (state) => state.setImageFilter('withImage')],
+      ['sidebar.otherProperties', 'a sensitivity filter', (state) => state.setSensitiveFilter('sensitive')],
+      ['sidebar.otherProperties', 'annotated observations', (state) => state.setAnnotationFilter('annotated')],
+      ['sidebar.otherProperties', 'hidden observations included', (state) => state.setAnnotationFilter('all')],
+    ];
+
+    it.each(cases)('shows the indicator only on %s for %s', (heading, _description, select) => {
+      select(filterState);
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([heading]);
+    });
+
+    it('shows no indicator for filters without a control in the sidebar', () => {
+      filterState.setIdentificationFilter('uncertain');
+      filterState.setOriginFilter('introduced');
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('does not count settings that are not a filter on their own', () => {
+      filterState.setIncludeDescendantTaxa(false);
+      filterState.setAnnotationFilter('all');
+      filterState.setAnnotationFilter('excludeHidden');
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+
+    it('removes the indicators when the filter is cleared', () => {
+      filterState.toggleTaxonGroup(1);
+      filterState.setPeriod(2000, 2010);
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual(['sidebar.taxonGroups', 'sidebar.period']);
+
+      component.onClearFilter();
+      fixture.detectChanges();
+      expect(sectionsWithIndicator()).toEqual([]);
+    });
+  });
+
   describe('vitenskapelige navn i artstreet', () => {
     const storageKey = 'artskart.taxonTree.showScientificNames';
 
@@ -646,6 +738,104 @@ describe('SidebarComponent', () => {
 
       expect(component.showScientificNames()).toBe(true);
       expect(localStorage.getItem(storageKey)).toBe('true');
+    });
+  });
+
+  describe('opening a filter from its chip', () => {
+    type AccordionItem = HTMLElement & { open: boolean };
+    // jsdom doesn't implement scrollIntoView.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+      scrollIntoView.mockClear();
+    });
+
+    function section(name: string): AccordionItem {
+      return fixture.nativeElement.querySelector(`adb-accordion-item[data-filter-section="${name}"]`);
+    }
+
+    it('opens and scrolls to the section where the filter is set', async () => {
+      await flushAll();
+      await component.onOpenFilter('institutions');
+
+      expect(section('institutions').open).toBe(true);
+      expect(scrollIntoView.mock.contexts).toEqual([section('institutions')]);
+    });
+
+    it('unfolds the counties where only some municipalities are selected', async () => {
+      await flushAll(mockCategoryTypes, {
+        counties: {
+          areas: [
+            { id: 1, fid: '03', name: 'Oslo', isCurrent: true },
+            { id: 2, fid: '11', name: 'Rogaland', isCurrent: true },
+          ],
+        },
+        municipalities: {
+          id: 2,
+          name: 'Municipality',
+          areas: [
+            { id: 10, fid: '0301', name: 'Oslo kommune', isCurrent: true },
+            { id: 11, fid: '1101', name: 'Eigersund', isCurrent: true },
+            { id: 12, fid: '1103', name: 'Stavanger', isCurrent: true },
+          ],
+        },
+      });
+      filterState.addMunicipality('0301');
+      filterState.addMunicipality('1101');
+      fixture.detectChanges();
+
+      await component.onOpenFilter('areas');
+
+      const counties = section('areas').querySelectorAll('adb-accordion adb-accordion-item') as NodeListOf<AccordionItem>;
+      expect([...counties].map((county) => county.open === true)).toEqual([false, true]);
+    });
+
+    it('starts the taxon tree and has it reveal the selected taxa', async () => {
+      await component.onOpenFilter('taxonTree');
+      await component.onOpenFilter('taxonTree');
+
+      expect(component.taxonTreeOpened()).toBe(true);
+      expect(component.taxonTreeReveal()).toBe(2);
+    });
+
+    it('reveals the selected taxa once their ancestries have been looked up', async () => {
+      filterState.addTaxon(42);
+      const opening = component.onOpenFilter('taxonTree');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(component.taxonTreeOpened()).toBe(true);
+      expect(component.taxonTreeReveal()).toBe(0);
+
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([{ id: 42, parentIds: [1] }]);
+      await opening;
+      expect(component.taxonTreeReveal()).toBe(1);
+    });
+
+    it("moves focus to the section's header, since the chip is scrolled out of view", async () => {
+      await flushAll();
+      // Stands in for the accordion item's own shadow DOM, which isn't defined in tests.
+      const summary = document.createElement('summary');
+      summary.tabIndex = 0;
+      section('institutions').attachShadow({ mode: 'open' }).appendChild(summary);
+
+      await component.onOpenFilter('institutions');
+
+      expect(section('institutions').shadowRoot!.activeElement).toBe(summary);
+    });
+
+    it('opens the section of a chip that is clicked', async () => {
+      await flushAll();
+      filterState.addInstitution(1);
+      fixture.detectChanges();
+
+      fixture.nativeElement.querySelector('app-filter-chips .filter-chip-open').click();
+
+      expect(section('institutions').open).toBe(true);
     });
   });
 });

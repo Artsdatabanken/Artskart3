@@ -1,5 +1,6 @@
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Constants;
 
 namespace Artskart3.Core.Application.Validation;
@@ -39,7 +40,53 @@ public static class ObservationFilterValidator
             return periodError;
         }
 
-        return GetArraySizeError(filter) ?? GetCadastralUnitError(filter) ?? GetHistoricalAreaError(filter);
+        return GetArraySizeError(filter) ?? GetCadastralUnitError(filter) ?? GetHistoricalAreaError(filter)
+               ?? GetCustomAreaError(filter);
+    }
+
+    /// <summary>
+    /// True when the drawn area can be searched as the areas that lie wholly inside it plus the
+    /// locations along its edge. That requires a filter with no other areas selected: selected
+    /// areas are combined with OR, so the parts would be added to them instead of limiting them
+    /// to the drawn area. The size check follows the same rule and then counts only the edge.
+    /// </summary>
+    public static bool CanSplitCustomArea(IObservationFilter filter) =>
+        filter.CustomAreaWkt != null
+        && !(filter.MunicipalityIds?.Length > 0) && !(filter.CountyIds?.Length > 0)
+        && !(filter.RestrictedAreaIds?.Length > 0) && !(filter.OceanAreaIds?.Length > 0)
+        && !(filter.CadastralUnitIds?.Length > 0) && !(filter.HistoricalAreaIds?.Length > 0);
+
+    public static readonly string CustomAreaTooManyLocationsMessage =
+        $"{nameof(IObservationFilter.CustomAreaWkt)} contains more than {SearchConstants.MaxCustomAreaLocations} locations.";
+
+    /// <summary>
+    /// Feilmelding hvis det egendefinerte området har for mange lokasjoner, ellers null.
+    /// Egen metode fordi lokasjonene må slås opp; resten av reglene trenger ikke databasen.
+    /// Kalles etter <see cref="GetError"/>, som avviser ugyldige polygoner.
+    /// </summary>
+    public static async Task<string?> GetCustomAreaSizeErrorAsync(
+        IObservationFilter filter, ICustomAreaService customAreas, CancellationToken cancellationToken)
+    {
+        if (filter.CustomAreaWkt is not { } wkt) return null;
+
+        // Når polygonet kan deles, er det bare kanten som sendes som lokasjonsliste.
+        if (CanSplitCustomArea(filter) && await customAreas.GetSplitAsync(wkt, cancellationToken) is { } split)
+        {
+            return split.EdgeLocationIds == null ? CustomAreaTooManyLocationsMessage : null;
+        }
+
+        return await customAreas.GetLocationIdsAsync(wkt, cancellationToken) == null
+            ? CustomAreaTooManyLocationsMessage
+            : null;
+    }
+
+    private static string? GetCustomAreaError(IObservationFilter filter)
+    {
+        if (filter.CustomAreaWkt is not { } wkt) return null;
+
+        return CustomArea.Parse(wkt) == null
+            ? $"{nameof(filter.CustomAreaWkt)} must be a WKT polygon with at most {SearchConstants.MaxCustomAreaVertices} points."
+            : null;
     }
 
     private static string? GetHistoricalAreaError(IObservationFilter filter) =>

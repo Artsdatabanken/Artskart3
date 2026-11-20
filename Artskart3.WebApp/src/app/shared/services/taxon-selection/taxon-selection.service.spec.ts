@@ -298,4 +298,59 @@ describe('TaxonSelectionService', () => {
       expect(filterState.selectedTaxonIds()).toEqual([4, 5, 2]);
     });
   });
+
+  describe('names', () => {
+    it('knows the names of the taxa loaded in the tree', () => {
+      expect(service.names(2)?.validScientificName).toBe('Taxon 2');
+      expect(service.names(99)).toBeUndefined();
+    });
+
+    it('looks up the names of taxa selected outside the tree', async () => {
+      filterState.addTaxon(42);
+      TestBed.tick();
+      httpTesting
+        .expectOne((r) => r.url === '/api/Lookup/TaxonAncestry')
+        .flush([{ id: 42, parentIds: [1], validScientificName: 'Cnidaria', preferredPopularName: 'nesledyr' }]);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(service.names(42)).toEqual({ validScientificName: 'Cnidaria', preferredPopularName: 'nesledyr' });
+    });
+  });
+
+  describe('revealing the selection in the tree', () => {
+    it('opens the way down to the first 20 selected taxa only', () => {
+      const ids = Array.from({ length: 21 }, (_, i) => 100 + i);
+      ids.forEach((id) => service.registerAncestry(id, [1, id + 1000]));
+      filterState.setTaxons(ids);
+
+      const revealed = service.revealedAncestorIds();
+      expect(revealed.has(1)).toBe(true);
+      expect(revealed.has(1119)).toBe(true);
+      expect(revealed.has(1120)).toBe(false);
+    });
+
+    it('waits for the ancestries being looked up', async () => {
+      filterState.addTaxon(42);
+      let resolved = false;
+      const waiting = service.ancestriesResolved().then(() => (resolved = true));
+      await Promise.resolve();
+      expect(resolved).toBe(false);
+
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([{ id: 42, parentIds: [1, 2] }]);
+      await waiting;
+      expect(service.revealedAncestorIds().has(2)).toBe(true);
+    });
+
+    it('looks up again an ancestry that failed earlier', async () => {
+      filterState.addTaxon(42);
+      service.resolveAncestries();
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').error(new ProgressEvent('error'));
+      await new Promise((r) => setTimeout(r, 0));
+
+      const waiting = service.ancestriesResolved();
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([{ id: 42, parentIds: [1] }]);
+      await waiting;
+      expect(service.revealedAncestorIds().has(1)).toBe(true);
+    });
+  });
 });

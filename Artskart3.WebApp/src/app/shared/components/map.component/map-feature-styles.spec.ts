@@ -24,6 +24,8 @@ function tokenStyles(): CSSStyleDeclaration {
   styles.setProperty('--adb-color-brand-sun-70', '#F8AE00');
   styles.setProperty('--adb-color-special-100', '#F34F39');
   styles.setProperty('--adb-color-special-110', '#D61900');
+  styles.setProperty('--adb-color-brand-evergreen-70', '#0C936B');
+  styles.setProperty('--adb-color-functional-red-70', '#B80738');
   return styles;
 }
 
@@ -513,6 +515,14 @@ describe('MapFeatureStyles', () => {
     tokens.setProperty('--adb-color-brand-freshwater-blue-90', 'rgb(10, 20, 30)');
     const custom = new MapFeatureStyles(tokens);
     expect(custom.polygon()[0].getFill()?.getColor()).toEqual([10, 20, 30, 0.06]);
+  });
+
+  it('draws the custom area in its own color with a light fill', () => {
+    expect(styles.customArea()).toEqual({ strokeColor: 'rgba(12,147,107,1)', strokeWidth: 3, fillColor: 'rgba(12,147,107,0.15)' });
+  });
+
+  it('draws a rejected custom area in red', () => {
+    expect(styles.customArea(true)).toEqual({ strokeColor: 'rgba(184,7,56,1)', strokeWidth: 3, fillColor: 'rgba(184,7,56,0.15)' });
   });
 
   it.each(['', 'var(--unresolved)', 'not-a-color'])('rejects a missing or invalid token: %s', (value) => {

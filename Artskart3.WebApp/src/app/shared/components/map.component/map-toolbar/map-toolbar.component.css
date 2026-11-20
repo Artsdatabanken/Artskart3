@@ -17,7 +17,6 @@
   align-items: flex-start;
   justify-content: center;
   gap: var(--map-control-gap);
-  z-index: 100;
   pointer-events: auto;
   inset-block-start: var(--adb-spacing-lg);
 }

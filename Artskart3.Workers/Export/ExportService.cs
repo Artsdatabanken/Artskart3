@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,7 @@ using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Infrastructure.Persistence.QueryBuilders;
+using Artskart3.Infrastructure.Services;
 using Artskart3.Workers.Configuration;
 using MiniExcelLibs;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +37,7 @@ public class ExportService
     private readonly ILogger<ExportService> _logger;
     private readonly ITaxonHierarchyService _taxonHierarchy;
     private readonly ICadastralUnitService _cadastralUnits;
+    private readonly ICustomAreaService _customAreas;
 
     public ExportService(
         IArtsKartDbContext context,
@@ -44,7 +47,8 @@ public class ExportService
         IOptions<CsvExportOptions> options,
         ILogger<ExportService> logger,
         ITaxonHierarchyService taxonHierarchy,
-        ICadastralUnitService cadastralUnits)
+        ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas)
     {
         _context = context;
         _blobStorage = blobStorage;
@@ -54,6 +58,7 @@ public class ExportService
         _logger = logger;
         _taxonHierarchy = taxonHierarchy;
         _cadastralUnits = cadastralUnits;
+        _customAreas = customAreas;
     }
 
     public async Task ProcessJobAsync(CsvExportJob job, CancellationToken cancellationToken)
@@ -77,6 +82,12 @@ public class ExportService
             throw new InvalidOperationException($"Ugyldig filter: {filterError}");
         }
 
+        if (await ObservationFilterValidator.GetCustomAreaSizeErrorAsync(filter, _customAreas, cancellationToken) is { } sizeError)
+        {
+            _logger.LogWarning("Eksportjobb {JobId} har et for stort egendefinert område: {Feil}", job.Id, sizeError);
+            throw new InvalidOperationException($"Ugyldig filter: {sizeError}");
+        }
+
         var validColumns = _columnRegistry.GetValidColumnNames();
         columns = columns.Where(c => validColumns.Contains(c)).ToList();
 
@@ -98,7 +109,12 @@ public class ExportService
                 .ToDictionaryAsync(o => o.Id, o => o.Code, cancellationToken);
         }
 
-        var query = await BuildQueryAsync(filter, needsDetail, cancellationToken);
+        var storedListIds = new List<int>();
+        var query = await BuildQueryAsync(filter, needsDetail, storedListIds, cancellationToken);
+        // Hver batch leser de lagrede lokasjonslistene på nytt, og en lang eksport kan vare
+        // lenger enn ryddingen lar ubrukte lister ligge. Merkes ved start og jevnlig underveis.
+        await LocationListStore.MarkUsedAsync(_context, storedListIds, cancellationToken);
+        var listsMarkedUsed = Stopwatch.StartNew();
 
         // Tell totalt antall rader og lagre på jobben med én gang
         var totalRows = await query.CountAsync(cancellationToken);
@@ -163,6 +179,12 @@ public class ExportService
                         {
                             cancelledByUser = true;
                             yield break;
+                        }
+
+                        if (listsMarkedUsed.Elapsed >= ListKeepAliveInterval)
+                        {
+                            await LocationListStore.MarkUsedAsync(_context, storedListIds, ct);
+                            listsMarkedUsed.Restart();
                         }
 
                         // Hent neste batch med keyset-paginering
@@ -334,7 +356,11 @@ public class ExportService
         };
     }
 
-    private async Task<IQueryable<Observation>> BuildQueryAsync(ObservationSearchFilterDto? filter, bool includeDetail, CancellationToken cancellationToken)
+    // Godt innenfor de to timene ryddingen lar en ubrukt liste ligge.
+    private static readonly TimeSpan ListKeepAliveInterval = TimeSpan.FromMinutes(10);
+
+    private async Task<IQueryable<Observation>> BuildQueryAsync(
+        ObservationSearchFilterDto? filter, bool includeDetail, ICollection<int> storedListIds, CancellationToken cancellationToken)
     {
         var query = _context.Set<Observation>().AsNoTracking();
 
@@ -345,7 +371,8 @@ public class ExportService
 
         if (filter != null)
         {
-            query = await ObservationQueryBuilder.ApplyFiltersAsync(_context, _taxonHierarchy, _cadastralUnits, query, filter, cancellationToken);
+            query = await ObservationQueryBuilder.ApplyFiltersAsync(
+                _context, _taxonHierarchy, _cadastralUnits, _customAreas, query, filter, storedListIds, cancellationToken);
         }
 
         return query;

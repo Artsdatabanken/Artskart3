@@ -2,7 +2,7 @@
   @let state = checkboxState(node.id);
   @if (node.hasChildren) {
     <adb-accordion>
-      <adb-accordion-item (toggle)="onNodeToggle(node.id)">
+      <adb-accordion-item [open]="openNodeIds().has(node.id)" (toggle)="onNodeToggle(node.id, $event)">
         <adb-checkbox
           slot="heading"
           [attr.checked]="state === 'checked' ? '' : null"
@@ -20,6 +20,7 @@
             [parentTaxonId]="node.id"
             [ancestorIds]="childAncestorIds(node.id)"
             [showScientificNames]="showScientificNames()"
+            [revealSelection]="childRevealSelection(node.id)"
           />
         }
       </adb-accordion-item>

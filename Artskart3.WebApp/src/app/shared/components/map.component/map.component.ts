@@ -23,7 +23,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -59,9 +59,9 @@ import {
   sensitiveFilterToSensitive,
 } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
-import { ArtskartZoomControl } from './controls/zoom.control';
-import { ArtskartFullscreenControl } from './controls/fullscreen.control';
-import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
+import { ArtskartZoomControl, ZoomControlLabels } from './controls/zoom.control';
+import { ArtskartFullscreenControl, FullscreenControlLabels } from './controls/fullscreen.control';
+import { createGeolocationControl, GeolocationControlLabels, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ActiveObservationPoint, ObservationPanelComponent } from '../observation-panel/observation-panel.component';
@@ -71,6 +71,8 @@ import { SearchFilterService } from '@shared/services/search-filter/search-filte
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { CadastralUnitService } from '@shared/services/cadastral-unit/cadastral-unit.service';
+import { CustomAreaDrawingService } from '@shared/services/custom-area-drawing/custom-area-drawing.service';
+import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import Layer from 'ol/layer/Layer';
@@ -103,6 +105,7 @@ import { MAP_CONSTANTS } from '@core/constants/map-constants';
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
+  private readonly mapControls = viewChild.required<ElementRef<HTMLDivElement>>('mapControls');
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
@@ -187,6 +190,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly mapView = inject(MapViewService);
   private readonly cadastralUnitService = inject(CadastralUnitService);
+  private readonly customAreaDrawing = inject(CustomAreaDrawingService);
+  private customAreaDraw?: CustomAreaDraw;
+
+  private readonly _onCustomAreaDrawingCommand = this.customAreaDrawing.commands
+    .pipe(takeUntilDestroyed())
+    .subscribe((command) => {
+      if (this.customAreaDraw) this.customAreaDraw.run(command);
+      else this.customAreaDrawing.stopped();
+    });
+
+  private readonly _onCustomAreaChange = effect(() => {
+    const rejected = this.customAreaDrawing.rejected();
+    const wkt = rejected?.wkt ?? this.filterState.customAreaWkt();
+    untracked(() => this.customAreaDraw?.show(wkt, rejected !== null));
+  });
 
   private readonly selectedCadastralUnits = rxResource({
     params: () => this.filterState.selectedCadastralUnitIds(),
@@ -249,6 +267,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         // Not pre-counted per county or municipality either.
         restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
         historicalAreaIds: historicalAreaIds.length ? historicalAreaIds : undefined,
+        // Same for the custom area.
+        customAreaWkt: this.filterState.customAreaWkt() ?? undefined,
         withImages,
         changedByAnnotation,
         hiddenObservations,
@@ -424,6 +444,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on(MapEvents.PointerClick, (payload) => {
+        // Clicks place corners while drawing.
+        if (this.customAreaDrawing.isDrawing()) return;
         this.handleLocationClick(payload);
         this.handleAreaMarkerClick(payload.features as PointerClickFeature[] | null);
       });
@@ -520,9 +542,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.adoptGeolocationControl();
     this.adoptFullscreenControl();
     this.adoptZoomControl();
-    // TODO: Polygon draw controls should be adopted here using nbic-map-component's draw API
-    // (map.startDrawing, map.stopDrawing, map.undoLastPoint, map.finishCurrent, etc.)
-    // See Artsobservasjoner3's shared-map.component.ts for reference implementation.
   }
 
   /** nbic-map-component has no rotation option, so alt+shift-drag and pinch rotation are toggled on the underlying OL interaction. */
@@ -537,23 +556,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private adoptZoomControl(): void {
     if (!this.map) return;
-    this.zoomControl = new ArtskartZoomControl({
-      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-    });
+    this.zoomControl = new ArtskartZoomControl(this.zoomControlLabels(), this.mapControls().nativeElement);
     this.map.adoptControl(this.zoomControl, 'zoom');
   }
 
   private adoptFullscreenControl(): void {
     if (!this.map) return;
     // Fullscreen the container wrapping the map so the toolbar (map type selector etc.) stays visible
-    const fullscreenSource = this.mapEl.nativeElement.parentElement ?? undefined;
-    this.fullscreenControl = new ArtskartFullscreenControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-      },
-      fullscreenSource,
-    );
+    const source = this.mapEl.nativeElement.parentElement ?? undefined;
+    this.fullscreenControl = new ArtskartFullscreenControl(this.fullscreenControlLabels(), { source, target: this.mapControls().nativeElement });
     this.map.adoptControl(this.fullscreenControl, 'fullscreen');
   }
 
@@ -571,25 +582,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           return located;
         },
       },
+      this.geolocationControlLabels(),
+      {
+        onClick: async () => {
+          const located = await this.map.zoomToGeolocation(14);
+          if (located) this.geolocationActive.set(true);
+          return located;
+        },
+      },
+      this.mapControls().nativeElement,
     );
     this.map.adoptControl(this.geolocationControl, 'geolocation');
+  }
+
+  private zoomControlLabels(): ZoomControlLabels {
+    return {
+      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+      zoomInTooltip: this.translate.instant('mapToolbar.zoomInTooltip'),
+      zoomOutTooltip: this.translate.instant('mapToolbar.zoomOutTooltip'),
+    };
+  }
+
+  private fullscreenControlLabels(): FullscreenControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.fullscreenTooltip'),
+      exitTooltip: this.translate.instant('mapToolbar.exitFullscreenTooltip'),
+    };
+  }
+
+  private geolocationControlLabels(): GeolocationControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.geolocationTooltip'),
+      deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+    };
   }
 
   private listenForLanguageChanges(): void {
     this.translate.onLangChange
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.zoomControl?.updateLabels({
-          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-        });
-        this.fullscreenControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-        });
-        this.geolocationControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-        });
+        this.zoomControl?.updateLabels(this.zoomControlLabels());
+        this.fullscreenControl?.updateLabels(this.fullscreenControlLabels());
+        this.geolocationControl?.updateLabels(this.geolocationControlLabels());
         this.featureStyles?.clearMarkerCache();
         this.redrawLocationStyles();
         this.rebuildAllLayers();
@@ -610,6 +647,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupLocationCountPipeline();
     this.setupCameraChangePipeline();
     this.setupVisibilityObserver();
+    this.setupCustomAreaDraw();
     this.prefetchAreaGeometries();
     this.locationCountFetch$.next(this.locationFilter());
     this.tryApplyRequestedExtent();
@@ -1906,6 +1944,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.mapOverlayRefreshTimers.set(layer.id, timer);
   }
 
+  private setupCustomAreaDraw(): void {
+    if (!this.featureStyles) return;
+    this.customAreaDraw = new CustomAreaDraw(
+      this.map,
+      () => this.zoomControl?.getMap()?.getView().getProjection().getCode() ?? MAP_CONFIG.projection,
+      { normal: this.featureStyles.customArea(), rejected: this.featureStyles.customArea(true) },
+      {
+        areaChanged: (wkt) => this.customAreaDrawing.submit(wkt),
+        pointCountChanged: (count) => this.customAreaDrawing.setPointCount(count),
+        drawingStopped: () => this.customAreaDrawing.stopped(),
+      },
+    );
+    const rejected = this.customAreaDrawing.rejected();
+    this.customAreaDraw.show(rejected?.wkt ?? this.filterState.customAreaWkt(), rejected !== null);
+  }
+
   private cleanup(): void {
     clearTimeout(this.initializationTimer);
     this.initializationTimer = undefined;
@@ -1930,6 +1984,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.disposeWebglLocationsLayer();
+    this.customAreaDraw?.dispose();
+    this.customAreaDraw = undefined;
+    this.customAreaDrawing.stopped();
     this.map?.destroy?.();
   }
 

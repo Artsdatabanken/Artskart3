@@ -67,6 +67,8 @@ const COLOR_TOKENS = {
   selectedRing: '--adb-color-brand-sun-70',
   negativeBorder: '--adb-color-special-100',
   negativeGlyph: '--adb-color-special-110',
+  customArea: '--adb-color-brand-evergreen-70',
+  customAreaRejected: '--adb-color-functional-red-70',
 } as const;
 
 // Rasterized larger than drawn, so icons stay sharp on high-DPI screens.
@@ -294,7 +296,16 @@ export class MapFeatureStyles {
       selectedRing: readColor(styles, COLOR_TOKENS.selectedRing),
       negativeBorder: readColor(styles, COLOR_TOKENS.negativeBorder),
       negativeGlyph: readColor(styles, COLOR_TOKENS.negativeGlyph),
+      customArea: readColor(styles, COLOR_TOKENS.customArea),
+      customAreaRejected: readColor(styles, COLOR_TOKENS.customAreaRejected),
     };
+  }
+
+  /** The polygon drawn as a custom area, in nbic-map-component's draw style format. */
+  customArea(rejected = false): { strokeColor: string; strokeWidth: number; fillColor: string } {
+    const color = rejected ? this.palette.customAreaRejected : this.palette.customArea;
+    const [r, g, b] = color;
+    return { strokeColor: asString(color), strokeWidth: 3, fillColor: asString([r, g, b, 0.15]) };
   }
 
   marker(kind: MapMarkerKind, state: MapFeatureState, label = '', status: RegistrationStatus = 'found'): Style[] {

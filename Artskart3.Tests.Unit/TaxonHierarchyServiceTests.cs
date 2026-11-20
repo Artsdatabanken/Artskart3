@@ -49,6 +49,8 @@ public class TaxonHierarchyServiceTests
             taxonDataType.GetProperty("ParentTaxonId")!.SetValue(data, parentId);
             taxonDataType.GetProperty("TaxonRankId")!.SetValue(data, rankId);
             taxonDataType.GetProperty("ExistsInCountry")!.SetValue(data, true);
+            taxonDataType.GetProperty("ValidScientificName")!.SetValue(data, $"Taxon {id}");
+            taxonDataType.GetProperty("PreferredPopularName")!.SetValue(data, $"takson {id}");
             taxons[id] = data;
             ranks[id] = rankId;
 
@@ -110,6 +112,17 @@ public class TaxonHierarchyServiceTests
         result.Should().ContainSingle();
         result[0].Id.Should().Be(999);
         result[0].ParentIds.Should().BeEmpty();
+        result[0].ValidScientificName.Should().BeNull();
+        result[0].PreferredPopularName.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetAncestries_ReturnererNavnene()
+    {
+        var result = _sut.GetAncestries([4]);
+
+        result[0].ValidScientificName.Should().Be("Taxon 4");
+        result[0].PreferredPopularName.Should().Be("takson 4");
     }
 
     [Fact]

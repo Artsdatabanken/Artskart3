@@ -42,26 +42,45 @@ describe('area labels', () => {
     });
     const details = (areas: AreaSearchResultDto[]) => withSuggestionDetails(areas, translate).map((a) => a.detail);
 
-    it('leaves a current area with a unique name without a detail', () => {
-      expect(details([current(1, 'Bærum', 1, 'Akershus'), tromso1902])).toEqual(['', '(sidebar.areaSearchType.historicalMunicipality[Troms,2020])']);
+    it('gives a current municipality its kind and county', () => {
+      expect(details([current(5006, 'Steinkjer', 1, 'Trøndelag')])).toEqual(['sidebar.areaSearchType.municipality (Trøndelag)']);
+    });
+
+    it('gives a current municipality without a county only its kind', () => {
+      expect(details([current(5006, 'Steinkjer', 1)])).toEqual(['sidebar.areaSearchType.municipality']);
+    });
+
+    it('gives a current county its kind', () => {
+      expect(details([current(50, 'Trøndelag', 2)])).toEqual(['sidebar.areaSearchType.county']);
     });
 
     it('tells current municipalities with the same name apart by county', () => {
       expect(details([current(1, 'Herøy', 1, 'Møre og Romsdal'), current(2, 'Herøy', 1, 'Nordland')])).toEqual([
-        '(Møre og Romsdal)',
-        '(Nordland)',
+        'sidebar.areaSearchType.municipality (Møre og Romsdal)',
+        'sidebar.areaSearchType.municipality (Nordland)',
       ]);
     });
 
     it('tells a county and a municipality with the same name apart by kind', () => {
       expect(details([current(3, 'Oslo', 2), current(301, 'Oslo', 1, 'Oslo')])).toEqual([
-        '(sidebar.areaSearchType.county)',
-        '(sidebar.areaSearchType.municipality)',
+        'sidebar.areaSearchType.county',
+        'sidebar.areaSearchType.municipality (Oslo)',
       ]);
     });
 
-    it('does not count a historical area with the same name as a duplicate', () => {
-      expect(details([current(5501, 'Tromsø', 1, 'Troms'), tromso1902])).toEqual(['', '(sidebar.areaSearchType.historicalMunicipality[Troms,2020])']);
+    it('leaves an ocean area with a unique name without a detail', () => {
+      expect(details([current(10, 'Skagerrak', 4)])).toEqual(['']);
+    });
+
+    it('gives an ocean area its kind when a current area has the same name', () => {
+      expect(details([current(10, 'Vega', 4), current(1815, 'Vega', 1, 'Nordland')])).toEqual([
+        '(sidebar.areaSearchType.oceanArea)',
+        'sidebar.areaSearchType.municipality (Nordland)',
+      ]);
+    });
+
+    it('does not count a historical area with the same name as a namesake', () => {
+      expect(details([current(10, 'Tromsø', 4), tromso1902])).toEqual(['', '(sidebar.areaSearchType.historicalMunicipality[Troms,2020])']);
     });
   });
 });

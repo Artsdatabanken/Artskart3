@@ -26,13 +26,16 @@ public class SearchController : ControllerBase
     private readonly ISpeciesService _speciesService;
     private readonly ILogger<SearchController> _logger;
     private readonly PaginationOptions _paginationOptions;
+    private readonly ICustomAreaService _customAreas;
 
-    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions,
+        ICustomAreaService customAreas)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
         _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions?.Value ?? throw new ArgumentNullException(nameof(paginationOptions));
+        _customAreas = customAreas ?? throw new ArgumentNullException(nameof(customAreas));
     }
 
     /// <summary>
@@ -84,6 +87,12 @@ public class SearchController : ControllerBase
                 return;
             }
 
+            if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+            {
+                await customAreaError.ExecuteResultAsync(ControllerContext);
+                return;
+            }
+
             var locations = await _searchService.GetLocationsAsync(filter, cancellationToken);
             _logger.LogInformation("Retrieved observation location data for maxResults: {MaxResults}", filter.MaxResults);
 
@@ -116,6 +125,11 @@ public class SearchController : ControllerBase
                 return validationError!;
             }
 
+            if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+            {
+                return customAreaError;
+            }
+
             var result = await _searchService.GetLocationCountAsync(filter, cancellationToken);
             return Ok(result);
         }
@@ -143,6 +157,11 @@ public class SearchController : ControllerBase
         {
             // validationError skal aldri være null når en validering feiler
             return validationError!;
+        }
+
+        if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+        {
+            return customAreaError;
         }
 
         try
@@ -194,6 +213,11 @@ public class SearchController : ControllerBase
             return BadRequest(new { error = "PageNumber and ResultsPerPage are required." });
         }
 
+        if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+        {
+            return customAreaError;
+        }
+
         try
         {
             var allItems = await _searchService.GetObservationImagesAsync(filter, cancellationToken);
@@ -226,6 +250,11 @@ public class SearchController : ControllerBase
         {
             // validationError skal aldri være null når en validering feiler
             return validationError!;
+        }
+
+        if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+        {
+            return customAreaError;
         }
 
         var maxIds = SearchConstants.MaxLocationIdsObservationList;
@@ -264,6 +293,11 @@ public class SearchController : ControllerBase
             if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
             {
                 return validationError!;
+            }
+
+            if (filter != null && await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+            {
+                return customAreaError;
             }
 
             // Det ufiltrerte svaret er identisk hver gang og er det eneste frontend ber om
@@ -319,6 +353,11 @@ public class SearchController : ControllerBase
             if (filter != null && !ValidateLocationSearchFilter(filter, out var validationError))
             {
                 return validationError!;
+            }
+
+            if (filter != null && await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+            {
+                return customAreaError;
             }
 
             var result = await _searchService.GetAreaCountsAsync(zoomLevel, filter, cancellationToken);
@@ -457,6 +496,15 @@ public class SearchController : ControllerBase
         return true;
     }
 
+    /// <summary>
+    /// Egendefinerte områder med for mange lokasjoner avvises, se
+    /// <see cref="SearchConstants.MaxCustomAreaLocations"/>. Kalles etter den vanlige valideringen.
+    /// </summary>
+    private async Task<BadRequestObjectResult?> CustomAreaSizeErrorAsync(IObservationFilter filter, CancellationToken cancellationToken) =>
+        await ObservationFilterValidator.GetCustomAreaSizeErrorAsync(filter, _customAreas, cancellationToken) is { } error
+            ? BadRequest(new { error })
+            : null;
+
     private bool ValidateCommonFilter(IObservationFilter filter, out BadRequestObjectResult? validationError)
     {
         var error = ObservationFilterValidator.GetError(filter);
@@ -521,6 +569,11 @@ public class SearchController : ControllerBase
         if (!ValidateLocationSearchFilter(filter, out var validationError))
         {
             return validationError!;
+        }
+
+        if (await CustomAreaSizeErrorAsync(filter, cancellationToken) is { } customAreaError)
+        {
+            return customAreaError;
         }
 
         try
