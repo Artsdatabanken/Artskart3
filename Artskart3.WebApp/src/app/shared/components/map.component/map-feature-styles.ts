@@ -12,8 +12,8 @@ export type MapFeatureState = 'default' | 'hover' | 'selected';
 export type MapMarkerKind = 'location' | 'unclusteredLocation' | 'cluster' | 'area' | 'observation';
 export type PolygonMarkerKind = Extract<MapMarkerKind, 'location' | 'unclusteredLocation'>;
 
-const BORDER_WIDTH = 1.5;
-const LABEL_FONT = '600 10px "Chivo", sans-serif';
+export const BORDER_WIDTH = 1.5;
+export const LABEL_FONT = '600 10px "Chivo", sans-serif';
 export const UNCLUSTERED_LOCATION_RADIUS = 6.4;
 const MARKERS = {
   location: { radius: 8, font: undefined },
@@ -22,18 +22,38 @@ const MARKERS = {
   area: { radius: 20, font: LABEL_FONT },
   observation: { radius: 11, font: undefined },
 } satisfies Record<MapMarkerKind, { radius: number; font: string | undefined }>;
+export const CLUSTER_MARKER_RADIUS = MARKERS.cluster.radius;
 
 const POLYGON_MARKER_SIZES = {
   location: markerSize(MARKERS.cluster.radius),
   unclusteredLocation: 20,
 } satisfies Record<PolygonMarkerKind, number>;
-const POLYGON_ICON_VIEWBOX_SIZE = 46;
-const POLYGON_ICON_CORNERS: Coordinate[] = [
+/** Width and height of the polygon marker with a count inside. */
+export const POLYGON_MARKER_SIZE = POLYGON_MARKER_SIZES.location;
+export const POLYGON_ICON_VIEWBOX_SIZE = 46;
+export const POLYGON_ICON_CORNERS: Coordinate[] = [
   [0, 5],
   [0, 34.5],
   [46, 46],
   [41, 0],
 ];
+
+export function polygonIconPath(): string {
+  return `M${POLYGON_ICON_CORNERS.map(([x, y]) => `${x} ${y}`).join('L')}Z`;
+}
+
+/** The border width in icon units that draws as BORDER_WIDTH pixels inside the outline at the given size. */
+export function polygonIconBorderWidth(size: number): number {
+  // Half of the stroke falls outside the outline and is clipped away.
+  return (2 * BORDER_WIDTH * POLYGON_ICON_VIEWBOX_SIZE) / size;
+}
+
+/** The minus or X drawn in the middle of a not found marker. */
+export function negativeGlyphPath(status: Exclude<RegistrationStatus, 'found'>, radius: number, [cx, cy]: Coordinate): string {
+  const arm = radius * 0.45;
+  const [left, right, top, bottom] = [cx - arm, cx + arm, cy - arm, cy + arm];
+  return status === 'absent' ? `M${left} ${top}L${right} ${bottom}M${left} ${bottom}L${right} ${top}` : `M${left} ${cy}H${right}`;
+}
 
 const SELECTED_RING_WIDTH = 5;
 /** The space between a popped out marker's selected ring and its cluster, bridged by a line. */
@@ -432,9 +452,8 @@ export class MapFeatureStyles {
 
   /** The polygon icon, with a border on the inside of its outline, kept at the same width whatever the size. */
   private polygonIconSrc(size: number, fill: Color): string {
-    // Half of the stroke falls outside the outline and is clipped away.
-    const borderWidth = (2 * BORDER_WIDTH * POLYGON_ICON_VIEWBOX_SIZE) / size;
-    const path = `M${POLYGON_ICON_CORNERS.map(([x, y]) => `${x} ${y}`).join('L')}Z`;
+    const borderWidth = polygonIconBorderWidth(size);
+    const path = polygonIconPath();
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${size * ICON_RASTER_SCALE}" height="${size * ICON_RASTER_SCALE}" viewBox="0 0 ${POLYGON_ICON_VIEWBOX_SIZE} ${POLYGON_ICON_VIEWBOX_SIZE}">` +
       `<clipPath id="outline"><path d="${path}"/></clipPath>` +
@@ -447,9 +466,7 @@ export class MapFeatureStyles {
   private negativeMarkerSrc(radius: number, status: Exclude<RegistrationStatus, 'found'>): string {
     const size = markerSize(radius);
     const center = size / 2;
-    const arm = radius * 0.45;
-    const [start, end] = [center - arm, center + arm];
-    const glyph = status === 'absent' ? `M${start} ${start}L${end} ${end}M${start} ${end}L${end} ${start}` : `M${start} ${center}H${end}`;
+    const glyph = negativeGlyphPath(status, radius, [center, center]);
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${size * ICON_RASTER_SCALE}" height="${size * ICON_RASTER_SCALE}" viewBox="0 0 ${size} ${size}">` +
       `<circle cx="${center}" cy="${center}" r="${radius}" fill="${asString(this.palette.border)}" stroke="${asString(this.palette.negativeBorder)}" stroke-width="${BORDER_WIDTH}"/>` +

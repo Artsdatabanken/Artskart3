@@ -38,31 +38,24 @@
 
 .map-legend-symbol {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: var(--map-legend-symbol-size);
+  height: var(--map-legend-symbol-size);
 }
 
 .found-marker,
 .polygon-marker {
   fill: var(--adb-color-brand-freshwater-blue-90);
   stroke: var(--adb-color-neutrals-ocean-10);
-  stroke-width: 1.5;
-}
-
-.polygon-marker {
-  stroke-width: 3.9;
 }
 
 .negative-marker {
   fill: var(--adb-color-neutrals-ocean-10);
   stroke: var(--adb-color-special-100);
-  stroke-width: 1.5;
 }
 
 .negative-glyph {
   fill: none;
   stroke: var(--adb-color-special-110);
-  stroke-width: 1.5;
 }
 
 .position-accuracy {
@@ -80,11 +73,6 @@
 
 .marker-label {
   fill: var(--adb-text-base-invert);
-  font: 600 10px 'Chivo', sans-serif;
-}
-
-.polygon-label {
-  font-size: 12.8px;
 }
 
 .map-legend-layer {

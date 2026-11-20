@@ -16,48 +16,50 @@
       <div id="map-legend-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">
         {{ 'mapToolbar.legendHeading' | translate }}
       </div>
-      <ul class="map-legend-list">
+      <ul class="map-legend-list" [style.--map-legend-symbol-size]="symbolSize + 'px'">
         <li class="map-legend-row">
-          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="found-marker" cx="8" cy="18" r="6.4" />
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="found-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
           </svg>
           <span>{{ 'mapToolbar.legend.found' | translate }}</span>
         </li>
         <li class="map-legend-row">
-          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="negative-marker" cx="8" cy="18" r="6.4" />
-            <path class="negative-glyph" d="M5.1 15.1L10.9 20.9M5.1 20.9L10.9 15.1" />
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="negative-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
+            <path class="negative-glyph" [attr.d]="absentGlyph" [attr.stroke-width]="borderWidth" />
           </svg>
           <span>{{ 'mapToolbar.legend.absent' | translate }}</span>
         </li>
         <li class="map-legend-row">
-          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="negative-marker" cx="8" cy="18" r="6.4" />
-            <path class="negative-glyph" d="M5.1 18H10.9" />
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="negative-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
+            <path class="negative-glyph" [attr.d]="notRecoveredGlyph" [attr.stroke-width]="borderWidth" />
           </svg>
           <span>{{ 'mapToolbar.legend.notRecovered' | translate }}</span>
         </li>
         @if (geolocationActive()) {
           <li class="map-legend-row">
-            <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
-              <circle class="position-accuracy" cx="18" cy="18" r="17" />
-              <circle class="position-dot" cx="18" cy="18" r="6" />
+            <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+              <circle class="position-accuracy" [attr.cx]="center" [attr.cy]="center" r="17" />
+              <circle class="position-dot" [attr.cx]="center" [attr.cy]="center" r="6" />
             </svg>
             <span>{{ 'mapToolbar.legend.position' | translate }}</span>
           </li>
         }
         <li class="map-legend-row">
-          <svg class="map-legend-symbol" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="found-marker" cx="18" cy="18" r="17" />
-            <text class="marker-label" x="18" y="18" text-anchor="middle" dominant-baseline="central">10</text>
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="found-marker" [attr.cx]="center" [attr.cy]="center" [attr.r]="clusterRadius" [attr.stroke-width]="borderWidth" />
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" [style.font]="labelFont" text-anchor="middle" dominant-baseline="central">10</text>
           </svg>
           <span>{{ 'mapToolbar.legend.cluster' | translate }}</span>
         </li>
         <li class="map-legend-row">
-          <svg class="map-legend-symbol" viewBox="0 0 46 46" aria-hidden="true">
-            <clipPath id="map-legend-polygon-outline"><path d="M0 5L0 34.5L46 46L41 0Z" /></clipPath>
-            <path class="polygon-marker" d="M0 5L0 34.5L46 46L41 0Z" clip-path="url(#map-legend-polygon-outline)" />
-            <text class="marker-label polygon-label" x="23" y="23" text-anchor="middle" dominant-baseline="central">10</text>
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <clipPath id="map-legend-polygon-outline"><path [attr.d]="polygonPath" /></clipPath>
+            <g [attr.transform]="polygonTransform">
+              <path class="polygon-marker" [attr.d]="polygonPath" [attr.stroke-width]="polygonBorderWidth" clip-path="url(#map-legend-polygon-outline)" />
+            </g>
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" [style.font]="labelFont" text-anchor="middle" dominant-baseline="central">10</text>
           </svg>
           <span>{{ 'mapToolbar.legend.polygonCluster' | translate }}</span>
         </li>

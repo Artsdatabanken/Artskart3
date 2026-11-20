@@ -2,6 +2,15 @@ import { TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
 import { MapLayerDto } from '@shared/types/api.types';
 import { MapLegendComponent } from './map-legend.component';
+import {
+  BORDER_WIDTH,
+  CLUSTER_MARKER_RADIUS,
+  POLYGON_MARKER_SIZE,
+  UNCLUSTERED_LOCATION_RADIUS,
+  negativeGlyphPath,
+  polygonIconBorderWidth,
+  polygonIconPath,
+} from '../../map-feature-styles';
 
 const layer: MapLayerDto = {
   id: 1,
@@ -38,6 +47,24 @@ describe('MapLegendComponent', () => {
     button.dispatchEvent(new Event('click'));
     fixture.detectChanges();
     expect(element.querySelector('.map-legend-dropdown')).toBeNull();
+  });
+
+  it('tegner symbolene etter de samme målene som markørene i kartet', async () => {
+    const { element } = await createLegend({ isOpen: true });
+    const symbol = (index: number) => element.querySelectorAll('.map-legend-row')[index];
+
+    expect(symbol(0).querySelector('.found-marker')!.getAttribute('r')).toBe(String(UNCLUSTERED_LOCATION_RADIUS));
+    expect(symbol(1).querySelector('.negative-glyph')!.getAttribute('d')).toBe(
+      negativeGlyphPath('absent', UNCLUSTERED_LOCATION_RADIUS, [
+        Number(symbol(1).querySelector('.negative-marker')!.getAttribute('cx')),
+        Number(symbol(1).querySelector('.negative-marker')!.getAttribute('cy')),
+      ]),
+    );
+    expect(symbol(3).querySelector('.found-marker')!.getAttribute('r')).toBe(String(CLUSTER_MARKER_RADIUS));
+    expect(symbol(3).querySelector('.found-marker')!.getAttribute('stroke-width')).toBe(String(BORDER_WIDTH));
+    const polygon = symbol(4).querySelector('.polygon-marker')!;
+    expect(polygon.getAttribute('d')).toBe(polygonIconPath());
+    expect(Number(polygon.getAttribute('stroke-width'))).toBeCloseTo(polygonIconBorderWidth(POLYGON_MARKER_SIZE));
   });
 
   it('viser alltid markørtypene og clusterne når den er åpen', async () => {
