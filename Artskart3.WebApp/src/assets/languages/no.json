@@ -374,7 +374,9 @@
       "notRecovered": "Ikke gjenfunnet",
       "position": "Din posisjon",
       "cluster": "Lokalitet med flere funn",
-      "polygonCluster": "Flate med flere funn"
+      "polygonCluster": "Flate med flere funn",
+      "imageAlt": "Tegnforklaring for {{layer}}",
+      "imagePartAlt": "Tegnforklaring for {{layer}}, del {{index}} av {{count}}"
     },
     "mapTypes": {
       "topografisk": "Landkart (standard)",

@@ -374,7 +374,9 @@
       "notRecovered": "Not recovered",
       "position": "Your position",
       "cluster": "Location with multiple records",
-      "polygonCluster": "Area with multiple records"
+      "polygonCluster": "Area with multiple records",
+      "imageAlt": "Legend for {{layer}}",
+      "imagePartAlt": "Legend for {{layer}}, part {{index}} of {{count}}"
     },
     "mapTypes": {
       "topografisk": "Map (standard)",

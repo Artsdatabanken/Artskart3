@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideTranslateService } from '@ngx-translate/core';
+import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { MapLayerDto } from '@shared/types/api.types';
 import { MapLegendComponent } from './map-legend.component';
 import {
@@ -32,6 +32,27 @@ async function createLegend(inputs: { isOpen?: boolean; activeLayers?: MapLayerD
 }
 
 describe('MapLegendComponent', () => {
+  it('gir forklaringsbildene en beskrivende alt-tekst, med del-nummer når et lag har flere', async () => {
+    const { fixture, element } = await createLegend({ isOpen: true });
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('nb', {
+      mapToolbar: {
+        mapLayers: { bioseksjoner: 'Bioseksjoner' },
+        legend: { imageAlt: 'Tegnforklaring for {{layer}}', imagePartAlt: 'Tegnforklaring for {{layer}}, del {{index}} av {{count}}' },
+      },
+    });
+    translate.use('nb');
+    const alts = () => [...element.querySelectorAll('.map-legend-image')].map((image) => image.getAttribute('alt'));
+
+    fixture.componentRef.setInput('activeLayers', [layer]);
+    fixture.detectChanges();
+    expect(alts()).toEqual(['Tegnforklaring for Bioseksjoner']);
+
+    fixture.componentRef.setInput('activeLayers', [{ ...layer, layers: 'a,b' }]);
+    fixture.detectChanges();
+    expect(alts()).toEqual(['Tegnforklaring for Bioseksjoner, del 1 av 2', 'Tegnforklaring for Bioseksjoner, del 2 av 2']);
+  });
+
   it('åpner og lukker med knappen, uavhengig av de andre menyene', async () => {
     const { fixture, element } = await createLegend({});
     const button = element.querySelector('adb-icon-button')!;

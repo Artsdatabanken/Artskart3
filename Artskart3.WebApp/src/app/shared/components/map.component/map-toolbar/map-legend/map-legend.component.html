@@ -69,8 +69,14 @@
           @let layerLabel = (mapLayerLabels[legend.layer.name] ?? legend.layer.name) | translate;
           <h3 class="map-legend-layer-heading adb-heading-2xsm">{{ layerLabel }}</h3>
           <div class="map-legend-images">
-            @for (image of legend.images; track image.url) {
-              <img class="map-legend-image" [src]="image.url" [alt]="layerLabel" loading="lazy" (error)="onImageError(image.url)" />
+            @for (image of legend.images; track image.url; let index = $index; let count = $count) {
+              <img
+                class="map-legend-image"
+                [src]="image.url"
+                [alt]="(count > 1 ? 'mapToolbar.legend.imagePartAlt' : 'mapToolbar.legend.imageAlt') | translate: { layer: layerLabel, index: index + 1, count }"
+                loading="lazy"
+                (error)="onImageError(image.url)"
+              />
             }
           </div>
         </section>
