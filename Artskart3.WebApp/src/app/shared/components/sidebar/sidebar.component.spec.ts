@@ -302,6 +302,18 @@ describe('SidebarComponent', () => {
       expect(basisOfRecordItem).toBeTruthy();
     });
 
+    it('hides basis of record types without finds unless they are selected', async () => {
+      await flushAll();
+      const existing = mockBasisOfRecords.map(({ id, name, description, observationCount }) => ({ id, name, description, observationCount }));
+      const withoutFinds = { id: 3, name: 'dna', description: 'DNA', observationCount: null };
+      component.basisOfRecordsResource.set([...existing, withoutFinds, { ...withoutFinds, id: 4, observationCount: 0 }]);
+
+      expect(component.basisOfRecords().map((b) => b.id)).toEqual([1, 2]);
+
+      filterState.addBasisOfRecord(4);
+      expect(component.basisOfRecords().map((b) => b.id)).toEqual([4, 1, 2]);
+    });
+
     it('should toggle basisOfRecord in filter state', () => {
       component.onBasisOfRecordToggle(1);
       expect(filterState.selectedBasisOfRecordIds()).toEqual([1]);
