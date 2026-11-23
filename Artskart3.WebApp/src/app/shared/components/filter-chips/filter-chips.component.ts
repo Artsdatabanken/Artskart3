@@ -1,6 +1,6 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Observable, catchError, of } from 'rxjs';
 import { DEFAULT_ANNOTATION_FILTER, FilterStateService } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
@@ -63,7 +63,7 @@ function selectedNames<T extends { id?: number | null }>(items: readonly T[], se
 
 @Component({
   selector: 'app-filter-chips',
-  imports: [TooltipComponent],
+  imports: [TooltipComponent, TranslatePipe],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './filter-chips.component.html',
   styleUrl: './filter-chips.component.css',
