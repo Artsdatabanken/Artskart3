@@ -135,6 +135,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapOverlayRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly mapLayerService = inject(MapLayerService);
+  private readonly restoreActiveLayersEffect = effect(() => {
+    const activeLayers = this.mapLayerService.activeLayers();
+    if (this.mapReady) this.restoreActiveLayers(activeLayers);
+  });
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
@@ -643,6 +647,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.locationCountFetch$.next(this.locationFilter());
     this.tryApplyRequestedExtent();
     this.rebuildAllLayers();
+    this.restoreActiveLayers(this.mapLayerService.activeLayers());
+  }
+
+  private restoreActiveLayers(layers: MapLayerDto[]): void {
+    for (const layer of layers) {
+      if (!this.mapOverlayLayers.has(layer.id)) this.onMapToolbarMenuItemChange({ layer, visible: true });
+    }
   }
 
   /**
@@ -1972,7 +1983,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     for (const [, timer] of this.mapOverlayRefreshTimers) {
       clearTimeout(timer);
     }
-    for (const layerId of this.mapLayerService.enabledLayerIds()) this.mapLayerService.setLayerEnabled(layerId, false);
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.disposeWebglLocationsLayer();

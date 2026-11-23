@@ -33,12 +33,13 @@ import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
 import { ObservationService } from '@shared/services/observation/observation.service';
-import { ObservationListInfoDto } from '@shared/types/api.types';
+import { MapLayerDto, ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
+import { ApiClientService } from '@core/services/api-client.service';
 
 const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image: ImageWrapper) =>
   source.dispatchEvent(new ImageSourceEvent(type, image));
@@ -51,13 +52,25 @@ describe('MapComponent lifecycle', () => {
       initializeMap(): void;
       onMapReady(): void;
       cleanup(): void;
+      restoreActiveLayers(layers: MapLayerDto[]): void;
     };
 
   beforeEach(async () => {
     vi.useFakeTimers();
     await TestBed.configureTestingModule({
       imports: [MapComponent],
-      providers: [provideTranslateService(), provideRouter([]), { provide: SharedMapService, useValue: { getNibToken: () => '' } }],
+      providers: [
+        provideTranslateService(),
+        provideRouter([]),
+        { provide: SharedMapService, useValue: { getNibToken: () => '' } },
+        {
+          provide: ApiClientService,
+          useValue: {
+            fetchJson: () =>
+              of([{ id: 1, name: 'Test layer', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1 }]),
+          },
+        },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(MapComponent);
     component = fixture.componentInstance;
@@ -103,13 +116,18 @@ describe('MapComponent lifecycle', () => {
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
   });
 
-  it('clears enabled map layers when destroyed', () => {
+  it('preserves enabled map layers when destroyed and restores their overlays on the next map', () => {
     const mapLayerService = TestBed.inject(MapLayerService);
     mapLayerService.setLayerEnabled(1, true);
-
     lifecycle().cleanup();
+    expect(mapLayerService.enabledLayerIds().has(1)).toBe(true);
 
-    expect(mapLayerService.enabledLayerIds().has(1)).toBe(false);
+    const adoptLayer = vi.fn();
+    Object.assign(component, { map: { adoptLayer } });
+    lifecycle().restoreActiveLayers(mapLayerService.activeLayers());
+
+    expect(adoptLayer).toHaveBeenCalledOnce();
+    expect(mapLayerService.activeLayers().map((layer) => layer.id)).toEqual([1]);
   });
 
   it('disposes an initialized map without reactivating it on a late ready callback', () => {
