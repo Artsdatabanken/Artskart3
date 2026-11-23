@@ -433,6 +433,7 @@ export class AreasService {
         observationCount: count,
         observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
         isPolygon: true,
+        isSensitive: dto.isSensitive === true,
       },
     };
   }

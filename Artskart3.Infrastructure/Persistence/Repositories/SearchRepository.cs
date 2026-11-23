@@ -3415,7 +3415,8 @@ public class SearchRepository : ISearchRepository
                     LocationId = location.Id,
                     Locality = location.Locality,
                     WktPolygon = wkt,
-                    ObservationCount = countLookup.GetValueOrDefault(location.Id)
+                    ObservationCount = countLookup.GetValueOrDefault(location.Id),
+                    IsSensitive = location.IsSensitive,
                 });
             }
 

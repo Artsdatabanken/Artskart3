@@ -510,6 +510,10 @@ describe('MapComponent', () => {
       expect(grouped.at(-1)?.getText()?.getText()).toBe('4');
       expect(render('location-polygons', polygon(1))).toBe(styles.polygon());
       expect(render('location-polygon-highlights', polygon(1))).toBe(styles.polygonHighlight('selected'));
+      const sensitive = polygon(1);
+      sensitive.set('isSensitive', true);
+      expect(render('location-polygons', sensitive)).toBe(styles.polygon(true));
+      expect(render('location-polygon-highlights', sensitive)).toBe(styles.polygonHighlight('selected', true));
       expect(layers.get('location-highlights')?.pickable).toBe(true);
       expect(layers.get('location-polygon-highlights')?.pickable).toBe(false);
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
@@ -535,7 +539,7 @@ describe('MapComponent', () => {
       expect(render('observation-details-highlight', highlight)).toBe(styles.marker('observation', 'selected', '', 'notRecovered'));
     });
 
-    it('highlights single points and polygons on overlays without redrawing every location when clustering is off', () => {
+    it('highlights single points and polygons on overlays without redrawing every location when clustering is off', async () => {
       const olLayers = new Map(
         ['area-markers-locations', 'location-polygons', 'location-highlights', 'location-polygon-highlights'].map(
           (id) => [id, new VectorLayer({ source: new VectorSource<Feature>() })] as const,
@@ -573,6 +577,12 @@ describe('MapComponent', () => {
 
       point.set('isPolygon', true);
       expect(render('location-highlights', point)).toBe(component['featureStyles']!.polygonMarker('unclusteredLocation', 'selected'));
+
+      component.observationList.set([{ id: 42, locationId: 1 }]);
+      await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+      TestBed.tick();
+      expect(source('location-highlights').getFeatures()).toEqual([]);
+      expect(source('location-polygon-highlights').getFeatures()).toEqual([outline]);
     });
 
     it('gives a polygon location alone in its cluster the polygon marker with its count', () => {
@@ -709,6 +719,140 @@ describe('MapComponent', () => {
       component.closeObservationList();
       expect(component['locationFeatureState'](location(1))).toBe('default');
       expect(component['locationFeatureState'](polygon(1))).toBe('default');
+    });
+
+    it('keeps the outline of the open observation\'s location selected while details are open', async () => {
+      const router = TestBed.inject(Router);
+      select([1, 2]);
+      component.observationList.set([
+        { id: 42, locationId: 1 },
+        { id: 43, locationId: 2 },
+      ]);
+      await router.navigate([], { queryParams: { observationId: 42 } });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('default');
+      expect(component['locationFeatureState'](location(1))).toBe('default');
+      expect(render('location-polygon-highlights', polygon(1))).toBe(component['featureStyles']!.polygonHighlight('selected'));
+      await router.navigate([], { queryParams: { observationId: 43 } });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('default');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('selected');
+      await router.navigate([], { queryParams: { observationId: 44 } });
+      expect(component['polygonFeatureState'](polygon(2))).toBe('default');
+      await router.navigate([], { queryParams: {} });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('selected');
+    });
+
+    describe('details of a polygon find', () => {
+      const point = { east: 353063, north: 7201367, registrationStatus: 'found' } as const;
+      let outline: Feature;
+      let squarePoint: Feature;
+      let polygons: VectorLayer;
+      let points: VectorLayer;
+      let updateGeoJSONLayer: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        outline = polygon(1);
+        outline.setId(1);
+        squarePoint = new Feature({ id: 1, geometry: new Point([5, 5]), isPolygon: true, registrationStatus: 'found' });
+        squarePoint.setId(1);
+        polygons = new VectorLayer({ source: new VectorSource<Feature>({ features: [outline] }) });
+        points = new VectorLayer({ source: new VectorSource<Feature>({ features: [squarePoint] }) });
+        updateGeoJSONLayer = vi.fn();
+        const layersById: Record<string, VectorLayer> = { 'location-polygons': polygons, 'area-markers-locations': points };
+        component.map = {
+          ...component.map,
+          updateGeoJSONLayer,
+          getLayerById: (id: string) => layersById[id] ?? null,
+        } as unknown as NbicMapComponent;
+        component['mapVisible'] = true;
+      });
+
+      function markers(): unknown[] {
+        const [, geojson] = updateGeoJSONLayer.mock.calls.filter(([layerId]) => layerId === 'observation-details-highlight').at(-1)!;
+        return (JSON.parse(geojson as string) as { features: unknown[] }).features;
+      }
+
+      function layersChanged(): void {
+        component['locationLayersChanged']();
+        TestBed.tick();
+      }
+
+      async function openFromList(): Promise<void> {
+        select([1]);
+        component.observationList.set([{ id: 42, locationId: 1 }]);
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+      }
+
+      it('lets a shown sensitive square\'s own marker stand in for the details marker', async () => {
+        await openFromList();
+        component.highlightObservation(point);
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        outline.set('isSensitive', true);
+        layersChanged();
+        expect(markers()).toEqual([]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+        polygons.setVisible(false);
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+      });
+
+      it('keeps the details marker while the square\'s own marker is not drawn as a found polygon', async () => {
+        outline.set('isSensitive', true);
+        await openFromList();
+        component.highlightObservation(point);
+        expect(markers()).toEqual([]);
+        squarePoint.set('registrationStatus', 'notRecovered');
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        points.getSource()!.clear();
+        squarePoint.set('registrationStatus', 'found');
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        points.getSource()!.addFeature(squarePoint);
+        layersChanged();
+        expect(markers()).toEqual([]);
+      });
+
+      it('keeps the details marker of a find that was not found, also in a found square', async () => {
+        vi.spyOn(TestBed.inject(ObservationService), 'getDetail').mockReturnValue(of({ id: 42, locationId: 1, tags: ['Absent'] }));
+        outline.set('isSensitive', true);
+        layersChanged();
+        await openFromList();
+        await fixture.whenStable();
+        component.highlightObservation({ ...point, registrationStatus: 'absent' });
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+      });
+
+      it('keeps the marker of a clicked sensitive square selected as its details open', async () => {
+        outline.set('isSensitive', true);
+        layersChanged();
+        select([1]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+        component.observationList.set([{ id: 42, locationId: 1 }]);
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+      });
+
+      it('selects the polygon of details opened from a link once they load, and drops the marker when the square arrives', async () => {
+        vi.spyOn(TestBed.inject(ObservationService), 'getDetail').mockReturnValue(of({ id: 42, locationId: 1 }));
+        polygons.getSource()!.clear();
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+        await fixture.whenStable();
+        expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        component.highlightObservation(point);
+        expect(markers()).toHaveLength(1);
+        outline.set('isSensitive', true);
+        polygons.getSource()!.addFeature(outline);
+        layersChanged();
+        expect(markers()).toEqual([]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+      });
     });
 
     it('styles replacement features and regrouped clusters by current IDs, not object identity', () => {
@@ -1571,10 +1715,12 @@ describe('MapComponent', () => {
         const redraw = vi.spyOn(restyle, 'redrawLocationStyles');
 
         priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        const revision = component['locationLayersRevision']();
         vi.advanceTimersByTime(300);
 
         expect(mark).toHaveBeenCalledOnce();
         expect(mark).toHaveBeenCalledBefore(redraw);
+        expect(component['locationLayersRevision']()).toBeGreaterThan(revision);
       } finally {
         vi.useRealTimers();
       }

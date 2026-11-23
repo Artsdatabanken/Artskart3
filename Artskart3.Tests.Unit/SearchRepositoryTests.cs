@@ -729,7 +729,7 @@ public class SearchRepositoryTests
 
         var result = await CreateRepository(context).GetLocationPolygonsAsync();
 
-        result.Select(p => p.LocationId).Should().BeEquivalentTo([2, 3]);
+        result.Select(p => (p.LocationId, p.IsSensitive)).Should().BeEquivalentTo([(2, true), (3, false)]);
     }
 
     private static ArtskartDbContext CreateInMemoryContext()

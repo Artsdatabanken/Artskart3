@@ -35,6 +35,9 @@ const POLYGON_ICON_CORNERS: Coordinate[] = [
   [41, 0],
 ];
 
+const SENSITIVE_BORDER_WIDTH = 2;
+const SENSITIVE_BORDER_DASH = [10, 6];
+
 const SELECTED_RING_WIDTH = 5;
 /** The space between a popped out marker's selected ring and its cluster, bridged by a line. */
 const POP_OUT_GAP = 10;
@@ -76,7 +79,13 @@ function tracePolygon(context: CanvasRenderingContext2D, rings: Coordinate[][]):
 }
 
 /** Strokes the outlines of the polygons, given in pixels, leaving out everything inside them. */
-function strokeOutside(context: CanvasRenderingContext2D, polygons: Coordinate[][][], color: Color, lineWidth: number): void {
+function strokeOutside(
+  context: CanvasRenderingContext2D,
+  polygons: Coordinate[][][],
+  color: Color,
+  lineWidth: number,
+  lineDash: number[] = [],
+): void {
   context.save();
   // Intersect the complements of all parts, retaining holes but excluding the
   // entire filled union (also when MultiPolygon parts overlap).
@@ -91,16 +100,24 @@ function strokeOutside(context: CanvasRenderingContext2D, polygons: Coordinate[]
   context.strokeStyle = asString(color);
   context.lineWidth = lineWidth;
   context.lineJoin = 'round';
-  context.lineCap = 'round';
+  context.lineCap = lineDash.length ? 'butt' : 'round';
+  if (lineDash.length) context.setLineDash(lineDash);
   context.stroke();
   context.restore();
 }
 
-function exteriorRingRenderer(color: Color, width: number): RenderFunction {
+/** A ring the given width outside the polygon's border, dashed when lineDash is given. */
+function exteriorRingRenderer(color: Color, width: number, borderWidth = BORDER_WIDTH, lineDash: number[] = []): RenderFunction {
   return (coordinates, { context, geometry, pixelRatio }) => {
     // OL supplies pixel coordinates with the same nesting as the source geometry.
     const polygons = geometry.getType() === 'MultiPolygon' ? (coordinates as Coordinate[][][]) : [coordinates as Coordinate[][]];
-    strokeOutside(context, polygons, color, (BORDER_WIDTH + width * 2) * pixelRatio);
+    strokeOutside(
+      context,
+      polygons,
+      color,
+      (borderWidth + width * 2) * pixelRatio,
+      lineDash.map((length) => length * pixelRatio),
+    );
   };
 }
 
@@ -143,6 +160,11 @@ function lineRenderer(color: Color): RenderFunction {
 export function registrationStatusOf(feature: FeatureLike): RegistrationStatus {
   const status: unknown = feature.get('registrationStatus');
   return status === 'absent' || status === 'notRecovered' ? status : 'found';
+}
+
+/** The polygon is the masking square of sensitive observations, not their real extent. */
+export function isSensitivePolygon(feature: FeatureLike): boolean {
+  return feature.get('isSensitive') === true;
 }
 
 /** Locations drawn as polygons get the polygon marker, unless nothing was found there. */
@@ -264,8 +286,8 @@ function spreadApart(angles: number[], minAngle: number): number[] {
 export class MapFeatureStyles {
   private readonly palette: MapPalette;
   private readonly markers = new Map<string, Style[]>();
-  private basePolygon?: Style[];
-  private readonly polygonHighlights = new Map<MapFeatureState, Style[]>();
+  private readonly basePolygons = new Map<boolean, Style[]>();
+  private readonly polygonHighlights = new Map<string, Style[]>();
 
   constructor(styles: CSSStyleDeclaration) {
     this.palette = {
@@ -369,42 +391,54 @@ export class MapFeatureStyles {
     ];
   }
 
-  polygon(): Style[] {
+  polygon(sensitive = false): Style[] {
+    const cached = this.basePolygons.get(sensitive);
+    if (cached) return cached;
+
     const [r, g, b] = this.palette.primary;
-    this.basePolygon ??= [
+    const styles = [
       new Style({
         fill: new Fill({ color: [r, g, b, 0.06] }),
-        stroke: new Stroke({ color: this.palette.primary, width: BORDER_WIDTH }),
+        stroke: sensitive ? this.sensitiveBorder(this.palette.primary) : new Stroke({ color: this.palette.primary, width: BORDER_WIDTH }),
       }),
     ];
-    return this.basePolygon;
+    this.basePolygons.set(sensitive, styles);
+    return styles;
   }
 
   /** Drawn over the base polygon, which supplies the fill. */
-  polygonHighlight(state: MapFeatureState): Style[] {
-    const cached = this.polygonHighlights.get(state);
+  polygonHighlight(state: MapFeatureState, sensitive = false): Style[] {
+    const key = `${state}/${sensitive}`;
+    const cached = this.polygonHighlights.get(key);
     if (cached) return cached;
 
     const ring = this.ring(state);
+    // Sensitive polygons show their state in the colour of their dashed border and ring.
+    const sensitiveColor = state === 'selected' ? this.palette.selectedRing : this.palette.primary;
     const styles: Style[] = [];
     if (ring) {
       styles.push(
         new Style({
           zIndex: 0,
-          renderer: exteriorRingRenderer(ring.color, ring.width),
+          renderer: sensitive
+            ? // Together with the border, as wide as the ring alone of other polygons.
+              exteriorRingRenderer(sensitiveColor, ring.width - SENSITIVE_BORDER_WIDTH, SENSITIVE_BORDER_WIDTH, SENSITIVE_BORDER_DASH)
+            : exteriorRingRenderer(ring.color, ring.width),
           hitDetectionRenderer: () => undefined,
         }),
       );
     }
     // A higher style z-index draws the border after the custom renderer,
-    // covering the inner 0.75px of its outward stroke.
+    // covering the inner half of its outward stroke.
     styles.push(
       new Style({
         zIndex: 1,
-        stroke: new Stroke({ color: state === 'selected' ? this.palette.border : this.palette.primary, width: BORDER_WIDTH }),
+        stroke: sensitive
+          ? this.sensitiveBorder(sensitiveColor)
+          : new Stroke({ color: state === 'selected' ? this.palette.border : this.palette.primary, width: BORDER_WIDTH }),
       }),
     );
-    this.polygonHighlights.set(state, styles);
+    this.polygonHighlights.set(key, styles);
     return styles;
   }
 
@@ -467,6 +501,11 @@ export class MapFeatureStyles {
       `<path d="${glyph}" stroke="${asString(this.palette.negativeGlyph)}" stroke-width="${BORDER_WIDTH}"/>` +
       `</svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  /** A highlight's dashes line up with the base polygon's, so they cover them. */
+  private sensitiveBorder(color: Color): Stroke {
+    return new Stroke({ color, width: SENSITIVE_BORDER_WIDTH, lineDash: SENSITIVE_BORDER_DASH, lineCap: 'butt' });
   }
 
   private fill(state: MapFeatureState): Color {

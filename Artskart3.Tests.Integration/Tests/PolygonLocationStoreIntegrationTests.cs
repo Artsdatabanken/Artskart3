@@ -332,18 +332,17 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var fraMinnet = (await MinnelagerAsync()).TryQuery(new LocationSearchFilterDto(), 1000)!;
         var fraBasen = await UtenMinnelager().GetLocationPolygonsAsync(new LocationSearchFilterDto());
 
-        foreach (var (navn, svar) in new[]
-                 {
-                     ("minnelageret", fraMinnet.Select(p => p.LocationId).ToList()),
-                     ("databasen", fraBasen.Select(p => p.LocationId).ToList()),
-                 })
+        foreach (var (navn, polygoner) in new[] { ("minnelageret", fraMinnet.ToList()), ("databasen", fraBasen.ToList()) })
         {
+            var svar = polygoner.Select(p => p.LocationId).ToList();
             svar.Should().Contain(_sensitivRute.Id,
                 $"{navn} skal vise den sensitive maskeringsruta — den er alt kartet har for funnet");
             svar.Should().NotContain(_rute.Id,
                 $"{navn} skal skjule den vanlige rutenettruta");
             svar.Should().Contain(_myr.Id,
                 $"{navn} skal vise en reell utstrekning");
+            polygoner.Where(p => p.IsSensitive).Select(p => p.LocationId).Should().Equal([_sensitivRute.Id],
+                $"{navn} skal merke bare maskeringsruta som sensitiv");
         }
     }
 
