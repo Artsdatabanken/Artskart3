@@ -67,12 +67,12 @@
 
 .position-dot {
   fill: var(--adb-color-brand-freshwater-blue-10);
-  stroke: var(--adb-surface-base-primary);
+  stroke: var(--adb-color-brand-white);
   stroke-width: 2;
 }
 
 .marker-label {
-  fill: var(--adb-text-base-invert);
+  fill: var(--adb-color-brand-white);
 }
 
 .map-legend-layer {
