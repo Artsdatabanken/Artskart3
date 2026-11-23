@@ -26,7 +26,11 @@ import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import { get as getProjection, transform } from 'ol/proj';
 import ImageLayer from 'ol/layer/Image';
+import TileLayer from 'ol/layer/Tile';
 import ImageWMS from 'ol/source/ImageWMS';
+import OSM from 'ol/source/OSM';
+import type Tile from 'ol/Tile';
+import TileState from 'ol/TileState';
 import { ImageSourceEvent, type ImageSourceEventTypes } from 'ol/source/Image';
 import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
@@ -2074,6 +2078,70 @@ describe('MapComponent', () => {
 
       await vi.waitFor(() => expect(component['clusteringEnabled']()).toBe(true));
       expect(component.map.adoptLayer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('base map layers', () => {
+    const layers = new Map<string, LayerDef>();
+    const adoptLayer = vi.fn();
+
+    const tileLoadFunction = (id: string) => {
+      const source = layers.get(id)?.source;
+      return source?.type === 'wmts' ? source.options.tileLoadFunction : undefined;
+    };
+    const tileWith = (image: HTMLImageElement) => ({ getImage: () => image, setState: vi.fn() }) as unknown as Tile;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      layers.clear();
+      adoptLayer.mockClear();
+      component.map = {
+        addLayer: (definition: LayerDef) => { layers.set(definition.id, definition); },
+        adoptLayer,
+      } as unknown as NbicMapComponent;
+    });
+
+    afterEach(() => vi.useRealTimers());
+
+    it('gives up on stalled topo and NiB tile downloads', () => {
+      component['setupBaseMapLayers']();
+
+      for (const id of ['topografisk', 'topo4graatone', 'nib']) {
+        const tile = tileWith(new Image());
+        tileLoadFunction(id)?.(tile, 'https://tiles.test/1.png');
+        vi.advanceTimersByTime(MAP_CONFIG.tileLoadTimeoutMs);
+        expect(tile.setState, id).toHaveBeenCalledWith(TileState.ERROR);
+      }
+    });
+
+    it('adds the NiB token to tile requests', () => {
+      vi.spyOn(TestBed.inject(SharedMapService), 'getNibToken').mockReturnValue('abc');
+      component['setupBaseMapLayers']();
+      const image = new Image();
+
+      tileLoadFunction('nib')?.(tileWith(image), 'https://nib.test/tile?x=1');
+
+      expect(image.getAttribute('src')).toBe('https://nib.test/tile?x=1&token=abc');
+    });
+
+    it('requests Kartverket topo tiles in the map projection with all 19 levels', () => {
+      component['setupBaseMapLayers']();
+
+      for (const id of ['topografisk', 'topo4graatone']) {
+        expect(layers.get(id)?.source).toMatchObject({
+          type: 'wmts',
+          options: { matrixSet: 'utm33n', projection: MAP_CONFIG.projection, levels: 19 },
+        });
+      }
+    });
+
+    it('adds an OSM background that stops at coarse tiles', () => {
+      component['setupBaseMapLayers']();
+
+      expect(adoptLayer).toHaveBeenCalledWith('osm', expect.any(TileLayer), { base: 'super' });
+      const osm = adoptLayer.mock.calls[0][1] as TileLayer;
+      expect(osm.getSource()).toBeInstanceOf(OSM);
+      expect(osm.getSource()?.getTileGrid()?.getMaxZoom()).toBe(MAP_CONFIG.osmMaxTileZoom);
     });
   });
 

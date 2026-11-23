@@ -10,4 +10,7 @@ export const MAP_CONFIG = {
   // Zoom
   minZoom: 0,
   maxZoom: 22,
+  // OSM only fills in outside the topo coverage, so coarse tiles are enough when zoomed in.
+  osmMaxTileZoom: 14,
+  tileLoadTimeoutMs: 10000,
 };

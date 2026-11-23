@@ -4,6 +4,7 @@ import {
   MapEventPayload,
   NbicMapComponent,
   nbicMapPresets,
+  type LayerDef,
 } from '@artsdatabanken/nbic-map-component';
 import type { Style } from 'ol/style';
 import type { FeatureLike } from 'ol/Feature';
@@ -40,7 +41,7 @@ import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import type { AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
-import { Feature, ImageTile } from 'ol';
+import { Feature } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import type { Coordinate } from 'ol/coordinate';
@@ -76,6 +77,8 @@ import { CustomAreaDrawingService } from '@shared/services/custom-area-drawing/c
 import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
+import OSM from 'ol/source/OSM';
+import { loadTileWithTimeout } from './tile-load-timeout';
 import Layer from 'ol/layer/Layer';
 import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
@@ -552,9 +555,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupBaseMapLayers(): void {
     if (!this.map) return;
-    this.map.addLayer(nbicMapPresets.osm);
-    this.map.addLayer(nbicMapPresets.topografiskBaseLayer);
-    this.map.addLayer(nbicMapPresets.topo4graatoneBaseLayer);
+    this.map.adoptLayer(nbicMapPresets.osm.id, this.createOsmLayer(), { base: 'super' });
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topografiskBaseLayer));
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topo4graatoneBaseLayer));
     this.map.addLayer(nbicMapPresets.svalbardBaseLayer);
     this.map.addLayer(nbicMapPresets.janmayenBaseLayer);
 
@@ -563,17 +566,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       source: { ...nbicMapPresets.nib.source },
     };
     if (nib.source.type === 'wmts') {
+      const loadWithTimeout = loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs);
       nib.source.options = {
         ...nib.source.options,
-        tileLoadFunction: (tile: unknown, src: string) => {
+        tileLoadFunction: (tile, src) => {
           const token = this.sharedMapService.getNibToken();
           const separator = src.includes('?') ? '&' : '?';
-          const img = (tile as ImageTile).getImage() as HTMLImageElement;
-          img.src = token ? `${src}${separator}token=${token}` : src;
+          loadWithTimeout(tile, token ? `${src}${separator}token=${token}` : src);
         },
       };
     }
     this.map.addLayer(nib);
+  }
+
+  /** Built here because the map package's OSM preset takes no source options. */
+  private createOsmLayer(): TileLayer {
+    return new TileLayer({
+      source: new OSM({
+        maxZoom: MAP_CONFIG.osmMaxTileZoom,
+        tileLoadFunction: loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs),
+      }),
+    });
+  }
+
+  /**
+   * Kartverket tiles in the map's own projection, so they're drawn without reprojection,
+   * with all 19 zoom levels (the finest have 1 m contours).
+   */
+  private withKartverketUtm33nTiles(layer: LayerDef): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return {
+      ...layer,
+      source: {
+        ...layer.source,
+        options: {
+          ...layer.source.options,
+          matrixSet: 'utm33n',
+          projection: 'EPSG:25833',
+          // Level 0 of Kartverket's utm33n matrix set: one 256 px tile from top left (-2500000, 9045984) at 21664 m/px.
+          extent: [-2500000, 3500000, 3045984, 9045984],
+          levels: 19,
+          wrapX: false,
+          tileLoadFunction: loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs),
+        },
+      },
+    };
   }
 
   private adoptMapControls(): void {
