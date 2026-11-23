@@ -195,6 +195,7 @@
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "activeSelections": "Har aktive filtervalg",
+    "removeFilterAriaLabel": "Fjern filter {{filter}}",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartslista",
@@ -368,12 +369,12 @@
     "noResultsFor": "Ingen treff på sted “{{searchTerm}}”."
   },
   "mapToolbar": {
-    "layersAriaLabel": "Lag",
+    "layersAriaLabel": "Kartlag",
     "layersHeading": "Kartlag",
     "noLayers": "Ingen kartlag tilgjengelig",
     "layerLoadError": "Kartlaget kunne ikke lastes",
     "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
-    "settingsAriaLabel": "Kartinnstillinger",
+    "settingsAriaLabel": "Innstillinger for kart",
     "clustering": "Punktklynge",
     "clusteringDescription": "Clustering",
     "clusteringLocked": "Antall lokaliteter er for stort til å slå av punktklynger. Reduser utvalget med filtre til under {{max}} lokaliteter.",
@@ -382,7 +383,7 @@
     "fullscreenAriaLabel": "Fullskjerm",
     "zoomInAriaLabel": "Zoom inn",
     "zoomOutAriaLabel": "Zoom ut",
-    "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
+    "selectMapTypeAriaLabel": "Velg bakgrunnskart - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
     "loadingObservationsLabel": "Henter registreringer...",
     "mapTypes": {
