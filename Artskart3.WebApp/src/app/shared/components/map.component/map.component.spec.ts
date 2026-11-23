@@ -28,9 +28,9 @@ import { get as getProjection, transform } from 'ol/proj';
 import ImageLayer from 'ol/layer/Image';
 import TileLayer from 'ol/layer/Tile';
 import ImageWMS from 'ol/source/ImageWMS';
-import OSM from 'ol/source/OSM';
-import type Tile from 'ol/Tile';
-import TileState from 'ol/TileState';
+import TileWMS from 'ol/source/TileWMS';
+import WMTS from 'ol/source/WMTS';
+import type { default as Tile, LoadFunction } from 'ol/Tile';
 import { ImageSourceEvent, type ImageSourceEventTypes } from 'ol/source/Image';
 import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
@@ -193,6 +193,18 @@ describe('MapComponent', () => {
     });
 
     expect(component['mapOverlayLayers'].get(1)?.getOpacity()).toBe(opacity);
+  });
+
+  it('loads tiled WMS overlays through the stall timeout', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: { id: 1, name: 'Boundaries', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1 },
+      visible: true,
+    });
+
+    const source = (component['mapOverlayLayers'].get(1) as TileLayer).getSource() as TileWMS;
+    expect(source.getTileLoadFunction()).toBe(component['loadTile']);
   });
 
   it('uses configured WMS scale bounds and single-image mode', () => {
@@ -2089,10 +2101,9 @@ describe('MapComponent', () => {
       const source = layers.get(id)?.source;
       return source?.type === 'wmts' ? source.options.tileLoadFunction : undefined;
     };
-    const tileWith = (image: HTMLImageElement) => ({ getImage: () => image, setState: vi.fn() }) as unknown as Tile;
+    const adopted = (id: string) => adoptLayer.mock.calls.find(([layerId]) => layerId === id)?.[1] as TileLayer;
 
     beforeEach(() => {
-      vi.useFakeTimers();
       layers.clear();
       adoptLayer.mockClear();
       component.map = {
@@ -2101,47 +2112,59 @@ describe('MapComponent', () => {
       } as unknown as NbicMapComponent;
     });
 
-    afterEach(() => vi.useRealTimers());
-
-    it('gives up on stalled topo and NiB tile downloads', () => {
+    it('loads every base map through the stall timeout', () => {
       component['setupBaseMapLayers']();
 
-      for (const id of ['topografisk', 'topo4graatone', 'nib']) {
-        const tile = tileWith(new Image());
-        tileLoadFunction(id)?.(tile, 'https://tiles.test/1.png');
-        vi.advanceTimersByTime(MAP_CONFIG.tileLoadTimeoutMs);
-        expect(tile.setState, id).toHaveBeenCalledWith(TileState.ERROR);
+      for (const id of ['topografisk', 'topo4graatone', 'svalbard', 'janmayen']) {
+        expect(tileLoadFunction(id), id).toBe(component['loadTile']);
       }
+      expect((adopted('gebco').getSource() as TileWMS).getTileLoadFunction()).toBe(component['loadTile']);
     });
 
-    it('adds the NiB token to tile requests', () => {
-      vi.spyOn(TestBed.inject(SharedMapService), 'getNibToken').mockReturnValue('abc');
+    it('adds Norge i bilder in UTM 33 as a hidden base map', () => {
       component['setupBaseMapLayers']();
-      const image = new Image();
 
-      tileLoadFunction('nib')?.(tileWith(image), 'https://nib.test/tile?x=1');
-
-      expect(image.getAttribute('src')).toBe('https://nib.test/tile?x=1&token=abc');
+      expect(adoptLayer).toHaveBeenCalledWith('nib', expect.any(TileLayer), { base: 'regional' });
+      const nib = adopted('nib');
+      const source = nib.getSource() as WMTS;
+      expect(nib.getVisible()).toBe(false);
+      expect(source.getLayer()).toBe('Nibcache_UTM33_EUREF89_v2');
+      expect(source.getProjection()?.getCode()).toBe('EPSG:25833');
+      expect(source.getTileGrid()?.getOrigin(0)).toEqual([-2500000, 9045984]);
+      expect(source.getTileGrid()?.getResolution(0)).toBe(21664);
+      expect(source.getTileGrid()?.getMaxZoom()).toBe(17);
     });
 
-    it('requests Kartverket topo tiles in the map projection with all 19 levels', () => {
+    it('adds the URL-encoded NiB token before loading through the stall timeout', () => {
+      vi.spyOn(TestBed.inject(SharedMapService), 'getNibToken').mockReturnValue('a+b/c=');
+      const loadTile = vi.spyOn(component as unknown as { loadTile: LoadFunction }, 'loadTile').mockImplementation(() => undefined);
+      component['setupBaseMapLayers']();
+      const tile = {} as Tile;
+
+      (adopted('nib').getSource() as WMTS).getTileLoadFunction()(tile, 'https://nib.test/tile?x=1');
+
+      expect(loadTile).toHaveBeenCalledWith(tile, 'https://nib.test/tile?x=1&token=a%2Bb%2Fc%3D');
+    });
+
+    it('requests Kartverket topo tiles in UTM 33 with all 19 levels', () => {
       component['setupBaseMapLayers']();
 
       for (const id of ['topografisk', 'topo4graatone']) {
         expect(layers.get(id)?.source).toMatchObject({
           type: 'wmts',
-          options: { matrixSet: 'utm33n', projection: MAP_CONFIG.projection, levels: 19 },
+          options: { matrixSet: 'utm33n', projection: 'EPSG:25833', levels: 19 },
         });
       }
     });
 
-    it('adds an OSM background that stops at coarse tiles', () => {
+    it('adds the GEBCO background in the map projection, enlarging tiles past its max zoom', () => {
       component['setupBaseMapLayers']();
 
-      expect(adoptLayer).toHaveBeenCalledWith('osm', expect.any(TileLayer), { base: 'super' });
-      const osm = adoptLayer.mock.calls[0][1] as TileLayer;
-      expect(osm.getSource()).toBeInstanceOf(OSM);
-      expect(osm.getSource()?.getTileGrid()?.getMaxZoom()).toBe(MAP_CONFIG.osmMaxTileZoom);
+      expect(adoptLayer).toHaveBeenCalledWith('gebco', expect.any(TileLayer), { base: 'super' });
+      const source = adopted('gebco').getSource() as TileWMS;
+      expect(source.getParams()).toMatchObject({ LAYERS: 'gebco_skyggerelieff2' });
+      expect(source.getProjection()?.getCode()).toBe('EPSG:25833');
+      expect(source.getTileGrid()?.getMaxZoom()).toBe(MAP_CONFIG.backgroundMaxTileZoom);
     });
   });
 

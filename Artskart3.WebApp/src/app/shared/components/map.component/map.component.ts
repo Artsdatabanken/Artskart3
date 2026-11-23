@@ -77,8 +77,8 @@ import { CustomAreaDrawingService } from '@shared/services/custom-area-drawing/c
 import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
-import { loadTileWithTimeout } from './tile-load-timeout';
+import type { LoadFunction } from 'ol/Tile';
+import { loadTileWithStallTimeout } from './tile-load-timeout';
 import Layer from 'ol/layer/Layer';
 import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
@@ -86,6 +86,10 @@ import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
+import WMTS from 'ol/source/WMTS';
+import WMTSTileGrid from 'ol/tilegrid/WMTS';
+import { createForProjection } from 'ol/tilegrid';
+import { getTopLeft, getWidth, type Extent } from 'ol/extent';
 import type ImageWrapper from 'ol/Image';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
@@ -101,6 +105,14 @@ import {
   registrationStatusOf,
 } from './map-feature-styles';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
+
+/**
+ * The UTM 33 tile grid Kartverket and Norge i bilder share: level 0 is one 256 px tile from
+ * top left (-2500000, 9045984) at 21664 m/px.
+ */
+const UTM33_TILE_GRID_EXTENT: Extent = [-2500000, 3500000, 3045984, 9045984];
+/** Norge i bilder's UTM 33 cache has levels 0–17, the finest at 0.165 m/px. */
+const NIB_UTM33_LEVELS = 18;
 
 @Component({
   selector: 'app-map',
@@ -143,6 +155,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
+  private readonly loadTile = loadTileWithStallTimeout(MAP_CONFIG.tileStallTimeoutMs);
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -555,36 +568,64 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupBaseMapLayers(): void {
     if (!this.map) return;
-    this.map.adoptLayer(nbicMapPresets.osm.id, this.createOsmLayer(), { base: 'super' });
+    this.map.adoptLayer('gebco', this.createGebcoLayer(), { base: 'super' });
     this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topografiskBaseLayer));
     this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topo4graatoneBaseLayer));
-    this.map.addLayer(nbicMapPresets.svalbardBaseLayer);
-    this.map.addLayer(nbicMapPresets.janmayenBaseLayer);
-
-    const nib = {
-      ...nbicMapPresets.nib,
-      source: { ...nbicMapPresets.nib.source },
-    };
-    if (nib.source.type === 'wmts') {
-      const loadWithTimeout = loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs);
-      nib.source.options = {
-        ...nib.source.options,
-        tileLoadFunction: (tile, src) => {
-          const token = this.sharedMapService.getNibToken();
-          const separator = src.includes('?') ? '&' : '?';
-          loadWithTimeout(tile, token ? `${src}${separator}token=${token}` : src);
-        },
-      };
-    }
-    this.map.addLayer(nib);
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.svalbardBaseLayer, this.loadTile));
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.janmayenBaseLayer, this.loadTile));
+    this.map.adoptLayer(nbicMapPresets.nib.id, this.createNibLayer(), { base: 'regional' });
   }
 
-  /** Built here because the map package's OSM preset takes no source options. */
-  private createOsmLayer(): TileLayer {
+  /**
+   * Norge i bilder in UTM 33, so the photos are drawn without reprojection. Built here because the
+   * map package applies its Jan Mayen grid to every `default028mm` tile set in EPSG:25833.
+   */
+  private createNibLayer(): TileLayer {
+    const resolutions = Array.from({ length: NIB_UTM33_LEVELS }, (_, z) => getWidth(UTM33_TILE_GRID_EXTENT) / 256 / 2 ** z);
     return new TileLayer({
-      source: new OSM({
-        maxZoom: MAP_CONFIG.osmMaxTileZoom,
-        tileLoadFunction: loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs),
+      visible: false,
+      source: new WMTS({
+        url: 'https://tilecache.norgeibilder.no/wmts/utm33_euref89',
+        layer: 'Nibcache_UTM33_EUREF89_v2',
+        matrixSet: 'default028mm',
+        format: 'image/jpgpng',
+        style: 'default',
+        projection: 'EPSG:25833',
+        tileGrid: new WMTSTileGrid({
+          origin: getTopLeft(UTM33_TILE_GRID_EXTENT),
+          extent: UTM33_TILE_GRID_EXTENT,
+          resolutions,
+          matrixIds: resolutions.map((_, z) => String(z)),
+        }),
+        crossOrigin: 'anonymous',
+        attributions: 'Kartverket',
+        tileLoadFunction: (tile, src) => this.loadTile(tile, this.withNibToken(src)),
+      }),
+    });
+  }
+
+  private withNibToken(src: string): string {
+    const token = this.sharedMapService.getNibToken();
+    if (!token) return src;
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}token=${encodeURIComponent(token)}`;
+  }
+
+  private withTileLoader(layer: LayerDef, tileLoadFunction: LoadFunction): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return { ...layer, source: { ...layer.source, options: { ...layer.source.options, tileLoadFunction } } };
+  }
+
+  /** GEBCO shaded relief (sea depth and terrain) as the background where the topo map has no data. */
+  private createGebcoLayer(): TileLayer {
+    return new TileLayer({
+      source: new TileWMS({
+        url: 'https://wms.geonorge.no/skwms1/wms.gebco_skyggerelieff2',
+        params: { LAYERS: 'gebco_skyggerelieff2' },
+        projection: 'EPSG:25833',
+        tileGrid: createForProjection('EPSG:25833', MAP_CONFIG.backgroundMaxTileZoom),
+        attributions: 'Kartverket, GEBCO',
+        tileLoadFunction: this.loadTile,
       }),
     });
   }
@@ -603,11 +644,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           ...layer.source.options,
           matrixSet: 'utm33n',
           projection: 'EPSG:25833',
-          // Level 0 of Kartverket's utm33n matrix set: one 256 px tile from top left (-2500000, 9045984) at 21664 m/px.
-          extent: [-2500000, 3500000, 3045984, 9045984],
+          extent: UTM33_TILE_GRID_EXTENT,
           levels: 19,
           wrapX: false,
-          tileLoadFunction: loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs),
+          tileLoadFunction: this.loadTile,
         },
       },
     };
@@ -1953,6 +1993,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           url: layer.url,
           params,
           attributions: layer.attribution ?? undefined,
+          tileLoadFunction: this.loadTile,
         }),
       });
 

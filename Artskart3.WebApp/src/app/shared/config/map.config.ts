@@ -10,7 +10,9 @@ export const MAP_CONFIG = {
   // Zoom
   minZoom: 0,
   maxZoom: 22,
-  // OSM only fills in outside the topo coverage, so coarse tiles are enough when zoomed in.
-  osmMaxTileZoom: 14,
-  tileLoadTimeoutMs: 10000,
+  // The GEBCO background only shows where the topo map has no data, and from about zoom 16 the topo
+  // map covers neighbouring countries too. Its relief is coarse, so tiles are enlarged past this zoom.
+  backgroundMaxTileZoom: 15,
+  // A tile download is given up after this long without receiving any data.
+  tileStallTimeoutMs: 10000,
 };
