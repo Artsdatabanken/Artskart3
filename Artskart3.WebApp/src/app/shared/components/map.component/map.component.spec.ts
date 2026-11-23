@@ -38,6 +38,7 @@ import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
 
 const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image: ImageWrapper) =>
   source.dispatchEvent(new ImageSourceEvent(type, image));
@@ -49,6 +50,7 @@ describe('MapComponent lifecycle', () => {
     component as unknown as {
       initializeMap(): void;
       onMapReady(): void;
+      cleanup(): void;
     };
 
   beforeEach(async () => {
@@ -99,6 +101,15 @@ describe('MapComponent lifecycle', () => {
     expect(component.map).toBeUndefined();
     expect(emit).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
+  });
+
+  it('clears enabled map layers when destroyed', () => {
+    const mapLayerService = TestBed.inject(MapLayerService);
+    mapLayerService.setLayerEnabled(1, true);
+
+    lifecycle().cleanup();
+
+    expect(mapLayerService.enabledLayerIds().has(1)).toBe(false);
   });
 
   it('disposes an initialized map without reactivating it on a late ready callback', () => {

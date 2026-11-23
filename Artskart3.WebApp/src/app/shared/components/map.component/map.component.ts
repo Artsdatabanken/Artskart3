@@ -1972,6 +1972,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     for (const [, timer] of this.mapOverlayRefreshTimers) {
       clearTimeout(timer);
     }
+    for (const layerId of this.mapLayerService.enabledLayerIds()) this.mapLayerService.setLayerEnabled(layerId, false);
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.disposeWebglLocationsLayer();
