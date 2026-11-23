@@ -165,6 +165,9 @@
     "tabsAriaLabel": "Mitt Artskart-faner"
   },
   "listView": {
+    "showObservation": "Vis funn",
+    "showDetails": "Se funn",
+    "showOnMap": "Vis i kart",
     "name": "Populærnavn (nb)",
     "scientificName": "Vitenskapelig navn",
     "author": "Autor",
@@ -191,6 +194,7 @@
     "areas": "Områder",
     "heading": "Filter",
     "clearFilter": "Tøm filter",
+    "activeSelections": "Har aktive filtervalg",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartslista",
@@ -271,6 +275,7 @@
     "species": "Arter",
     "chipCoordinatePrecision": "Koordinatpresisjon: {{from}}-{{to}} meter",
     "chipPeriod": "År: {{from}}-{{to}}",
+    "chipMoreNames": "og {{count}} til",
     "synonymMatch": "Treff på synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "Ingen treff i prosjekter på \"{{searchTerm}}\"",
@@ -396,6 +401,14 @@
       "eiendomskart": "Eiendom",
       "maritimeGrenser": "Maritime grenser"
     },
+    "mapTypeTooltip": "Endre bakgrunnskart",
+    "layersTooltip": "Legg til ulike kartlag over kartet",
+    "settingsTooltip": "Innstillinger for kart",
+    "geolocationTooltip": "Finn min posisjon",
+    "fullscreenTooltip": "Vis kart i fullskjerm",
+    "exitFullscreenTooltip": "Avslutt fullskjerm",
+    "zoomInTooltip": "Gå nærmere i kartet",
+    "zoomOutTooltip": "Gå lenger ut i kartet",
     "geolocationDeniedTooltip": "Posisjon må tillates i nettleseren før vi kan vise din posisjon i kartet."
   },
   "design": {

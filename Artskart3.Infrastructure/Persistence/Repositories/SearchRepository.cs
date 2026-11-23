@@ -1468,7 +1468,8 @@ public class SearchRepository : ISearchRepository
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
             DateTimeCollected = o.DateTimeCollected,
-            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters
+            CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
+            Point = new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North)
         }).ToListAsync(cancellationToken);
     }
 

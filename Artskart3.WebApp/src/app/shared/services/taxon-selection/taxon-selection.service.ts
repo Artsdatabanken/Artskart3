@@ -6,6 +6,21 @@ import { TaxonTreeNodeDto } from '../../types/api.types';
 
 export type TaxonCheckboxState = 'checked' | 'indeterminate' | 'unchecked';
 
+export interface TaxonNames {
+  validScientificName?: string | null;
+  preferredPopularName?: string | null;
+}
+
+/** The most selected taxa that opening the taxon tree from the filter chip unfolds the tree down to. */
+export const MAX_REVEALED_TAXA = 20;
+
+/** The name as the taxon tree shows it, following its switch for scientific names. An empty name counts as missing. */
+export function taxonDisplayName(names: TaxonNames, showScientificNames: boolean): string | null | undefined {
+  return showScientificNames
+    ? names.validScientificName || names.preferredPopularName
+    : names.preferredPopularName || names.validScientificName;
+}
+
 /**
  * Avgjør checked/indeterminate-tilstand for avkrysningsboksene i taxon-treet.
  *
@@ -19,7 +34,7 @@ export type TaxonCheckboxState = 'checked' | 'indeterminate' | 'unchecked';
  * - Uten underliggende taksa er hver node uavhengig: ingen arvet checked, og å velge en
  *   forelder fjerner ikke valgte etterkommere.
  *
- * Treet mater inn forfedrekjeder og søskenlister for alt som rendres; det som ikke er
+ * Treet mater inn forfedrekjeder, søskenlister og navn for alt som rendres; det som ikke er
  * rendret (f.eks. taxa valgt via artsøk) hentes fra GET /api/Lookup/TaxonAncestry.
  */
 @Injectable({
@@ -34,6 +49,9 @@ export class TaxonSelectionService {
 
   /** parentTaxonId -> lastede barn-id-er. */
   private readonly childrenCache = signal<Map<number, number[]>>(new Map());
+
+  /** taxonId -> names, for every taxon loaded in the tree or looked up in TaxonAncestry. */
+  private readonly namesCache = signal<Map<number, TaxonNames>>(new Map());
 
   private pendingAncestryIds = new Set<number>();
   private ancestryFetchPromise: Promise<void> | null = null;
@@ -64,6 +82,23 @@ export class TaxonSelectionService {
     return result;
   });
 
+  /** The nodes to open to show the first MAX_REVEALED_TAXA selected taxa in the tree. */
+  readonly revealedAncestorIds = computed(() => {
+    const cache = this.ancestryCache();
+    return new Set(
+      this.filterState
+        .selectedTaxonIds()
+        .slice(0, MAX_REVEALED_TAXA)
+        .flatMap((id) => cache.get(id) ?? []),
+    );
+  });
+
+  /** Settles once the selected taxa's ancestries are known, looking up any that are missing or failed earlier. */
+  async ancestriesResolved(): Promise<void> {
+    this.resolveAncestries();
+    while (this.ancestryFetchPromise) await this.ancestryFetchPromise;
+  }
+
   /** Registrerer forfedrekjeden til en rendret node (fra treets egen sti). */
   registerAncestry(taxonId: number, ancestorIds: number[]): void {
     this.registerAncestries([[taxonId, ancestorIds]]);
@@ -82,6 +117,7 @@ export class TaxonSelectionService {
 
   /** Registrerer barna til en forelder slik materialisering kan bruke dem. */
   registerChildren(parentTaxonId: number | undefined, children: TaxonTreeNodeDto[]): void {
+    this.registerNames(children);
     const parentId = parentTaxonId ?? 0;
     if (this.childrenCache().has(parentId)) return;
     this.childrenCache.update((cache) => {
@@ -95,6 +131,24 @@ export class TaxonSelectionService {
   registerTreeLevel(parentTaxonId: number | undefined, ancestorIds: number[], children: TaxonTreeNodeDto[]): void {
     this.registerChildren(parentTaxonId, children);
     this.registerAncestries(children.map((node) => [node.id, ancestorIds] as const));
+  }
+
+  private registerNames(taxa: readonly (TaxonNames & { id?: number })[]): void {
+    const cache = this.namesCache();
+    const additions = taxa.filter((taxon) => taxon.id != null && !cache.has(taxon.id));
+    if (additions.length === 0) return;
+    this.namesCache.update((current) => {
+      const next = new Map(current);
+      for (const { id, validScientificName, preferredPopularName } of additions) {
+        next.set(id!, { validScientificName, preferredPopularName });
+      }
+      return next;
+    });
+  }
+
+  /** Undefined until the taxon has been loaded in the tree or looked up. */
+  names(taxonId: number): TaxonNames | undefined {
+    return this.namesCache().get(taxonId);
   }
 
   isSelected(id: number): boolean {
@@ -218,6 +272,7 @@ export class TaxonSelectionService {
     this.ancestryFetchPromise = lastValueFrom(this.taxonTreeService.getAncestry(batch))
       .then((ancestries) => {
         succeeded = true;
+        this.registerNames(ancestries);
         // Id-er som ikke er i svaret (f.eks. ukjente hos backend) markeres som
         // kjente med tom kjede — ellers ville de hentes på nytt i evig løkke
         const entries = new Map<number, number[]>();

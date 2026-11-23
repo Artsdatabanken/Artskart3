@@ -2314,6 +2314,7 @@ export interface components {
             dateTimeCollected?: null | string;
             /** Format: int32 */
             coordinatePrecisionInMeters?: null | number;
+            point?: components["schemas"]["ObservationPointDto"];
         };
         ObservationImageDto: {
             /** Format: int32 */
@@ -2497,6 +2498,8 @@ export interface components {
             /** Format: int32 */
             id?: number;
             parentIds?: number[];
+            validScientificName?: null | string;
+            preferredPopularName?: null | string;
         };
         TaxonDto: {
             /** Format: int32 */

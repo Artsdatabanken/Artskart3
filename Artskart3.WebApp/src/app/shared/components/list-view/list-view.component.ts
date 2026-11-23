@@ -1,20 +1,52 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, inject, computed, linkedSignal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  CUSTOM_ELEMENTS_SCHEMA,
+  ElementRef,
+  Injector,
+  signal,
+  inject,
+  computed,
+  linkedSignal,
+  input,
+  output,
+} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
-import { CategoryDto, CategoryTypeDto, ObservationSearchFilter, PagedObservationResponse, TaxonGroupDto } from '../../types/api.types';
+import { MapViewService } from '../../services/map-view/map-view.service';
+import {
+  CategoryDto,
+  CategoryTypeDto,
+  ObservationDto,
+  ObservationSearchFilter,
+  PagedObservationResponse,
+  TaxonGroupDto,
+} from '../../types/api.types';
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
+import { ListObservationDetailsComponent } from '../list-observation-details/list-observation-details.component';
 
 @Component({
   selector: 'app-list-view',
-  imports: [TranslateModule, LocaleDatePipe, MeterUnitPipe, LookupNamePipe, RiskCategoryBadgeComponent],
+  imports: [
+    TranslateModule,
+    RouterLink,
+    NgTemplateOutlet,
+    LocaleDatePipe,
+    MeterUnitPipe,
+    LookupNamePipe,
+    RiskCategoryBadgeComponent,
+    ListObservationDetailsComponent,
+  ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './list-view.component.html',
   styleUrl: './list-view.component.css',
@@ -26,6 +58,14 @@ export class ListViewComponent {
   private readonly categoryService = inject(CategoryService);
   private readonly taxonGroupService = inject(TaxonGroupService);
   private readonly searchFilter = inject(SearchFilterService);
+  private readonly mapView = inject(MapViewService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  readonly active = input(true);
+
+  /** Needed besides the URL change, which doesn't happen when the observation is already open. */
+  readonly observationShown = output<void>();
 
   private readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
     stream: () => this.categoryService.getCategories(),
@@ -100,6 +140,12 @@ export class ListViewComponent {
     return this.pageNumber() + lookahead;
   });
 
+  readonly openObservationId = signal<number | null>(null);
+
+  readonly pageObservationIds = computed(() =>
+    this.observationsResource.hasValue() ? (this.observationsResource.value().items ?? []).flatMap((obs) => obs.id ?? []) : [],
+  );
+
   readonly hasMorePages = computed(() => {
     const response = this.observationsResource.value();
     if (!response) return false;
@@ -113,6 +159,31 @@ export class ListViewComponent {
   onPageSizeChange(size: number) {
     this.resultsPerPage.set(size);
     this.pageNumber.set(1);
+  }
+
+  openDetails(observation: ObservationDto): void {
+    if (observation.id != null) this.openObservationId.set(observation.id);
+  }
+
+  closeDetails(): void {
+    const id = this.openObservationId();
+    this.openObservationId.set(null);
+    afterNextRender(
+      () => {
+        const host = this.host.nativeElement;
+        const button = host.querySelector(`.show-details[data-observation-id="${id}"]`) ?? host.querySelector('.show-details');
+        button?.shadowRoot?.querySelector('button')?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  showOnMap(observation: ObservationDto, event: MouseEvent): void {
+    // A modified click opens the link in a new tab or window, so this one stays as it is.
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const { east, north } = observation.point ?? {};
+    if (east != null && north != null) this.mapView.requestFitPoint(east, north, observation.coordinatePrecisionInMeters);
+    this.observationShown.emit();
   }
 
   getAreaName(fid: string | null | undefined): string {

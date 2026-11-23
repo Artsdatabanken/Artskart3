@@ -51,6 +51,23 @@ describe('TaxonTreeComponent', () => {
     httpTesting.verify();
   });
 
+  type AccordionItem = HTMLElement & { open: boolean };
+
+  function accordionItem(root: HTMLElement = fixture.nativeElement): AccordionItem {
+    return root.querySelector('adb-accordion-item') as AccordionItem;
+  }
+
+  // The accordion item updates `open` and fires a bubbling toggle event when the user clicks it.
+  function toggleByUser(item: AccordionItem, open: boolean): void {
+    item.open = open;
+    item.dispatchEvent(new Event('toggle', { bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  function expectChildrenRequest(parentTaxonId: number) {
+    return httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonTree' && r.params.get('parentTaxonId') === String(parentTaxonId));
+  }
+
   it('rendrer alle noder unchecked som standard', () => {
     expect(component.checkboxState(1)).toBe('unchecked');
     expect(component.checkboxState(2)).toBe('unchecked');
@@ -159,6 +176,10 @@ describe('TaxonTreeComponent', () => {
     expect(component.displayName(node(1))).toBe('Taxon 1');
   });
 
+  it('falls back to the scientific name when the popular name is empty', () => {
+    expect(component.displayName(node(1, false, ''))).toBe('Taxon 1');
+  });
+
   it('viser vitenskapelig navn når showScientificNames er på', () => {
     fixture.componentRef.setInput('showScientificNames', true);
     expect(component.displayName(node(1, false, 'Bakterier'))).toBe('Taxon 1');
@@ -166,14 +187,63 @@ describe('TaxonTreeComponent', () => {
 
   it('sender showScientificNames videre til neste tre-nivå', () => {
     fixture.componentRef.setInput('showScientificNames', true);
-    component.onNodeToggle(1);
-    fixture.detectChanges();
-    httpTesting
-      .expectOne((r) => r.url === '/api/Lookup/TaxonTree' && r.params.get('parentTaxonId') === '1')
-      .flush([node(4, false, 'Barn')]);
+    toggleByUser(accordionItem(), true);
+    expectChildrenRequest(1).flush([node(4, false, 'Barn')]);
     fixture.detectChanges();
 
     const childTree = fixture.debugElement.query(By.directive(TaxonTreeComponent));
     expect(childTree.nativeElement.querySelector('adb-checkbox > span:not([slot])').innerHTML).toBe('Taxon 4');
+  });
+
+  describe('revealing the selection', () => {
+    it('opens the nodes with selected descendants, level by level', () => {
+      taxonSelection.registerAncestry(20, [1, 5]);
+      filterState.setTaxons([20]);
+      fixture.componentRef.setInput('revealSelection', 1);
+      fixture.detectChanges();
+
+      expect(accordionItem().open).toBe(true);
+      expectChildrenRequest(1).flush([node(5, true), node(6, true)]);
+      fixture.detectChanges();
+      expectChildrenRequest(5).flush([node(20)]);
+      fixture.detectChanges();
+
+      const childItems = accordionItem().querySelectorAll('adb-accordion-item') as NodeListOf<AccordionItem>;
+      expect([...childItems].map((item) => item.open)).toEqual([true, false]);
+      httpTesting.expectNone((r) => r.params.get('parentTaxonId') === '6');
+    });
+
+    it('leaves a selected node closed, since its own checkbox shows the selection', () => {
+      filterState.setTaxons([1]);
+      fixture.componentRef.setInput('revealSelection', 1);
+      fixture.detectChanges();
+      expect(accordionItem().open).toBe(false);
+    });
+
+    it('reopens a node the user closed on the next reveal', () => {
+      taxonSelection.registerAncestry(10, [1]);
+      filterState.setTaxons([10]);
+      fixture.componentRef.setInput('revealSelection', 1);
+      fixture.detectChanges();
+      expectChildrenRequest(1).flush([node(10)]);
+
+      toggleByUser(accordionItem(), false);
+      expect(accordionItem().open).toBe(false);
+
+      fixture.componentRef.setInput('revealSelection', 2);
+      fixture.detectChanges();
+      expect(accordionItem().open).toBe(true);
+    });
+
+    it("doesn't carry a reveal into subtrees the user opens", () => {
+      fixture.componentRef.setInput('revealSelection', 1);
+      fixture.detectChanges();
+      toggleByUser(accordionItem(), true);
+      expectChildrenRequest(1).flush([node(5, true)]);
+      fixture.detectChanges();
+
+      const childTree = fixture.debugElement.query(By.directive(TaxonTreeComponent)).componentInstance as TaxonTreeComponent;
+      expect(childTree.revealSelection()).toBe(0);
+    });
   });
 });

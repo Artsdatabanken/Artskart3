@@ -7,6 +7,7 @@ import {
   inject,
   input,
   linkedSignal,
+  model,
   output,
   signal,
   viewChild,
@@ -43,6 +44,7 @@ const NOT_FOUND_DESCRIPTION_KEYS: Record<Exclude<RegistrationStatus, 'found'>, s
   imports: [TranslateModule, RegistrationMarkerComponent, RiskCategoryBadgeComponent, ObservationGalleryComponent, ImageViewerComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   selector: 'app-observation-details',
+  host: { '[class.fill-height]': 'fillHeight()' },
   styleUrl: './observation-details.component.css',
   templateUrl: './observation-details.component.html',
 })
@@ -54,11 +56,13 @@ export class ObservationDetailsComponent {
   readonly position = input(1);
   readonly navigationError = input(false);
   readonly hasList = input(false);
+  /** Fills the host's height instead of growing with the content, for a panel docked beside other content. */
+  readonly fillHeight = input(false);
   readonly previous = output<void>();
   readonly next = output<void>();
   readonly dismiss = output<void>();
   readonly retry = output<void>();
-  readonly expanded = signal(false);
+  readonly expanded = model(false);
   readonly sectionsOpen = signal<Record<string, boolean>>({ observation: true, place: false, dataset: false });
   readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
@@ -168,6 +172,13 @@ export class ObservationDetailsComponent {
     afterRenderEffect(() => {
       this.observationId();
       this.body().nativeElement.scrollTop = 0;
+      // The list and gallery switch the observation from a tab that is then hidden, taking focus with it.
+      // Reopening lets the dialog move focus into itself.
+      const dialog = this.dialog().nativeElement;
+      if (dialog.open && !this.modal && !dialog.contains(dialog.ownerDocument.activeElement)) {
+        dialog.close();
+        dialog.show();
+      }
     });
   }
 

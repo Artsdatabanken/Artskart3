@@ -175,7 +175,7 @@ describe('AreaService', () => {
       filterState.selectedMunicipalityIds.set(['5001']);
 
       expect(service.resolvedAreaFilter().municipalityIds).toEqual(['5001']);
-      expect(service.mainlandSelectionCount()).toBe(1);
+      expect(service.mainlandSelectionNames()).toHaveLength(1);
     });
 
     it('teller ukjente kommuner og fylker med, så filterbrikken vises', () => {
@@ -183,7 +183,24 @@ describe('AreaService', () => {
       filterState.selectedMunicipalityIds.set(['9999']);
       filterState.selectedCountyIds.set(['99']);
 
-      expect(service.mainlandSelectionCount()).toBe(2);
+      expect(service.mainlandSelectionNames()).toHaveLength(2);
+    });
+  });
+
+  describe('mainlandSelectionNames', () => {
+    it('names a county whose municipalities are all selected, and the selected municipalities otherwise', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['0301', '1101']);
+
+      expect(service.mainlandSelectionNames()).toEqual(['Oslo', 'Eigersund']);
+    });
+
+    it('shows the ids of areas that are not in the current division', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['9999']);
+      filterState.selectedCountyIds.set(['99']);
+
+      expect(service.mainlandSelectionNames()).toEqual(['99', '9999']);
     });
   });
 

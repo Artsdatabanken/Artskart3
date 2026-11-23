@@ -174,12 +174,20 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
     {
         EnsureInitialized();
 
+        // Leses én gang, så navn og foreldrekjede kommer fra samme innlasting selv om den byttes underveis.
+        var taxons = _taxons;
         return taxonIds
             .Distinct()
-            .Select(taxonId => new TaxonAncestryDto
+            .Select(taxonId =>
             {
-                Id = taxonId,
-                ParentIds = BuildParentIdChain(taxonId)
+                taxons.TryGetValue(taxonId, out var taxon);
+                return new TaxonAncestryDto
+                {
+                    Id = taxonId,
+                    ParentIds = BuildParentIdChain(taxons, taxonId),
+                    ValidScientificName = taxon?.ValidScientificName,
+                    PreferredPopularName = taxon?.PreferredPopularName
+                };
             })
             .ToList();
     }
@@ -195,9 +203,9 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
     /// Returnerer tom liste for rotnivå eller ukjent taxonId.
     /// Foreldre filtreres ikke på observasjonsantall — hierarkiet skal alltid være komplett.
     /// </summary>
-    private List<int> BuildParentIdChain(int taxonId)
+    private static List<int> BuildParentIdChain(Dictionary<int, TaxonData> taxons, int taxonId)
     {
-        if (!_taxons.TryGetValue(taxonId, out var taxon)) return [];
+        if (!taxons.TryGetValue(taxonId, out var taxon)) return [];
 
         var chain = new List<int>();
         var visited = new HashSet<int> { taxonId };
@@ -207,7 +215,7 @@ public class TaxonHierarchyService : ITaxonHierarchyService, IHostedService, IDi
         while (currentId != 0 && visited.Add(currentId))
         {
             chain.Add(currentId);
-            currentId = _taxons.TryGetValue(currentId, out var parent) ? parent.ParentTaxonId : 0;
+            currentId = taxons.TryGetValue(currentId, out var parent) ? parent.ParentTaxonId : 0;
         }
 
         chain.Reverse();

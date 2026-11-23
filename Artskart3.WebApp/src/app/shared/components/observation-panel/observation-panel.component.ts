@@ -1,9 +1,8 @@
 import { DOCUMENT, Location } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { afterNextRender, Component, computed, ElementRef, inject, Injector, input, output, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, concat, ignoreElements, map, merge, Observable, of, Subject, switchMap, takeUntil, tap } from 'rxjs';
+import { catchError, concat, ignoreElements, map, merge, of, Subject, switchMap, takeUntil, tap } from 'rxjs';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { LoggingService } from '@shared/logging.service';
 import { ObservationService } from '@shared/services/observation/observation.service';
@@ -11,6 +10,7 @@ import { ObservationDetailDto, ObservationListInfoDto, ObservationPointDto } fro
 import { ObservationListComponent } from '../observation-list.component/observation-list.component';
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { ObservationDetailsComponent, DetailState } from '../observation-details/observation-details.component';
+import { detailLoadFailed, loadObservationDetail } from '../observation-details/observation-detail-load';
 
 export type ActiveObservationPoint = ObservationPointDto & { readonly registrationStatus: RegistrationStatus };
 
@@ -96,7 +96,7 @@ export class ObservationPanelComponent {
                 takeUntil(this.dismissRequest),
                 tap((id) => this.navigate(id, true, null)),
                 ignoreElements(),
-                catchError((error: unknown) => this.loadFailed(error)),
+                catchError((error: unknown) => of(detailLoadFailed(error, this.logger, 'ObservationPanel'))),
               ),
             );
           }
@@ -107,11 +107,7 @@ export class ObservationPanelComponent {
           }
           return concat(
             of({ state: 'loading' as const, detail: null }),
-            this.api.getDetail(id).pipe(
-              takeUntil(this.dismissRequest),
-              map((detail) => ({ state: 'ready' as const, detail })),
-              catchError((error: unknown) => this.loadFailed(error)),
-            ),
+            loadObservationDetail(this.api, this.logger, id, 'ObservationPanel').pipe(takeUntil(this.dismissRequest)),
           );
         }),
         takeUntilDestroyed(),
@@ -173,16 +169,6 @@ export class ObservationPanelComponent {
         if (!success) this.failedNavigation(new Error('Observation navigation was cancelled'));
       })
       .catch((error: unknown) => this.failedNavigation(error));
-  }
-
-  private loadFailed(error: unknown): Observable<{ state: 'notFound' | 'error'; detail: null }> {
-    // Links from other apps can point to observations that no longer exist, so a 404 is expected.
-    if (error instanceof HttpErrorResponse && error.status === 404) {
-      this.logger.warn('Observation not found', 'ObservationPanel', error.url);
-      return of({ state: 'notFound', detail: null });
-    }
-    this.logger.error('Failed to load observation details', 'ObservationPanel', error);
-    return of({ state: 'error', detail: null });
   }
 
   private failedNavigation(error: unknown): void {

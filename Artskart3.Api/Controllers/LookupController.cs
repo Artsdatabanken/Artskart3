@@ -363,9 +363,9 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
-    /// Returnerer foreldrekjeden for hvert oppgitt taxonId.
+    /// Returnerer foreldrekjeden og navnene for hvert oppgitt taxonId.
     /// Brukes av frontend til å avgjøre indeterminate/checked-tilstand i taxon-treet
-    /// for taxa valgt utenfor treet (f.eks. via artsøk).
+    /// og til å navngi valgte taxa, også de som er valgt utenfor treet (f.eks. via artsøk).
     /// Data hentes fra minne — ingen databasekall per request.
     /// </summary>
     [HttpGet("TaxonAncestry")]

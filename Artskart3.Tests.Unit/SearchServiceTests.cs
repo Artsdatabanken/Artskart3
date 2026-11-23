@@ -20,6 +20,30 @@ public class SearchServiceTests
     }
 
     // -----------------------------------------------------------------------
+    // GetObservationsAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetObservationsAsync_ClearsUnusableCoordinates()
+    {
+        var filter = new ObservationSearchFilterDto { PageNumber = 1, ResultsPerPage = 10 };
+        var usable = new ObservationPointDto(59.9, 10.7, 262000, 6650000);
+        _repositoryMock
+            .Setup(r => r.GetObservationsAsync(filter))
+            .ReturnsAsync(new List<ObservationDto>
+            {
+                new() { Id = 1, Point = usable },
+                new() { Id = 2, Point = new ObservationPointDto(0, 0, 0, 0) },
+                new() { Id = 3, Point = new ObservationPointDto(59.9, 10.7, 262000, -1) },
+                new() { Id = 4 },
+            });
+
+        var result = await _sut.GetObservationsAsync(filter);
+
+        result.Select(o => o.Point).Should().Equal(usable, null, null, null);
+    }
+
+    // -----------------------------------------------------------------------
     // GetObservationImagesAsync
     // -----------------------------------------------------------------------
 

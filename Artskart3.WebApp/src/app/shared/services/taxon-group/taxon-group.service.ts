@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay } from 'rxjs';
 import { TaxonGroupDto } from '../../types/api.types';
 
 @Injectable({
@@ -9,8 +9,9 @@ import { TaxonGroupDto } from '../../types/api.types';
 export class TaxonGroupService {
   private readonly http = inject(HttpClient);
   private readonly endpoint = '/api/Lookup/TaxonGroups';
+  private readonly taxonGroups$ = this.http.get<TaxonGroupDto[]>(this.endpoint).pipe(shareReplay(1));
 
   getTaxonGroups(): Observable<TaxonGroupDto[]> {
-    return this.http.get<TaxonGroupDto[]>(this.endpoint);
+    return this.taxonGroups$;
   }
 }

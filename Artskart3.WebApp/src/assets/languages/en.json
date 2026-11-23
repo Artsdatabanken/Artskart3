@@ -165,6 +165,9 @@
     "tabsAriaLabel": "My Artskart tabs"
   },
   "listView": {
+    "showObservation": "Show observation",
+    "showDetails": "View details",
+    "showOnMap": "Show on map",
     "name": "Species name",
     "scientificName": "Scientific name",
     "author": "Autor",
@@ -191,6 +194,7 @@
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
+    "activeSelections": "Has active filters",
     "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species List",
@@ -271,6 +275,7 @@
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
     "chipPeriod": "Year: {{from}}-{{to}}",
+    "chipMoreNames": "and {{count}} more",
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
@@ -396,6 +401,14 @@
       "eiendomskart": "Property",
       "maritimeGrenser": "Maritime boundaries"
     },
+    "mapTypeTooltip": "Change background map",
+    "layersTooltip": "Add map layers on top of the map",
+    "settingsTooltip": "Map settings",
+    "geolocationTooltip": "Find my location",
+    "fullscreenTooltip": "Show the map in fullscreen",
+    "exitFullscreenTooltip": "Exit fullscreen",
+    "zoomInTooltip": "Move closer in on the map",
+    "zoomOutTooltip": "Move further out on the map",
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
   "design": {

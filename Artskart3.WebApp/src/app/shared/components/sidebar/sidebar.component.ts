@@ -1,12 +1,12 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, computed, linkedSignal, output } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, inject, signal, computed, linkedSignal, output } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { CategoryService } from '../../services/category/category.service';
+import { CategoryService, sortCategories } from '../../services/category/category.service';
 import { map } from 'rxjs';
 import { AreaService, CountyGroup, MAX_HISTORICAL_AREAS, RestrictedArea } from '../../services/area/area.service';
 import { InstitutionService } from '../../services/institution/institution.service';
-import { BehaviorService } from '../../services/behavior/behavior.service';
-import { BasisOfRecordService } from '../../services/basis-of-record/basis-of-record.service';
+import { BehaviorService, behaviorDisplayName } from '../../services/behavior/behavior.service';
+import { BasisOfRecordService, basisOfRecordDisplayName } from '../../services/basis-of-record/basis-of-record.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
 import { AreaSuggestion, withSuggestionDetails } from '../../services/area/area-label';
 import {
@@ -16,13 +16,13 @@ import {
   CategoryTypeDto,
   InstitutionDto,
   TaxonGroupDto,
-  CategoryDto,
   OrganizationDto,
   CatalogNumberMatchDto,
+  ObservationSearchFilter,
 } from '../../types/api.types';
 import { FormatNumberPipe } from '../../pipes/format-number.pipe';
-import { CATEGORY_ORDER } from '@shared/constants/category-order.const';
 import { REGISTRATION_STATUS_OPTIONS } from '@shared/constants/registration-status-options.const';
+import { MONTHS } from '@shared/constants/months.const';
 import { OrganizationService } from '../../services/organization/organization.service';
 import {
   AnnotationFilterOption,
@@ -33,9 +33,10 @@ import {
 import { AuthService } from '../../services/auth/auth.service';
 import { SavedFilterService } from '../../services/saved-filter/saved-filter.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
-import { FilterChipsComponent } from '../filter-chips/filter-chips.component';
+import { FilterChipsComponent, FilterSection } from '../filter-chips/filter-chips.component';
 import { SpeciesSearchComponent } from '../species-search/species-search.component';
 import { TaxonTreeComponent } from '../taxon-tree/taxon-tree.component';
+import { TaxonSelectionService } from '../../services/taxon-selection/taxon-selection.service';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
@@ -54,7 +55,44 @@ function toRegistrationStatusValue(id: number | null): string {
 
 const SHOW_SCIENTIFIC_NAMES_KEY = 'artskart.taxonTree.showScientificNames';
 
+// Every field must be listed, so a new filter field won't compile until it is decided which section's dot it lights.
+const FILTER_SECTION: Record<keyof ObservationSearchFilter, FilterSection | null> = {
+  pageNumber: null,
+  resultsPerPage: null,
+  isPaginated: null,
+  taxonGroupIds: 'taxonGroups',
+  taxonIds: 'taxonTree',
+  includeDescendantTaxa: 'taxonTree',
+  categoryIds: 'categories',
+  countyIds: 'areas',
+  municipalityIds: 'areas',
+  oceanAreaIds: 'areas',
+  restrictedAreaIds: 'areas',
+  cadastralUnitIds: 'areas',
+  historicalAreaIds: 'areas',
+  customAreaWkt: 'areas',
+  coordinatePrecision: 'coordinatePrecision',
+  period: 'period',
+  behaviorIds: 'behaviors',
+  basisOfRecordIds: 'basisOfRecords',
+  registrationStatusId: 'basisOfRecords',
+  organizationIds: 'institutions',
+  projectOrgIds: 'otherProperties',
+  datasetOrgIds: 'otherProperties',
+  observationIds: 'otherProperties',
+  withImages: 'otherProperties',
+  changedByAnnotation: 'otherProperties',
+  hiddenObservations: 'otherProperties',
+  sensitive: 'otherProperties',
+  // No control in the sidebar; only saved filters set these.
+  uncertainIdentification: null,
+  introduced: null,
+};
+
 type SelectAllState = 'none' | 'some' | 'all';
+
+// A Lit element: updateComplete settles once a property change has been rendered.
+type AccordionItemElement = HTMLElement & { open: boolean; updateComplete?: Promise<boolean> };
 
 function listIds(items: readonly { id?: number }[] | null | undefined): number[] {
   return (items ?? []).flatMap((item) => (item.id == null ? [] : [item.id]));
@@ -100,6 +138,8 @@ export class SidebarComponent {
   private readonly mapView = inject(MapViewService);
   protected readonly authService = inject(AuthService);
   private readonly logger = inject(LoggingService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly taxonSelection = inject(TaxonSelectionService);
 
   readonly saveFilterRequested = output<void>();
 
@@ -107,6 +147,20 @@ export class SidebarComponent {
     () => this.authService.isAuthenticated() && !this.searchFilter.hasActiveFilter() && this.savedFilterService.defaultFilter() !== null,
   );
   protected readonly translate = inject(TranslateService);
+
+  /**
+   * Sections whose filter differs from Artskart's defaults; each one gets a dot on its accordion heading.
+   * `observationFilter` leaves every field at its default `undefined`, so a defined field is a selection.
+   */
+  readonly sectionsWithSelection = computed(() => {
+    const filter = this.searchFilter.observationFilter();
+    return new Set(
+      (Object.keys(filter) as (keyof ObservationSearchFilter)[]).flatMap((key) => {
+        const section = FILTER_SECTION[key];
+        return section && filter[key] !== undefined ? [section] : [];
+      }),
+    );
+  });
 
   readonly registreringOptions = REGISTRATION_STATUS_OPTIONS.map((option) => ({
     ...option,
@@ -195,14 +249,7 @@ export class SidebarComponent {
     this.filterState.toggleCategory(id);
   }
 
-  getSortedCategories(categories: CategoryDto[] | null | undefined): CategoryDto[] {
-    if (!categories) return [];
-    return [...categories].sort((a, b) => {
-      const indexA = a.code ? CATEGORY_ORDER.indexOf(a.code) : -1;
-      const indexB = b.code ? CATEGORY_ORDER.indexOf(b.code) : -1;
-      return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
-    });
-  }
+  readonly sortCategories = sortCategories;
 
   onClearFilter(): void {
     this.filterState.clearAll();
@@ -277,10 +324,7 @@ export class SidebarComponent {
   }
 
   getBehaviorDisplayName(behavior: BehaviorDto): string {
-    if (!behavior.name) return behavior.description ?? '';
-    const key = 'sidebar.behaviorName.' + behavior.name;
-    const translated = this.translate.instant(key);
-    return translated !== key ? translated : (behavior.description ?? behavior.name);
+    return behaviorDisplayName(behavior, (key) => this.translate.instant(key));
   }
 
   isBasisOfRecordSelected(id: number): boolean {
@@ -299,10 +343,7 @@ export class SidebarComponent {
   }
 
   getBasisOfRecordDisplayName(basisOfRecord: BasisOfRecordDto): string {
-    if (!basisOfRecord.name) return basisOfRecord.description ?? '';
-    const key = 'sidebar.basisOfRecordName.' + basisOfRecord.name;
-    const translated = this.translate.instant(key);
-    return translated !== key ? translated : (basisOfRecord.description ?? basisOfRecord.name);
+    return basisOfRecordDisplayName(basisOfRecord, (key) => this.translate.instant(key));
   }
 
   isTaxonGroupSelected(id: number): boolean {
@@ -315,9 +356,32 @@ export class SidebarComponent {
 
   // Taxon tree lazy load
   readonly taxonTreeOpened = signal(false);
+  readonly taxonTreeReveal = signal(0);
 
   onTaxonTreeToggle(): void {
     this.taxonTreeOpened.set(true);
+  }
+
+  /** Opens the section where a chip's filter is set, with the selections in it unfolded. */
+  async onOpenFilter(section: FilterSection): Promise<void> {
+    const item = this.host.nativeElement.querySelector<AccordionItemElement>(`adb-accordion-item[data-filter-section="${section}"]`);
+    if (!item) return;
+    item.open = true;
+    item.querySelectorAll<AccordionItemElement>('adb-accordion-item[data-partly-selected]').forEach((county) => (county.open = true));
+    // Opening an item from code fires no toggle event.
+    if (section === 'taxonTree') this.taxonTreeOpened.set(true);
+
+    // Until the section has rendered open, there may not be room below it to scroll it to the top.
+    await item.updateComplete;
+    item.scrollIntoView({ block: 'start' });
+    // The chip is out of view now, so focus moves on to the section's header.
+    item.shadowRoot?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
+
+    if (section === 'taxonTree') {
+      // The tree finds the selected taxa by their ancestries, which may still be loading.
+      await this.taxonSelection.ancestriesResolved();
+      this.taxonTreeReveal.update((n) => n + 1);
+    }
   }
 
   readonly includeDescendantTaxa = this.filterState.includeDescendantTaxa;
@@ -520,20 +584,7 @@ export class SidebarComponent {
     }
   }
 
-  readonly months = [
-    { value: 1, labelKey: 'sidebar.months.january' },
-    { value: 2, labelKey: 'sidebar.months.february' },
-    { value: 3, labelKey: 'sidebar.months.march' },
-    { value: 4, labelKey: 'sidebar.months.april' },
-    { value: 5, labelKey: 'sidebar.months.may' },
-    { value: 6, labelKey: 'sidebar.months.june' },
-    { value: 7, labelKey: 'sidebar.months.july' },
-    { value: 8, labelKey: 'sidebar.months.august' },
-    { value: 9, labelKey: 'sidebar.months.september' },
-    { value: 10, labelKey: 'sidebar.months.october' },
-    { value: 11, labelKey: 'sidebar.months.november' },
-    { value: 12, labelKey: 'sidebar.months.december' },
-  ];
+  readonly months = MONTHS;
 
   isMonthSelected(month: number): boolean {
     return this.filterState.selectedMonths().includes(month);
