@@ -514,6 +514,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registrations",
+    "locations":"{{number}} localities",
     "coordinatePrecision": "Coordinate precision: {{precision}}",
     "title": "Observations",
     "taxonGroup": "Group by taxon group",

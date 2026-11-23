@@ -514,6 +514,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registreringer",
+    "locations":"{{number}} lokaliteter",
     "coordinatePrecision": "Koordinatpresisjon: {{precision}}",
     "title": "Funnliste",
     "taxonGroup": "Grupper på artsgruppe",
