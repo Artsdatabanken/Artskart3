@@ -415,6 +415,7 @@
     "mapTypeTooltip": "Endre bakgrunnskart",
     "layersTooltip": "Legg til ulike kartlag over kartet",
     "settingsTooltip": "Innstillinger for kart",
+    "legendTooltip": "Vis tegnforklaring",
     "geolocationTooltip": "Finn min posisjon",
     "fullscreenTooltip": "Vis kart i fullskjerm",
     "exitFullscreenTooltip": "Avslutt fullskjerm",

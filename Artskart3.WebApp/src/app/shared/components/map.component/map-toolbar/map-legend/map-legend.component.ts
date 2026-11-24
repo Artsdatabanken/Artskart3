@@ -14,6 +14,7 @@ import {
   polygonIconBorderWidth,
   polygonIconPath,
 } from '../../map-feature-styles';
+import { MapControlTooltipDirective } from '../../map-control-tooltip/map-control-tooltip.directive';
 
 interface LayerLegend {
   layer: MapLayerDto;
@@ -28,7 +29,7 @@ const POLYGON_OFFSET = (SYMBOL_SIZE - POLYGON_MARKER_SIZE) / 2;
 
 @Component({
   selector: 'app-map-legend',
-  imports: [TranslateModule],
+  imports: [TranslateModule, MapControlTooltipDirective],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-legend.component.html',
   styleUrl: './map-legend.component.css',

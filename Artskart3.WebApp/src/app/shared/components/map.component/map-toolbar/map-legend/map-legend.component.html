@@ -1,4 +1,4 @@
-<div class="map-toolbar-menu-container">
+<div class="map-toolbar-menu-container" appMapControlTooltip>
   <adb-icon-button
     [attr.variant]="isOpen() ? 'primary' : 'secondary'"
     (click)="toggleMapLegend()"
@@ -9,6 +9,7 @@
   >
     <adb-icon name="list" aria-hidden="true" />
   </adb-icon-button>
+  <span class="map-control-tooltip map-control-tooltip--right" aria-hidden="true">{{ 'mapToolbar.legendTooltip' | translate }}</span>
   @if (isOpen()) {
     <div class="map-toolbar-menu-dropdown map-legend-dropdown" role="group" aria-labelledby="map-legend-heading">
       <div id="map-legend-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">

@@ -415,6 +415,7 @@
     "mapTypeTooltip": "Change background map",
     "layersTooltip": "Add map layers on top of the map",
     "settingsTooltip": "Map settings",
+    "legendTooltip": "Show map legend",
     "geolocationTooltip": "Find my location",
     "fullscreenTooltip": "Show the map in fullscreen",
     "exitFullscreenTooltip": "Exit fullscreen",

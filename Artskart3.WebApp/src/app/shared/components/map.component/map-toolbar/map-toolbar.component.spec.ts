@@ -54,6 +54,8 @@ describe('MapToolbarComponent', () => {
       'mapToolbar.mapTypeTooltip',
       'mapToolbar.layersTooltip',
       'mapToolbar.settingsTooltip',
+      'mapToolbar.legendTooltip',
     ]);
+    expect(tooltips[3]).toHaveClass('map-control-tooltip--right');
   });
 });
