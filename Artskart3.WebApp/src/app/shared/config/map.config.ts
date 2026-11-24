@@ -13,6 +13,6 @@ export const MAP_CONFIG = {
   // The GEBCO background only shows where the topo map has no data, and from about zoom 16 the topo
   // map covers neighbouring countries too. Its relief is coarse, so tiles are enlarged past this zoom.
   backgroundMaxTileZoom: 15,
-  // A tile download is given up after this long without receiving any data.
-  tileStallTimeoutMs: 10000,
+  // A tile download is given up after this long. Generous, so slow connections can still finish.
+  tileLoadTimeoutMs: 60000,
 };

@@ -78,7 +78,7 @@ import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
 import type { LoadFunction } from 'ol/Tile';
-import { loadTileWithStallTimeout } from './tile-load-timeout';
+import { loadTileWithTimeout } from './tile-load-timeout';
 import Layer from 'ol/layer/Layer';
 import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
@@ -89,7 +89,7 @@ import ImageWMS from 'ol/source/ImageWMS';
 import WMTS from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
 import { createForProjection } from 'ol/tilegrid';
-import { getTopLeft, getWidth, type Extent } from 'ol/extent';
+import { getTopLeft, getWidth } from 'ol/extent';
 import type ImageWrapper from 'ol/Image';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
@@ -105,14 +105,6 @@ import {
   registrationStatusOf,
 } from './map-feature-styles';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
-
-/**
- * The UTM 33 tile grid Kartverket and Norge i bilder share: level 0 is one 256 px tile from
- * top left (-2500000, 9045984) at 21664 m/px.
- */
-const UTM33_TILE_GRID_EXTENT: Extent = [-2500000, 3500000, 3045984, 9045984];
-/** Norge i bilder's UTM 33 cache has levels 0–17, the finest at 0.165 m/px. */
-const NIB_UTM33_LEVELS = 18;
 
 @Component({
   selector: 'app-map',
@@ -155,7 +147,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
-  private readonly loadTile = loadTileWithStallTimeout(MAP_CONFIG.tileStallTimeoutMs);
+  private readonly loadTile = loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs);
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -581,7 +573,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
    * map package applies its Jan Mayen grid to every `default028mm` tile set in EPSG:25833.
    */
   private createNibLayer(): TileLayer {
-    const resolutions = Array.from({ length: NIB_UTM33_LEVELS }, (_, z) => getWidth(UTM33_TILE_GRID_EXTENT) / 256 / 2 ** z);
+    const gridExtent = MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT;
+    const resolutions = Array.from({ length: MAP_CONSTANTS.NIB_UTM33_LEVELS }, (_, z) => getWidth(gridExtent) / 256 / 2 ** z);
     return new TileLayer({
       visible: false,
       source: new WMTS({
@@ -592,8 +585,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         style: 'default',
         projection: 'EPSG:25833',
         tileGrid: new WMTSTileGrid({
-          origin: getTopLeft(UTM33_TILE_GRID_EXTENT),
-          extent: UTM33_TILE_GRID_EXTENT,
+          origin: getTopLeft(gridExtent),
+          extent: gridExtent,
           resolutions,
           matrixIds: resolutions.map((_, z) => String(z)),
         }),
@@ -644,7 +637,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           ...layer.source.options,
           matrixSet: 'utm33n',
           projection: 'EPSG:25833',
-          extent: UTM33_TILE_GRID_EXTENT,
+          extent: MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT,
           levels: 19,
           wrapX: false,
           tileLoadFunction: this.loadTile,

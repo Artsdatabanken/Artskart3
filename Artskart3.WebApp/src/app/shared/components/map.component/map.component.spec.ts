@@ -195,7 +195,7 @@ describe('MapComponent', () => {
     expect(component['mapOverlayLayers'].get(1)?.getOpacity()).toBe(opacity);
   });
 
-  it('loads tiled WMS overlays through the stall timeout', () => {
+  it('loads tiled WMS overlays through the load timeout', () => {
     component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
 
     component.onMapToolbarMenuItemChange({
@@ -2112,7 +2112,7 @@ describe('MapComponent', () => {
       } as unknown as NbicMapComponent;
     });
 
-    it('loads every base map through the stall timeout', () => {
+    it('loads every base map through the load timeout', () => {
       component['setupBaseMapLayers']();
 
       for (const id of ['topografisk', 'topo4graatone', 'svalbard', 'janmayen']) {
@@ -2135,7 +2135,7 @@ describe('MapComponent', () => {
       expect(source.getTileGrid()?.getMaxZoom()).toBe(17);
     });
 
-    it('adds the URL-encoded NiB token before loading through the stall timeout', () => {
+    it('adds the URL-encoded NiB token before loading through the load timeout', () => {
       vi.spyOn(TestBed.inject(SharedMapService), 'getNibToken').mockReturnValue('a+b/c=');
       const loadTile = vi.spyOn(component as unknown as { loadTile: LoadFunction }, 'loadTile').mockImplementation(() => undefined);
       component['setupBaseMapLayers']();
