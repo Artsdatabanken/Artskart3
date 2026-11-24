@@ -59,14 +59,15 @@
 }
 
 .position-accuracy {
-  fill: var(--adb-color-brand-freshwater-blue-10);
-  fill-opacity: 0.3;
-  stroke: var(--adb-color-brand-freshwater-blue-10);
+  /* Matcher posisjonslaget som tegnes av nbic-map-component. */
+  fill: #2196f3;
+  fill-opacity: 0.15;
+  stroke: #2196f3;
   stroke-width: 1;
 }
 
 .position-dot {
-  fill: var(--adb-color-brand-freshwater-blue-10);
+  fill: #2196f3;
   stroke: var(--adb-color-brand-white);
   stroke-width: 2;
 }
