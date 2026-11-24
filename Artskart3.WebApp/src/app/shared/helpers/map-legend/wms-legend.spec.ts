@@ -43,6 +43,12 @@ describe('wmsLegendImages', () => {
     expect(images.map((image) => image.layerName)).toEqual(['N5000AdministrativeGrenser']);
   });
 
+  it('henter bare én forklaring for maritime grenser', () => {
+    const images = wmsLegendImages({ ...wms, name: 'MaritimeGrenser', layers: 'Maritime_grenser,Maritime_grenser_navn' });
+
+    expect(images.map((image) => image.layerName)).toEqual(['Maritime_grenser']);
+  });
+
   it('gir ingen bilder for andre korttyper, manglende lagnavn eller ugyldig adresse', () => {
     expect(wmsLegendImages({ ...wms, type: 'WMTS' })).toEqual([]);
     expect(wmsLegendImages({ ...wms, layers: null })).toEqual([]);

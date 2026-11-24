@@ -5,4 +5,5 @@
  */
 export const MAP_LAYER_LEGEND_LAYERS: Record<string, string[]> = {
   admGrenser: ['N5000AdministrativeGrenser'],
+  MaritimeGrenser: ['Maritime_grenser'],
 };
