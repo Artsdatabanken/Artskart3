@@ -2420,6 +2420,7 @@ export interface components {
             dataset?: null | string;
             projects?: string[];
             catalogNumber?: null | string;
+            originalUrl?: null | string;
             images?: components["schemas"]["ObservationMediaDto"][];
         };
         ObservationDto: {

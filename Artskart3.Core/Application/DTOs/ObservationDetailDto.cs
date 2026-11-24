@@ -27,6 +27,7 @@ public class ObservationDetailDto
     public string? Dataset { get; init; }
     public List<string> Projects { get; set; } = [];
     public string? CatalogNumber { get; init; }
+    public string? OriginalUrl { get; init; }
     public List<ObservationMediaDto> Images { get; set; } = [];
 }
 

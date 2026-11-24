@@ -21,6 +21,7 @@ import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { LoggingService } from '@shared/logging.service';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { formatCollectors } from '@shared/helpers/collector/format-collectors';
+import { originalLinkKey } from '@shared/helpers/original-site/original-site';
 import { RegistrationMarkerComponent } from '../registration-marker/registration-marker.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ObservationGalleryComponent } from '../observation-gallery/observation-gallery.component';
@@ -121,6 +122,7 @@ export class ObservationDetailsComponent {
     this.language();
     return this.detail()?.popularName || this.detail()?.scientificName || this.translate.instant('observationDetails.title');
   });
+  readonly originalLinkKey = computed(() => originalLinkKey(this.detail()?.originalUrl ?? ''));
   readonly sections = computed(() => {
     const d = this.detail();
     const language = this.language()?.lang ?? this.translate.getCurrentLang();

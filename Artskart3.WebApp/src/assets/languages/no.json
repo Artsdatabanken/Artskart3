@@ -21,6 +21,16 @@
     "speciesLink": "Les mer om arten",
     "redAssessment": "Les rødlistevurderingen",
     "alienAssessment": "Les fremmedartsvurderingen",
+    "originalLink": {
+      "other": "Se originalfunn",
+      "artsobservasjoner": "Se funnet i Artsobservasjoner",
+      "gbif": "Se funnet i GBIF",
+      "vannmiljo": "Se funnet i Vannmiljø",
+      "naturbase": "Se funnet i Naturbase",
+      "miljolare": "Se funnet på Miljølære.no",
+      "bold": "Se funnet i BOLD Systems",
+      "skandobs": "Se funnet i Skandobs"
+    },
     "location": "Kartreferanse",
     "noCoordinates": "Offentlige koordinater er ikke tilgjengelige.",
     "maskedPosition": "Funnet inneholder artsdata unntatt offentligheten, og posisjonen er derfor maskert.",
