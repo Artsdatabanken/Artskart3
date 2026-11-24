@@ -168,7 +168,14 @@ describe('ListViewComponent', () => {
     async function openDetails(id: number): Promise<void> {
       detailsButton(id).click();
       fixture.detectChanges();
-      TestBed.inject(HttpTestingController).expectOne(`/api/observations/${id}`).flush({ id });
+      await respondWithDetails(id);
+    }
+
+    async function respondWithDetails(id: number): Promise<void> {
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne(`/api/observations/${id}`).flush({ id });
+      // The details panel asks for annotations once the details have rendered.
+      (await vi.waitFor(() => http.expectOne(`/api/observations/${id}/annotations`))).flush([]);
       await fixture.whenStable();
     }
 
@@ -207,8 +214,7 @@ describe('ListViewComponent', () => {
       await openDetails(41);
       detailsPanel()?.observationId.set(42);
       fixture.detectChanges();
-      TestBed.inject(HttpTestingController).expectOne('/api/observations/42').flush({ id: 42 });
-      await fixture.whenStable();
+      await respondWithDetails(42);
       await customElements.whenDefined('adb-button');
       const rowButton = detailsButton(42).shadowRoot!.querySelector('button')!;
       const focus = vi.spyOn(rowButton, 'focus');

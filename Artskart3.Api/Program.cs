@@ -126,6 +126,8 @@ try
             var erSoek = sti.StartsWith("/api/Search", StringComparison.OrdinalIgnoreCase);
             var erEiendomsoppslag = sti.StartsWith("/api/Lookup/CadastralUnit", StringComparison.OrdinalIgnoreCase);
             var erEksport = sti.StartsWith("/api/export/csv", StringComparison.OrdinalIgnoreCase);
+            var erAnnotering = sti.StartsWith("/api/observations/", StringComparison.OrdinalIgnoreCase) &&
+                sti.EndsWith("/annotations", StringComparison.OrdinalIgnoreCase);
 
             if (erSoek)
             {
@@ -145,6 +147,12 @@ try
                 await context.HttpContext.Response.WriteAsJsonAsync(
                     new { error = "Too many export requests. Please retry later." }, cancellationToken);
             }
+            else if (erAnnotering)
+            {
+                logger.LogWarning("Annotation request queue is full ({Path})", sti);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Too many annotation requests. Please retry." }, cancellationToken);
+            }
             else
             {
                 logger.LogWarning("Observation map request queue is full ({Path})", sti);
@@ -156,6 +164,15 @@ try
         {
             limiter.PermitLimit = 4;
             limiter.QueueLimit = 16;
+            limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        });
+
+        // Hvert kall går til annoteringstjenesten i Artskart 2, i produksjon også fra testmiljøene.
+        // Eget tak, så en treg tjeneste der ikke binder opp API-et.
+        options.AddConcurrencyLimiter("observation-annotations", limiter =>
+        {
+            limiter.PermitLimit = 8;
+            limiter.QueueLimit = 32;
             limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
         });
 
@@ -325,6 +342,8 @@ try
         builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions(),
         builder.Configuration.GetValue("CustomArea:StoreLocationLists", true));
     builder.Services.AddCustomAreaWarmup();
+    builder.Services.AddObservationAnnotations(
+        builder.Configuration.GetSection(AnnotationApiOptions.SectionName).Get<AnnotationApiOptions>() ?? new AnnotationApiOptions());
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

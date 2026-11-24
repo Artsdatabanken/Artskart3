@@ -39,7 +39,8 @@
     "description": "Beskrivelse",
     "license": "Lisens",
     "maps": { "local": "Lokalkart som viser funnet", "overview": "Oversiktskart som viser funnet" },
-    "sections": { "observation": "Funnopplysninger", "place": "Lokalitet", "dataset": "Datakilde" },
+    "annotations": { "unknownAuthor": "Ukjent forfatter", "originalValue": "Opprinnelig verdi:", "newValue": "Ny verdi:", "unavailable": "Kunne ikke hente annoteringer." },
+    "sections": { "observation": "Funnopplysninger", "place": "Lokalitet", "dataset": "Datakilde", "annotations": "Endringshistorikk" },
     "qualities": { "0": "Ikke kontrollert", "1": "God kvalitet", "2": "Kvalitetsproblem", "3": "Kvalitetsproblem — skjult som standard" },
     "fields": {
       "registration": "Registreringstype",

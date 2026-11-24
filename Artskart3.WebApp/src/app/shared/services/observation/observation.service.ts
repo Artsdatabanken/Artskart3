@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  ObservationAnnotationDto,
   ObservationListInfoDto,
   ObservationDetailDto,
   ObservationSearchFilter,
@@ -18,6 +19,10 @@ export class ObservationService {
 
   getDetail(id: number): Observable<ObservationDetailDto> {
     return this.http.get<ObservationDetailDto>(`/api/observations/${id}`);
+  }
+
+  getAnnotations(id: number): Observable<ObservationAnnotationDto[]> {
+    return this.http.get<ObservationAnnotationDto[]>(`/api/observations/${id}/annotations`);
   }
 
   findIdByOccurrenceId(occurrenceId: string): Observable<number> {

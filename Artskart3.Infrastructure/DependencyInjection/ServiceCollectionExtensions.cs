@@ -78,6 +78,17 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>Bare i API-et: funndetaljene er de eneste som viser annoteringer.</summary>
+    public static IServiceCollection AddObservationAnnotations(this IServiceCollection services, AnnotationApiOptions options)
+    {
+        services.AddHttpClient<IObservationAnnotationService, ObservationAnnotationService>(client =>
+        {
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
+        return services;
+    }
+
     /// <summary>
     /// Bare i API-et, se <see cref="LocationsWithoutAreasWarmup"/>. Workeren kjører eksporter,
     /// der noen sekunder ekstra på første egendefinerte område ikke merkes.
