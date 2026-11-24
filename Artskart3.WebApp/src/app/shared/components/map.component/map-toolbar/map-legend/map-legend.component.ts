@@ -55,15 +55,27 @@ export class MapLegendComponent {
   protected readonly polygonTransform = `translate(${POLYGON_OFFSET} ${POLYGON_OFFSET}) scale(${POLYGON_MARKER_SIZE / POLYGON_ICON_VIEWBOX_SIZE})`;
 
   protected readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
-  // Nullstilles når lagene endres eller boksen åpnes og lukkes, så en feil gir nytt forsøk
-  private readonly failedImageUrls = linkedSignal<unknown, ReadonlySet<string>>({
-    source: () => ({ layers: this.activeLayers(), open: this.isOpen() }),
-    computation: () => new Set<string>(),
+  private readonly failedImageUrls = linkedSignal<
+    { layerIds: readonly number[]; open: boolean },
+    ReadonlyMap<number, ReadonlySet<string>>
+  >({
+    source: () => ({ layerIds: this.activeLayers().map((layer) => layer.id), open: this.isOpen() }),
+    computation: ({ layerIds, open }, previous) => {
+      if (open && !previous?.source.open) return new Map();
+      const failures = new Map(previous?.value ?? []);
+      for (const layerId of failures.keys()) {
+        if (!layerIds.includes(layerId)) failures.delete(layerId);
+      }
+      return failures;
+    },
   });
 
   protected readonly layerLegends = computed<LayerLegend[]>(() =>
     this.activeLayers()
-      .map((layer) => ({ layer, images: wmsLegendImages(layer).filter((image) => !this.failedImageUrls().has(image.url)) }))
+      .map((layer) => ({
+        layer,
+        images: wmsLegendImages(layer).filter((image) => !this.failedImageUrls().get(layer.id)?.has(image.url)),
+      }))
       .filter(({ images }) => images.length > 0),
   );
 
@@ -71,7 +83,11 @@ export class MapLegendComponent {
     this.isOpen.update((open) => !open);
   }
 
-  protected onImageError(url: string): void {
-    this.failedImageUrls.update((urls) => new Set(urls).add(url));
+  protected onImageError(layerId: number, url: string): void {
+    this.failedImageUrls.update((failures) => {
+      const next = new Map(failures);
+      next.set(layerId, new Set(next.get(layerId)).add(url));
+      return next;
+    });
   }
 }

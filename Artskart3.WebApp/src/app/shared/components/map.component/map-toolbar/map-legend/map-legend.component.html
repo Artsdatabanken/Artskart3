@@ -74,7 +74,7 @@
                 [src]="image.url"
                 [alt]="(count > 1 ? 'mapToolbar.legend.imagePartAlt' : 'mapToolbar.legend.imageAlt') | translate: { layer: layerLabel, index: index + 1, count }"
                 loading="lazy"
-                (error)="onImageError(image.url)"
+                (error)="onImageError(legend.layer.id, image.url)"
               />
             }
           </div>
