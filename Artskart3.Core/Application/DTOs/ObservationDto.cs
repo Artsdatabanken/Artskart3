@@ -20,6 +20,8 @@ public record ObservationDto
 
     public int? CategoryId { get; set; }
 
+    public int? AlienSpeciesCategoryId { get; set; }
+
     public DateTime? DateTimeCollected { get; set; }
 
     public int? CoordinatePrecisionInMeters { get; set; }

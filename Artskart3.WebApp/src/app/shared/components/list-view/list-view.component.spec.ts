@@ -81,6 +81,29 @@ describe('ListViewComponent', () => {
     expect(badge.injector.get(RiskCategoryBadgeComponent).code()).toBe('CR');
   });
 
+  it('renders red-list and alien-species badges on the same observation', async () => {
+    const httpTesting = TestBed.inject(HttpTestingController);
+    httpTesting.expectOne('/api/Lookup/Categories').flush([
+      { id: 1, name: 'Rødliste', categories: [{ id: 10, code: 'CR', name: 'Kritisk truet' }] },
+      { id: 2, name: 'Fremmedart', categories: [{ id: 20, code: 'HI', name: 'Høy risiko' }] },
+    ]);
+    httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+    httpTesting.expectOne('/api/Lookup/Areas').flush({});
+    httpTesting.expectOne('/api/Search/Observation').flush({
+      items: [{ id: 1, categoryId: 10, alienSpeciesCategoryId: 20 }],
+      pageNumber: 1,
+      resultsPerPage: 10,
+      lookaheadCount: 0,
+      hasMorePages: false,
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const badges = fixture.debugElement.queryAll(By.directive(RiskCategoryBadgeComponent));
+    expect(badges.map((badge) => badge.injector.get(RiskCategoryBadgeComponent).code())).toEqual(['CR', 'HI']);
+  });
+
   describe('show on map link', () => {
     const observation: ObservationDto = { id: 42, point: { east: 262000, north: 6650000 }, coordinatePrecisionInMeters: 100 };
 

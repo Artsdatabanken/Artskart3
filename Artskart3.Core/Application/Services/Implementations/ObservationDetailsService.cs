@@ -34,6 +34,22 @@ public sealed class ObservationDetailsService(
             logger.LogWarning("Observation {ObservationId} has an invalid assessment URL", id);
             detail.AssessmentUrl = null;
         }
+        for (var index = 0; index < detail.Assessments.Count; index++)
+        {
+            var assessment = detail.Assessments[index];
+            if (assessment.AssessmentUrl is null || WebUrl.IsValid(assessment.AssessmentUrl))
+                continue;
+
+            logger.LogWarning(
+                "Observation {ObservationId} has an invalid assessment URL for category {CategoryId}",
+                id, assessment.CategoryId);
+            detail.Assessments[index] = new ObservationAssessmentDto
+            {
+                CategoryId = assessment.CategoryId,
+                CategoryCode = assessment.CategoryCode,
+                CategoryTypeId = assessment.CategoryTypeId
+            };
+        }
         return detail;
     }
 

@@ -9,6 +9,7 @@ using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using AssessmentCategory = Artskart3.Core.Domain.Entities.Category;
 
 namespace Artskart3.Infrastructure.Persistence.Services;
 
@@ -169,6 +170,10 @@ public class LocationCountCacheService : ILocationCountCacheService
         // Matrikkelenheter og egendefinerte områder er lister over lokasjoner, og historiske
         // områder er ikke i indeksen bufferen er bygget fra.
         if (filter.HasLocationBasedAreas || filter.HasLocationLists)
+            return (false, null, null);
+
+        if (filter.CategoryIds?.Length > 0 && await ContainsAlienSpeciesCategoryAsync(
+                filter.CategoryIds, cancellationToken))
             return (false, null, null);
 
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
@@ -474,4 +479,13 @@ public class LocationCountCacheService : ILocationCountCacheService
             .ToListAsync(cancellationToken);
     }
 
+    private Task<bool> ContainsAlienSpeciesCategoryAsync(
+        int[] categoryIds, CancellationToken cancellationToken) =>
+        _context.Set<AssessmentCategory>().AsNoTracking()
+            .AnyAsync(
+                category =>
+                    categoryIds.Contains(category.Id) &&
+                    !category.IsDeleted &&
+                    category.CategoryType.Name == "Fremmedart",
+                cancellationToken);
 }

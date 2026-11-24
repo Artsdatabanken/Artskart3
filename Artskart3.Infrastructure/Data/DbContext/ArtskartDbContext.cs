@@ -99,6 +99,10 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
     public virtual DbSet<Taxon> Taxons { get; set; }
 
+    public virtual DbSet<TaxonAssessment> TaxonAssessments { get; set; }
+
+    public virtual DbSet<TaxonAssessmentSyncRun> TaxonAssessmentSyncRuns { get; set; }
+
     public virtual DbSet<TaxonGroup> TaxonGroups { get; set; }
 
     public virtual DbSet<TaxonName> TaxonNames { get; set; }
@@ -220,6 +224,9 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.ToTable("Category");
 
             entity.HasIndex(e => e.CategoryTypeId, "IX_CategoryTypeId");
+            entity.HasIndex(e => new { e.CategoryTypeId, e.Code }, "UX_Category_CategoryTypeId_Code")
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Code).HasMaxLength(2);
@@ -588,6 +595,10 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => new { e.TaxonGroupId, e.CategoryId }, "IX_TaxonGroupId");
 
+            entity.HasIndex(e => e.AlienSpeciesCategoryId, "IX_Observation_AlienSpeciesCategoryId")
+                .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                .IsCreatedOnline();
+
             entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
@@ -771,7 +782,9 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasOne(d => d.Category).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.CategoryId)
                 .HasConstraintName("FK_dbo.Observation_dbo.Category_CategoryId");
-
+            entity.HasOne(d => d.AlienSpeciesCategory).WithMany(p => p.AlienSpeciesObservations)
+                .HasForeignKey(d => d.AlienSpeciesCategoryId)
+                .HasConstraintName("FK_dbo.Observation_dbo.Category_AlienSpeciesCategoryId");
             entity.HasOne(d => d.Location).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.LocationId)
                 .HasConstraintName("FK_dbo.Observation_dbo.Location_LocationId");
@@ -1121,6 +1134,7 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.ExternalTaxonId);
+            entity.HasIndex(e => e.ExternalTaxonId, "IX_Taxon_ExternalTaxonId");
             entity.Property(e => e.PreferredPopularName).HasMaxLength(100);
             entity.Property(e => e.ScientificNameIdHiarchy).HasMaxLength(200);
             entity.Property(e => e.TaxonIdHiarchy).HasMaxLength(200);
@@ -1134,6 +1148,60 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasOne(d => d.TaxonRank).WithMany(p => p.Taxons)
                 .HasForeignKey(d => d.TaxonRankId)
                 .HasConstraintName("FK_dbo.Taxon_dbo.TaxonRank_TaxonRankId");
+        });
+
+        modelBuilder.Entity<TaxonAssessment>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_dbo.TaxonAssessment");
+            entity.ToTable("TaxonAssessment");
+
+            entity.HasIndex(
+                    e => new { e.TaxonId, e.CategoryTypeId, e.Area, e.Source },
+                    "UX_TaxonAssessment_Source")
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(
+                    e => new { e.TaxonId, e.CategoryTypeId, e.Area },
+                    "UX_TaxonAssessment_Effective")
+                .IsUnique()
+                .HasFilter("[IsEffective] = 1 AND [IsDeleted] = 0");
+            entity.HasIndex(
+                e => new { e.CategoryTypeId, e.ExternalTaxonId, e.Area },
+                "IX_TaxonAssessment_ExternalLookup");
+            entity.HasIndex(e => e.CategoryId, "IX_TaxonAssessment_CategoryId");
+
+            entity.Property(e => e.Area).HasMaxLength(1);
+            entity.Property(e => e.ExternalAssessmentId).HasMaxLength(100);
+            entity.Property(e => e.AssessmentUrl).HasMaxLength(500);
+
+            entity.HasOne(e => e.Taxon).WithMany(t => t.Assessments)
+                .HasForeignKey(e => e.TaxonId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_dbo.TaxonAssessment_dbo.Taxon_TaxonId");
+            entity.HasOne(e => e.CategoryType).WithMany(t => t.TaxonAssessments)
+                .HasForeignKey(e => e.CategoryTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_dbo.TaxonAssessment_dbo.CategoryType_CategoryTypeId");
+            entity.HasOne(e => e.Category).WithMany(c => c.TaxonAssessments)
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_dbo.TaxonAssessment_dbo.Category_CategoryId");
+        });
+
+        modelBuilder.Entity<TaxonAssessmentSyncRun>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_dbo.TaxonAssessmentSyncRun");
+            entity.ToTable("TaxonAssessmentSyncRun");
+
+            entity.HasIndex(
+                e => new { e.CategoryTypeId, e.Status, e.StartedAt },
+                "IX_TaxonAssessmentSyncRun_Status");
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+
+            entity.HasOne(e => e.CategoryType).WithMany(t => t.TaxonAssessmentSyncRuns)
+                .HasForeignKey(e => e.CategoryTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_dbo.TaxonAssessmentSyncRun_dbo.CategoryType_CategoryTypeId");
         });
 
         modelBuilder.Entity<TaxonGroup>(entity =>
@@ -1242,6 +1310,11 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.AlienSpeciesCategoryId })
+                .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
+                .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                .IncludeProperties(e => new { e.DateTimeCollected, e.ObservationId })
+                .IsCreatedOnline();
 
             // Listevisningen med områdefilter leser hvert område nyeste først og stopper når
             // siden er full, se SearchRepository.GetAreaFilteredObservationIdsAsync. Uten denne

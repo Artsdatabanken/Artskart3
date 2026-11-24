@@ -15,6 +15,9 @@ public class ObservationListInfoDto
     public string? CategoryName { get; set; }
     public string? CategoryCode { get; set; }
     public int? CategoryTypeId { get; set; }
+    public int? AlienSpeciesCategoryId { get; set; }
+    public string? AlienSpeciesCategoryName { get; set; }
+    public string? AlienSpeciesCategoryCode { get; set; }
     public string? InstitutionId { get; set; }
     public string? InstitutionName { get; set; }
     public int? LocationId { get; set; }

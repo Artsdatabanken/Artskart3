@@ -9,8 +9,11 @@ using Artskart3.Core.Application.Configuration;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Infrastructure.Services;
+using Artskart3.Infrastructure.Services.AlienSpecies;
 using Artskart3.Workers.Export;
 using Artskart3.Workers.Configuration;
+using Artskart3.Workers.AlienAssessment;
+using Microsoft.Extensions.Options;
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -68,12 +71,26 @@ builder.Services.AddHangfireServer();
 // Konfigurasjon
 builder.Services.Configure<CsvExportOptions>(
     builder.Configuration.GetSection("CsvExport"));
+builder.Services.Configure<AlienSpeciesAssessmentOptions>(
+    builder.Configuration.GetSection(AlienSpeciesAssessmentOptions.SectionName));
 
 // Tjenester
 builder.Services.AddScoped<IBlobStorageService, Artskart3.Infrastructure.Services.BlobStorageService>();
 builder.Services.AddScoped<CsvWriterService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddSingleton<Artskart3.Core.Application.Services.ExportColumnRegistry>();
+builder.Services.AddHttpClient<IAlienSpeciesAssessmentClient, AlienSpeciesAssessmentClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<AlienSpeciesAssessmentOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = false
+});
+builder.Services.AddScoped<AlienSpeciesAssessmentSyncService>();
+builder.Services.AddScoped<AlienSpeciesAssessmentSyncJob>();
 
 // Taksonhierarki. Workeren trenger dette fordi taksonfilteret må utvides hierarkisk
 // på nøyaktig samme måte som i API-ets forhåndstelling — ellers teller API-et ett
@@ -154,6 +171,12 @@ void RegisterRecurringJobs(IRecurringJobManager recurringJobManager, IConfigurat
         "csv-export-cleanup",
         job => job.ExecuteAsync(CancellationToken.None),
         cleanupCron);
+
+    var alienSpeciesAssessmentCron = schedules["AlienSpeciesAssessment"] ?? "0 2 * * 1";
+    recurringJobManager.AddOrUpdate<AlienSpeciesAssessmentSyncJob>(
+        "alien-species-assessment-sync",
+        job => job.ExecuteAsync(CancellationToken.None),
+        alienSpeciesAssessmentCron);
 
     // Fremtidige jobber (harvest, import, vedlikehold) registreres her
 }

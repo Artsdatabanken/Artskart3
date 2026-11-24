@@ -14,7 +14,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { ObservationDetailDto } from '@shared/types/api.types';
+import { ObservationAssessmentDto, ObservationDetailDto } from '@shared/types/api.types';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { LoggingService } from '@shared/logging.service';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
@@ -88,6 +88,19 @@ export class ObservationDetailsComponent {
   readonly title = computed(() => {
     this.language();
     return this.detail()?.popularName || this.detail()?.scientificName || this.translate.instant('observationDetails.title');
+  });
+  readonly displayedAssessments = computed<ObservationAssessmentDto[]>(() => {
+    const detail = this.detail();
+    if (detail?.assessments?.length) return detail.assessments;
+    if (detail?.categoryId == null || !detail.categoryCode || detail.categoryTypeId == null) return [];
+    return [
+      {
+        categoryId: detail.categoryId,
+        categoryCode: detail.categoryCode,
+        categoryTypeId: detail.categoryTypeId,
+        assessmentUrl: detail.assessmentUrl,
+      },
+    ];
   });
   readonly sections = computed(() => {
     const d = this.detail();

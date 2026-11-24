@@ -70,8 +70,7 @@
                 <td>{{ obs.author }}</td>
                 <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
                 <td>
-                  @let category = getCategory(obs.categoryId);
-                  @if (category) {
+                  @for (category of getCategories(obs); track category.id) {
                     <span class="risk-category-cell">
                       @if (category.code) {
                         <app-risk-category-badge [code]="category.code" aria-hidden="true" />

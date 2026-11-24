@@ -195,4 +195,10 @@ export class ListViewComponent {
     if (id === null || id === undefined) return undefined;
     return this.categoryById().get(id);
   }
+
+  getCategories(observation: ObservationDto): CategoryDto[] {
+    return [...new Set([observation.categoryId, observation.alienSpeciesCategoryId])]
+      .map((id) => this.getCategory(id))
+      .filter((category): category is CategoryDto => category !== undefined);
+  }
 }

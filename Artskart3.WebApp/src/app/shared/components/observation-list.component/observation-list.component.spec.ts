@@ -110,6 +110,25 @@ describe('Observation grouping', () => {
     expect(groups[0].count).toBe(3);
   });
 
+  it('groups by the alien category without discarding a simultaneous red-list category', () => {
+    const groups = tree(
+      [
+        record(1, {
+          categoryCode: 'EN',
+          categoryTypeId: 1,
+          alienSpeciesCategoryId: 7,
+          alienSpeciesCategoryCode: 'HI',
+        }),
+      ],
+      'alienSpecies',
+    );
+
+    expect(groups.map((group) => group.id)).toEqual(['alienSpecies/HI']);
+    expect(groups[0].children[0].badges.map((badge) => badge.code)).toEqual(
+      expect.arrayContaining(['EN', 'HI']),
+    );
+  });
+
   it('handles scientific and unknown values without losing observations', () => {
     const species = tree([record(1, { displayName: '', preferredPopularName: null, collector: null, dateTimeCollected: 'invalid' })])[0]
       .children[0].children[0];

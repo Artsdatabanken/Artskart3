@@ -364,6 +364,10 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "CategoryTypeId" }, "IX_CategoryTypeId");
 
+                    b.HasIndex(new[] { "CategoryTypeId", "Code" }, "UX_Category_CategoryTypeId_Code")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
                     b.ToTable("Category", (string)null);
                 });
 
@@ -1473,6 +1477,9 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AlienSpeciesCategoryId")
+                        .HasColumnType("int");
+
                     b.Property<int>("BasisOfRecordId")
                         .HasColumnType("int");
 
@@ -1682,6 +1689,10 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), DataCompressionType.Page);
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), new[] { "DateTimeCollected", "BasisOfRecordId", "TaxonId", "TaxonGroupId", "YearCollected", "MonthCollected", "Id", "HiddenByAnnotation" });
 
+                    b.HasIndex(new[] { "AlienSpeciesCategoryId" }, "IX_Observation_AlienSpeciesCategoryId")
+                        .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                        .HasAnnotation("SqlServer:Online", true);
+
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 
                     b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
@@ -1852,6 +1863,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("AlienSpeciesCategoryId")
+                        .HasColumnType("int");
+
                     b.Property<int>("BasisOfRecordId")
                         .HasColumnType("int");
 
@@ -1916,6 +1930,13 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
+
+                    b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId")
+                        .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
+                        .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId"), new[] { "DateTimeCollected", "ObservationId" });
 
                     b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
                         .IsDescending(false, false, true, true)
@@ -2921,6 +2942,8 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "TaxonRankId", "TaxonIdHiarchy" }, "IX_TaxonRank_TaxonHirachy");
 
+                    b.HasIndex(new[] { "ExternalTaxonId" }, "IX_Taxon_ExternalTaxonId");
+
                     b.HasIndex(new[] { "ValidScientificName" }, "IX_ValidScientificName");
 
                     b.HasIndex(new[] { "ParentTaxonId" }, "IxParentTaxonId");
@@ -2930,6 +2953,144 @@ namespace Artskart3.Infrastructure.Migrations
                     b.HasIndex(new[] { "PreferredPopularName" }, "NonClusteredIndex-20190129-153041");
 
                     b.ToTable("Taxon", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonAssessment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("nvarchar(1)");
+
+                    b.Property<string>("AssessmentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalAssessmentId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ExternalTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEffective")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRetained")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id")
+                        .HasName("PK_dbo.TaxonAssessment");
+
+                    b.HasIndex(new[] { "CategoryId" }, "IX_TaxonAssessment_CategoryId");
+
+                    b.HasIndex(new[] { "CategoryTypeId", "ExternalTaxonId", "Area" }, "IX_TaxonAssessment_ExternalLookup");
+
+                    b.HasIndex(new[] { "TaxonId", "CategoryTypeId", "Area" }, "UX_TaxonAssessment_Effective")
+                        .IsUnique()
+                        .HasFilter("[IsEffective] = 1 AND [IsDeleted] = 0");
+
+                    b.HasIndex(new[] { "TaxonId", "CategoryTypeId", "Area", "Source" }, "UX_TaxonAssessment_Source")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("TaxonAssessment", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonAssessmentSyncRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AppliedAssessmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CurrentAssessmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CurrentPageCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RetainedAssessmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SkippedAssessmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SnapshotAssessmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id")
+                        .HasName("PK_dbo.TaxonAssessmentSyncRun");
+
+                    b.HasIndex(new[] { "CategoryTypeId", "Status", "StartedAt" }, "IX_TaxonAssessmentSyncRun_Status");
+
+                    b.ToTable("TaxonAssessmentSyncRun", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonGroup", b =>
@@ -3319,6 +3480,11 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Observation", b =>
                 {
+                    b.HasOne("Artskart3.Core.Domain.Entities.Category", "AlienSpeciesCategory")
+                        .WithMany("AlienSpeciesObservations")
+                        .HasForeignKey("AlienSpeciesCategoryId")
+                        .HasConstraintName("FK_dbo.Observation_dbo.Category_AlienSpeciesCategoryId");
+
                     b.HasOne("Artskart3.Core.Domain.Entities.BasisOfRecord", "BasisOfRecord")
                         .WithMany("Observations")
                         .HasForeignKey("BasisOfRecordId")
@@ -3354,6 +3520,8 @@ namespace Artskart3.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_dbo.Observation_dbo.Taxon_TaxonId");
+
+                    b.Navigation("AlienSpeciesCategory");
 
                     b.Navigation("BasisOfRecord");
 
@@ -3487,6 +3655,48 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Navigation("TaxonRank");
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonAssessment", b =>
+                {
+                    b.HasOne("Artskart3.Core.Domain.Entities.Category", "Category")
+                        .WithMany("TaxonAssessments")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.TaxonAssessment_dbo.Category_CategoryId");
+
+                    b.HasOne("Artskart3.Core.Domain.Entities.CategoryType", "CategoryType")
+                        .WithMany("TaxonAssessments")
+                        .HasForeignKey("CategoryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.TaxonAssessment_dbo.CategoryType_CategoryTypeId");
+
+                    b.HasOne("Artskart3.Core.Domain.Entities.Taxon", "Taxon")
+                        .WithMany("Assessments")
+                        .HasForeignKey("TaxonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.TaxonAssessment_dbo.Taxon_TaxonId");
+
+                    b.Navigation("Category");
+
+                    b.Navigation("CategoryType");
+
+                    b.Navigation("Taxon");
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonAssessmentSyncRun", b =>
+                {
+                    b.HasOne("Artskart3.Core.Domain.Entities.CategoryType", "CategoryType")
+                        .WithMany("TaxonAssessmentSyncRuns")
+                        .HasForeignKey("CategoryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_dbo.TaxonAssessmentSyncRun_dbo.CategoryType_CategoryTypeId");
+
+                    b.Navigation("CategoryType");
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.TaxonName", b =>
                 {
                     b.HasOne("Artskart3.Core.Domain.Entities.Taxon", "Taxon")
@@ -3596,12 +3806,20 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Category", b =>
                 {
+                    b.Navigation("AlienSpeciesObservations");
+
                     b.Navigation("Observations");
+
+                    b.Navigation("TaxonAssessments");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.CategoryType", b =>
                 {
                     b.Navigation("Categories");
+
+                    b.Navigation("TaxonAssessmentSyncRuns");
+
+                    b.Navigation("TaxonAssessments");
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Location", b =>
@@ -3651,6 +3869,8 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Taxon", b =>
                 {
+                    b.Navigation("Assessments");
+
                     b.Navigation("Observations");
 
                     b.Navigation("TaxonNames");

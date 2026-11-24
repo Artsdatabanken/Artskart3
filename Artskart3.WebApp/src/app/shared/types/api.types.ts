@@ -1,7 +1,19 @@
 import type { components } from './api.generated';
 
-export type ObservationDto = components['schemas']['ObservationDto'];
-export type ObservationDetailDto = components['schemas']['ObservationDetailDto'];
+export type ObservationDto = components['schemas']['ObservationDto'] & {
+  alienSpeciesCategoryId?: number | null;
+};
+export interface ObservationAssessmentDto {
+  categoryId: number;
+  categoryCode: string;
+  categoryTypeId: number;
+  assessmentUrl?: string | null;
+}
+
+export type ObservationDetailDto = components['schemas']['ObservationDetailDto'] & {
+  categoryId?: number | null;
+  assessments?: ObservationAssessmentDto[] | null;
+};
 export type ObservationMediaDto = components['schemas']['ObservationMediaDto'];
 export type ObservationPointDto = components['schemas']['ObservationPointDto'];
 export type PagedObservationResponse = components['schemas']['PagedObservationResponseDto'];
@@ -27,7 +39,11 @@ export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
 export type HiddenObservationFilter = components['schemas']['HiddenObservationFilter'];
 export type NotificationModel = components['schemas']['NotificationDto'];
-export type ObservationListInfoDto = components['schemas']['ObservationListInfoDto'];
+export type ObservationListInfoDto = components['schemas']['ObservationListInfoDto'] & {
+  alienSpeciesCategoryId?: number | null;
+  alienSpeciesCategoryName?: string | null;
+  alienSpeciesCategoryCode?: string | null;
+};
 export type LocationCountResult = components['schemas']['LocationCountDto'];
 export type SavedFilterDto = components['schemas']['SavedFilterDto'];
 export type CreateSavedFilterRequestDto = components['schemas']['CreateSavedFilterRequestDto'];

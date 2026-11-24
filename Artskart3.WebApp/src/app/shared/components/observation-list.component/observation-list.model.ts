@@ -53,6 +53,16 @@ export function hasUnknownCategory(observation: ObservationListInfoDto): boolean
   );
 }
 
+function categoryFor(
+  observation: ObservationListInfoDto,
+  mode: ObservationGrouping,
+): { code: string | null; typeId: number | null } {
+  if (mode === 'alienSpecies' && observation.alienSpeciesCategoryCode) {
+    return { code: observation.alienSpeciesCategoryCode, typeId: CATEGORY_TYPES.alienSpecies };
+  }
+  return { code: observation.categoryCode ?? null, typeId: observation.categoryTypeId ?? null };
+}
+
 export function buildObservationTree(
   observations: readonly ObservationListInfoDto[],
   mode: ObservationGrouping,
@@ -66,7 +76,13 @@ export function buildObservationTree(
   const categoryLabel = (code: string) => t(`categories.${code}`);
   const categoryRank = (code: string) => CATEGORY_ORDER.indexOf(code);
   const badges = (records: readonly ObservationListInfoDto[]): CategoryBadge[] =>
-    [...new Set(records.map((o) => o.categoryCode).filter((code): code is string => !!code))]
+    [
+      ...new Set(
+        records
+          .flatMap((o) => [o.categoryCode, o.alienSpeciesCategoryCode])
+          .filter((code): code is string => !!code),
+      ),
+    ]
       .sort((a, b) => categoryRank(a) - categoryRank(b) || collator.compare(a, b))
       .map((code) => ({
         code,
@@ -85,8 +101,10 @@ export function buildObservationTree(
   const topKey = (o: ObservationListInfoDto): string => {
     if (mode === 'taxonGroup') return String(o.taxonGroupId ?? 'unknown');
     if (mode === 'location') return String(o.locationId ?? 'unknown');
-    return o.categoryCode && !hasUnknownCategory(o) && o.categoryTypeId === CATEGORY_TYPES[mode]
-      ? o.categoryCode
+    const category = categoryFor(o, mode);
+    return category.code && category.typeId === CATEGORY_TYPES[mode] &&
+      CATEGORY_ORDER.includes(category.code)
+      ? category.code
       : mode === 'redList'
         ? 'NE'
         : 'NR';

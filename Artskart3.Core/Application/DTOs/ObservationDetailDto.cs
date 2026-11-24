@@ -7,9 +7,11 @@ public class ObservationDetailDto
     public string? ScientificName { get; init; }
     public string? Author { get; init; }
     public int ExternalTaxonId { get; init; }
+    public int? CategoryId { get; init; }
     public string? CategoryCode { get; init; }
     public int? CategoryTypeId { get; init; }
     public string? AssessmentUrl { get; set; }
+    public List<ObservationAssessmentDto> Assessments { get; init; } = [];
     public DateTime? Collected { get; init; }
     public string? Collector { get; init; }
     public string? BasisOfRecord { get; init; }
@@ -28,6 +30,14 @@ public class ObservationDetailDto
     public List<string> Projects { get; set; } = [];
     public string? CatalogNumber { get; init; }
     public List<ObservationMediaDto> Images { get; set; } = [];
+}
+
+public class ObservationAssessmentDto
+{
+    public int CategoryId { get; init; }
+    public string CategoryCode { get; init; } = null!;
+    public int CategoryTypeId { get; init; }
+    public string? AssessmentUrl { get; init; }
 }
 
 public record ObservationPointDto(double Latitude, double Longitude, int East, int North);

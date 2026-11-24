@@ -200,7 +200,10 @@ public static class ObservationQueryBuilder
             query = query.Where(o => filter.TaxonGroupIds.Contains(o.TaxonGroupId));
 
         if (filter.CategoryIds?.Any() == true)
-            query = query.Where(o => o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value));
+            query = query.Where(o =>
+                (o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value)) ||
+                (o.AlienSpeciesCategoryId != null &&
+                 filter.CategoryIds.Contains(o.AlienSpeciesCategoryId.Value)));
 
         // Atferd — denormalisert kolonne. Verdiene filtreres til tinyint-området
         // FØR castet: C# caster unchecked, så (byte)257 ville blitt 1.

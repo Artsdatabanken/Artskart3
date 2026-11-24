@@ -1263,7 +1263,10 @@ public class SearchRepository : ISearchRepository
         if (filter.CategoryIds?.Any() == true)
         {
             var categoryIds = filter.CategoryIds.ToList();
-            query = query.Where(idx => idx.CategoryId.HasValue && categoryIds.Contains(idx.CategoryId.Value));
+            query = query.Where(idx =>
+                (idx.CategoryId.HasValue && categoryIds.Contains(idx.CategoryId.Value)) ||
+                (idx.AlienSpeciesCategoryId.HasValue &&
+                 categoryIds.Contains(idx.AlienSpeciesCategoryId.Value)));
         }
 
         if (filter.OrganizationIds?.Any() == true)
@@ -1467,6 +1470,7 @@ public class SearchRepository : ISearchRepository
                 .FirstOrDefault(),
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
+            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
             DateTimeCollected = o.DateTimeCollected,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             Point = new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North)
@@ -1618,6 +1622,9 @@ public class SearchRepository : ISearchRepository
             CategoryName = o.Category != null ? o.Category.Name : string.Empty,
             CategoryCode = o.Category != null ? o.Category.Code : null,
             CategoryTypeId = o.Category != null ? o.Category.CategoryTypeId : null,
+            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
+            AlienSpeciesCategoryName = o.AlienSpeciesCategory != null ? o.AlienSpeciesCategory.Name : null,
+            AlienSpeciesCategoryCode = o.AlienSpeciesCategory != null ? o.AlienSpeciesCategory.Code : null,
             RegistrationType = o.Tags.Select(t => t.Name),
             Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
         }).ToListAsync(cancellationToken);
@@ -1998,7 +2005,10 @@ public class SearchRepository : ISearchRepository
         if (filter.CategoryIds?.Any() == true)
         {
             var categoryIds = filter.CategoryIds.ToList();
-            query = query.Where(o => o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value));
+            query = query.Where(o =>
+                (o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value)) ||
+                (o.AlienSpeciesCategoryId.HasValue &&
+                 categoryIds.Contains(o.AlienSpeciesCategoryId.Value)));
         }
 
         // Geografiske områdefiltre (OR — observasjon i minst ett av områdene). Fylker,
@@ -2715,7 +2725,10 @@ public class SearchRepository : ISearchRepository
         if (filter.CategoryIds?.Any() == true)
         {
             var ids = filter.CategoryIds.ToList();
-            query = query.Where(idx => idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value));
+            query = query.Where(idx =>
+                (idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value)) ||
+                (idx.AlienSpeciesCategoryId.HasValue &&
+                 ids.Contains(idx.AlienSpeciesCategoryId.Value)));
         }
         if (filter.BasisOfRecordIds?.Any() == true)
         {

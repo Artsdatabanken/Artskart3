@@ -113,23 +113,30 @@
                     </a>
                   </p>
                 }
-                @if (detail.categoryCode) {
+                @for (assessment of displayedAssessments(); track assessment.categoryTypeId) {
                   <p class="category">
-                    <app-risk-category-badge [code]="detail.categoryCode" aria-hidden="true" />{{
-                      'observationList.categories.' + detail.categoryCode | translate
+                    <app-risk-category-badge [code]="assessment.categoryCode" aria-hidden="true" />{{
+                      'observationList.categories.' + assessment.categoryCode | translate
                     }}
                   </p>
-                }
-                @if (detail.assessmentUrl) {
-                  <p>
-                    <a class="adb-link adb-link--external" [href]="detail.assessmentUrl" target="_blank" rel="noopener noreferrer">
-                      {{
-                        (detail.categoryTypeId === 2 ? 'observationDetails.alienAssessment' : 'observationDetails.redAssessment')
-                          | translate
-                      }}
-                      <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
-                    </a>
-                  </p>
+                  @if (assessment.assessmentUrl) {
+                    <p>
+                      <a
+                        class="adb-link adb-link--external"
+                        [href]="assessment.assessmentUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {{
+                          (assessment.categoryTypeId === 2
+                            ? 'observationDetails.alienAssessment'
+                            : 'observationDetails.redAssessment'
+                          ) | translate
+                        }}
+                        <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                      </a>
+                    </p>
+                  }
                 }
               </div>
               <adb-accordion>

@@ -3,6 +3,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
+using TaxonAssessmentSource = Artskart3.Core.Domain.Enums.TaxonAssessmentSource;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
@@ -24,6 +25,16 @@ public class ObservationDetailsTests
         var detail = new ObservationDetailDto
         {
             Id = 42, Point = new(60, 10, 200000, 6500000), AssessmentUrl = "javascript:alert(1)",
+            Assessments =
+            [
+                new ObservationAssessmentDto
+                {
+                    CategoryId = 7,
+                    CategoryCode = "HI",
+                    CategoryTypeId = 2,
+                    AssessmentUrl = "javascript:alert(1)"
+                }
+            ],
             Images = [new() { Id = 1, Origin = "file:///tmp/image.png", HasStoredImage = true }],
         };
         repository.Setup(r => r.GetAsync(42, default)).ReturnsAsync(detail);
@@ -31,6 +42,8 @@ public class ObservationDetailsTests
         var result = await service.GetAsync(42, default);
         result!.Point.Should().Be(detail.Point);
         result.AssessmentUrl.Should().BeNull();
+        result.Assessments.Should().ContainSingle()
+            .Which.AssessmentUrl.Should().BeNull();
         result.Images[0].Origin.Should().BeNull();
         result.Images[0].HasStoredImage.Should().BeTrue();
     }
@@ -105,6 +118,67 @@ public class ObservationDetailsTests
         (await repository.FindIdByOccurrenceIdAsync("nina/skandobs/0008ef28-6c98", default)).Should().Be(7);
         (await repository.FindIdByOccurrenceIdAsync("shared", default)).Should().Be(9);
         (await repository.FindIdByOccurrenceIdAsync("nina/skandobs/deleted", default)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Repository_ReturnsEffectiveAlienAssessmentAlongsideLegacyRedListCategory()
+    {
+        await using var context = CreateInMemoryContext();
+        var redList = new CategoryType { Id = 1, Name = "Rødliste" };
+        var alienSpecies = new CategoryType { Id = 2, Name = "Fremmedart" };
+        var redCategory = new Category { Id = 13, Code = "EN", Name = "Sterkt truet", CategoryTypeId = 1 };
+        var alienCategory = new Category { Id = 7, Code = "HI", Name = "Høy risiko", CategoryTypeId = 2 };
+        var taxon = new Taxon
+        {
+            Id = 100,
+            ExternalTaxonId = 900,
+            ValidScientificName = "Test species",
+            ScientificNameIdHiarchy = "100",
+            TaxonIdHiarchy = "100"
+        };
+        var basisOfRecord = new BasisOfRecord { Id = 1, Name = "Observation", Variants = "Observation" };
+        context.AddRange(redList, alienSpecies, redCategory, alienCategory, taxon, basisOfRecord);
+        context.Observations.Add(new Observation
+        {
+            Id = 42,
+            TaxonId = taxon.Id,
+            BasisOfRecordId = basisOfRecord.Id,
+            CategoryId = redCategory.Id
+        });
+        context.TaxonAssessments.Add(new TaxonAssessment
+        {
+            Id = 1,
+            ExternalTaxonId = taxon.ExternalTaxonId,
+            TaxonId = taxon.Id,
+            CategoryTypeId = alienSpecies.Id,
+            CategoryId = alienCategory.Id,
+            Area = "N",
+            ExternalAssessmentId = "123",
+            Source = TaxonAssessmentSource.Current,
+            AssessmentUrl = "https://lister.artsdatabanken.no/arter/fremmedartslista/123",
+            IsEffective = true
+        });
+        await context.SaveChangesAsync();
+        var repository = new ObservationDetailsRepository(context, NullLogger<ObservationDetailsRepository>.Instance);
+
+        var result = await repository.GetAsync(42, default);
+
+        result!.Assessments.Should().BeEquivalentTo([
+            new ObservationAssessmentDto
+            {
+                CategoryId = alienCategory.Id,
+                CategoryCode = "HI",
+                CategoryTypeId = alienSpecies.Id,
+                AssessmentUrl = "https://lister.artsdatabanken.no/arter/fremmedartslista/123"
+            },
+            new ObservationAssessmentDto
+            {
+                CategoryId = redCategory.Id,
+                CategoryCode = "EN",
+                CategoryTypeId = redList.Id,
+                AssessmentUrl = null
+            }
+        ], options => options.WithoutStrictOrdering());
     }
 
     private static ArtskartDbContext CreateInMemoryContext() =>

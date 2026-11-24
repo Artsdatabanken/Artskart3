@@ -213,6 +213,7 @@ describe('ObservationDetails', () => {
       municipalities: ['Test municipality'],
       counties: ['Test county'],
     });
+
     await fixture.whenStable();
 
     const placeRows = [...fixture.nativeElement.querySelectorAll('adb-accordion-item')][1].querySelectorAll('dt');
@@ -221,6 +222,26 @@ describe('ObservationDetails', () => {
       'Test municipality',
       'Test county',
     ]);
+  });
+
+  it('shows simultaneous red-list and alien-species categories without inventing a 2023 link', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('detail', {
+      id: 42,
+      images: [],
+      assessments: [
+        { categoryId: 13, categoryCode: 'EN', categoryTypeId: 1, assessmentUrl: 'https://example.com/red' },
+        { categoryId: 7, categoryCode: 'HI', categoryTypeId: 2, assessmentUrl: null },
+      ],
+    });
+    await settle(fixture);
+
+    const element: HTMLElement = fixture.nativeElement;
+    const links = [...element.querySelectorAll<HTMLAnchorElement>('.species a')];
+    expect(element.textContent).toContain('observationList.categories.EN');
+    expect(element.textContent).toContain('observationList.categories.HI');
+    expect(links.map((link) => link.href)).toEqual(['https://example.com/red']);
+    expect(element.textContent).not.toContain('observationDetails.alienAssessment');
   });
 
   it('shows the registration type first, with a description for not found records', async () => {

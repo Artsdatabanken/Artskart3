@@ -48,6 +48,8 @@ public partial class Taxon : BaseEntity
 
     public virtual ICollection<TaxonProperty> TaxonProperties { get; set; } = new List<TaxonProperty>();
 
+    public virtual ICollection<TaxonAssessment> Assessments { get; set; } = new List<TaxonAssessment>();
+
     public virtual TaxonRank TaxonRank { get; set; } = null!;
 
     public virtual ICollection<Observation> ObservationsNavigation { get; set; } = new List<Observation>();

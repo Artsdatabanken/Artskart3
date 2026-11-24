@@ -147,6 +147,22 @@ public class SearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetLocationsAsync_WithAlienSpeciesCategoryFilter_ReturnsMatchingLocation()
+    {
+        await using var context = CreateInMemoryContext();
+        var sut = CreateRepository(context);
+        SeedLocations(context, CreateLocation(1, "Oslo"), CreateLocation(2, "Trondheim"));
+        var observation = CreateObservation(1, 1, categoryId: 12);
+        observation.AlienSpeciesCategoryId = 7;
+        SeedObservations(context, observation, CreateObservation(2, 2, categoryId: 13));
+        await context.SaveChangesAsync();
+
+        var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = [7] });
+
+        result.Should().ContainSingle().Which.Id.Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetLocationsAsync_WithBasisOfRecordFilter_ReturnsOnlyMatchingLocations()
     {
         await using var context = CreateInMemoryContext();
@@ -809,6 +825,7 @@ public class SearchRepositoryTests
             LocationId = o.LocationId,
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
+            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
             BasisOfRecordId = o.BasisOfRecordId,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             DateTimeCollected = o.DateTimeCollected,

@@ -72,6 +72,8 @@ public partial class Observation : BaseEntity
 
     public int? CategoryId { get; set; }
 
+    public int? AlienSpeciesCategoryId { get; set; }
+
     public double Latitude { get; set; }
 
     public double Longitude { get; set; }
@@ -139,6 +141,8 @@ public partial class Observation : BaseEntity
     public virtual BasisOfRecord BasisOfRecord { get; set; } = null!;
 
     public virtual Category? Category { get; set; }
+
+    public virtual Category? AlienSpeciesCategory { get; set; }
 
     public virtual Location? Location { get; set; }
 

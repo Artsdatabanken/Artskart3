@@ -27,6 +27,7 @@ public sealed partial class ObservationDetailsRepository(
             Author = o.Taxon.ValidScientificNameAuthorship,
             // Imported legacy taxon keys are public Artsdatabanken IDs until ExternalTaxonId is populated.
             ExternalTaxonId = o.Taxon.ExternalTaxonId > 0 ? o.Taxon.ExternalTaxonId : o.TaxonId,
+            CategoryId = o.CategoryId,
             CategoryCode = o.Category != null ? o.Category.Code : null,
             CategoryTypeId = o.Category != null ? o.Category.CategoryTypeId : null,
             Collected = o.DateTimeCollected,
@@ -72,18 +73,23 @@ public sealed partial class ObservationDetailsRepository(
                 Description = m.Description, RightsHolder = m.RightsHolder, License = m.License,
             }).ToListAsync(cancellationToken);
 
+        var assessmentContext = await observation.Select(o => new
+        {
+            o.TaxonId,
+            Svalbard = o.Location != null && o.Location.Areas.Any(a =>
+                !a.IsDeleted &&
+                a.IsCurrent &&
+                (a.AreaTypeId == (int)Core.Domain.Enums.AreaType.SvalbardBjørnøyaAndJanMayen ||
+                 (a.AreaTypeId == (int)Core.Domain.Enums.AreaType.County && a.Fid == "21"))),
+        }).SingleAsync(cancellationToken);
+
         if (detail.CategoryCode is not null)
         {
-            var metadata = await observation.Select(o => new
-            {
-                o.TaxonId,
-                Svalbard = o.Location != null && o.Location.Areas.Any(a => a.AreaTypeId == 2 && a.Fid == "21" && a.IsCurrent),
-            }).SingleAsync(cancellationToken);
             var properties = await context.Set<TaxonProperty>().AsNoTracking()
-                .Where(p => p.TaxonId == metadata.TaxonId && !p.IsDeleted && p.Tag == detail.CategoryCode &&
-                    (p.Context == "N" || (metadata.Svalbard && p.Context == "S")))
+                .Where(p => p.TaxonId == assessmentContext.TaxonId && !p.IsDeleted && p.Tag == detail.CategoryCode &&
+                    (p.Context == "N" || (assessmentContext.Svalbard && p.Context == "S")))
                 .Select(p => new { p.Context, p.Prefix, p.Url }).ToListAsync(cancellationToken);
-            var regional = metadata.Svalbard && properties.Any(p => p.Context == "S")
+            var regional = assessmentContext.Svalbard && properties.Any(p => p.Context == "S")
                 ? properties.Where(p => p.Context == "S") : properties.Where(p => p.Context == "N");
             var dated = regional.Select(p => new { p.Url, Year = EditionYear().Match(p.Prefix).Value })
                 .Where(p => p.Year.Length > 0).ToList();
@@ -93,6 +99,55 @@ public sealed partial class ObservationDetailsRepository(
             else if (properties.Count > 0)
                 logger.LogWarning("No unambiguous assessment edition for observation {ObservationId}", id);
         }
+
+        var assessmentRows = await context.Set<TaxonAssessment>().AsNoTracking()
+            .Where(a =>
+                !a.IsDeleted &&
+                a.IsEffective &&
+                a.TaxonId == assessmentContext.TaxonId &&
+                (a.Area == "N" || (assessmentContext.Svalbard && a.Area == "S")))
+            .Select(a => new
+            {
+                a.Area,
+                Assessment = new ObservationAssessmentDto
+                {
+                    CategoryId = a.CategoryId,
+                    CategoryCode = a.Category.Code,
+                    CategoryTypeId = a.CategoryTypeId,
+                    AssessmentUrl = a.AssessmentUrl
+                }
+            })
+            .ToListAsync(cancellationToken);
+        var assessments = assessmentRows
+            .GroupBy(row => row.Assessment.CategoryTypeId)
+            .Select(group => assessmentContext.Svalbard && group.Any(row => row.Area == "S")
+                ? group.First(row => row.Area == "S").Assessment
+                : group.First(row => row.Area == "N").Assessment)
+            .ToList();
+
+        if (detail.CategoryId is not int categoryId)
+            return ApplyAssessments(detail, assessments);
+
+        var existing = assessments.FirstOrDefault(a => a.CategoryId == categoryId);
+        if (existing is null)
+        {
+            assessments.Insert(0, new ObservationAssessmentDto
+            {
+                CategoryId = categoryId,
+                CategoryCode = detail.CategoryCode!,
+                CategoryTypeId = detail.CategoryTypeId!.Value,
+                AssessmentUrl = detail.AssessmentUrl
+            });
+        }
+
+        return ApplyAssessments(detail, assessments);
+    }
+
+    private static ObservationDetailDto ApplyAssessments(
+        ObservationDetailDto detail,
+        IReadOnlyList<ObservationAssessmentDto> assessments)
+    {
+        detail.Assessments.AddRange(assessments);
         return detail;
     }
 

@@ -8,6 +8,7 @@ Bakgrunnstjeneste for Artskart3 som kjører planlagte jobber via **Hangfire**. D
 |------|----------|-------------|
 | CSV-eksport (poll) | Hvert sekund | Poller databasen for ventende eksportjobber, genererer CSV og Excel, laster opp til Azure Blob Storage |
 | CSV-eksport (opprydding) | Daglig kl. 03:00 | Sletter utløpte eksportjobber og tilhørende blob-filer |
+| Fremmedartsvurderinger | Ukentlig mandag kl. 02:00 | Leser Lister-API-et, lagrer effektiv vurdering og oppdaterer observasjonsprojeksjonen |
 | Harvest | Placeholder | Henter data fra eksterne datakilder (GBIF, Artsobservasjoner m.fl.) |
 | Import | Placeholder | Prosesserer data fra cache til index-databasen |
 | Vedlikehold | Placeholder | Taksonomi-sync, områdeoppdateringer |
@@ -97,6 +98,9 @@ Viktige innstillinger i `appsettings.json`:
 | `CsvExport:Worker:ExpiresAtDays` | 180 | Dager før ferdige eksporter slettes. Det er ikke avklart om eksporter skal utløpe eller beholdes permanent — dette må tas stilling til i prosjektet. |
 | `CsvExport:Worker:StuckJobTimeoutMinutes` | 10 | Minutter før en Processing-jobb anses som hengt og tilbakestilles |
 | `CsvExport:BlobStorage:ConnectionString` | `UseDevelopmentStorage=true` | Azurite lokalt, ekte connection string i prod |
+| `AlienSpeciesAssessment:BaseUrl` | `https://lister.artsdatabanken.no/odata/v1/` | OData-kilde for fremmedartsvurderinger |
+| `AlienSpeciesAssessment:ForceSnapshot2023Refresh` | `false` | Setter `true` for å hente det statiske 2023-opptaket på nytt |
+| `Hangfire:ScheduleDefaults:AlienSpeciesAssessment` | `0 2 * * 1` | Ukentlig cron-plan for vurderingssynkronisering |
 
 ## Hangfire
 

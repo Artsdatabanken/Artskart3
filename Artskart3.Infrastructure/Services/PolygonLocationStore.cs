@@ -9,6 +9,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AssessmentCategory = Artskart3.Core.Domain.Entities.Category;
 
 namespace Artskart3.Infrastructure.Services;
 
@@ -70,6 +71,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private bool[] _innfoert = [];
     private int[] _funntype = [];
     private int[] _kategori = [];           // Ingen = null
+    private HashSet<int> _fremmedartskategorier = [];
     private int[] _institusjon = [];        // Ingen = null
     private int[] _taksongruppe = [];
     private int[] _datasett = [];           // Ingen = null
@@ -145,6 +147,8 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         IReadOnlySet<int>? cadastralLocationIds = null, IReadOnlySet<int>? customAreaLocationIds = null)
     {
         if (!IsReady) return null;
+
+        if (filter.CategoryIds?.Any(_fremmedartskategorier.Contains) == true) return null;
 
         // Matrikkelenhetene og det egendefinerte området slås opp til lokasjoner av
         // kalleren. Uten lokasjonene kan filteret ikke evalueres her.
@@ -592,6 +596,11 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         var klokke = Stopwatch.StartNew();
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<IArtsKartDbContext>();
+
+        _fremmedartskategorier = (await context.Set<AssessmentCategory>().AsNoTracking()
+            .Where(category => !category.IsDeleted && category.CategoryType.Name == "Fremmedart")
+            .Select(category => category.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
 
         var lokIndeks = await LastLokasjonerAsync(context, cancellationToken);
         _logger.LogInformation("PolygonLocationStore: {Antall} lokasjoner etter {Sek}s",

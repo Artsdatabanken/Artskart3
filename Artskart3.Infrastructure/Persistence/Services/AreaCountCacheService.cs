@@ -78,6 +78,10 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (filter.HasLocationBasedAreas || filter.HasLocationLists)
             return null;
 
+        if (filter.CategoryIds?.Length > 0 && await ContainsAlienSpeciesCategoryAsync(
+                filter.CategoryIds, cancellationToken))
+            return null;
+
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);
         var active = new List<(CacheDimension Dimension, BucketSelection Buckets)>();
 
@@ -474,4 +478,14 @@ public class AreaCountCacheService : IAreaCountCacheService
 
         return rows.ToDictionary(r => (r.EntityTypeId, r.EntityId), r => r.Count);
     }
+
+    private Task<bool> ContainsAlienSpeciesCategoryAsync(
+        int[] categoryIds, CancellationToken cancellationToken) =>
+        _context.Set<Category>().AsNoTracking()
+            .AnyAsync(
+                category =>
+                    categoryIds.Contains(category.Id) &&
+                    !category.IsDeleted &&
+                    category.CategoryType.Name == "Fremmedart",
+                cancellationToken);
 }
