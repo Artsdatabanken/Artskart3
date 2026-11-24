@@ -238,6 +238,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
                 Locality = _locality[loc],
                 WktPolygon = _wkt[loc],
                 ObservationCount = antall,
+                IsSensitive = _sensitivLokalitet[loc],
             });
         }
 

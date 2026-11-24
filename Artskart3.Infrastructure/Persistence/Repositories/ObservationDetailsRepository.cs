@@ -36,6 +36,7 @@ public sealed partial class ObservationDetailsRepository(
             Quality = o.ObservationQualityTypeId,
             Tags = o.Tags.Where(t => !t.IsDeleted).OrderBy(t => t.Id).Select(t => t.Name).ToList(),
             HasErrors = o.HasErrors,
+            LocationId = o.LocationId,
             Locality = o.Location != null ? o.Location.Locality : null,
             Counties = o.Location != null
                 ? o.Location.Areas.Where(a => !a.IsDeleted && a.IsCurrent && a.AreaTypeId == 2)

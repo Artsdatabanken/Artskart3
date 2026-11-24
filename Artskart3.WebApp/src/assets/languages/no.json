@@ -195,6 +195,7 @@
     "heading": "Filter",
     "clearFilter": "Tøm filter",
     "activeSelections": "Har aktive filtervalg",
+    "removeFilterAriaLabel": "Fjern filter {{filter}}",
     "searchAndFilter": "Søk og filter",
     "categoryType": {
       "Fremmedart": "Fremmedartslista",
@@ -368,7 +369,7 @@
     "noResultsFor": "Ingen treff på sted “{{searchTerm}}”."
   },
   "mapToolbar": {
-    "layersAriaLabel": "Lag",
+    "layersAriaLabel": "Kartlag",
     "layersHeading": "Kartlag",
     "noLayers": "Ingen kartlag tilgjengelig",
     "layerLoadError": "Kartlaget kunne ikke lastes",
@@ -383,7 +384,7 @@
     "fullscreenAriaLabel": "Fullskjerm",
     "zoomInAriaLabel": "Zoom inn",
     "zoomOutAriaLabel": "Zoom ut",
-    "selectMapTypeAriaLabel": "Velg karttype - {{mapType}}",
+    "selectMapTypeAriaLabel": "Velg bakgrunnskart - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
     "loadingObservationsLabel": "Henter registreringer...",
     "legendHeading": "Tegnforklaring",
@@ -540,6 +541,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registreringer",
+    "locations":"{{number}} lokaliteter",
     "coordinatePrecision": "Koordinatpresisjon: {{precision}}",
     "title": "Funnliste",
     "taxonGroup": "Grupper på artsgruppe",

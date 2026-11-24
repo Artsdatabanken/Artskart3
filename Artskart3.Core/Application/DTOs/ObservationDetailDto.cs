@@ -17,6 +17,7 @@ public class ObservationDetailDto
     public int? Quality { get; init; }
     public List<string> Tags { get; init; } = [];
     public bool HasErrors { get; init; }
+    public int? LocationId { get; init; }
     public string? Locality { get; init; }
     public List<string> Counties { get; init; } = [];
     public List<string> Municipalities { get; init; } = [];

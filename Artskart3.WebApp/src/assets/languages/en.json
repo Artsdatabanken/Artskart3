@@ -195,6 +195,7 @@
     "heading": "Filter",
     "clearFilter": "Clear filter",
     "activeSelections": "Has active filters",
+    "removeFilterAriaLabel": "Remove filter {{filter}}",
     "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species List",
@@ -368,7 +369,7 @@
     "noResultsFor": "No matches for place “{{searchTerm}}”."
   },
   "mapToolbar": {
-    "layersAriaLabel": "Layers",
+    "layersAriaLabel": "Map layers",
     "layersHeading": "Map layers",
     "noLayers": "No map layers available",
     "layerLoadError": "The map layer could not be loaded",
@@ -383,7 +384,7 @@
     "fullscreenAriaLabel": "Fullscreen",
     "zoomInAriaLabel": "Zoom in",
     "zoomOutAriaLabel": "Zoom out",
-    "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
+    "selectMapTypeAriaLabel": "Select background map - {{mapType}}",
     "mapTypeHeading": "Background map",
     "loadingObservationsLabel": "Fetching observations...",
     "legendHeading": "Legend",
@@ -540,6 +541,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registrations",
+    "locations":"{{number}} localities",
     "coordinatePrecision": "Coordinate precision: {{precision}}",
     "title": "Observations",
     "taxonGroup": "Group by taxon group",
