@@ -23,6 +23,8 @@
     "alienAssessment": "Read the alien species assessment",
     "location": "Map reference",
     "noCoordinates": "Public coordinates are not available.",
+    "maskedPosition": "This observation contains species data exempt from public disclosure, so its position is masked.",
+    "sensitiveDataLink": "Learn more about sensitive species data",
     "mapUnavailable": "Map unavailable.",
     "enlargeMap": "Enlarge map",
     "images": "Images of the observation",
