@@ -148,7 +148,7 @@ public class ObservationDetailsTests
         context.TaxonAssessments.Add(new TaxonAssessment
         {
             Id = 1,
-            ExternalTaxonId = taxon.ExternalTaxonId,
+            ScientificNameId = taxon.ValidScientificNameId,
             TaxonId = taxon.Id,
             CategoryTypeId = alienSpecies.Id,
             CategoryId = alienCategory.Id,

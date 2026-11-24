@@ -5,7 +5,7 @@ namespace Artskart3.Core.Domain.Entities;
 
 public class TaxonAssessment : BaseEntity
 {
-    public int ExternalTaxonId { get; set; }
+    public int ScientificNameId { get; set; }
 
     public int TaxonId { get; set; }
 

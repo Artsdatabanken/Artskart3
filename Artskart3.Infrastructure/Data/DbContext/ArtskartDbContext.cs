@@ -1166,10 +1166,11 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .IsUnique()
                 .HasFilter("[IsEffective] = 1 AND [IsDeleted] = 0");
             entity.HasIndex(
-                e => new { e.CategoryTypeId, e.ExternalTaxonId, e.Area },
+                e => new { e.CategoryTypeId, e.ScientificNameId, e.Area },
                 "IX_TaxonAssessment_ExternalLookup");
             entity.HasIndex(e => e.CategoryId, "IX_TaxonAssessment_CategoryId");
 
+            entity.Property(e => e.ScientificNameId).HasColumnName("ExternalTaxonId");
             entity.Property(e => e.Area).HasMaxLength(1);
             entity.Property(e => e.ExternalAssessmentId).HasMaxLength(100);
             entity.Property(e => e.AssessmentUrl).HasMaxLength(500);

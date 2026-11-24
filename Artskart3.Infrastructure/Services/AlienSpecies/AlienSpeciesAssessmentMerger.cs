@@ -11,15 +11,15 @@ public static class AlienSpeciesAssessmentMerger
         foreach (var assessment in all)
             assessment.IsEffective = false;
 
-        foreach (var group in all.GroupBy(a => (a.TaxonId, a.CategoryTypeId, a.Area)))
+        foreach (var group in all
+                     .Where(assessment => !assessment.IsDeleted)
+                     .GroupBy(a => (a.TaxonId, a.CategoryTypeId, a.Area)))
         {
             var effective = group
-                .FirstOrDefault(a => !a.IsRetained && a.Source == TaxonAssessmentSource.Current)
-                ?? group.FirstOrDefault(a => !a.IsRetained && a.Source == TaxonAssessmentSource.Snapshot2023)
-                ?? group
-                    .OrderByDescending(a => a.LastSeenAt)
-                    .ThenByDescending(a => a.Source == TaxonAssessmentSource.Current)
-                    .FirstOrDefault();
+                .OrderByDescending(a => a.Source == TaxonAssessmentSource.Current)
+                .ThenBy(a => a.IsRetained)
+                .ThenByDescending(a => a.LastSeenAt)
+                .FirstOrDefault();
 
             if (effective is not null)
                 effective.IsEffective = true;

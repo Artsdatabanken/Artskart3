@@ -6,8 +6,16 @@ namespace Artskart3.Infrastructure.Services.AlienSpecies;
 public sealed record CurrentAlienSpeciesAssessment(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("area")] string Area,
-    [property: JsonPropertyName("taxonId")] int TaxonId,
-    [property: JsonPropertyName("category")] string Category);
+    [property: JsonPropertyName("category")] string Category,
+    [property: JsonPropertyName("scientificNameInformation")] AlienSpeciesScientificNameInformation ScientificNameInformation,
+    [property: JsonPropertyName("previousAssessments")] List<AlienSpeciesPreviousAssessment>? PreviousAssessments = null);
+
+public sealed record AlienSpeciesScientificNameInformation(
+    [property: JsonPropertyName("nameId")] int NameId);
+
+public sealed record AlienSpeciesPreviousAssessment(
+    [property: JsonPropertyName("revisionYear")] int RevisionYear,
+    [property: JsonPropertyName("assessmentId")] string AssessmentId);
 
 public sealed record AlienSpeciesAssessment2023(
     [property: JsonPropertyName("id")] int Id,
@@ -23,7 +31,8 @@ public sealed record NormalizedTaxonAssessment(
     string Area,
     string CategoryCode,
     string ExternalAssessmentId,
-    TaxonAssessmentSource Source);
+    TaxonAssessmentSource Source,
+    string? Previous2023AssessmentId = null);
 
 public sealed record TaxonAssessmentFetchResult<T>(IReadOnlyList<T> Items, int PageCount);
 

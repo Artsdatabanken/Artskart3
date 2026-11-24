@@ -17,13 +17,25 @@ public class AlienSpeciesAssessmentTests
         var handler = new StubHttpMessageHandler(
             JsonResponse("""
                 {
-                  "value": [{"id": 1, "taxonId": 100, "category": "LO", "area": "N"}],
+                  "value": [{
+                    "id": 1,
+                    "category": "LO",
+                    "area": "N",
+                    "scientificNameInformation": {"nameId": 100},
+                    "previousAssessments": []
+                  }],
                   "@odata.nextLink": "https://lister.artsdatabanken.no/odata/v1/AlienSpeciesAssessment?$select=id,area,taxonId,category&$skiptoken=id-1"
                 }
                 """),
             JsonResponse("""
                 {
-                  "value": [{"id": 2, "taxonId": 101, "category": "HI", "area": "S"}]
+                  "value": [{
+                    "id": 2,
+                    "category": "HI",
+                    "area": "S",
+                    "scientificNameInformation": {"nameId": 101},
+                    "previousAssessments": []
+                  }]
                 }
                 """));
         var client = CreateClient(handler);
@@ -71,12 +83,55 @@ public class AlienSpeciesAssessmentTests
     }
 
     [Fact]
+    public void Normalizer_PrefersHighestRiskCategoryForDuplicate()
+    {
+        var assessments = new[]
+        {
+            new AlienSpeciesAssessment2023(
+                6336,
+                "N",
+                new AlienSpeciesScientificName(220512),
+                "NR"),
+            new AlienSpeciesAssessment2023(
+                7354,
+                "N",
+                new AlienSpeciesScientificName(220512),
+                "LO")
+        };
+
+        var normalized = AlienSpeciesAssessmentNormalizer.NormalizeSnapshot2023(assessments);
+
+        normalized.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new NormalizedTaxonAssessment(
+                220512, "N", "LO", "7354", TaxonAssessmentSource.Snapshot2023));
+    }
+
+    [Fact]
+    public void Normalizer_UsesHighestAssessmentIdForEqualDuplicateCategories()
+    {
+        var assessments = new[]
+        {
+            new AlienSpeciesAssessment2023(
+                1, "N", new AlienSpeciesScientificName(100), "LO"),
+            new AlienSpeciesAssessment2023(
+                2, "N", new AlienSpeciesScientificName(100), "LO")
+        };
+
+        var normalized = AlienSpeciesAssessmentNormalizer.NormalizeSnapshot2023(assessments);
+
+        normalized.Should().ContainSingle()
+            .Which.ExternalAssessmentId.Should().Be("2");
+    }
+
+    [Fact]
     public void Normalizer_RejectsDuplicateAssessmentKeys()
     {
         var assessments = new[]
         {
-            new CurrentAlienSpeciesAssessment(1, "N", 100, "LO"),
-            new CurrentAlienSpeciesAssessment(2, "N", 100, "HI")
+            new CurrentAlienSpeciesAssessment(
+                1, "N", "LO", new AlienSpeciesScientificNameInformation(100)),
+            new CurrentAlienSpeciesAssessment(
+                2, "N", "HI", new AlienSpeciesScientificNameInformation(100))
         };
 
         var act = () => AlienSpeciesAssessmentNormalizer.NormalizeCurrent(assessments);
@@ -86,7 +141,32 @@ public class AlienSpeciesAssessmentTests
     }
 
     [Fact]
-    public void Merger_PrefersCurrentThenSnapshotThenLatestRetained()
+    public void Normalizer_KeepsPrevious2023AssessmentReference()
+    {
+        var assessment = new CurrentAlienSpeciesAssessment(
+            59,
+            "N",
+            "LO",
+            new AlienSpeciesScientificNameInformation(121192),
+            [
+                new AlienSpeciesPreviousAssessment(2023, "59"),
+                new AlienSpeciesPreviousAssessment(2018, "FA3/N/1068")
+            ]);
+
+        var normalized = AlienSpeciesAssessmentNormalizer.NormalizeCurrent([assessment]);
+
+        normalized.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new NormalizedTaxonAssessment(
+                121192,
+                "N",
+                "LO",
+                "59",
+                TaxonAssessmentSource.Current,
+                "59"));
+    }
+
+    [Fact]
+    public void Merger_PrefersCurrentEvenWhenRetained()
     {
         var current = Assessment(TaxonAssessmentSource.Current, DateTime.UtcNow, false);
         var snapshot = Assessment(TaxonAssessmentSource.Snapshot2023, DateTime.UtcNow.AddDays(-1), false);
@@ -96,8 +176,8 @@ public class AlienSpeciesAssessmentTests
 
         current.IsRetained = true;
         AlienSpeciesAssessmentMerger.SelectEffective([current, snapshot]);
-        current.IsEffective.Should().BeFalse();
-        snapshot.IsEffective.Should().BeTrue();
+        current.IsEffective.Should().BeTrue();
+        snapshot.IsEffective.Should().BeFalse();
 
         snapshot.IsRetained = true;
         AlienSpeciesAssessmentMerger.SelectEffective([current, snapshot]);

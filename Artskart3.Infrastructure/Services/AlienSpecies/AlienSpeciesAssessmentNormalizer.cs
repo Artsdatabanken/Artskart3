@@ -9,11 +9,14 @@ public static class AlienSpeciesAssessmentNormalizer
     {
         var result = assessments.Select(assessment =>
             Normalize(
-                assessment.TaxonId,
+                assessment.ScientificNameInformation.NameId,
                 assessment.Area,
                 assessment.Category,
                 assessment.Id.ToString(),
-                TaxonAssessmentSource.Current)).ToArray();
+                TaxonAssessmentSource.Current,
+                assessment.PreviousAssessments?
+                    .FirstOrDefault(previous => previous.RevisionYear == 2023)?
+                    .AssessmentId)).ToArray();
         EnsureUniqueKeys(result);
         return result;
     }
@@ -21,13 +24,20 @@ public static class AlienSpeciesAssessmentNormalizer
     public static IReadOnlyList<NormalizedTaxonAssessment> NormalizeSnapshot2023(
         IEnumerable<AlienSpeciesAssessment2023> assessments)
     {
-        var result = assessments.Select(assessment =>
-            Normalize(
+        var candidates = assessments
+            .Select(assessment => Normalize(
                 assessment.ScientificName?.ScientificNameId ?? 0,
                 assessment.EvaluationContext,
                 assessment.Category,
                 assessment.Id.ToString(),
-                TaxonAssessmentSource.Snapshot2023)).ToArray();
+                TaxonAssessmentSource.Snapshot2023))
+            .ToArray();
+        var result = candidates
+            .GroupBy(candidate => (
+                candidate.SourceTaxonIdentifier,
+                candidate.Area))
+            .Select(group => SelectSnapshotAssessment(group.ToArray()))
+            .ToArray();
         EnsureUniqueKeys(result);
         return result;
     }
@@ -37,7 +47,8 @@ public static class AlienSpeciesAssessmentNormalizer
         string area,
         string categoryCode,
         string assessmentId,
-        TaxonAssessmentSource source)
+        TaxonAssessmentSource source,
+        string? previous2023AssessmentId = null)
     {
         if (taxonId <= 0)
             throw new InvalidDataException($"Assessment {assessmentId} has no valid taxon ID.");
@@ -55,7 +66,8 @@ public static class AlienSpeciesAssessmentNormalizer
             normalizedArea,
             normalizedCode,
             assessmentId,
-            source);
+            source,
+            previous2023AssessmentId);
     }
 
     private static void EnsureUniqueKeys(IEnumerable<NormalizedTaxonAssessment> assessments)
@@ -70,4 +82,25 @@ public static class AlienSpeciesAssessmentNormalizer
                 $"Multiple {duplicate.Key.Source} assessments exist for identifier {duplicate.Key.SourceTaxonIdentifier} and area {duplicate.Key.Area}.");
         }
     }
+
+    private static NormalizedTaxonAssessment SelectSnapshotAssessment(
+        NormalizedTaxonAssessment[] candidates)
+    {
+        if (candidates.Length == 1)
+            return candidates[0];
+
+        return candidates
+            .OrderByDescending(assessment => RiskCategoryRank(assessment.CategoryCode))
+            .ThenByDescending(assessment => int.Parse(
+                assessment.ExternalAssessmentId,
+                System.Globalization.CultureInfo.InvariantCulture))
+            .First();
+    }
+
+    private static int RiskCategoryRank(string categoryCode) =>
+        Enum.TryParse<AlienSpeciesStatus>(categoryCode, ignoreCase: true, out var status) &&
+        status != AlienSpeciesStatus.Unknown
+            ? (int)status
+            : throw new InvalidDataException(
+                $"Unsupported alien-species category '{categoryCode}' in Snapshot2023.");
 }

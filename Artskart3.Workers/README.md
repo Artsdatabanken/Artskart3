@@ -100,6 +100,10 @@ Viktige innstillinger i `appsettings.json`:
 | `CsvExport:BlobStorage:ConnectionString` | `UseDevelopmentStorage=true` | Azurite lokalt, ekte connection string i prod |
 | `AlienSpeciesAssessment:BaseUrl` | `https://lister.artsdatabanken.no/odata/v1/` | OData-kilde for fremmedartsvurderinger |
 | `AlienSpeciesAssessment:ForceSnapshot2023Refresh` | `false` | Setter `true` for å hente det statiske 2023-opptaket på nytt |
+| `AlienSpeciesAssessment:Snapshot2023AssessmentUrlPrefix` | `https://lister.artsdatabanken.no/fremmedartslista/2023/` | URL-prefix for lenker til vurderinger fra 2023 |
+| `AlienSpeciesAssessment:ResetAssessmentsBeforeSync` | `false` | Sletter eksisterende fremmedartsvurderinger i samme transaksjon som en full ny synkronisering |
+| `AlienSpeciesAssessment:ProjectionBatchSize` | `50000` | Antall observasjoner per projeksjonsbatch i én transaksjon |
+| `AlienSpeciesAssessment:ProjectionCommandTimeoutSeconds` | `21600` | Maks SQL-tid for den samlede projeksjonskommandoen |
 | `Hangfire:ScheduleDefaults:AlienSpeciesAssessment` | `0 2 * * 1` | Ukentlig cron-plan for vurderingssynkronisering |
 
 ## Hangfire

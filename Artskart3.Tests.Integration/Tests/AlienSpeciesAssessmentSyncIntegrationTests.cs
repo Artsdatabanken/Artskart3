@@ -17,10 +17,9 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
     private ArtskartDbContext _context = null!;
     private Dictionary<int, int?> _originalCategoryCounts = [];
     private int? _createdSyncRunId;
-    private int _externalTaxonId;
-    private int _testTaxonId;
-    private int _originalExternalTaxonId;
-    private int _originalValidScientificNameId;
+    private int _scientificNameId;
+    private int _snapshotScientificNameId;
+    private int _duplicateTaxonId;
     private int _observationId;
 
     public AlienSpeciesAssessmentSyncIntegrationTests(DatabaseFixture db)
@@ -44,10 +43,12 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
                 .Where(run => run.Id == runId)
                 .ExecuteDeleteAsync();
         }
-        if (_externalTaxonId > 0)
+        if (_scientificNameId > 0)
         {
             await _context.Set<TaxonAssessment>()
-                .Where(assessment => assessment.ExternalTaxonId == _externalTaxonId)
+                .Where(assessment =>
+                    assessment.ScientificNameId == _scientificNameId ||
+                    assessment.ScientificNameId == _snapshotScientificNameId)
                 .ExecuteDeleteAsync();
         }
         await _context.Set<ObservationEntityIndex>()
@@ -57,13 +58,14 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
             .Where(observation => observation.Id == _observationId)
             .ExecuteDeleteAsync();
 
-        if (_testTaxonId > 0)
+        if (_duplicateTaxonId > 0)
         {
+            await _context.TaxonAssessments
+                .Where(assessment => assessment.TaxonId == _duplicateTaxonId)
+                .ExecuteDeleteAsync();
             await _context.Taxons
-                .Where(taxon => taxon.Id == _testTaxonId)
-                .ExecuteUpdateAsync(update => update
-                    .SetProperty(taxon => taxon.ExternalTaxonId, _originalExternalTaxonId)
-                    .SetProperty(taxon => taxon.ValidScientificNameId, _originalValidScientificNameId));
+                .Where(taxon => taxon.Id == _duplicateTaxonId)
+                .ExecuteDeleteAsync();
         }
 
         foreach (var (categoryId, count) in _originalCategoryCounts)
@@ -85,15 +87,50 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
         var redCategory = await _context.Categories
             .Where(category => category.CategoryType.Name == "Rødliste")
             .FirstAsync();
-        var taxon = await _context.Taxons.FirstAsync(item => !item.IsDeleted);
-        _testTaxonId = taxon.Id;
-        _originalExternalTaxonId = taxon.ExternalTaxonId;
-        _originalValidScientificNameId = taxon.ValidScientificNameId;
-        taxon.ExternalTaxonId = 990_000_001;
-        taxon.ValidScientificNameId = 990_000_002;
-        var matchedName = await _context.TaxonNames.FirstAsync();
+        var sourceTaxonName = await _context.TaxonNames
+            .Include(name => name.Taxon)
+            .Where(name => !name.IsDeleted && name.TaxonId.HasValue && name.Taxon != null && !name.Taxon.IsDeleted)
+            .FirstAsync();
+        var snapshotOnlyTaxonName = await _context.TaxonNames
+            .Where(name =>
+                !name.IsDeleted &&
+                name.TaxonId.HasValue &&
+                name.Taxon != null &&
+                !name.Taxon.IsDeleted &&
+                name.Id != sourceTaxonName.Id &&
+                name.TaxonId != sourceTaxonName.TaxonId)
+            .FirstAsync();
+        var taxon = sourceTaxonName.Taxon!;
         var basisOfRecord = await _context.BasisOfRecords.FirstAsync();
-        _externalTaxonId = taxon.ExternalTaxonId;
+        _scientificNameId = sourceTaxonName.Id;
+        _snapshotScientificNameId = snapshotOnlyTaxonName.Id;
+        _duplicateTaxonId = 2_147_400_000;
+        _context.Taxons.Add(new Taxon
+        {
+            Id = _duplicateTaxonId,
+            ExternalTaxonId = 0,
+            TaxonRankId = taxon.TaxonRankId,
+            ParentTaxonId = 0,
+            ValidScientificNameId = sourceTaxonName.Id,
+            ValidScientificName = taxon.ValidScientificName,
+            TaxonGroupId = taxon.TaxonGroupId,
+            ExistsInCountry = true,
+            ScientificNameIdHiarchy = taxon.ValidScientificNameId.ToString(),
+            TaxonIdHiarchy = _duplicateTaxonId.ToString()
+        });
+        _context.TaxonAssessments.Add(new TaxonAssessment
+        {
+            ScientificNameId = 990_000_004,
+            TaxonId = _duplicateTaxonId,
+            CategoryTypeId = categoryType.Id,
+            CategoryId = alienCategory.Id,
+            Area = "N",
+            ExternalAssessmentId = "101",
+            Source = TaxonAssessmentSource.Current,
+            AssessmentUrl = "https://lister.artsdatabanken.no/arter/fremmedartslista/101",
+            LastSeenAt = DateTime.UtcNow.AddDays(-7),
+            IsEffective = true
+        });
         _originalCategoryCounts = await _context.Categories
             .Where(category => category.CategoryTypeId == categoryType.Id)
             .ToDictionaryAsync(category => category.Id, category => category.ObservationCount);
@@ -105,7 +142,7 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
             DateTimeRecordProcessed = DateTime.UtcNow,
             NodeId = 1,
             TaxonId = taxon.Id,
-            MatchedScientificNameId = matchedName.Id,
+            MatchedScientificNameId = sourceTaxonName.Id,
             TaxonGroupId = taxon.TaxonGroupId,
             CategoryId = redCategory.Id,
             BasisOfRecordId = basisOfRecord.Id,
@@ -133,18 +170,33 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
         await _context.SaveChangesAsync();
 
         var client = new StubAlienSpeciesAssessmentClient(
-            [new CurrentAlienSpeciesAssessment(101, "N", taxon.ExternalTaxonId, "LO")],
+            [new CurrentAlienSpeciesAssessment(
+                101,
+                "N",
+                "LO",
+                new AlienSpeciesScientificNameInformation(990_000_003),
+                [new AlienSpeciesPreviousAssessment(2023, "2023")])],
             [
                 new AlienSpeciesAssessment2023(
                     2023,
                     "N",
-                    new AlienSpeciesScientificName(taxon.ValidScientificNameId),
-                    "HI")
+                    new AlienSpeciesScientificName(sourceTaxonName.Id),
+                    "HI"),
+                new AlienSpeciesAssessment2023(
+                    2024,
+                    "N",
+                    new AlienSpeciesScientificName(snapshotOnlyTaxonName.Id),
+                    "NR")
             ]);
         var service = new AlienSpeciesAssessmentSyncService(
             _context,
             client,
-            Options.Create(new AlienSpeciesAssessmentOptions()),
+            Options.Create(new AlienSpeciesAssessmentOptions
+            {
+                ProjectionBatchSize = 1,
+                ProjectionCommandTimeoutSeconds = 60,
+                ResetAssessmentsBeforeSync = true
+            }),
             NullLogger<AlienSpeciesAssessmentSyncService>.Instance);
 
         var run = await service.SynchronizeAsync();
@@ -155,16 +207,27 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
         var index = await _context.Set<ObservationEntityIndex>().AsNoTracking()
             .SingleAsync(item => item.ObservationId == _observationId);
         var assessments = await _context.TaxonAssessments.AsNoTracking()
-            .Where(item => item.ExternalTaxonId == taxon.ExternalTaxonId)
+            .Where(item =>
+                item.ScientificNameId == sourceTaxonName.Id ||
+                item.ScientificNameId == snapshotOnlyTaxonName.Id)
             .ToListAsync();
 
         observation.CategoryId.Should().Be(redCategory.Id);
         observation.AlienSpeciesCategoryId.Should().Be(alienCategory.Id);
         index.CategoryId.Should().Be(redCategory.Id);
         index.AlienSpeciesCategoryId.Should().Be(alienCategory.Id);
-        assessments.Single(item => item.IsEffective).Source.Should().Be(TaxonAssessmentSource.Current);
-        assessments.Single(item => item.Source == TaxonAssessmentSource.Snapshot2023)
-            .AssessmentUrl.Should().BeNull();
+        assessments.Should().HaveCount(2);
+        var currentAssessment = assessments.Single(item => item.Source == TaxonAssessmentSource.Current);
+        currentAssessment.TaxonId.Should().Be(taxon.Id);
+        currentAssessment
+            .ScientificNameId.Should().Be(_scientificNameId);
+        currentAssessment.AssessmentUrl.Should().Be(
+            "https://lister.artsdatabanken.no/arter/fremmedartslista/101");
+        assessments.Should().OnlyContain(item => item.IsEffective);
+        var snapshotAssessment = assessments.Single(
+            item => item.Source == TaxonAssessmentSource.Snapshot2023);
+        snapshotAssessment.AssessmentUrl.Should().Be(
+            "https://lister.artsdatabanken.no/fremmedartslista/2023/2024");
     }
 
     private sealed class StubAlienSpeciesAssessmentClient(

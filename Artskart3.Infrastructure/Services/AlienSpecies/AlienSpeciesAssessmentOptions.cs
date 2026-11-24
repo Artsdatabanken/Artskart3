@@ -9,7 +9,7 @@ public sealed class AlienSpeciesAssessmentOptions
     public string BaseUrl { get; set; } = "https://lister.artsdatabanken.no/odata/v1/";
 
     public string CurrentPath { get; set; } =
-        "AlienSpeciesAssessment?$select=id,area,taxonId,category";
+        "AlienSpeciesAssessment?$select=id,area,category,scientificNameInformation/nameId,previousAssessments";
 
     public string Snapshot2023Path { get; set; } =
         "alienspeciesassessment2023?$select=id,evaluationContext,scientificName,category";
@@ -24,10 +24,19 @@ public sealed class AlienSpeciesAssessmentOptions
 
     public int MinimumCurrentAssessmentCount { get; set; } = 1;
 
+    public int ProjectionBatchSize { get; set; } = 50_000;
+
+    public int ProjectionCommandTimeoutSeconds { get; set; } = 21_600;
+
     public string CategoryTypeName { get; set; } = "Fremmedart";
 
     public string CurrentAssessmentUrlPrefix { get; set; } =
         "https://lister.artsdatabanken.no/arter/fremmedartslista/";
 
+    public string Snapshot2023AssessmentUrlPrefix { get; set; } =
+        "https://lister.artsdatabanken.no/fremmedartslista/2023/";
+
     public bool ForceSnapshot2023Refresh { get; set; }
+
+    public bool ResetAssessmentsBeforeSync { get; set; }
 }
