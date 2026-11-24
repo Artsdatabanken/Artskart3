@@ -1,12 +1,54 @@
 import { TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ApiClientService } from '@core/services/api-client.service';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { AlertService } from '@shared/services/alert/alert.service';
 import { MapLayersComponent } from './map-layers.component';
 
 describe('MapLayersComponent load warnings', () => {
+  it('retries loading the layer list when reopening the menu and displays failures', async () => {
+    let attempts = 0;
+    await TestBed.configureTestingModule({
+      imports: [MapLayersComponent],
+      providers: [
+        provideTranslateService(),
+        {
+          provide: ApiClientService,
+          useValue: {
+            fetchJson: () => (++attempts === 1 ? throwError(() => new Error('Unavailable')) : of([{ id: 1, name: 'Test layer' }])),
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(MapLayersComponent);
+    const service = TestBed.inject(MapLayerService);
+    expect(service.mapLayersLoadFailed()).toBe(true);
+
+    fixture.componentInstance.toggleMapLayers();
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.detectChanges();
+
+    expect(attempts).toBe(2);
+    expect(service.mapLayersLoadFailed()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('Test layer');
+    fixture.destroy();
+  });
+
+  it('shows an error instead of the empty state when the initial layer load fails', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MapLayersComponent],
+      providers: [provideTranslateService(), { provide: ApiClientService, useValue: { fetchJson: () => throwError(() => new Error('Unavailable')) } }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(MapLayersComponent);
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.map-layers-load-error')?.getAttribute('heading')).toBe('mapToolbar.layerListLoadError');
+    expect(fixture.nativeElement.querySelector('.map-layers-empty')).toBeNull();
+    fixture.destroy();
+  });
+
   it('shows inline alerts under failed enabled layers and keeps the global warning when the menu closes', async () => {
     const layers = [
       { id: 1, name: 'First layer', type: 'wms', url: 'https://example.test/first' },

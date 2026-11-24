@@ -30,7 +30,17 @@
           ></adb-alert>
         }
       } @empty {
-        <span class="map-layers-empty">{{ 'mapToolbar.noLayers' | translate }}</span>
+        @if (mapLayersLoadFailed()) {
+          <adb-alert
+            class="map-layers-load-error"
+            variant="warning"
+            type="inline"
+            size="sm"
+            [attr.heading]="'mapToolbar.layerListLoadError' | translate"
+          ></adb-alert>
+        } @else {
+          <span class="map-layers-empty">{{ 'mapToolbar.noLayers' | translate }}</span>
+        }
       }
     </div>
   }

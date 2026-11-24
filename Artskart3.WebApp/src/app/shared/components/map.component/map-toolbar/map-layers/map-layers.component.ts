@@ -19,11 +19,14 @@ export class MapLayersComponent {
 
   private readonly mapLayerService = inject(MapLayerService);
   readonly mapLayers = this.mapLayerService.mapLayers;
+  readonly mapLayersLoadFailed = this.mapLayerService.mapLayersLoadFailed;
   readonly failedLayerIds = this.mapLayerService.failedLayerIds;
   readonly enabledLayerIds = this.mapLayerService.enabledLayerIds;
   readonly mapLayerLabels: Partial<Record<string, string>> = MAP_LAYER_LABELS;
   toggleMapLayers(): void {
-    this.mapLayersOpenChange.emit(!this.isOpen);
+    const opening = !this.isOpen;
+    if (opening) this.mapLayerService.retryMapLayersLoad();
+    this.mapLayersOpenChange.emit(opening);
   }
 
   isLayerEnabled(layerId: number): boolean {

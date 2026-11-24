@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, Subject, catchError, of, startWith, switchMap, tap } from 'rxjs';
 import { ApiClientService } from '@core/services/api-client.service';
 import { MapLayerDto } from '../../types/api.types';
 import { AlertService } from '../alert/alert.service';
@@ -14,8 +14,25 @@ export class MapLayerService {
   private readonly failedLayerIdsState = signal<ReadonlySet<number>>(new Set());
   readonly failedLayerIds = this.failedLayerIdsState.asReadonly();
   private layerLoadWarningId: number | null = null;
+  private readonly reloadMapLayers$ = new Subject<void>();
+  private readonly mapLayersLoadFailedState = signal(false);
+  readonly mapLayersLoadFailed = this.mapLayersLoadFailedState.asReadonly();
 
-  readonly mapLayers = toSignal(this.getMapLayers().pipe(catchError(() => of([] as MapLayerDto[]))), { initialValue: [] as MapLayerDto[] });
+  readonly mapLayers = toSignal(
+    this.reloadMapLayers$.pipe(
+      startWith(undefined),
+      switchMap(() =>
+        this.getMapLayers().pipe(
+          tap(() => this.mapLayersLoadFailedState.set(false)),
+          catchError(() => {
+            this.mapLayersLoadFailedState.set(true);
+            return of([] as MapLayerDto[]);
+          }),
+        ),
+      ),
+    ),
+    { initialValue: [] as MapLayerDto[] },
+  );
   private readonly enabledLayerIdsState = signal<ReadonlySet<number>>(new Set());
   readonly enabledLayerIds = this.enabledLayerIdsState.asReadonly();
   /** De påslåtte lagene i samme rekkefølge som kartlagslisten. */
@@ -53,5 +70,9 @@ export class MapLayerService {
 
   getMapLayers(): Observable<MapLayerDto[]> {
     return this.apiClient.fetchJson<MapLayerDto[]>('/api/MapLayer');
+  }
+
+  retryMapLayersLoad(): void {
+    if (this.mapLayersLoadFailed()) this.reloadMapLayers$.next();
   }
 }

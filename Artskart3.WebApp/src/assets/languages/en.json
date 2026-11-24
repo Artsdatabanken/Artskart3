@@ -373,6 +373,7 @@
     "noLayers": "No map layers available",
     "layerLoadError": "The map layer could not be loaded",
     "layersLoadError": "One or more selected map layers could not be loaded",
+    "layerListLoadError": "Map layers could not be loaded. Close and reopen the menu to retry.",
     "settingsAriaLabel": "Map settings",
     "clustering": "Point clusters",
     "clusteringDescription": "Clustering",

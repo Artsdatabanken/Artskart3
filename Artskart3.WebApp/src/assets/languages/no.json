@@ -373,6 +373,7 @@
     "noLayers": "Ingen kartlag tilgjengelig",
     "layerLoadError": "Kartlaget kunne ikke lastes",
     "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
+    "layerListLoadError": "Kartlagene kunne ikke lastes. Lukk og åpne menyen igjen for å prøve på nytt.",
     "settingsAriaLabel": "Kartinnstillinger",
     "clustering": "Punktklynge",
     "clusteringDescription": "Clustering",
