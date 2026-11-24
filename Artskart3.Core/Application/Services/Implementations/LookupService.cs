@@ -58,6 +58,11 @@ public class LookupService : ILookupService
         return _lookupRepository.GetOrganizationByIdAsync(id, cancellationToken);
     }
 
+    public Task<string?> GetArtskart2BookmarkAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return _lookupRepository.GetArtskart2BookmarkAsync(id, cancellationToken);
+    }
+
     public Task<IEnumerable<AreaSearchResultDto>> SearchAreasAsync(string search, int maxCount, CancellationToken cancellationToken = default)
     {
         return _lookupRepository.SearchAreasAsync(search, maxCount, cancellationToken);

@@ -702,6 +702,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Artskart2Bookmarks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/Organizations/{id}": {
         parameters: {
             query?: never;
@@ -2426,6 +2461,8 @@ export interface components {
             name?: string;
             /** Format: int32 */
             observationCount?: null | number;
+            /** Format: int32 */
+            organizationTypeId?: null | number;
         };
         PagedObservationImageResponseDto: {
             items?: null | components["schemas"]["ObservationImageDto"][];

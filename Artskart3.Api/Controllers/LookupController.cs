@@ -220,6 +220,19 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Et bokmerke fra Artskart 2 (#bookmark/&lt;guid&gt;), som Artskart 2-filter-JSON. Frontend oversetter
+    /// det på samme måte som gamle filterlenker.
+    /// </summary>
+    [HttpGet("Artskart2Bookmarks/{id:guid}")]
+    [Produces("application/json")]
+    [EnableRateLimiting(SearchConstants.SearchRateLimitPolicy)]
+    public async Task<IActionResult> GetArtskart2Bookmark(Guid id, CancellationToken cancellationToken = default)
+    {
+        var json = await _lookupService.GetArtskart2BookmarkAsync(id, cancellationToken);
+        return json == null ? NotFound() : Content(json, "application/json");
+    }
+
+    /// <summary>
     /// Henter én organisasjon (uansett type) på id. Brukes til å vise navnet på
     /// datasett og prosjekt når et lagret filter aktiveres.
     /// </summary>

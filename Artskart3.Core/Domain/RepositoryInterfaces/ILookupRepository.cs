@@ -11,6 +11,10 @@ public interface ILookupRepository
     Task<IEnumerable<OrganizationDto>> SearchOrganizationsByTypeAsync(string name, int organizationTypeId, int maxCount, CancellationToken cancellationToken = default);
     Task<IEnumerable<CatalogNumberMatchDto>> SearchCatalogNumbersAsync(string search, int maxCount, CancellationToken cancellationToken = default);
     Task<OrganizationDto?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Et bokmerke lagret av Artskart 2 (#bookmark/&lt;guid&gt;), som filter-JSON slik Artskart 2 skrev det.
+    /// </summary>
+    Task<string?> GetArtskart2BookmarkAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<AreaSearchResultDto>> SearchAreasAsync(string search, int maxCount, CancellationToken cancellationToken = default);
     Task<AreaSearchResultDto?> GetAreaByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<CatalogNumberMatchDto?> GetCatalogNumberByObservationIdsAsync(int[] observationIds, CancellationToken cancellationToken = default);

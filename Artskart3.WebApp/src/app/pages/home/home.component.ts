@@ -1,4 +1,4 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, effect } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, effect, afterNextRender, ChangeDetectorRef, Injector } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -12,6 +12,7 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { SaveFilterDialogComponent } from '../../shared/components/save-filter-dialog/save-filter-dialog.component';
 import { SavedFilterService } from '../../shared/services/saved-filter/saved-filter.service';
+import { FilterLinkService } from '../../shared/services/filter-link/filter-link.service';
 import { SearchFilterService } from '../../shared/services/search-filter/search-filter.service';
 import { CustomAreaDrawingService } from '../../shared/services/custom-area-drawing/custom-area-drawing.service';
 import { ExportService } from '../../shared/services/export/export.service';
@@ -19,6 +20,7 @@ import { AlertService } from '../../shared/services/alert/alert.service';
 import { AuthService } from '../../shared/services/auth/auth.service';
 import { ObservationSearchFilter } from '../../shared/types/api.types';
 import { apiErrorMessage } from '../../shared/utils/api-error';
+import { EXTENT_LINK_PARAM, FILTER_LINK_PARAM, isSavedFilterId, SAVED_FILTER_LINK_PARAM } from '../../shared/utils/filter-link';
 import { FormatNumberPipe } from '../../shared/pipes/format-number.pipe';
 import { FormatFileSizePipe } from '../../shared/pipes/format-file-size.pipe';
 import { FormsModule } from '@angular/forms';
@@ -59,6 +61,7 @@ export class HomeComponent {
   readonly alertService = inject(AlertService);
   readonly authService = inject(AuthService);
   private readonly savedFilterService = inject(SavedFilterService);
+  private readonly filterLinkService = inject(FilterLinkService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -113,12 +116,14 @@ export class HomeComponent {
   showSaveFilterModal = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly cancelSummary$ = new Subject<void>();
 
   constructor() {
     this.route.queryParamMap
       .pipe(
-        map((params) => params.get('filter')),
+        map((params) => params.get(SAVED_FILTER_LINK_PARAM)),
         filter((id): id is string => !!id),
         switchMap((id) => this.authService.getSession().pipe(map((session) => ({ id, session })))),
         takeUntilDestroyed(),
@@ -137,11 +142,42 @@ export class HomeComponent {
         if (attemptedAt && Date.now() - attemptedAt < SAVED_FILTER_LOGIN_RETRY_MS) {
           sessionStorage.removeItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY);
           this.alertService.showError(this.translate.instant('savedFilters.loginRequired'));
-          this.clearFilterQueryParam();
+          this.clearSavedFilterQueryParam();
           return;
         }
         sessionStorage.setItem(SAVED_FILTER_LOGIN_ATTEMPTED_KEY, String(Date.now()));
         this.authService.login();
+      });
+
+    this.route.queryParamMap
+      .pipe(
+        filter((params) => params.has(FILTER_LINK_PARAM)),
+        takeUntilDestroyed(),
+      )
+      .subscribe(async (params) => {
+        const filterParam = params.get(FILTER_LINK_PARAM)!;
+        if (isSavedFilterId(filterParam)) {
+          this.router.navigate([], {
+            queryParams: { [FILTER_LINK_PARAM]: null, [SAVED_FILTER_LINK_PARAM]: filterParam },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+          return;
+        }
+
+        const observationId = params.get('observationId');
+        await this.filterLinkService.apply(filterParam, params.get(EXTENT_LINK_PARAM));
+        // The map closes the details when the filter changes, so an observation from the same link opens after that.
+        afterNextRender(
+          () =>
+            this.router.navigate([], {
+              queryParams: { [FILTER_LINK_PARAM]: null, [EXTENT_LINK_PARAM]: null, observationId },
+              queryParamsHandling: 'merge',
+              replaceUrl: true,
+            }),
+          { injector: this.injector },
+        );
+        this.changeDetector.markForCheck();
       });
   }
 
@@ -153,17 +189,17 @@ export class HomeComponent {
         } else {
           this.alertService.showError(this.translate.instant('savedFilters.notFound'));
         }
-        this.clearFilterQueryParam();
+        this.clearSavedFilterQueryParam();
       },
       error: (error: unknown) => {
         this.alertService.showError(apiErrorMessage(error, this.translate.instant('savedFilters.activateFailed')));
-        this.clearFilterQueryParam();
+        this.clearSavedFilterQueryParam();
       },
     });
   }
 
-  private clearFilterQueryParam(): void {
-    this.router.navigate([], { queryParams: { filter: null }, queryParamsHandling: 'merge', replaceUrl: true });
+  private clearSavedFilterQueryParam(): void {
+    this.router.navigate([], { queryParams: { [SAVED_FILTER_LINK_PARAM]: null }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
   onTabChange(event: Event) {
