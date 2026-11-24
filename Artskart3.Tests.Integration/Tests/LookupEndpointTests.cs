@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Constants;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Tests.Integration.Fixtures;
@@ -447,6 +448,51 @@ public class LookupEndpointTests : IAsyncLifetime
         var response = await client.GetAsync("/api/Lookup/CadastralUnit?id=1101-99999%2F1");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/Lookup/CustomArea
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task LookupCustomArea_WithInvalidPolygon_Returns400()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Lookup/CustomArea", new { wkt = "POLYGON ((0 0, 10 0, 0 0))" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>
+    /// Den ekte tjenesten mot testdatabasen, så også oppsettet i DI blir prøvd.
+    /// </summary>
+    [Fact]
+    public async Task LookupCustomArea_WithSmallArea_CanBeUsed()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/Lookup/CustomArea", new { wkt = "POLYGON ((262000 6650000, 263000 6650000, 263000 6651000, 262000 6650000))" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("tooManyLocations").GetBoolean().Should().BeFalse();
+        doc.RootElement.GetProperty("maxLocationCount").GetInt32().Should().Be(SearchConstants.MaxCustomAreaLocations);
+    }
+
+    [Fact]
+    public async Task LookupCustomArea_WithTooManyLocations_SaysSo()
+    {
+        const string wkt = "POLYGON ((0 0, 1000 0, 1000 1000, 0 0))";
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddSingleton<ICustomAreaService>(new StubCustomAreaService(new() { [wkt] = null }))));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-CSRF", "1");
+
+        var response = await client.PostAsJsonAsync("/api/Lookup/CustomArea", new { wkt });
+        var search = await client.PostAsJsonAsync("/api/Search/LocationCount", new { customAreaWkt = wkt });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement
+            .GetProperty("tooManyLocations").GetBoolean().Should().BeTrue();
+        search.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // -----------------------------------------------------------------------

@@ -73,9 +73,9 @@ public class AreaCountCacheService : IAreaCountCacheService
         if (filter.ObservationIds?.Length > 0)
             return null;
 
-        // Matrikkelenheter er lokasjoner fra Kartverket, og historiske områder er ikke i
-        // indeksen bufferen er bygget fra.
-        if (filter.HasLocationBasedAreas)
+        // Matrikkelenheter og egendefinerte områder er lister over lokasjoner, og historiske
+        // områder er ikke i indeksen bufferen er bygget fra.
+        if (filter.HasLocationBasedAreas || filter.HasLocationLists)
             return null;
 
         var dimensionContext = new CacheDimensionContext(filter, _taxonHierarchy, _areaHierarchy);

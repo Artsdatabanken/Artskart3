@@ -23,7 +23,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNullName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
         var result = await sut.GetTaxonsAsync(null!);
 
@@ -35,7 +35,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithWhitespaceName_ReturnsEmpty()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
         var result = await sut.GetTaxonsAsync("   ");
 
@@ -47,7 +47,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountZero_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 0);
 
@@ -59,7 +59,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithMaxCountTooHigh_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
         var act = () => sut.GetTaxonsAsync("fugl", 1001);
 
@@ -71,7 +71,7 @@ public class SearchRepositoryTests
     public async Task GetTaxonsAsync_WithNegativeMaxCount_ThrowsArgumentException()
     {
         var contextMock = new Mock<IArtsKartDbContext>();
-        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        var sut = new SearchRepository(contextMock.Object, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
         var act = () => sut.GetTaxonsAsync("fugl", -1);
 
@@ -729,7 +729,7 @@ public class SearchRepositoryTests
 
         var result = await CreateRepository(context).GetLocationPolygonsAsync();
 
-        result.Select(p => p.LocationId).Should().BeEquivalentTo([2, 3]);
+        result.Select(p => (p.LocationId, p.IsSensitive)).Should().BeEquivalentTo([(2, true), (3, false)]);
     }
 
     private static ArtskartDbContext CreateInMemoryContext()
@@ -742,7 +742,7 @@ public class SearchRepositoryTests
     }
 
     private static SearchRepository CreateRepository(ArtskartDbContext context) =>
-        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+        new(context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     /// <summary>
     /// Legger inn lokasjonene OG setter GeometryTypeId, som databasen eier.
@@ -978,7 +978,11 @@ public class SearchRepositoryTests
         // Med et filter som varierer i bredde: planen fra ett kan ikke gjenbrukes for et annet.
         { new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], TaxonGroupIds = [8] }, true },
         { new LocationSearchFilterDto { CadastralUnitIds = ["1101-1/2"], Sensitive = true }, true },
-        // Uten matrikkelenhet gjelder ikke regelen.
+        // Egendefinert område: lokasjonslisten gir samme estimat uansett innhold, som matrikkelenhetene.
+        { new LocationSearchFilterDto { CustomAreaWkt = "POLYGON ((0 0, 10 0, 10 10, 0 0))" }, false },
+        { new LocationSearchFilterDto { CustomAreaWkt = "POLYGON ((0 0, 10 0, 10 10, 0 0))", CountyIds = ["03"] }, false },
+        { new LocationSearchFilterDto { CustomAreaWkt = "POLYGON ((0 0, 10 0, 10 10, 0 0))", TaxonGroupIds = [8] }, true },
+        // Uten matrikkelenhet eller egendefinert område gjelder ikke regelen.
         { new LocationSearchFilterDto { TaxonGroupIds = [8] }, false },
         // Historiske områder alltid: antallet lokasjoner varierer med området.
         { new LocationSearchFilterDto { HistoricalAreaIds = [669] }, true },

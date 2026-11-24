@@ -75,7 +75,7 @@ public class ObservationImagesIntegrationTests : IAsyncLifetime
 
     private SearchRepository Repository() =>
         new(_context, NullLogger<SearchRepository>.Instance,
-            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService());
+            Options.Create(new PaginationOptions()), new StubAreaHierarchyService(), new StubTaxonHierarchyService(), new StubCadastralUnitService(), new StubCustomAreaService());
 
     // -----------------------------------------------------------------------
 

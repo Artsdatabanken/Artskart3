@@ -4,6 +4,7 @@ using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
+using Artskart3.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
@@ -38,27 +39,63 @@ public static class ObservationQueryBuilder
         };
 
     /// <summary>
-    /// Asynkron fordi matrikkelenhetene i filteret slås opp mot Kartverket før
-    /// spørringen bygges.
+    /// Asynkron fordi matrikkelenhetene og det egendefinerte området i filteret slås
+    /// opp til lokasjoner før spørringen bygges. Det egendefinerte området deles som i
+    /// søket, se <see cref="CustomAreaFilters"/>.
+    /// </summary>
+    public static Task<IQueryable<Observation>> ApplyFiltersAsync(
+        IArtsKartDbContext context,
+        ITaxonHierarchyService taxonHierarchy,
+        ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
+        IQueryable<Observation> query,
+        ObservationSearchFilterDto filter,
+        CancellationToken cancellationToken) =>
+        ApplyFiltersAsync(context, taxonHierarchy, cadastralUnits, customAreas, query, filter, storedListIds: null, cancellationToken);
+
+    /// <summary>
+    /// Som over, og legger ID-ene til de lagrede lokasjonslistene spørringen leser i
+    /// <paramref name="storedListIds"/>. En spørring som kjøres lenger enn listene lever,
+    /// som eksporten, må merke dem som brukt, se <see cref="LocationListStore.MarkUsedAsync"/>.
     /// </summary>
     public static async Task<IQueryable<Observation>> ApplyFiltersAsync(
         IArtsKartDbContext context,
         ITaxonHierarchyService taxonHierarchy,
         ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter,
+        ICollection<int>? storedListIds,
         CancellationToken cancellationToken)
     {
-        var locations = await LocationSelection.ResolveAsync(filter, cadastralUnits, cancellationToken);
+        filter = await CustomAreaFilters.SplitAsync(filter, customAreas, cancellationToken);
+        var locations = await LocationSelection.ResolveAsync(filter, cadastralUnits, customAreas, cancellationToken);
+        var customAreaLocationIds = await CustomAreaFilters.ResolveLocationIdsAsync(filter, customAreas, cancellationToken);
+        if (storedListIds != null)
+        {
+            foreach (var list in new[] { locations?.CadastralLocationIds, customAreaLocationIds })
+            {
+                if (list != null && LocationListStore.StoredListId(list) is { } listId) storedListIds.Add(listId);
+            }
+        }
 
         query = ApplyDirectFilters(query, filter);
         query = ApplyTaxonFilter(context, taxonHierarchy, query, filter);
         query = ApplyIdentifierFilters(context, query, filter);
         query = ApplyAreaFilters(context, query, filter, locations);
+        query = WhereInCustomArea(context, query, customAreaLocationIds);
         query = ApplyRangeFilters(query, filter);
 
         return query;
     }
+
+    /// <summary>
+    /// Bare observasjonene på lokasjonene i det egendefinerte området. AND-es med resten
+    /// av filteret. Null betyr at filteret ikke har noe egendefinert område.
+    /// </summary>
+    public static IQueryable<Observation> WhereInCustomArea(
+        IArtsKartDbContext context, IQueryable<Observation> query, int[]? customAreaLocationIds) =>
+        customAreaLocationIds == null ? query : LocationListStore.WhereAtLocations(context, query, customAreaLocationIds);
 
     private static IQueryable<Observation> ApplyTaxonFilter(
         IArtsKartDbContext context,

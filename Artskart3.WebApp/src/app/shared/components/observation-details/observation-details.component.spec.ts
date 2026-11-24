@@ -93,6 +93,33 @@ describe('ObservationDetails', () => {
     expect(dismiss).toHaveBeenCalledOnce();
   });
 
+  it('reopens to take focus when the observation changes while focus is outside the details', async () => {
+    const fixture = await create();
+    const dialog: HTMLDialogElement = fixture.nativeElement.querySelector('dialog');
+    const outside = document.body.appendChild(document.createElement('button'));
+    outside.focus();
+    const show = vi.spyOn(dialog, 'show');
+
+    fixture.componentRef.setInput('observationId', 43);
+    await settle(fixture);
+
+    expect(show).toHaveBeenCalledOnce();
+    expect(dialog.open).toBe(true);
+    outside.remove();
+  });
+
+  it('keeps focus where it is when the observation changes from inside the details', async () => {
+    const fixture = await create();
+    const dialog: HTMLDialogElement = fixture.nativeElement.querySelector('dialog');
+    headerButtons(fixture)[3].focus();
+    const show = vi.spyOn(dialog, 'show');
+
+    fixture.componentRef.setInput('observationId', 43);
+    await settle(fixture);
+
+    expect(show).not.toHaveBeenCalled();
+  });
+
   it('shows mode-specific layout controls without dismissing details and transfers shadow focus', async () => {
     const fixture = await create();
     const component = fixture.componentInstance;

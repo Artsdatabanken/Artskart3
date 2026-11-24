@@ -8,4 +8,7 @@ public static class ObservationPointValidator
         double.IsFinite(point.Latitude) && double.IsFinite(point.Longitude) &&
         point.Latitude is >= -90 and <= 90 && point.Longitude is >= -180 and <= 180 &&
         !(point.Latitude == 0 && point.Longitude == 0) && point.North > 0;
+
+    public static ObservationPointDto? UsableOrNull(ObservationPointDto? point) =>
+        point is not null && IsUsable(point) ? point : null;
 }

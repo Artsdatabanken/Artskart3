@@ -294,6 +294,7 @@ export interface LocationSearchFilter {
   oceanAreaIds?: string[];
   cadastralUnitIds?: string[];
   historicalAreaIds?: number[];
+  customAreaWkt?: string;
   coordinatePrecisionFrom?: number | null;
   coordinatePrecisionTo?: number | null;
   periodFrom?: number | null;
@@ -432,6 +433,7 @@ export class AreasService {
         observationCount: count,
         observationCountDisplay: count > 0 ? AbbreviateNumberHelper.format(count, this.languageService.getLanguage()) : '',
         isPolygon: true,
+        isSensitive: dto.isSensitive === true,
       },
     };
   }
@@ -511,6 +513,7 @@ export class AreasService {
       if (filter.oceanAreaIds?.length) body['oceanAreaIds'] = filter.oceanAreaIds;
       if (filter.cadastralUnitIds?.length) body['cadastralUnitIds'] = filter.cadastralUnitIds;
       if (filter.historicalAreaIds?.length) body['historicalAreaIds'] = filter.historicalAreaIds;
+      if (filter.customAreaWkt) body['customAreaWkt'] = filter.customAreaWkt;
       if (filter.coordinatePrecisionFrom != null || filter.coordinatePrecisionTo != null) {
         body['coordinatePrecision'] = { from: filter.coordinatePrecisionFrom, to: filter.coordinatePrecisionTo };
       }

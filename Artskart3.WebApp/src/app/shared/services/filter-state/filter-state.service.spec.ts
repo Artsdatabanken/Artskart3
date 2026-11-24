@@ -200,6 +200,12 @@ describe('FilterStateService', () => {
       service.clearAreas();
       expect(service.selectedHistoricalAreas()).toEqual([]);
     });
+
+    it('should also clear the custom area', () => {
+      service.setCustomArea('POLYGON((0 0,10 0,10 10,0 0))');
+      service.clearAreas();
+      expect(service.customAreaWkt()).toBeNull();
+    });
   });
 
   describe('clearAll', () => {

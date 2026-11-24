@@ -40,6 +40,11 @@
   text-align: center;
 }
 
+/* Larger than the 16px the sm icon button gives its icon */
+.delete-icon {
+  --adb-icon-size: 20px;
+}
+
 .delete-message {
   margin: 0;
   color: var(--adb-text-base-primary);

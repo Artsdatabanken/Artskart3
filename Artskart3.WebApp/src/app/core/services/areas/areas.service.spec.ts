@@ -49,9 +49,19 @@ describe('AreasService map styling metadata', () => {
     expect(feature.id).toBe(42);
     expect(feature.properties.id).toBe(42);
     expect(feature.properties.isPolygon).toBe(true);
+    expect(feature.properties['isSensitive']).toBe(false);
     expect(feature.properties.observationCount).toBe(1234);
     expect(feature.geometry.type).toBe('Polygon');
     expect(feature.properties['nbic:style']).toBeUndefined();
+  });
+
+  it('marks the masking squares of sensitive observations', async () => {
+    postJson.mockReturnValue(
+      of([{ locationId: 7, observationCount: 1, wktPolygon: 'POLYGON ((0 0,10 0,10 10,0 10,0 0))', isSensitive: true }]),
+    );
+    const { geojson } = await firstValueFrom(service.getLocationPolygons());
+    const [feature] = (JSON.parse(geojson) as { features: AreaMarkerFeature[] }).features;
+    expect(feature.properties['isSensitive']).toBe(true);
   });
 
   it('keeps administrative boundary styles and moves count labels to marker metadata', () => {

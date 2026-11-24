@@ -1074,6 +1074,50 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("LocationCountCacheState", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LocationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("LocationLists", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.LocationListEntry", b =>
+                {
+                    b.Property<int>("ListId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ListId", "LocationId");
+
+                    b.ToTable("LocationListEntries", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.MapLayer", b =>
                 {
                     b.Property<int>("Id")
@@ -1103,10 +1147,26 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<double?>("MaxScaleDenominator")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MinScaleDenominator")
+                        .HasColumnType("float");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<double>("Opacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(1.0);
+
+                    b.Property<int>("RetryAfterSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<int>("SortOrder")
                         .ValueGeneratedOnAdd()
@@ -1125,6 +1185,11 @@ namespace Artskart3.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("UseSingleImage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Version")
                         .HasMaxLength(20)
@@ -1852,8 +1917,24 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
+                    b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_OEI_AreaListView")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), new[] { "TaxonGroupId", "CategoryId", "HiddenByAnnotation" });
+
                     b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
                         .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+                    b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView")
+                        .IsDescending(false, false, true, true)
+                        .HasFilter("[HasMediaFiles] = 1")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), new[] { "CategoryId", "TaxonGroupId", "HiddenByAnnotation" });
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });

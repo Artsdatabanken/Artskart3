@@ -2,7 +2,7 @@ using Artskart3.Core.Domain.Enums;
 
 namespace Artskart3.Core.Application.DTOs;
 
-public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilter
+public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilter, IAreaSelection
 {
     public int[]? TaxonGroupIds { get; set; }
 
@@ -25,6 +25,8 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
     public string[]? CadastralUnitIds { get; set; }
 
     public int[]? HistoricalAreaIds { get; set; }
+
+    public string? CustomAreaWkt { get; set; }
 
     public int[]? BehaviorIds { get; set; }
 
@@ -63,4 +65,10 @@ public class ObservationSearchFilterDto : PaginatedRequestDto, IObservationFilte
         copy.WithImages = true;
         return copy;
     }
+
+    /// <summary>
+    /// Samme filter med det egendefinerte området delt opp, se <see cref="IAreaSelection.ReplaceCustomAreaWithAreas"/>.
+    /// </summary>
+    public ObservationSearchFilterDto WithCustomAreaAsAreas(string[] municipalityIds, string[] oceanAreaIds, string[] countyIds, string edgeLocationsKey) =>
+        IAreaSelection.ReplaceCustomAreaWithAreas((ObservationSearchFilterDto)MemberwiseClone(), municipalityIds, oceanAreaIds, countyIds, edgeLocationsKey);
 }

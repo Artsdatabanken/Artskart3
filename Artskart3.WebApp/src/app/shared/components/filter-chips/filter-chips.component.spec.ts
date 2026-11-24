@@ -3,8 +3,10 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { By } from '@angular/platform-browser';
 import { FilterChipsComponent } from './filter-chips.component';
 import { FilterStateService } from '../../services/filter-state/filter-state.service';
+import { TooltipComponent } from '../tooltip/tooltip.component';
 
 describe('FilterChipsComponent', () => {
   let component: FilterChipsComponent;
@@ -45,6 +47,14 @@ describe('FilterChipsComponent', () => {
     },
   };
 
+  const mockTaxonGroups = [
+    { id: 1, name: 'Fugler' },
+    { id: 2, name: 'Pattedyr' },
+  ];
+  const mockBehaviors = [{ id: 1, name: 'Terrestrisk', description: 'På land' }];
+  const mockBasisOfRecords = [{ id: 1, name: 'humanobservation', description: 'Human Observation' }];
+  const mockInstitutions = [{ id: 5, name: 'NINA' }];
+
   const mockCategoryTypes = [
     { id: 1, name: 'Rødliste', categories: [{ id: 10, code: 'CR', name: 'Kritisk truet' }, { id: 11, code: 'EN', name: 'Sterkt truet' }] },
     { id: 2, name: 'Fremmedart', categories: [{ id: 20, code: 'SE', name: 'Svært høy risiko' }] },
@@ -80,6 +90,18 @@ describe('FilterChipsComponent', () => {
   function flushLookups() {
     flushAreas();
     flushCategories();
+    flushListLookups();
+  }
+
+  function flushListLookups() {
+    httpTesting.expectOne('/api/Lookup/TaxonGroups').flush(mockTaxonGroups);
+    httpTesting.expectOne('/api/Lookup/Behaviors').flush(mockBehaviors);
+    httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush(mockBasisOfRecords);
+    httpTesting.expectOne('/api/Lookup/Institutions').flush(mockInstitutions);
+  }
+
+  function details(chipId: string): string | undefined {
+    return component.chips().find((c) => c.id === chipId)?.details;
   }
 
   function selectAllFinnmarkMunicipalities() {
@@ -179,6 +201,7 @@ describe('FilterChipsComponent', () => {
       // telle og kunne fjerne valgene.
       httpTesting.expectOne('/api/Lookup/Areas').error(new ProgressEvent('error'));
       flushCategories();
+      flushListLookups();
       filterState.addCounty('21');
       filterState.addMunicipality('5601');
       const chips = component.chips();
@@ -189,6 +212,7 @@ describe('FilterChipsComponent', () => {
     it('lar fastlands-chippen fjerne alle områdevalg når områdene ikke lastes', () => {
       httpTesting.expectOne('/api/Lookup/Areas').error(new ProgressEvent('error'));
       flushCategories();
+      flushListLookups();
       filterState.addCounty('21');
       filterState.addMunicipality('5601');
       component.chips().find((c) => c.id === 'areas:mainland')!.clear();
@@ -285,6 +309,15 @@ describe('FilterChipsComponent', () => {
       flushLookups();
       filterState.selectedHistoricalAreas.set([{ id: 669, isCurrent: false }]);
       expect(component.chips().find((c) => c.id === 'historicalArea:669')!.text).toBe('sidebar.areaSearch: #669');
+    });
+
+    it('viser chip for egendefinert område, og lukking fjerner det', () => {
+      flushLookups();
+      filterState.setCustomArea('POLYGON((0 0,10 0,10 10,0 0))');
+      const chip = component.chips().find((c) => c.id === 'customArea')!;
+      expect(chip.text).toBe('sidebar.customArea.heading');
+      chip.clear();
+      expect(filterState.customAreaWkt()).toBeNull();
     });
 
     it('viser chip for katalognummer', () => {
@@ -408,13 +441,14 @@ describe('FilterChipsComponent', () => {
   });
 
   describe('trunkering og tilgjengelighet', () => {
-    it('har full tekst i title-attributtet', () => {
+    it('describes the chip with its full text in a tooltip', () => {
       flushLookups();
       filterState.addProject({ id: 42, name: 'Et prosjekt med et veldig langt navn som ikke får plass' });
       fixture.detectChanges();
       const el: HTMLElement = fixture.nativeElement;
-      const chip = el.querySelector('.filter-chip');
-      expect(chip!.getAttribute('title')).toContain('Et prosjekt med et veldig langt navn som ikke får plass');
+      const button = el.querySelector('.filter-chip-open')!;
+      const tooltip = el.querySelector(`#${button.getAttribute('aria-describedby')}`);
+      expect(tooltip!.textContent).toContain('Et prosjekt med et veldig langt navn som ikke får plass');
     });
 
     it('holder suffix i eget element slik at det ikke trunkeres', () => {
@@ -424,6 +458,154 @@ describe('FilterChipsComponent', () => {
       const el: HTMLElement = fixture.nativeElement;
       const suffix = el.querySelector('.filter-chip-suffix');
       expect(suffix!.textContent).toContain('(1)');
+    });
+
+    it('gir lukkeknappen et oversatt navn med chipens tekst', () => {
+      flushLookups();
+      translate.setTranslation('no', { sidebar: { removeFilterAriaLabel: 'Fjern filter {{filter}}' } }, true);
+      filterState.addProject({ id: 42, name: 'Et prosjekt' });
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const removeButton = el.querySelector('.filter-chip adb-icon-button');
+      expect(removeButton!.getAttribute('aria-label')).toBe(`Fjern filter ${component.chips()[0].label}`);
+    });
+  });
+
+  describe('tooltip with the selections', () => {
+    it('lists the selected items by name in list order', () => {
+      flushLookups();
+      filterState.addTaxonGroup(2);
+      filterState.addTaxonGroup(1);
+      filterState.addInstitution(5);
+      expect(details('taxonGroups')).toBe('Fugler, Pattedyr');
+      expect(details('institutions')).toBe('NINA');
+    });
+
+    it('shows the id of an item that is not in the list', () => {
+      flushLookups();
+      filterState.addTaxonGroup(1);
+      filterState.addTaxonGroup(99);
+      expect(details('taxonGroups')).toBe('Fugler, #99');
+    });
+
+    it('names behaviors and basis of record as the filter panel does', () => {
+      flushLookups();
+      filterState.addBehavior(1);
+      filterState.addBasisOfRecord(1);
+      // Without loaded translations the name falls back to the description.
+      expect(details('behaviors')).toBe('På land');
+      expect(details('basisOfRecords')).toBe('Human Observation');
+    });
+
+    it('lists the categories of a type in red list order', () => {
+      flushLookups();
+      filterState.addCategory(11);
+      filterState.addCategory(10);
+      expect(details('categories:Rødliste')).toBe('Kritisk truet, Sterkt truet');
+    });
+
+    it('lists months in calendar order', () => {
+      flushLookups();
+      filterState.toggleMonth(6);
+      filterState.toggleMonth(3);
+      expect(details('months')).toBe('sidebar.months.march, sidebar.months.june');
+    });
+
+    it('names a whole county instead of its municipalities', () => {
+      flushLookups();
+      selectAllFinnmarkMunicipalities();
+      expect(details('areas:mainland')).toBe('Finnmark');
+
+      filterState.removeMunicipality('5601');
+      const names = details('areas:mainland')!.split(', ');
+      expect(names).toHaveLength(17);
+      expect(names[0]).toBe('Kommune 2');
+    });
+
+    it('names Svalbard and ocean areas', () => {
+      flushLookups();
+      filterState.addCounty('21');
+      filterState.toggleOceanArea('ocean1');
+      expect(details('areas:svalbard')).toBe('Svalbard');
+      expect(details('areas:ocean')).toBe('Norskehavet');
+    });
+
+    it('lists at most 20 names and counts the rest', () => {
+      flushLookups();
+      const translateSpy = vi.spyOn(translate, 'instant');
+      filterState.setTaxons(Array.from({ length: 23 }, (_, i) => i + 1));
+      expect(details('taxons')!.split(', ')).toHaveLength(20);
+      expect(translateSpy).toHaveBeenCalledWith('sidebar.chipMoreNames', { count: 3 });
+      fixture.detectChanges();
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([]);
+    });
+
+    it('names taxa once they have been looked up, following the scientific names switch', async () => {
+      flushLookups();
+      filterState.setTaxons([1234]);
+      expect(details('taxons')).toBe('#1234');
+
+      fixture.detectChanges();
+      httpTesting
+        .expectOne((r) => r.url === '/api/Lookup/TaxonAncestry')
+        .flush([{ id: 1234, parentIds: [], validScientificName: 'Cnidaria', preferredPopularName: 'nesledyr' }]);
+      await fixture.whenStable();
+      expect(details('taxons')).toBe('nesledyr');
+
+      fixture.componentRef.setInput('showScientificNames', true);
+      expect(details('taxons')).toBe('Cnidaria');
+    });
+
+    it('shows scientific names without their italic markup, and falls back from an empty name', async () => {
+      flushLookups();
+      filterState.setTaxons([1234]);
+      fixture.detectChanges();
+      httpTesting
+        .expectOne((r) => r.url === '/api/Lookup/TaxonAncestry')
+        .flush([{ id: 1234, parentIds: [], validScientificName: '<i>Betula pubescens</i>', preferredPopularName: '' }]);
+      await fixture.whenStable();
+      expect(details('taxons')).toBe('Betula pubescens');
+    });
+
+    it('shows a month outside the calendar by its number, so the filter is never invisible', () => {
+      flushLookups();
+      filterState.selectedMonths.set([13, 6]);
+      expect(details('months')).toBe('sidebar.months.june, #13');
+    });
+  });
+
+  describe('opening the filter', () => {
+    it('asks for the section where the clicked chip is set', () => {
+      flushLookups();
+      filterState.addInstitution(5);
+      filterState.setTaxons([1]);
+      fixture.detectChanges();
+      httpTesting.expectOne((r) => r.url === '/api/Lookup/TaxonAncestry').flush([]);
+
+      const opened: string[] = [];
+      component.openFilter.subscribe((section) => opened.push(section));
+      fixture.nativeElement.querySelectorAll('.filter-chip-open').forEach((button: HTMLElement) => button.click());
+      expect(opened).toEqual(['taxonTree', 'institutions']);
+    });
+
+    it('removes the filter without opening it', () => {
+      flushLookups();
+      filterState.addInstitution(5);
+      fixture.detectChanges();
+      const opened = vi.fn();
+      component.openFilter.subscribe(opened);
+      fixture.nativeElement.querySelector('.filter-chip adb-icon-button').click();
+      expect(filterState.selectedInstitutionIds()).toEqual([]);
+      expect(opened).not.toHaveBeenCalled();
+    });
+
+    it('gives each chip its own tooltip', () => {
+      flushLookups();
+      filterState.addInstitution(5);
+      filterState.addTaxonGroup(1);
+      fixture.detectChanges();
+      const tooltips = fixture.debugElement.queryAll(By.directive(TooltipComponent));
+      expect(new Set(tooltips.map((t) => t.nativeElement.id)).size).toBe(2);
     });
   });
 

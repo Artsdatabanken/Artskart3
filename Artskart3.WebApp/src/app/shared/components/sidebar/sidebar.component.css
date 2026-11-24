@@ -158,6 +158,14 @@ adb-checkbox.select-all {
   padding-inline-start: var(--adb-spacing-3xsm);
 }
 
+.custom-area-heading {
+  margin-bottom: var(--adb-spacing-2xsm);
+}
+
+.custom-area-control {
+  padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
+}
+
 .cadastral-unit-heading {
   margin-bottom: var(--adb-spacing-2xsm);
 }
