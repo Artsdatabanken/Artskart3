@@ -67,6 +67,15 @@
         }
       }
     </div>
+    @if (expandingNodeIds().has(node.id)) {
+        <app-loading-indicator
+          [active]="true"
+          [variant]="'inline'"
+          [label]="'observationList.loading' | translate"
+          [ariaLive]="'polite'"
+          [showDelayMs]="0"
+        />
+    }
     @if (node.children.length) {
       <div role="group" [class.indented]="node.kind !== 'group'" [hidden]="!item.expanded()">
         <ng-template ngTreeItemGroup [ownedBy]="item" #group="ngTreeItemGroup">

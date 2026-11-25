@@ -27,6 +27,22 @@
 .loading-indicator--inline {
   position: relative;
   display: inline-flex;
+  flex-direction: row;
+  width: auto;
+  height: auto;
+  gap: var(--adb-spacing-2xsm);
+  background: transparent;
+  color: var(--adb-text-base-secondary);
+}
+
+.loading-indicator--inline .loading-indicator__spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.loading-indicator--inline .loading-indicator__text {
+  color: currentColor;
+  font-size: var(--adb-font-size-3);
 }
 
 .loading-indicator__spinner {

@@ -80,3 +80,20 @@
   white-space: nowrap;
   border: 0;
 }
+
+.compact-loading,
+.loading-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compact-loading {
+  align-self: flex-end;
+  height: 1.5rem;
+}
+
+.loading-state {
+  min-height: 3rem;
+  color: var(--adb-text-base-secondary);
+}

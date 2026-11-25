@@ -5,6 +5,7 @@ import { LoggingService } from '@shared/logging.service';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { ObservationListInfoDto } from '@shared/types/api.types';
 import { ObservationTreeComponent } from '../observation-tree/observation-tree.component';
+import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 import {
   buildObservationTree,
   hasUnknownCategory,
@@ -16,7 +17,7 @@ import {
 
 @Component({
   selector: 'app-observation-list',
-  imports: [TranslateModule, ObservationTreeComponent],
+  imports: [TranslateModule, ObservationTreeComponent, LoadingIndicatorComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './observation-list.component.html',
   styleUrl: './observation-list.component.css',
@@ -30,11 +31,13 @@ export class ObservationListComponent {
   readonly observationActivated = output<number>();
   readonly filters: ObservationGrouping[] = ['taxonGroup', 'location', 'redList', 'alienSpecies'];
   readonly currentFilter = signal<ObservationGrouping>('taxonGroup');
+  readonly groupingLoadingVisible = signal(false);
 
   private readonly translate = inject(TranslateService);
   private readonly logger = inject(LoggingService);
   private readonly languageChange = toSignal(this.translate.onLangChange);
   private readonly datePipe = new LocaleDatePipe();
+  private groupingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly groups = computed(() => {
     const language = this.languageChange()?.lang ?? this.translate.getCurrentLang();
@@ -77,6 +80,15 @@ export class ObservationListComponent {
       this.logger.error('Invalid observation grouping', 'ObservationList', value);
       return;
     }
+
+    const dropdown = event.currentTarget as HTMLElement & { open?: boolean };
+    dropdown.open = false;
+
+    if (grouping === this.currentFilter()) return;
+
+    this.groupingLoadingVisible.set(true);
     this.currentFilter.set(grouping);
+    clearTimeout(this.groupingLoadingTimer);
+    this.groupingLoadingTimer = setTimeout(() => this.groupingLoadingVisible.set(false), 300);
   }
 }

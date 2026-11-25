@@ -11,7 +11,14 @@
   }
   <div class="results">
     @if (observationsResource.isLoading()) {
-      <p class="status-message">{{ 'common.loading' | translate }}</p>
+      <div class="status-message">
+        <app-loading-indicator
+          [active]="true"
+          [variant]="'inline'"
+          [label]="'observationList.loading' | translate"
+          [showDelayMs]="0"
+        />
+      </div>
     }
 
     @if (observationsResource.error()) {
