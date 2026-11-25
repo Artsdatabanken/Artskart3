@@ -208,24 +208,27 @@ public class AlienSpeciesAssessmentSyncIntegrationTests : IAsyncLifetime
             .SingleAsync(item => item.ObservationId == _observationId);
         var assessments = await _context.TaxonAssessments.AsNoTracking()
             .Where(item =>
-                item.ScientificNameId == sourceTaxonName.Id ||
-                item.ScientificNameId == snapshotOnlyTaxonName.Id)
+                !item.IsDeleted &&
+                (item.ScientificNameId == sourceTaxonName.Id ||
+                 item.ScientificNameId == snapshotOnlyTaxonName.Id))
             .ToListAsync();
 
         observation.CategoryId.Should().Be(redCategory.Id);
         observation.AlienSpeciesCategoryId.Should().Be(alienCategory.Id);
         index.CategoryId.Should().Be(redCategory.Id);
         index.AlienSpeciesCategoryId.Should().Be(alienCategory.Id);
-        assessments.Should().HaveCount(2);
+        assessments.Should().HaveCount(3);
         var currentAssessment = assessments.Single(item => item.Source == TaxonAssessmentSource.Current);
         currentAssessment.TaxonId.Should().Be(taxon.Id);
         currentAssessment
             .ScientificNameId.Should().Be(_scientificNameId);
         currentAssessment.AssessmentUrl.Should().Be(
             "https://lister.artsdatabanken.no/arter/fremmedartslista/101");
-        assessments.Should().OnlyContain(item => item.IsEffective);
+        assessments.Where(item => item.IsEffective).Should().HaveCount(2);
         var snapshotAssessment = assessments.Single(
-            item => item.Source == TaxonAssessmentSource.Snapshot2023);
+            item =>
+                item.Source == TaxonAssessmentSource.Snapshot2023 &&
+                item.ScientificNameId == snapshotOnlyTaxonName.Id);
         snapshotAssessment.AssessmentUrl.Should().Be(
             "https://lister.artsdatabanken.no/fremmedartslista/2023/2024");
     }

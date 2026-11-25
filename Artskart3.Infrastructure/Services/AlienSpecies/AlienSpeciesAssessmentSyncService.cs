@@ -270,23 +270,17 @@ public sealed class AlienSpeciesAssessmentSyncService(
         Dictionary<string, int> categoryIds,
         List<TaxonAssessment> existing)
     {
-        var byKey = new Dictionary<(int TaxonId, string Area), TaxonAssessment>();
-        foreach (var group in existing
-                     .Where(assessment => !assessment.IsDeleted)
-                     .GroupBy(assessment => (assessment.TaxonId, assessment.Area)))
-        {
-            var preferred = group
-                .OrderByDescending(assessment => assessment.Source == TaxonAssessmentSource.Current)
-                .ThenByDescending(assessment => assessment.UpdatedAt)
-                .First();
-            byKey[group.Key] = preferred;
-            foreach (var duplicate in group.Where(assessment => !ReferenceEquals(assessment, preferred)))
-            {
-                duplicate.IsDeleted = true;
-                duplicate.DeletedAt = DateTime.UtcNow;
-                duplicate.IsEffective = false;
-            }
-        }
+        var byKey = existing
+            .Where(assessment => !assessment.IsDeleted)
+            .GroupBy(assessment => (
+                assessment.TaxonId,
+                assessment.Area,
+                assessment.Source))
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderByDescending(assessment => assessment.UpdatedAt)
+                    .First());
         var byAssessmentId = existing
             .Where(a => !a.IsDeleted && a.Source == source)
             .ToDictionary(a => a.ExternalAssessmentId, StringComparer.Ordinal);
@@ -303,26 +297,24 @@ public sealed class AlienSpeciesAssessmentSyncService(
                 continue;
             }
 
+            var sourceKey = (
+                resolvedTaxon.TaxonId,
+                incomingRow.Area,
+                source);
             var hasExistingKey = byKey.TryGetValue(
-                (resolvedTaxon.TaxonId, incomingRow.Area),
+                sourceKey,
                 out var row);
-            if (hasExistingKey &&
-                source == TaxonAssessmentSource.Snapshot2023 &&
-                row!.Source == TaxonAssessmentSource.Current)
-            {
-                continue;
-            }
             var hasExistingAssessmentId = byAssessmentId.TryGetValue(
                 incomingRow.ExternalAssessmentId,
                 out var assessmentRow);
             if (!hasExistingKey && hasExistingAssessmentId)
             {
-                byKey.Remove((assessmentRow!.TaxonId, assessmentRow.Area));
+                byKey.Remove((assessmentRow!.TaxonId, assessmentRow.Area, source));
                 assessmentRow.Area = incomingRow.Area;
                 assessmentRow.TaxonId = resolvedTaxon.TaxonId;
                 assessmentRow.ScientificNameId = resolvedTaxon.ScientificNameId;
                 row = assessmentRow;
-                byKey[(row.TaxonId, row.Area)] = row;
+                byKey[(row.TaxonId, row.Area, source)] = row;
                 hasExistingKey = true;
             }
             else if (hasExistingKey &&
@@ -346,13 +338,12 @@ public sealed class AlienSpeciesAssessmentSyncService(
                 };
                 context.Set<TaxonAssessment>().Add(row);
                 existing.Add(row);
-                byKey.Add((row.TaxonId, row.Area), row);
+                byKey.Add((row.TaxonId, row.Area, source), row);
                 byAssessmentId.Add(row.ExternalAssessmentId = incomingRow.ExternalAssessmentId, row);
             }
 
             row!.ScientificNameId = resolvedTaxon.ScientificNameId;
             row.TaxonId = resolvedTaxon.TaxonId;
-            row.Source = source;
             row.CategoryId = categoryIds[incomingRow.CategoryCode];
             row.ExternalAssessmentId = incomingRow.ExternalAssessmentId;
             row.AssessmentUrl = source == TaxonAssessmentSource.Current
