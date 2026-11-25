@@ -1,7 +1,8 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, Signal, computed, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { catchError, shareReplay, tap, Observable } from 'rxjs';
 import { of } from 'rxjs';
+import { clearAnonymousToken } from '../../utils/anonymous-user-token';
 
 export interface Claim {
   type: string;
@@ -17,8 +18,10 @@ const ANONYMOUS: Session = null;
 })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
   private session$: Observable<Session> | null = null;
   private refreshInFlight = false;
+  private authChannel: BroadcastChannel | null = null;
 
   /**
    * Sesjonen er et skrivbart signal, ikke `toSignal` over et engangskall.
@@ -31,9 +34,11 @@ export class AuthService {
    *
    * Nå kan unauthorizedInterceptor be om en ny vurdering når API-et svarer 401.
    */
-  private readonly sessionSignal = signal<Session>(ANONYMOUS);
+  private readonly sessionSignal = signal<Session>(ANONYMOUS, { equal: (left, right) => this.sessionsAreEqual(left, right) });
+  private readonly sessionResolvedSignal = signal(false);
 
   public session: Signal<Session> = this.sessionSignal.asReadonly();
+  public sessionResolved: Signal<boolean> = this.sessionResolvedSignal.asReadonly();
 
   public isAuthenticated = computed(() => this.session() !== null);
   public isAnonymous = computed(() => this.session() === null);
@@ -48,15 +53,72 @@ export class AuthService {
     return session ? session.find((c) => c.type === 'bff:logout_url')?.value || null : null;
   });
 
+  private readonly onSessionMessage = (event: MessageEvent<unknown>): void => {
+    if (event.data === 'logout') {
+      clearAnonymousToken();
+      this.refreshSession();
+    } else if (event.data === 'session-changed') {
+      this.refreshSession();
+    }
+  };
+
+  private readonly onWindowFocus = (): void => {
+    if (this.sessionResolvedSignal()) this.refreshSession();
+  };
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') this.onWindowFocus();
+  };
+
   constructor() {
     this.getSession().subscribe();
+
+    if (typeof window !== 'undefined') {
+      if (typeof BroadcastChannel !== 'undefined') {
+        this.authChannel = new BroadcastChannel('artskart-auth');
+        this.authChannel.addEventListener('message', this.onSessionMessage);
+      }
+
+      window.addEventListener('focus', this.onWindowFocus);
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', this.onVisibilityChange);
+      }
+
+      this.destroyRef.onDestroy(() => {
+        this.authChannel?.removeEventListener('message', this.onSessionMessage);
+        this.authChannel?.close();
+        window.removeEventListener('focus', this.onWindowFocus);
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('visibilitychange', this.onVisibilityChange);
+        }
+      });
+    }
   }
 
   public getSession(ignoreCache = false): Observable<Session> {
     if (!this.session$ || ignoreCache) {
       this.session$ = this.http.get<Session>('bff/user').pipe(
-        catchError(() => of(ANONYMOUS)),
-        tap((session) => this.sessionSignal.set(session)),
+        catchError((error: unknown) => {
+          // Only a 401 means logged out. Other failures (e.g. offline right after
+          // waking from sleep) keep the last known session.
+          const loggedOut = error instanceof HttpErrorResponse && error.status === 401;
+          return of(loggedOut || !this.sessionResolvedSignal() ? ANONYMOUS : this.sessionSignal());
+        }),
+        tap((session) => {
+          const wasResolved = this.sessionResolvedSignal();
+          const previousSession = this.sessionSignal();
+          const changed = !this.sessionsAreEqual(previousSession, session);
+
+          this.sessionSignal.set(session);
+          this.sessionResolvedSignal.set(true);
+
+          if (wasResolved && previousSession !== null && session === null) {
+            clearAnonymousToken();
+            this.notifyOtherTabs('logout');
+          } else if ((!wasResolved && session !== null) || (wasResolved && changed)) {
+            this.notifyOtherTabs('session-changed');
+          }
+        }),
         shareReplay(1)
       );
     }
@@ -81,14 +143,33 @@ export class AuthService {
   }
 
   public login(): void {
+    this.notifyOtherTabs('session-changed');
     const returnUrl = window.location.pathname + window.location.search;
     window.location.href = `/bff/login?returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 
   public logout(): void {
     const url = this.logoutUrl();
+    clearAnonymousToken();
+    this.notifyOtherTabs('logout');
     if (url) {
       window.location.href = url;
     }
+  }
+
+  private sessionsAreEqual(left: Session, right: Session): boolean {
+    if (left === null || right === null) return left === right;
+
+    const leftClaims = left.filter((claim) => !claim.type.startsWith('bff:'));
+    const rightClaims = right.filter((claim) => !claim.type.startsWith('bff:'));
+    if (leftClaims.length !== rightClaims.length) return false;
+
+    return leftClaims.every(
+      (claim, index) => claim.type === rightClaims[index].type && claim.value === rightClaims[index].value
+    );
+  }
+
+  private notifyOtherTabs(message: 'session-changed' | 'logout'): void {
+    this.authChannel?.postMessage(message);
   }
 }

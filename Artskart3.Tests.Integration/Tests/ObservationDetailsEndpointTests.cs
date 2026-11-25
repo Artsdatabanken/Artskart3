@@ -45,6 +45,7 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var detail = await response.Content.ReadFromJsonAsync<ObservationDetailDto>();
             detail!.Point.Should().Be(new ObservationPointDto(observation.Latitude, observation.Longitude, observation.East, observation.North));
+            detail.LocationId.Should().Be(observation.LocationId);
             detail.Images.Should().ContainSingle(m => m.Id == media.Id && m.HasStoredImage);
             var author = await context.Set<Taxon>().Where(t => t.Id == observation.TaxonId).Select(t => t.ValidScientificNameAuthorship).SingleAsync();
             detail.Author.Should().Be(author);

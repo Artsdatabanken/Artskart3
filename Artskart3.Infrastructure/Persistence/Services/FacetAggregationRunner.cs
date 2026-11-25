@@ -36,6 +36,7 @@ public class FacetAggregationRunner : IFacetAggregationRunner
     private readonly IAreaHierarchyService _areaHierarchy;
     private readonly ITaxonHierarchyService _taxonHierarchy;
     private readonly ICadastralUnitService _cadastralUnits;
+    private readonly ICustomAreaService _customAreas;
     private readonly FacetCountOptions _options;
 
     public FacetAggregationRunner(
@@ -45,6 +46,7 @@ public class FacetAggregationRunner : IFacetAggregationRunner
         IAreaHierarchyService areaHierarchy,
         ITaxonHierarchyService taxonHierarchy,
         ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
         IOptions<FacetCountOptions> options)
     {
         _contextOptions = contextOptions;
@@ -53,6 +55,7 @@ public class FacetAggregationRunner : IFacetAggregationRunner
         _areaHierarchy = areaHierarchy;
         _taxonHierarchy = taxonHierarchy;
         _cadastralUnits = cadastralUnits;
+        _customAreas = customAreas;
         _options = options.Value;
     }
 
@@ -116,7 +119,8 @@ public class FacetAggregationRunner : IFacetAggregationRunner
                     _paginationOptions,
                     _areaHierarchy,
                     _taxonHierarchy,
-                    _cadastralUnits);
+                    _cadastralUnits,
+                    _customAreas);
 
                 return await job(repository, input, cancellationToken);
             }

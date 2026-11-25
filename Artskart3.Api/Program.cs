@@ -125,6 +125,7 @@ try
             var sti = context.HttpContext.Request.Path.Value ?? "ukjent";
             var erSoek = sti.StartsWith("/api/Search", StringComparison.OrdinalIgnoreCase);
             var erEiendomsoppslag = sti.StartsWith("/api/Lookup/CadastralUnit", StringComparison.OrdinalIgnoreCase);
+            var erEksport = sti.StartsWith("/api/export/csv", StringComparison.OrdinalIgnoreCase);
 
             if (erSoek)
             {
@@ -137,6 +138,12 @@ try
                 logger.LogWarning("Cadastral unit lookup queue is full ({Path})", sti);
                 await context.HttpContext.Response.WriteAsJsonAsync(
                     new { error = "Too many property lookups. Please retry." }, cancellationToken);
+            }
+            else if (erEksport)
+            {
+                logger.LogWarning("Export request rate limit reached ({Path})", sti);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Too many export requests. Please retry later." }, cancellationToken);
             }
             else
             {
@@ -193,6 +200,21 @@ try
                     QueueLimit = 64,
                     QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                 }));
+
+        // Token kan roteres, og klient-IP er ikke betrodd her. Grensen deles
+        // derfor mellom anonyme kall på hver API-instans.
+        options.AddPolicy(ExportConstants.AnonymousExportStartRateLimitPolicy, context =>
+            context.User.Identity?.IsAuthenticated == true
+                ? RateLimitPartition.GetNoLimiter("authenticated")
+                : RateLimitPartition.GetFixedWindowLimiter(
+                    "anonymous",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = ExportConstants.AnonymousExportStartsPerMinute,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
     });
     builder.Services.AddControllers(options =>
     {
@@ -299,8 +321,10 @@ try
         client.BaseAddress = new Uri(norTaxaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromSeconds(norTaxaOptions.TimeoutSeconds);
     });
-    builder.Services.AddCadastralUnitService(
-        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
+    builder.Services.AddAreaLookupServices(
+        builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions(),
+        builder.Configuration.GetValue("CustomArea:StoreLocationLists", true));
+    builder.Services.AddCustomAreaWarmup();
     builder.Services.AddScoped<IArtsKartDbContext>(provider => provider.GetRequiredService<ArtskartDbContext>());
 
     builder.Services.Configure<SlowQueryLoggingOptions>(builder.Configuration.GetSection(SlowQueryLoggingOptions.SectionName));

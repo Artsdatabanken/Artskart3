@@ -1,5 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { FilterStateService } from './filter-state.service';
+import {
+  annotationFilterToChangedByAnnotation,
+  annotationFilterToHiddenObservations,
+  FilterStateService,
+  toAnnotationFilter,
+} from './filter-state.service';
 
 describe('FilterStateService', () => {
   let service: FilterStateService;
@@ -149,6 +154,26 @@ describe('FilterStateService', () => {
     });
   });
 
+  describe('historical areas', () => {
+    const tromso = { id: 2, fid: '1902', name: 'Tromsø', areaTypeId: 1, isCurrent: false, endYear: 2019 };
+
+    it('should add without duplicates and expose the ids', () => {
+      service.addHistoricalArea(tromso);
+      service.addHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreaIds()).toEqual([2]);
+    });
+
+    it('should fill in a looked-up area but not bring back a removed one', () => {
+      service.selectedHistoricalAreas.set([{ id: 2, isCurrent: false }]);
+      service.setHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreas()).toEqual([tromso]);
+
+      service.removeHistoricalArea(2);
+      service.setHistoricalArea(tromso);
+      expect(service.selectedHistoricalAreas()).toEqual([]);
+    });
+  });
+
   describe('clearAreas', () => {
     it('should reset both county and municipality selections to empty', () => {
       service.addCounty('03');
@@ -168,6 +193,18 @@ describe('FilterStateService', () => {
       service.addCadastralUnit('1101-1/2');
       service.clearAreas();
       expect(service.selectedCadastralUnitIds()).toEqual([]);
+    });
+
+    it('should also clear historical areas', () => {
+      service.addHistoricalArea({ id: 669, isCurrent: false });
+      service.clearAreas();
+      expect(service.selectedHistoricalAreas()).toEqual([]);
+    });
+
+    it('should also clear the custom area', () => {
+      service.setCustomArea('POLYGON((0 0,10 0,10 10,0 0))');
+      service.clearAreas();
+      expect(service.customAreaWkt()).toBeNull();
     });
   });
 
@@ -451,7 +488,7 @@ describe('FilterStateService', () => {
       service.setCatalogNumber('104168');
       service.setCatalogObservationIds([8368071]);
       service.setImageFilter('withImage');
-      service.setAnnotationFilter('changed');
+      service.setAnnotationFilter('hidden');
       service.setSensitiveFilter('sensitive');
 
       service.clearOtherFindProperties();
@@ -461,8 +498,33 @@ describe('FilterStateService', () => {
       expect(service.catalogNumber()).toBe('');
       expect(service.catalogObservationIds()).toEqual([]);
       expect(service.imageFilter()).toBe('all');
-      expect(service.annotationFilter()).toBe('all');
+      expect(service.annotationFilter()).toBe('excludeHidden');
       expect(service.sensitiveFilter()).toBe('all');
+    });
+  });
+
+  describe('annotation filter', () => {
+    it('should exclude hidden observations by default', () => {
+      expect(service.annotationFilter()).toBe('excludeHidden');
+    });
+
+    it.each([
+      ['all', 'Include', undefined],
+      ['excludeHidden', undefined, undefined],
+      ['hidden', 'Only', undefined],
+      ['annotated', undefined, true],
+    ] as const)('should map %s to the API fields and back', (option, hiddenObservations, changedByAnnotation) => {
+      expect(annotationFilterToHiddenObservations(option)).toBe(hiddenObservations);
+      expect(annotationFilterToChangedByAnnotation(option)).toBe(changedByAnnotation);
+      expect(toAnnotationFilter(hiddenObservations, changedByAnnotation)).toBe(option);
+    });
+
+    it.each([
+      ['Exclude', undefined],
+      [undefined, false],
+      [null, null],
+    ] as const)('should fall back to the default for hiddenObservations %s and changedByAnnotation %s', (hidden, changed) => {
+      expect(toAnnotationFilter(hidden, changed)).toBe('excludeHidden');
     });
   });
 

@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,63 +5,57 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Artskart3.Infrastructure.Migrations;
 
 /// <summary>
-/// Førstegangsbygget av alle tre tellebufferne — kjører
-/// Scripts/BuildAreaCountCache.sql, BuildLocationCountCache.sql og
-/// BuildFacetCountCache.sql, lest som innebygde ressurser.
+/// BYGGER IKKE LENGER NOE. FASETT-BYGGINGEN LIGGER I
+/// 20261125185806_BuildFacetCountCache, og område- og lokasjonsbufferen bygges av
+/// develops 20261118131407_RebuildCountCaches.
 ///
-/// TREDJE FLYTTING AV SAMME MIGRASJON
-/// 20261007134334_BuildCountCaches → 20261111112446_RebuildCountCaches →
-/// 20261116143428_RebuildCountCachesWithFacets → hit. Hver gang av samme grunn: en
-/// migrasjonskropp er frosset på tidsstempelet sitt, mens skriptene den leser
+/// Den kjørte Scripts/BuildAreaCountCache.sql, BuildLocationCountCache.sql og
+/// BuildFacetCountCache.sql, og var selv den tredje flyttingen av samme migrasjon.
+/// Nå er den flyttet en fjerde gang, denne gangen av en annen grunn enn de tre
+/// første: ikke fordi noe la seg bak den på egen gren, men fordi develop hadde
+/// flyttet SIN byggemigrasjon forbi — 20261118095554_UpdateMdirWmsAdresses kjører rå
+/// SQL, og develop la 20261118131407_RebuildCountCaches bak den.
+///
+/// FASETT-SKRIPTET BLE IKKE LAGT INN I DEVELOPS MIGRASJON
+/// Det ble forsøkt, og det var feil. 20261118131407 tilhører develop og er alt
+/// anvendt i miljøene; EF har en historikkrad for den og kjører den aldri igjen. Et
+/// skript lagt i kroppen hennes ville bare kjørt på ferske databaser, og eksisterende
+/// miljøer hadde stått med ubygget fasett-buffer uten at noe feilet. En
+/// migrasjonskropp kan ikke endres etter at den er deployert.
+///
+/// Historikken under står igjen fordi den forklarer HVORFOR regelen finnes.
+///
+/// HVORFOR REGELEN FINNES
+/// En migrasjonskropp er frosset på tidsstempelet sitt, men skriptene den leser
 /// vedlikeholdes videre. Ligger en skjemaendring bak byggemigrasjonen, kan en tom
 /// database stoppe midt i migreringen — det skjedde én gang, med «Invalid column
 /// name 'Mask'». Se 20261007134334_BuildCountCaches.
 ///
-/// Denne gangen var det 20261117151112_AddAllTaxonRankColumnsToObservationEntityIndex
-/// som la seg bak.
+/// Kjeden av flyttinger: 20261007134334_BuildCountCaches →
+/// 20261111112446_RebuildCountCaches → 20261116143428_RebuildCountCachesWithFacets →
+/// hit → 20261125185806_BuildFacetCountCache.
 ///
-/// FLYTTINGEN VAR IKKE STRENGT NØDVENDIG DENNE GANGEN
-/// De tre byggeskriptene leser bare ÉN taksonkolonne, `OrderTaxonId`, og den fantes
-/// fra før — de 19 nye rangkolonnene berører dem ikke. Flyttingen er altså ren
-/// kostnad for korrektheten her: ett nytt bygg på ~28 minutter per miljø.
+/// <c>CountCacheBuildMigrationTests</c> håndhever regelen, og aliaset
+/// <c>Byggemigrasjonen</c> der peker nå på 20261125185806_BuildFacetCountCache.
 ///
-/// Den er gjort likevel, fordi <c>CountCacheBuildMigrationTests</c> er en bevisst
-/// blunt vakt: den kan ikke se hva rå SQL gjør, og dens egen dokumentasjon sier at
-/// byggemigrasjonen skal flyttes framfor at testen mykes opp. Å gjøre vakten
-/// kolonnebevisst for å spare én ombygging ville gjort den svakere for den dagen det
-/// faktisk gjelder. Prisen er kjent og betalt to ganger før.
+/// PRISEN ER ETT NYTT BYGG PER MILJØ
+/// Et miljø som alt har kjørt denne bygger fasett-bufferen om. Det er bevisst: en
+/// buffer som bygges for mye er billigere enn en migreringskjede som stopper på en tom
+/// database.
 ///
-/// REKKEFØLGEN ER ET KRAV, IKKE EN PREFERANSE
-/// Både lokasjons- og fasett-bufferen slår opp flerverdi-bøtter i
-/// AreaCountCacheBucketMember, som områdebufferen eier. Derfor ligger alle tre i
-/// samme migrasjon, i rekkefølge.
-///
-/// FORUTSETTER AT BackfillAll HAR FYLT KOLONNENE
-/// Skriptene bøtter på `OrderTaxonId`. Er den ikke fylt, havner alt i NULL-bøtta og
-/// bufferen blir meningsløs. Det er sant også før denne endringen, men verdt å
-/// gjenta: backfillen kommer før byggingen.
-///
-/// KJØRETID: ~24 minutter for område- og lokasjonsbufferen (målt 23.10.2026 over
-/// 134 705 341 indeksrader) og under fire minutter for fasett-bufferen. Krever hevet
-/// CommandTimeout (6 timer i ArtskartDbContextFactory).
-///
-/// AVBRUDD ER TRYGT. Alle tre skriptene setter Status = 'Building' før de tømmer, så
-/// en avbrutt kjøring etterlater en ikke-klar buffer og oppslagene aggregerer som før.
+/// MERK at bufferne uansett MÅ bygges om etter sammenslåingen. HiddenByAnnotation ble
+/// maskens sjette bit, og RowLayoutVersion gikk fra 2 til 3 — i en eldre buffer er
+/// biten alltid 0, så skjulte funn ville blitt talt med i standardfilteret.
 /// </summary>
 public partial class RebuildCountCachesAfterTaxonRanks : Migration
 {
-    private const string AreaScript = "Artskart3.Infrastructure.Scripts.BuildAreaCountCache.sql";
-    private const string LocationScript = "Artskart3.Infrastructure.Scripts.BuildLocationCountCache.sql";
-    private const string FacetScript = "Artskart3.Infrastructure.Scripts.BuildFacetCountCache.sql";
-
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Områdebufferen først — den eier AreaCountCacheBucketMember, som de to andre
-        // leser flerverdi-bøttene fra.
-        migrationBuilder.Sql(ReadScript(AreaScript), suppressTransaction: true);
-        migrationBuilder.Sql(ReadScript(LocationScript), suppressTransaction: true);
-        migrationBuilder.Sql(ReadScript(FacetScript), suppressTransaction: true);
+        // TØMT, som byggemigrasjonene før den, og av samme grunn.
+        //
+        // Skal bufferne bygges av en migrasjon, hører det i den nyeste
+        // byggemigrasjonen — 20261118131407_RebuildCountCaches — ikke her.
     }
 
     /// <inheritdoc />
@@ -71,17 +64,5 @@ public partial class RebuildCountCachesAfterTaxonRanks : Migration
         // Bevisst tom. Dette er avledede data, ikke skjema. Å tømme bufferne ved en
         // nedmigrering ville bare gjort spørringene tregere — tabellene slippes av
         // migrasjonene som opprettet dem.
-    }
-
-    private static string ReadScript(string resource)
-    {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(resource)
-            ?? throw new InvalidOperationException(
-                $"Fant ikke den innebygde ressursen '{resource}'. " +
-                "Er EmbeddedResource-oppføringen for skriptet fjernet fra csproj-en?");
-
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
     }
 }

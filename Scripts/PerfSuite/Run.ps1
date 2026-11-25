@@ -103,7 +103,7 @@ param(
     # Kjoer bare case der noekkel, lag eller dimensjon inneholder denne teksten.
     [string] $Only,
 
-    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'oppslag')]
+    [ValidateSet('enkelt', 'par', 'trippel', 'kvadruppel', 'reise', 'matrikkel', 'historisk', 'egendefinert', 'skjult', 'oppslag')]
     [string[]] $Layer,
 
     # Porten Kartverket-stubben lytter paa. API-et maa startes med
@@ -216,7 +216,9 @@ Write-Host ("  {0,-10} {1,4} varianter: {2}" -f 'endepunkt', $endpoints.Count,
     (@($endpoints | ForEach-Object { "$($_.Endpoint)/$($_.Variant)" }) -join ', '))
 # Antall kall er ikke lenger maalinger x Runs: AreaCounts kjoerer én gang per case
 # uansett -Runs, fordi kjoering 2 ville maalt minnecachen.
-$kallTotalt = $oppslagCount * $Runs
+# Oppslag med LookupRuns kjoerer faerre ganger, se egendefinert-laget i Cases.ps1.
+$kallTotalt = 0
+foreach ($o in $oppslagCases) { $kallTotalt += if ($o.LookupRuns) { [Math]::Min($o.LookupRuns, $Runs) } else { $Runs } }
 foreach ($ep in $endpoints) {
     $antall = $epCaseCount["$($ep.Endpoint)/$($ep.Variant)"]
     $kjoeringer = if ($ep.Runs) { [Math]::Min($ep.Runs, $Runs) } else { $Runs }
@@ -282,6 +284,16 @@ if ($brukerKartverket) {
     Write-Host "Kartverket-stubben svarer paa port $KartverketPort." -ForegroundColor DarkGray
 }
 
+# Uten HistoricalAreaLocation ville casene med historiske omraader maalt et tomt svar.
+$brukerHistoriske = @($cases | Where-Object { $_.Filter -and $_.Filter.ContainsKey('historicalAreaIds') }).Count -gt 0
+if ($brukerHistoriske) {
+    if (-not (Test-PerfHistoricalAreas)) {
+        if ($brukerKartverket) { Stop-PerfKartverketStub }
+        exit 1
+    }
+    Write-Host 'De historiske omraadene har lokasjoner i HistoricalAreaLocation.' -ForegroundColor DarkGray
+}
+
 $results   = [System.Collections.Generic.List[object]]::new()
 $suiteWatch = [System.Diagnostics.Stopwatch]::StartNew()
 $done      = 0
@@ -294,7 +306,8 @@ foreach ($case in $cases) {
         break
     }
 
-    # Oppslagscasene er GET uten filterkropp og kjoeres én gang, ikke per endepunkt.
+    # Oppslagscasene kjoeres én gang hver, ikke per endepunkt. Typeahead er GET uten
+    # filterkropp; oppslaget for et egendefinert omraade er POST med polygonet.
     #
     # Ellers avgjoer endepunktet selv om det gjelder for caset. AreaMarkers kjoerer
     # bare ufiltrert — frontend henter det ufiltrert to ganger per sidelast og aldri
@@ -303,7 +316,10 @@ foreach ($case in $cases) {
     # filtermatrise paa alle 16 ville vaert fire ganger hele kjoeringen.
     # Se Test-PerfEndpointRunsCase og New-PerfEndpointMatrix i Cases.ps1.
     $planned = if ($case.Layer -eq 'oppslag') {
-        @(@{ Endpoint = 'Lookup'; Variant = 'get'; Path = $case.LookupPath; Extra = $null })
+        # Oppslaget for et egendefinert omraade er POST med polygonet, og bufres, saa
+        # bare foerste kall maaler arbeidet. Se LookupRuns i Cases.ps1.
+        $variant = if ($case.LookupBody) { 'post' } else { 'get' }
+        @(@{ Endpoint = 'Lookup'; Variant = $variant; Path = $case.LookupPath; Extra = $null; Runs = $case.LookupRuns })
     } else {
         @($endpoints | Where-Object { Test-PerfEndpointRunsCase -Endpoint $_ -Case $case })
     }
@@ -319,8 +335,11 @@ foreach ($case in $cases) {
             foreach ($k in $case.Filter.Keys) { $body[$k] = $case.Filter[$k] }
             foreach ($k in $ep.Extra.Keys)    { $body[$k] = $ep.Extra[$k] }
         }
+        elseif ($case.LookupBody) {
+            $body = $case.LookupBody
+        }
 
-        $method = if ($case.Layer -eq 'oppslag') { 'GET' } else { 'POST' }
+        $method = if ($case.Layer -eq 'oppslag' -and -not $case.LookupBody) { 'GET' } else { 'POST' }
 
         # Snapshot FOER maalingen. Selve lesningen ligger utenfor stoppeklokken,
         # som starter inne i Measure-PerfRequest.

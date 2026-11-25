@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using Location = Artskart3.Core.Domain.Entities.Location;
@@ -65,6 +66,9 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     private const int Rutenett = 25833;
 
     private const string Matrikkelnummer = "1101-1/2";
+
+    // Stubben slår polygonet opp til lokasjonene testen oppgir; geometrien brukes ikke.
+    private const string EgendefinertOmraade = "POLYGON ((0 0, 4000 0, 4000 4000, 0 0))";
 
     /// <summary>Rektangel: fem koordinatpar, altså en rutenettrute.</summary>
     private const string Rektangel = "POLYGON ((0 0, 4000 0, 4000 4000, 0 4000, 0 0))";
@@ -176,6 +180,123 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         treff.Should().Equal(_myr.Id);
     }
 
+    /// <summary>
+    /// Lageret laster lokasjonene til de historiske områdene selv ved oppstart, så
+    /// koblingen må finnes før det bygges.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_gir_begge_stier_samme_polygoner()
+    {
+        const int historiskOmraade = 986110;
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _myr.Id);
+
+        try
+        {
+            var treff = await AssertSammeSomDatabasenAsync(new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade] });
+
+            treff.Should().Equal(_myr.Id);
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    /// <summary>
+    /// Matrikkelenheten og det historiske området er én lokasjonsmengde i lageret, og
+    /// skal OR-es som i databasen.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_og_matrikkelenhet_gir_begge_stier_samme_polygoner()
+    {
+        const int historiskOmraade = 986111;
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _sensitivRute.Id);
+
+        try
+        {
+            var treff = await AssertSammeSomDatabasenAsync(
+                new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade], CadastralUnitIds = [Matrikkelnummer] },
+                eiendom: [_myr.Id]);
+
+            treff.Should().BeEquivalentTo([_myr.Id, _sensitivRute.Id]);
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    /// <summary>
+    /// Fylles HistoricalAreaLocation etter oppstart, har bare databasen lokasjonene. Et
+    /// tomt svar her ville gitt et område som kan velges, men ingen polygoner på kartet.
+    /// </summary>
+    [Fact]
+    public async Task Historisk_omraade_lagt_til_etter_byggingen_gir_null()
+    {
+        const int historiskOmraade = 986119;
+        var minnelager = await MinnelagerAsync();
+        await LeggTilHistoriskOmraadeAsync(historiskOmraade, _myr.Id);
+
+        try
+        {
+            minnelager.TryQuery(new LocationSearchFilterDto { HistoricalAreaIds = [historiskOmraade] }, 1000)
+                .Should().BeNull("lokasjonene må hentes fra databasen");
+        }
+        finally
+        {
+            await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == historiskOmraade).ExecuteDeleteAsync();
+        }
+    }
+
+    private async Task LeggTilHistoriskOmraadeAsync(int areaId, int locationId)
+    {
+        await _context.Set<HistoricalAreaLocation>().Where(h => h.AreaId == areaId).ExecuteDeleteAsync();
+        _context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = areaId, LocationId = locationId });
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Egendefinert_omraade_gir_begge_stier_samme_polygoner()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, egendefinert: [_myr.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    /// <summary>
+    /// Matrikkelenheten OR-es med områdene, men det egendefinerte området AND-es med
+    /// alt: bare lokasjonen som er i begge, skal med.
+    /// </summary>
+    [Fact]
+    public async Task Egendefinert_omraade_og_matrikkelenhet_gir_bare_lokasjonene_i_begge()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CadastralUnitIds = [Matrikkelnummer], CustomAreaWkt = EgendefinertOmraade },
+            eiendom: [_myr.Id, _sensitivRute.Id],
+            egendefinert: [_myr.Id, _rute.Id]);
+
+        treff.Should().Equal(_myr.Id);
+    }
+
+    [Fact]
+    public async Task Egendefinert_omraade_uten_lokasjoner_gir_tomt_fra_begge_stier()
+    {
+        var treff = await AssertSammeSomDatabasenAsync(
+            new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, egendefinert: []);
+
+        treff.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Egendefinert_omraade_uten_oppslaatte_lokasjoner_gir_null()
+    {
+        var minnelager = await MinnelagerAsync();
+
+        minnelager.TryQuery(new LocationSearchFilterDto { CustomAreaWkt = EgendefinertOmraade }, 1000)
+            .Should().BeNull("lokasjonene må slås opp av kalleren");
+    }
+
     [Fact]
     public async Task Matrikkelenhet_uten_oppslaatte_lokasjoner_gir_null()
     {
@@ -193,24 +314,35 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// LookupId, og regelen finnes i to utgaver, er dette den ene testen som
     /// holder dem sammen.
     /// </summary>
+    [Theory]
+    [InlineData(HiddenObservationFilter.Exclude)]
+    [InlineData(HiddenObservationFilter.Only)]
+    [InlineData(HiddenObservationFilter.Include)]
+    public async Task Skjulte_funn_gir_begge_stier_samme_polygoner(HiddenObservationFilter skjulte)
+    {
+        var lokasjoner = await AssertSammeSomDatabasenAsync(new LocationSearchFilterDto { HiddenObservations = skjulte });
+
+        if (skjulte == HiddenObservationFilter.Only)
+            lokasjoner.Should().Equal(_sensitivRute.Id);
+    }
+
     [Fact]
     public async Task Sensitiv_maskeringsrute_vises_og_vanlig_rute_skjules_i_begge_stier()
     {
         var fraMinnet = (await MinnelagerAsync()).TryQuery(new LocationSearchFilterDto(), 1000)!;
         var fraBasen = await UtenMinnelager().GetLocationPolygonsAsync(new LocationSearchFilterDto());
 
-        foreach (var (navn, svar) in new[]
-                 {
-                     ("minnelageret", fraMinnet.Select(p => p.LocationId).ToList()),
-                     ("databasen", fraBasen.Select(p => p.LocationId).ToList()),
-                 })
+        foreach (var (navn, polygoner) in new[] { ("minnelageret", fraMinnet.ToList()), ("databasen", fraBasen.ToList()) })
         {
+            var svar = polygoner.Select(p => p.LocationId).ToList();
             svar.Should().Contain(_sensitivRute.Id,
                 $"{navn} skal vise den sensitive maskeringsruta — den er alt kartet har for funnet");
             svar.Should().NotContain(_rute.Id,
                 $"{navn} skal skjule den vanlige rutenettruta");
             svar.Should().Contain(_myr.Id,
                 $"{navn} skal vise en reell utstrekning");
+            polygoner.Where(p => p.IsSensitive).Select(p => p.LocationId).Should().Equal([_sensitivRute.Id],
+                $"{navn} skal merke bare maskeringsruta som sensitiv");
         }
     }
 
@@ -302,16 +434,18 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
     /// </summary>
     /// <summary>
     /// <paramref name="eiendom"/> er lokasjonene matrikkelenheten <see cref="Matrikkelnummer"/>
-    /// slås opp til. Returnerer lokasjonene begge stiene ga.
+    /// slås opp til, og <paramref name="egendefinert"/> de i <see cref="EgendefinertOmraade"/>.
+    /// Returnerer lokasjonene begge stiene ga.
     /// </summary>
-    private async Task<List<int>> AssertSammeSomDatabasenAsync(LocationSearchFilterDto filter, int[]? eiendom = null)
+    private async Task<List<int>> AssertSammeSomDatabasenAsync(
+        LocationSearchFilterDto filter, int[]? eiendom = null, int[]? egendefinert = null)
     {
         const int maxResults = 1000;
 
-        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults, eiendom?.ToHashSet());
+        var fraMinnet = (await MinnelagerAsync()).TryQuery(filter, maxResults, eiendom?.ToHashSet(), egendefinert?.ToHashSet());
         fraMinnet.Should().NotBeNull("minnelageret er bygget, så det skal svare");
 
-        var fraBasen = await UtenMinnelager(eiendom).GetLocationPolygonsAsync(filter);
+        var fraBasen = await UtenMinnelager(eiendom, egendefinert).GetLocationPolygonsAsync(filter);
 
         fraMinnet!.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId)
             .Should().Equal(fraBasen.Select(p => (p.LocationId, p.ObservationCount)).OrderBy(x => x.LocationId));
@@ -338,10 +472,11 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         return store;
     }
 
-    private SearchRepository UtenMinnelager(int[]? eiendom = null) =>
+    private SearchRepository UtenMinnelager(int[]? eiendom = null, int[]? egendefinert = null) =>
         new(_context, NullLogger<SearchRepository>.Instance, Options.Create(new PaginationOptions()),
             new StubAreaHierarchyService(), new StubTaxonHierarchyService(),
-            new StubCadastralUnitService(eiendom == null ? null : new() { [Matrikkelnummer] = eiendom }));
+            new StubCadastralUnitService(eiendom == null ? null : new() { [Matrikkelnummer] = eiendom }),
+            new StubCustomAreaService(egendefinert == null ? null : new() { [EgendefinertOmraade] = egendefinert }));
 
     /// <summary>
     /// PolygonLocationStore henter konteksten fra et scope. Her er det samme
@@ -407,6 +542,8 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var paaMyraA = NyObservasjon(_myr, TaksonA, taxon, taxonName);
         var paaMyraB = NyObservasjon(_myr, TaksonB, taxon, taxonName);
         var utenHierarki = NyObservasjon(_myr, TaksonUtenHierarki, taxon, taxonName);
+        var skjult = NyObservasjon(_sensitivRute, TaksonB, taxon, taxonName);
+        skjult.HiddenByAnnotation = true;
 
         // DELT TAKSON, BARE ÉN AV DEM MED HIERARKIRAD
         //
@@ -417,7 +554,7 @@ public class PolygonLocationStoreIntegrationTests : IAsyncLifetime
         var deltUtenRad = NyObservasjon(_sensitivRute, TaksonDelt, taxon, taxonName);
 
         _context.Set<Observation>().AddRange(
-            paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki, deltMedRad, deltUtenRad);
+            paaRuten, paaSensitiv, paaMyraA, paaMyraB, utenHierarki, skjult, deltMedRad, deltUtenRad);
         await _context.SaveChangesAsync();
 
         // Hierarkiraden er observasjonens egen takson som forfader av seg selv —

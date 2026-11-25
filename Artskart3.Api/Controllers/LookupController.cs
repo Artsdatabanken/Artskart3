@@ -16,17 +16,20 @@ public class LookupController : ControllerBase
     private readonly ILookupService _lookupService;
     private readonly ITaxonHierarchyService _taxonHierarchy;
     private readonly ICadastralUnitService _cadastralUnits;
+    private readonly ICustomAreaService _customAreas;
     private readonly ILogger<LookupController> _logger;
 
     public LookupController(
         ILookupService lookupService,
         ITaxonHierarchyService taxonHierarchy,
         ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
         ILogger<LookupController> logger)
     {
         _lookupService = lookupService ?? throw new ArgumentNullException(nameof(lookupService));
         _taxonHierarchy = taxonHierarchy ?? throw new ArgumentNullException(nameof(taxonHierarchy));
         _cadastralUnits = cadastralUnits ?? throw new ArgumentNullException(nameof(cadastralUnits));
+        _customAreas = customAreas ?? throw new ArgumentNullException(nameof(customAreas));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -50,6 +53,44 @@ public class LookupController : ControllerBase
     {
         var areas = await _lookupService.GetAreasAsync(cancellationToken);
         return Ok(areas);
+    }
+
+    /// <summary>
+    /// Typeahead for fylker, kommuner og havområder, også historiske. Et gjeldende område
+    /// legges i countyIds, municipalityIds eller oceanAreaIds i søkefilteret, et historisk
+    /// i historicalAreaIds.
+    /// </summary>
+    [HttpGet("Areas/Search")]
+    [Produces("application/json")]
+    public async Task<ActionResult<IEnumerable<AreaSearchResultDto>>> SearchAreas(
+        [FromQuery] string search,
+        [FromQuery] int maxCount = SearchConstants.DefaultMaxAreaSearchCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return Ok(Enumerable.Empty<AreaSearchResultDto>());
+        }
+
+        if (maxCount < 1 || maxCount > SearchConstants.MaxAreaSearchCount)
+        {
+            return BadRequest(new { error = $"maxCount must be between 1 and {SearchConstants.MaxAreaSearchCount}." });
+        }
+
+        var result = await _lookupService.SearchAreasAsync(search, maxCount, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Henter ett område på id. Brukes til å vise navnet på historiske områder når et
+    /// lagret filter aktiveres.
+    /// </summary>
+    [HttpGet("Areas/{id:int}")]
+    [Produces("application/json")]
+    public async Task<ActionResult<AreaSearchResultDto>> GetAreaById(int id, CancellationToken cancellationToken = default)
+    {
+        var area = await _lookupService.GetAreaByIdAsync(id, cancellationToken);
+        return area == null ? NotFound() : Ok(area);
     }
 
     /// <summary>
@@ -222,6 +263,34 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Om et tegnet område kan brukes som filter. Kalles når tegningen er ferdig, så et for
+    /// stort område kan avvises før søkene sendes. Slår også opp lokasjonene, så søkene
+    /// som følger finner dem i bufferen.
+    ///
+    /// POST fordi polygonet kan være for langt for en URL.
+    /// </summary>
+    [HttpPost("CustomArea")]
+    [EnableRateLimiting(SearchConstants.SearchRateLimitPolicy)]
+    [Produces("application/json")]
+    public async Task<ActionResult<CustomAreaLookupDto>> LookupCustomArea([FromBody] CustomAreaLookupRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(request.Wkt) || CustomArea.Parse(request.Wkt) == null)
+        {
+            return BadRequest(new { error = $"wkt must be a WKT polygon with at most {SearchConstants.MaxCustomAreaVertices} points." });
+        }
+
+        // Samme kontroll som søkene med det samme filteret, så svaret gjelder også for dem.
+        var filter = request.Filter ?? new LocationSearchFilterDto();
+        filter.CustomAreaWkt = request.Wkt;
+        var error = await ObservationFilterValidator.GetCustomAreaSizeErrorAsync(filter, _customAreas, cancellationToken);
+        return Ok(new CustomAreaLookupDto
+        {
+            TooManyLocations = error != null,
+            MaxLocationCount = SearchConstants.MaxCustomAreaLocations,
+        });
+    }
+
+    /// <summary>
     /// Finner katalognummeret som et sett ObservationId-er kom fra. Brukes til å
     /// vise katalognummeret når et lagret filter aktiveres.
     ///
@@ -294,9 +363,9 @@ public class LookupController : ControllerBase
     }
 
     /// <summary>
-    /// Returnerer foreldrekjeden for hvert oppgitt taxonId.
+    /// Returnerer foreldrekjeden og navnene for hvert oppgitt taxonId.
     /// Brukes av frontend til å avgjøre indeterminate/checked-tilstand i taxon-treet
-    /// for taxa valgt utenfor treet (f.eks. via artsøk).
+    /// og til å navngi valgte taxa, også de som er valgt utenfor treet (f.eks. via artsøk).
     /// Data hentes fra minne — ingen databasekall per request.
     /// </summary>
     [HttpGet("TaxonAncestry")]

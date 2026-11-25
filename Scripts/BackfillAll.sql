@@ -38,6 +38,9 @@
 -- ============================================================================
 
 SET NOCOUNT ON;
+-- Kreves for å skrive til en tabell med filtrerte indekser og for å bygge dem på nytt
+-- (IX_OEI_MediaListView). sqlcmd slår det av uten -I.
+SET QUOTED_IDENTIFIER ON;
 
 DECLARE @Msg NVARCHAR(500);
 DECLARE @Sql NVARCHAR(MAX);

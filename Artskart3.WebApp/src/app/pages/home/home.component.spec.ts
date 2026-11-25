@@ -16,6 +16,7 @@ import { AuthService } from '../../shared/services/auth/auth.service';
 import { SavedFilterService } from '../../shared/services/saved-filter/saved-filter.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
 import { SavedFilterDto } from '../../shared/types/api.types';
+import { CustomAreaDrawingService } from '../../shared/services/custom-area-drawing/custom-area-drawing.service';
 
 describe('HomeComponent – aktivering av lagret filter fra URL', () => {
   let fixture: ComponentFixture<HomeComponent>;
@@ -114,6 +115,19 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
 
     expect(authService.login).toHaveBeenCalled();
     expect(alertService.showError).not.toHaveBeenCalled();
+  });
+
+  it('lukker filterpanelet og viser kartet når tegningen starter', async () => {
+    await create(null);
+    const component = fixture.componentInstance;
+    component.isFilterOpen.set(true);
+    component.activeTab.set(1);
+
+    TestBed.inject(CustomAreaDrawingService).start();
+    TestBed.tick();
+
+    expect(component.isFilterOpen()).toBe(false);
+    expect(component.activeTab()).toBe(0);
   });
 
   it('gjør ingenting uten parameter', async () => {

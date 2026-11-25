@@ -344,7 +344,7 @@ public class SearchControllerObservationTests
     // Helpers
     // -----------------------------------------------------------------------
 
-    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+    private SearchController CreateSut() => new(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()), new StubCustomAreaService());
 
     private static List<ObservationDto> CreateObservations(int count) =>
         CreateObservationsFromOffset(1, count);

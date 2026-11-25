@@ -78,6 +78,37 @@ public class MapLayerRepositoryTests
         result.Should().ContainSingle().Which.Name.Should().Be("Grenser");
     }
 
+
+    [Fact]
+    public async Task GetMapLayersAsync_ReturnsRenderingParameters()
+    {
+        using var context = CreateContext();
+        context.Set<MapLayer>().Add(new MapLayer
+        {
+            Name = "Eiendomskart",
+            Type = "WMS",
+            Url = "https://example.com/wms",
+            MinScaleDenominator = 1_000,
+            MaxScaleDenominator = 100_000,
+            UseSingleImage = true,
+            RetryAfterSeconds = 30,
+            Opacity = 0.5,
+        });
+        await context.SaveChangesAsync();
+
+        var sut = new MapLayerRepository(context, NullLogger<MapLayerRepository>.Instance);
+
+        (await sut.GetMapLayersAsync()).Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            Name = "Eiendomskart",
+            MinScaleDenominator = (double?)1_000,
+            MaxScaleDenominator = (double?)100_000,
+            UseSingleImage = true,
+            RetryAfterSeconds = 30,
+            Opacity = 0.5,
+        }, options => options.ExcludingMissingMembers());
+    }
+
     [Fact]
     public async Task GetMapLayersAsync_WhenNoMapLayers_ReturnsEmpty()
     {

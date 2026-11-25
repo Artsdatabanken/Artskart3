@@ -29,7 +29,7 @@ public class SearchControllerTests
         _speciesServiceMock = new Mock<ISpeciesService>();
         _facetCountServiceMock = new Mock<IFacetCountService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
-        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()), new StubCustomAreaService());
 
         var services = new ServiceCollection();
         services.AddMvcCore();

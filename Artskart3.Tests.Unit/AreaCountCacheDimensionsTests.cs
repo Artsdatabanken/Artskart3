@@ -2,6 +2,7 @@ using System.Reflection;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
+using Artskart3.Core.Domain.Enums;
 using FluentAssertions;
 
 namespace Artskart3.Tests.Unit;
@@ -95,7 +96,7 @@ public class AreaCountCacheDimensionsTests
         // må bufferen bygges på nytt OG @SchemaVersion i Scripts/BuildAreaCountCache.sql
         // oppdateres. Uten det vil en nybygget buffer bli ignorert uten at noen skjønner
         // hvorfor — den feiler stille, bare tregt.
-        AreaCountCacheDimensions.SchemaVersion.Should().Be(723897205);
+        AreaCountCacheDimensions.SchemaVersion.Should().Be(945914384);
     }
 
     // -----------------------------------------------------------------------
@@ -106,7 +107,9 @@ public class AreaCountCacheDimensionsTests
     public void Alle_filteregenskaper_er_gjort_rede_for()
     {
         // Egenskaper som ikke påvirker antallet i det hele tatt.
-        string[] ikkeFilter = ["Epsg", "MaxResults", "Envelope", "HasActiveFilters", "HasObservationAttributeFilters"];
+        string[] ikkeFilter =
+            ["Epsg", "MaxResults", "Envelope", "HasActiveFilters", "HasObservationAttributeFilters", "HasLocationBasedAreas",
+             "HasLocationLists"];
 
         // Filtre bufferen ikke dekker. Hver av dem MÅ ha en eksplisitt fall-through i
         // AreaCountCacheService, LocationCountCacheService og PolygonLocationStore —
@@ -126,14 +129,19 @@ public class AreaCountCacheDimensionsTests
         // Matrikkelenheter: lokasjonene slås opp mot Kartverket per forespørsel og
         // finnes ikke som bøtter. Minnelageret for polygoner får dem oppslått av
         // SearchRepository og evaluerer dem selv.
-        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa", "CadastralUnitIds"];
+        //
+        // Historiske områder: ObservationEntityIndex, som bufferne er bygget fra, har bare
+        // gjeldende områder. Minnelageret for polygoner laster lokasjonene deres selv.
+        // Egendefinert område: samme som matrikkelenhetene, men polygonet kommer fra
+        // brukeren og AND-es med resten av filteret.
+        string[] bevisstUtenfor = ["ObservationIds", "IncludeDescendantTaxa", "CadastralUnitIds", "HistoricalAreaIds", "CustomAreaWkt"];
 
         // Bool-filtrene er ikke dimensjoner, men bit i FilterMask — en tredje nøkkel
         // på hver bufferrad. De koster derfor ingen dimensjonsplass, og to vanlige
         // filtre pluss hvilken som helst kombinasjon av disse besvares fortsatt fra
         // bufferen. Et nytt bool-filter hører hjemme her, ikke som egen dimensjon.
         string[] dekketAvMasken =
-            ["WithImages", "ChangedByAnnotation", "Sensitive", "UncertainIdentification", "Introduced"];
+            ["WithImages", "ChangedByAnnotation", "Sensitive", "UncertainIdentification", "Introduced", "HiddenObservations"];
 
         // Fire av disse hører til samme dimensjon: Geografi. Semi-joinen ORer kommune,
         // fylke, Svalbard, verneområde og havområde sammen, så de ER ett filter.
@@ -145,10 +153,10 @@ public class AreaCountCacheDimensionsTests
             "MunicipalityIds", "CountyIds", "OceanAreaIds", "RestrictedAreaIds",
         ];
 
-        // Masken må dekke nøyaktig de fem bitene, ellers er et filter stille utelatt
+        // Masken må dekke nøyaktig de seks bitene, ellers er et filter stille utelatt
         // fra bøttingen selv om det står i lista over.
-        dekketAvMasken.Should().HaveCount(5,
-            "FilterMask har fem bit, og hvert av dem må svare til ett filterfelt");
+        dekketAvMasken.Should().HaveCount(6,
+            "FilterMask har seks bit, og hvert av dem må svare til ett filterfelt");
 
         typeof(LocationSearchFilterDto)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -170,13 +178,42 @@ public class AreaCountCacheDimensionsTests
             .Should().OnlyContain(s => !s.IsActive && s.IsCacheable);
     }
 
+    /// <summary>
+    /// FilterMaskQuery uttrykker skjulte funn som «Mask under biten», og det holder bare
+    /// så lenge den er den øverste. Får masken en høyere bit, må den koden endres først.
+    /// </summary>
     [Fact]
-    public void Tomt_filter_gir_inaktiv_maske()
+    public void Skjulte_funn_er_den_oeverste_biten()
+    {
+        (FilterMask.HiddenByAnnotation * 2).Should().Be(FilterMask.Count);
+    }
+
+    [Fact]
+    public void Alle_funn_gir_inaktiv_maske()
     {
         // Ingen bool satt betyr at maskepredikatet utelates helt og cellens masker
         // summeres. Var den aktiv med Care = 0, ville (Mask & 0) == 0 vært sant for
         // alt — samme svar, men et unødvendig restledd på hver rad.
-        FilterMask.Select(new LocationSearchFilterDto()).IsActive.Should().BeFalse();
+        FilterMask.Select(new LocationSearchFilterDto { HiddenObservations = HiddenObservationFilter.Include })
+            .IsActive.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(HiddenObservationFilter.Include, null, 0, 0)]
+    [InlineData(HiddenObservationFilter.Exclude, null, FilterMask.HiddenByAnnotation, 0)]
+    [InlineData(HiddenObservationFilter.Only, null, FilterMask.HiddenByAnnotation, FilterMask.HiddenByAnnotation)]
+    [InlineData(HiddenObservationFilter.Exclude, true,
+        FilterMask.HiddenByAnnotation | FilterMask.ChangedByAnnotation, FilterMask.ChangedByAnnotation)]
+    public void Annoteringsvalgene_gir_riktig_maske(
+        HiddenObservationFilter skjulte, bool? endret, int forventetCare, int forventetWant)
+    {
+        var filter = new LocationSearchFilterDto { HiddenObservations = skjulte, ChangedByAnnotation = endret };
+
+        foreach (var maske in new[] { FilterMask.Select(filter), FilterMask.Select((IObservationFilter)filter) })
+        {
+            maske.Care.Should().Be((byte)forventetCare);
+            maske.Want.Should().Be((byte)forventetWant);
+        }
     }
 
     [Theory]
@@ -184,7 +221,11 @@ public class AreaCountCacheDimensionsTests
     [InlineData(false, 0)]
     public void Bilder_setter_sitt_bit_i_masken(bool withImages, int forventetWant)
     {
-        var maske = FilterMask.Select(new LocationSearchFilterDto { WithImages = withImages });
+        var maske = FilterMask.Select(new LocationSearchFilterDto
+        {
+            WithImages = withImages,
+            HiddenObservations = HiddenObservationFilter.Include,
+        });
 
         maske.Care.Should().Be(FilterMask.HasMediaFiles);
         maske.Want.Should().Be((byte)forventetWant);
@@ -200,6 +241,7 @@ public class AreaCountCacheDimensionsTests
             ChangedByAnnotation = true,
             Sensitive = false,
             Introduced = true,
+            HiddenObservations = HiddenObservationFilter.Include,
         });
 
         maske.Care.Should().Be(FilterMask.ChangedByAnnotation | FilterMask.Sensitive | FilterMask.Introduced);
@@ -210,17 +252,18 @@ public class AreaCountCacheDimensionsTests
     }
 
     [Fact]
-    public void Maskebitene_er_unike_og_dekker_fem_filtre()
+    public void Maskebitene_er_unike_og_dekker_seks_filtre()
     {
         byte[] bits =
         [
             FilterMask.ChangedByAnnotation, FilterMask.Sensitive,
             FilterMask.UncertainIdentification, FilterMask.Introduced, FilterMask.HasMediaFiles,
+            FilterMask.HiddenByAnnotation,
         ];
 
-        bits.Distinct().Should().HaveCount(5, "to filtre på samme bit ville vært samme filter");
+        bits.Distinct().Should().HaveCount(6, "to filtre på samme bit ville vært samme filter");
         bits.Aggregate(0, (acc, b) => acc | b).Should().Be(FilterMask.Count - 1,
-            "bitene skal dekke maskerommet sammenhengende fra 1 til 16");
+            "bitene skal dekke maskerommet sammenhengende fra 1 til 32");
     }
 
     [Fact]

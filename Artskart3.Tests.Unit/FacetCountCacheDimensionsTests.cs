@@ -99,7 +99,10 @@ public class FacetCountCacheDimensionsTests
         // fasett-bufferen bygges på nytt OG @SchemaVersion i
         // Scripts/BuildFacetCountCache.sql oppdateres. Uten det blir en nybygget buffer
         // ignorert uten at noe feiler — bare tregt.
-        FacetCountCacheDimensions.SchemaVersion.Should().Be(229709519);
+        // Endret fra 229709519 da HiddenByAnnotation ble maskens sjette bit og
+        // RowLayoutVersion gikk fra 2 til 3. Scripts/BuildFacetCountCache.sql er
+        // oppdatert i samme slengen.
+        FacetCountCacheDimensions.SchemaVersion.Should().Be(1472700304);
     }
 
     [Fact]
@@ -108,7 +111,9 @@ public class FacetCountCacheDimensionsTests
         // Bøttene og pargruppe-id-ene er områdebufferens. Endres de, må fasett-bufferen
         // bygges om selv om ingenting i fasett-registeret er rørt. Testen under er en
         // påminnelse om koblingen; selve verdien dekkes av testen over.
-        AreaCountCacheDimensions.SchemaVersion.Should().Be(723897205);
+        // Endret fra 723897205 av samme grunn: RowLayoutVersion 3 bærer den nye
+        // maskebiten, og en eldre buffer har den alltid 0 — altså skjulte funn tellt med.
+        AreaCountCacheDimensions.SchemaVersion.Should().Be(945914384);
     }
 
     [Fact]
@@ -246,6 +251,16 @@ public class FacetCountCacheDimensionsTests
     // Maskefasetter — de bruker ikke opp en bøttedimensjon og naar ett hakk lenger
     // -----------------------------------------------------------------------
 
+    /// <summary>
+    /// Standardfilteret ekskluderer skjulte observasjoner, så <c>HiddenObservations</c> har
+    /// en påkrevd verdi selv i et tomt filter. Maskens sjette bit ligger derfor ALLTID i
+    /// <c>Care</c>, også i testene under som ikke setter noe på den.
+    ///
+    /// Fasett-tallene må ha den med: uten den ville de tellt skjulte observasjoner som
+    /// søket selv utelater, og tallet ved et valg hadde vist noe annet enn valget gir.
+    /// </summary>
+    private const byte Skjult = FilterMask.HiddenByAnnotation;
+
     private static FacetLookup ResolveMask(string key, bool value, ObservationSearchFilterDto filter) =>
         FacetCountCacheDimensions.ResolveMaskFacet(FacetCountCacheDimensions.FindMaskFacet(key)!, value, Ctx(filter));
 
@@ -257,7 +272,7 @@ public class FacetCountCacheDimensionsTests
         lookup.Level.Should().Be(FacetLookupLevel.Level0);
         lookup.GroupByDimensionId.Should().BeNull();
         lookup.Constraints.Should().BeEmpty();
-        lookup.Mask.Care.Should().Be(FilterMask.HasMediaFiles);
+        lookup.Mask.Care.Should().Be((byte)(FilterMask.HasMediaFiles | Skjult));
         lookup.Mask.Want.Should().Be(FilterMask.HasMediaFiles);
     }
 
@@ -307,7 +322,7 @@ public class FacetCountCacheDimensionsTests
         // for hvor mange som mangler bilde — ikke for null.
         var lookup = ResolveMask("withImages", false, new ObservationSearchFilterDto { WithImages = true });
 
-        lookup.Mask.Care.Should().Be(FilterMask.HasMediaFiles);
+        lookup.Mask.Care.Should().Be((byte)(FilterMask.HasMediaFiles | Skjult));
         lookup.Mask.Want.Should().Be(0);
     }
 
@@ -320,7 +335,7 @@ public class FacetCountCacheDimensionsTests
             Introduced = false,
         });
 
-        lookup.Mask.Care.Should().Be((byte)(FilterMask.HasMediaFiles | FilterMask.Sensitive | FilterMask.Introduced));
+        lookup.Mask.Care.Should().Be((byte)(FilterMask.HasMediaFiles | FilterMask.Sensitive | FilterMask.Introduced | Skjult));
         lookup.Mask.Want.Should().Be((byte)(FilterMask.HasMediaFiles | FilterMask.Sensitive));
     }
 
@@ -337,7 +352,7 @@ public class FacetCountCacheDimensionsTests
 
         var resultat = FilterMask.WithBit(utgangspunkt, FilterMask.HasMediaFiles, value);
 
-        resultat.Care.Should().Be(FilterMask.HasMediaFiles);
+        resultat.Care.Should().Be((byte)(FilterMask.HasMediaFiles | Skjult));
         resultat.Want.Should().Be(value ? FilterMask.HasMediaFiles : (byte)0);
     }
 
@@ -348,7 +363,7 @@ public class FacetCountCacheDimensionsTests
 
         var resultat = FilterMask.WithBit(utgangspunkt, FilterMask.Introduced, false);
 
-        resultat.Care.Should().Be((byte)(FilterMask.Sensitive | FilterMask.Introduced));
+        resultat.Care.Should().Be((byte)(FilterMask.Sensitive | FilterMask.Introduced | Skjult));
         resultat.Want.Should().Be(FilterMask.Sensitive);
     }
 }

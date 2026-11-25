@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using FluentAssertions;
-using Byggemigrasjonen = Artskart3.Infrastructure.Migrations.RebuildCountCachesAfterTaxonRanks;
+using Byggemigrasjonen = Artskart3.Infrastructure.Migrations.BuildFacetCountCache;
 
 namespace Artskart3.Tests.Unit;
 
@@ -17,10 +17,25 @@ namespace Artskart3.Tests.Unit;
 /// skjemaet på annen måte enn med indekser.
 ///
 /// <c>Byggemigrasjonen</c> er et alias, så testen følger med når byggingen flyttes.
-/// Den har flyttet tre ganger: 20261007134334_BuildCountCaches →
+/// Den har flyttet fire ganger: 20261007134334_BuildCountCaches →
 /// 20261111112446_RebuildCountCaches → 20261116143428_RebuildCountCachesWithFacets
 /// (da fasett-tabellene kom bak den) → 20261117151539_RebuildCountCachesAfterTaxonRanks
-/// (da de 19 taksonrangkolonnene kom bak den).
+/// (da de 19 taksonrangkolonnene kom bak den) → 20261125185806_BuildFacetCountCache.
+///
+/// DEN SISTE FLYTTINGEN HAR EN ANNEN ÅRSAK ENN DE TRE FØRSTE
+/// Den kom av en sammenslåing med develop, som hadde flyttet SIN byggemigrasjon bak
+/// 20261118095554_UpdateMdirWmsAdresses. To byggemigrasjoner havnet i samme kjede.
+///
+/// MERK at det riktige svaret da IKKE var å legge fasett-skriptet i develops
+/// 20261118131407_RebuildCountCaches, selv om den er den nyeste byggemigrasjonen. Den
+/// er alt anvendt i miljøene, og en migrasjonskropp som har en historikkrad kjører
+/// aldri igjen: skriptet ville bare virket på ferske databaser. Når den nyeste
+/// byggemigrasjonen tilhører en annen gren og er deployert, skal byggingen i en NY
+/// migrasjon — ikke inn i hennes.
+///
+/// Derfor bygger develops migrasjon fortsatt område- og lokasjonsbufferen, mens
+/// denne aliasets migrasjon bygger fasett-bufferen. To aktive byggemigrasjoner er
+/// greit: vakten krever bare at ingenting skjemaendrende kommer etter den SISTE.
 ///
 /// Det gikk galt én gang alt: byggingen lå opprinnelig i 20261007134334, skriptene
 /// vokste til å referere Mask, UncertainIdentification, Introduced og
@@ -83,13 +98,17 @@ public class CountCacheBuildMigrationTests
     /// De gamle byggemigrasjonene skal bli stående tomme. Fylles én av dem igjen, er
     /// feilen over tilbake — de ligger midt i rekken, før skjemaet skriptene trenger.
     ///
-    /// Begge er flyttet av samme grunn: 20261007134334 lå før kolonnene skriptene
-    /// bruker, og 20261111112446 lå før fasett-tabellene.
+    /// 20261007134334 lå før kolonnene skriptene bruker, 20261116143428 før
+    /// fasett-tabellene, og 20261117151539 før develops migrasjoner fra 18. november.
+    ///
+    /// MERK at develops 20261118131407_RebuildCountCaches med vilje IKKE står i listen.
+    /// Den er ikke tom — den bygger fortsatt område- og lokasjonsbufferen, og er alt
+    /// anvendt i miljøene.
     /// </summary>
     [Theory]
     [InlineData("BuildCountCaches")]
-    [InlineData("RebuildCountCaches")]
     [InlineData("RebuildCountCachesWithFacets")]
+    [InlineData("RebuildCountCachesAfterTaxonRanks")]
     public void De_gamle_byggemigrasjonene_bygger_ingenting(string navn)
     {
         var gammel = typeof(Byggemigrasjonen).Assembly

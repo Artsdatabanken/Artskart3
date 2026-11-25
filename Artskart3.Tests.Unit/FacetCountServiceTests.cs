@@ -290,10 +290,14 @@ public class FacetCountServiceTests
 
         var svar = await Sut().GetFacetCountsAsync(filter, [], ["withImages"], cancellationToken: CancellationToken.None);
 
+        // HiddenByAnnotation er alltid i Care: standardfilteret ekskluderer skjulte
+        // observasjoner, så den biten har en påkrevd verdi selv uten at testen setter den.
+        const byte medSkjult = FilterMask.HasMediaFiles | FilterMask.HiddenByAnnotation;
+
         sendteMasker.Should().HaveCount(2);
-        sendteMasker![0].Care.Should().Be(FilterMask.HasMediaFiles);
+        sendteMasker![0].Care.Should().Be(medSkjult);
         sendteMasker[0].Want.Should().Be(FilterMask.HasMediaFiles);   // alternativet «med bilde»
-        sendteMasker[1].Care.Should().Be(FilterMask.HasMediaFiles);
+        sendteMasker[1].Care.Should().Be(medSkjult);
         sendteMasker[1].Want.Should().Be(0);                          // alternativet «uten bilde»
 
         // Og svarene skal havne på rett alternativ.

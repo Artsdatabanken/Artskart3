@@ -101,6 +101,10 @@
   transition: background-color 0.15s;
 }
 
+.feedback-close-icon {
+  --adb-icon-size: 20px;
+}
+
 .feedback-close-btn:hover {
   background-color: var(--adb-background-subtle);
 }

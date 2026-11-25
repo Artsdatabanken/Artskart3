@@ -62,7 +62,7 @@ DROP TABLE IF EXISTS #dim, #par, #obs, #vernsig, #vernbucket, #vern, #projsig, #
 
 -- Hentet fra FacetCountCacheDimensions.SchemaVersion. Stemmer ikke denne med koden,
 -- ignoreres bufferen — med vilje.
-DECLARE @SchemaVersion INT = 229709519;
+DECLARE @SchemaVersion INT = 1472700304;
 
 DECLARE @Start DATETIME2 = SYSUTCDATETIME();
 DECLARE @T DATETIME2, @Msg NVARCHAR(400), @Rows BIGINT, @Sql NVARCHAR(MAX);
@@ -103,7 +103,7 @@ INSERT #dim VALUES
 
 -- Maskeuttrykket MÅ stemme med FilterMask.SqlExpression. Står ett sted, ikke én gang
 -- per aggregering som i områdeskriptet, fordi masken blir en kolonne i #obs.
-DECLARE @MaskUttrykk NVARCHAR(400) = N'CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16';
+DECLARE @MaskUttrykk NVARCHAR(400) = N'CAST(i.ChangedByAnnotation AS INT) + CAST(i.Sensitive AS INT) * 2 + CAST(i.UncertainIdentification AS INT) * 4 + CAST(i.Introduced AS INT) * 8 + CAST(i.HasMediaFiles AS INT) * 16 + CAST(i.HiddenByAnnotation AS INT) * 32';
 
 -- ---------------------------------------------------------------------------
 -- Forutsetning: områdebufferens medlemstabell
