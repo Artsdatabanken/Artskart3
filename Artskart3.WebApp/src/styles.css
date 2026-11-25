@@ -11,7 +11,6 @@
 :root {
   --panel-min-width: 358px;
   --panel-max-width: 500px;
-  --home-header-height: 80px;
   --home-handle-height: 56px;
   --home-mobile-breakpoint: 768px;
   --home-open-gap: 24px;

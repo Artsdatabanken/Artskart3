@@ -52,6 +52,7 @@
     right: 0;
     top: 80px;
     height: calc(100vh - 80px);
+    height: calc(100dvh - 80px);
     width: 100%;
     z-index: 200;
     border-right: none;

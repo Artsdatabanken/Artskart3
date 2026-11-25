@@ -6,6 +6,7 @@
   justify-content: flex-start;
   align-items: stretch;
   height: 100vh;
+  height: 100dvh;
   background: var(--adb-background-primary);
   overflow: clip;
   position: fixed;
