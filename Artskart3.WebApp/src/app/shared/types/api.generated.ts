@@ -2307,12 +2307,20 @@ export interface components {
             scientificName?: null | string;
             author?: null | string;
             institution?: null | string;
+            dataset?: null | string;
             locality?: null | string;
             municipalityId?: null | string;
+            countyId?: null | string;
             /** Format: int32 */
             taxonGroupId?: null | number;
             /** Format: int32 */
             categoryId?: null | number;
+            /** Format: int32 */
+            basisOfRecordId?: null | number;
+            /** Format: int32 */
+            behaviorId?: null | number;
+            individualCount?: null | string;
+            collector?: null | string;
             /** Format: date-time */
             dateTimeCollected?: null | string;
             /** Format: int32 */

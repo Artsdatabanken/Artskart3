@@ -197,7 +197,68 @@ public class SearchRepository : ISearchRepository
         filter.RestrictedAreaIds?.Length > 0 ||
         filter.OceanAreaIds?.Length > 0;
 
+    /// <summary>
+    /// Kolonnene som bare listevisningen viser hentes i en egen spørring, og bare for radene
+    /// som returneres til klienten. Lookahead-radene utover første side får dem ikke; kontrolleren
+    /// kaster dem uansett.
+    ///
+    /// Hovedspørringen kompileres på nytt for hvert kall (OPTION (RECOMPILE)), og hvert
+    /// oppslag i den gjør kompileringen dyrere. Denne spørringen gjenbruker planen sin.
+    /// </summary>
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var observations = await FindObservationsAsync(filter, cancellationToken);
+        var shown = filter.IsPaginated ? observations.Take(filter.ResultsPerPage!.Value).ToList() : observations;
+        await AddListColumnsAsync(shown, cancellationToken);
+        return observations;
+    }
+
+    private async Task AddListColumnsAsync(List<ObservationDto> observations, CancellationToken cancellationToken)
+    {
+        if (observations.Count == 0)
+        {
+            return;
+        }
+
+        var ids = observations.Select(o => o.Id).ToList();
+        var columns = await _context.Set<Observation>()
+            .AsNoTracking()
+            .Where(o => ids.Contains(o.Id))
+            .Select(o => new
+            {
+                o.Id,
+                o.BasisOfRecordId,
+                o.BehaviorId,
+                Dataset = _context.Set<Organization>()
+                    .Where(org => org.Id == o.DatasetOrgId && !org.IsDeleted)
+                    .Select(org => org.Name)
+                    .FirstOrDefault(),
+                CountyId = _context.Set<ObservationEntityIndex>()
+                    .Where(idx => idx.ObservationId == o.Id && idx.EntityTypeId == (int)ObservationIndexEntityType.County)
+                    .Select(idx => idx.EntityId.ToString())
+                    .FirstOrDefault(),
+                IndividualCount = o.ObservationDetail != null ? o.ObservationDetail.IndividualCount : null,
+                Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : null,
+            })
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        foreach (var observation in observations)
+        {
+            if (!columns.TryGetValue(observation.Id, out var c))
+            {
+                continue;
+            }
+
+            observation.BasisOfRecordId = c.BasisOfRecordId;
+            observation.BehaviorId = c.BehaviorId;
+            observation.Dataset = c.Dataset;
+            observation.CountyId = c.CountyId;
+            observation.IndividualCount = c.IndividualCount;
+            observation.Collector = c.Collector;
+        }
+    }
+
+    private async Task<List<ObservationDto>> FindObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken)
     {
         filter = await SplitCustomAreaAsync(filter, cancellationToken);
         var locationSelection = await ResolveLocationsAsync(filter, cancellationToken);
@@ -1433,7 +1494,7 @@ public class SearchRepository : ISearchRepository
     /// <summary>
     /// Projiserer et allerede filtrert og begrenset observasjonssett til DTO-er.
     ///
-    /// Delt mellom de to stiene i GetObservationsAsync — uten deling ville
+    /// Delt mellom de to stiene i FindObservationsAsync — uten deling ville
     /// områdestien og den vanlige stien kunne drifte fra hverandre i hvilke felt
     /// de fyller.
     /// </summary>

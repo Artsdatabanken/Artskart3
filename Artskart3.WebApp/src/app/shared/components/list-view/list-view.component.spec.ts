@@ -33,6 +33,8 @@ describe('ListViewComponent', () => {
     const httpTesting = TestBed.inject(HttpTestingController);
     httpTesting.expectOne('/api/Lookup/Categories').flush([]);
     httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+    httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush([]);
+    httpTesting.expectOne('/api/Lookup/Behaviors').flush([]);
     httpTesting.expectOne('/api/Lookup/Areas').flush({});
     httpTesting
       .expectOne('/api/Search/Observation')
@@ -64,6 +66,8 @@ describe('ListViewComponent', () => {
       .expectOne('/api/Lookup/Categories')
       .flush([{ id: 1, name: 'Rødliste', categories: [{ id: 10, code: 'CR', name: 'Kritisk truet' }] }]);
     httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+    httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush([]);
+    httpTesting.expectOne('/api/Lookup/Behaviors').flush([]);
     httpTesting.expectOne('/api/Lookup/Areas').flush({});
     httpTesting.expectOne('/api/Search/Observation').flush({
       items: [{ id: 1, categoryId: 10 }],
@@ -79,6 +83,101 @@ describe('ListViewComponent', () => {
     const badge = fixture.debugElement.query(By.directive(RiskCategoryBadgeComponent));
     expect(badge).toBeTruthy();
     expect(badge.injector.get(RiskCategoryBadgeComponent).code()).toBe('CR');
+  });
+
+  it('shows the columns in the order of the issue, with lookup names and collectors separated by commas', async () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('no', { sidebar: { basisOfRecordName: { humanobservation: 'Menneskelig observasjon' }, behaviorName: { dead: 'Død' } } });
+    translate.use('no');
+    const httpTesting = TestBed.inject(HttpTestingController);
+    httpTesting.expectOne('/api/Lookup/Categories').flush([]);
+    httpTesting.expectOne('/api/Lookup/TaxonGroups').flush([]);
+    httpTesting.expectOne('/api/Lookup/BasisOfRecords').flush([{ id: 1, name: 'humanobservation' }]);
+    httpTesting.expectOne('/api/Lookup/Behaviors').flush([{ id: 3, name: 'dead' }]);
+    httpTesting.expectOne('/api/Lookup/Areas').flush({
+      counties: { areas: [{ fid: '42', name: 'Agder', isCurrent: true }] },
+      municipalities: { areas: [{ fid: '4206', name: 'Farsund', isCurrent: true }] },
+    });
+    httpTesting.expectOne('/api/Search/Observation').flush({
+      items: [
+        {
+          id: 1,
+          basisOfRecordId: 1,
+          individualCount: '3',
+          behaviorId: 3,
+          collector: 'Ola Nordmann|Kari Nordmann',
+          municipalityId: '4206',
+          countyId: '42',
+          institution: 'Birdlife Norge',
+          dataset: 'so2-birds hos Birdlife Norge',
+        },
+      ],
+      pageNumber: 1,
+      resultsPerPage: 10,
+      lookaheadCount: 0,
+      hasMorePages: false,
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const texts = (selector: string) =>
+      Array.from(fixture.nativeElement.querySelectorAll(selector) as NodeListOf<HTMLElement>, (cell) => cell.textContent?.trim());
+    expect(texts('thead th')).toEqual([
+      'listView.showObservation',
+      'listView.name',
+      'listView.scientificName',
+      'listView.author',
+      'listView.taxonGroup',
+      'listView.riskCategory',
+      'listView.basisOfRecord',
+      'listView.individualCount',
+      'listView.behavior',
+      'listView.date',
+      'listView.collector',
+      'listView.locality',
+      'listView.precision',
+      'listView.municipality',
+      'listView.county',
+      'listView.institution',
+      'listView.dataset',
+    ]);
+    expect(texts('tbody td').slice(6)).toEqual([
+      'Menneskelig observasjon',
+      '3',
+      'Død',
+      '',
+      'Ola Nordmann, Kari Nordmann',
+      '',
+      '',
+      'Farsund',
+      'Agder',
+      'Birdlife Norge',
+      'so2-birds hos Birdlife Norge',
+    ]);
+  });
+
+  it('still shows the observations when the lookups fail, with the looked-up cells empty', async () => {
+    const httpTesting = TestBed.inject(HttpTestingController);
+    const serverError = { status: 500, statusText: 'Server Error' };
+    for (const lookup of ['Categories', 'TaxonGroups', 'BasisOfRecords', 'Behaviors']) {
+      httpTesting.expectOne(`/api/Lookup/${lookup}`).flush('error', serverError);
+    }
+    httpTesting.expectOne('/api/Lookup/Areas').flush({});
+    httpTesting.expectOne('/api/Search/Observation').flush({
+      items: [{ id: 1, preferredPopularName: 'munk', taxonGroupId: 1, categoryId: 10, basisOfRecordId: 1, behaviorId: 3 }],
+      pageNumber: 1,
+      resultsPerPage: 10,
+      lookaheadCount: 0,
+      hasMorePages: false,
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const cells = Array.from(fixture.nativeElement.querySelectorAll('tbody td') as NodeListOf<HTMLElement>, (cell) =>
+      cell.textContent?.trim(),
+    );
+    expect(cells[1]).toBe('munk');
+    expect([cells[4], cells[5], cells[6], cells[8]]).toEqual(['', '', '', '']);
   });
 
   describe('show on map link', () => {

@@ -9,6 +9,7 @@ using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -165,6 +166,72 @@ public class ObservationEndpointTests : IAsyncLifetime
         pageNumber.GetInt32().Should().Be(1);
         doc.RootElement.TryGetProperty("resultsPerPage", out var resultsPerPage).Should().BeTrue();
         resultsPerPage.GetInt32().Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetObservations_ReturnsDatasetDetailsCountyAndLookupIds()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var observation = await context.Observations.Where(o => !o.IsDeleted).OrderBy(o => o.Id).FirstAsync();
+        (await context.ObservationDetails.AnyAsync(d => d.Id == observation.Id)).Should().BeFalse();
+        const int organizationTypeId = 9548;
+        var addedType = !await context.OrganizationTypes.AnyAsync(t => t.Id == organizationTypeId);
+        if (addedType)
+        {
+            context.OrganizationTypes.Add(new OrganizationType { Id = organizationTypeId, Name = "Test", Description = "Test" });
+        }
+        var dataset = new Organization
+        {
+            Name = "so2-test hos Testforening", Code = "so2-test", OrganizationTypeId = organizationTypeId,
+            DateCreated = DateTime.UtcNow, DateModified = DateTime.UtcNow,
+        };
+        context.Organizations.Add(dataset);
+        await context.SaveChangesAsync();
+        var detail = new ObservationDetail
+        {
+            Id = observation.Id, Collector = "Ola Nordmann|Kari Nordmann", IndividualCount = "3", AssociatedReferences = "",
+        };
+        var county = new ObservationEntityIndex
+        {
+            ObservationId = observation.Id, EntityTypeId = (int)ObservationIndexEntityType.County, EntityId = 42,
+            TaxonGroupId = observation.TaxonGroupId, BasisOfRecordId = observation.BasisOfRecordId,
+        };
+        var (datasetOrgId, behaviorId) = (observation.DatasetOrgId, observation.BehaviorId);
+        try
+        {
+            context.ObservationDetails.Add(detail);
+            context.Set<ObservationEntityIndex>().Add(county);
+            observation.DatasetOrgId = dataset.Id;
+            observation.BehaviorId = 3;
+            await context.SaveChangesAsync();
+            var filter = new ObservationSearchFilterDto { ObservationIds = [observation.Id], PageNumber = 1, ResultsPerPage = 10 };
+
+            var response = await _client.PostAsJsonAsync("/api/Search/Observation", filter);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var item = (await response.Content.ReadFromJsonAsync<PagedObservationResponseDto>())!.Items.Should().ContainSingle().Subject;
+            item.Dataset.Should().Be("so2-test hos Testforening");
+            item.CountyId.Should().Be("42");
+            item.BasisOfRecordId.Should().Be(observation.BasisOfRecordId);
+            item.BehaviorId.Should().Be(3);
+            item.IndividualCount.Should().Be("3");
+            item.Collector.Should().Be("Ola Nordmann|Kari Nordmann");
+        }
+        finally
+        {
+            context.ObservationDetails.Remove(detail);
+            context.Set<ObservationEntityIndex>().Remove(county);
+            observation.DatasetOrgId = datasetOrgId;
+            observation.BehaviorId = behaviorId;
+            await context.SaveChangesAsync();
+            context.Organizations.Remove(dataset);
+            if (addedType)
+            {
+                context.OrganizationTypes.Remove(await context.OrganizationTypes.SingleAsync(t => t.Id == organizationTypeId));
+            }
+            await context.SaveChangesAsync();
+        }
     }
 
     [Fact]

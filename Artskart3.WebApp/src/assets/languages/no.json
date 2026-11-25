@@ -178,6 +178,12 @@
     "precision": "Koordinatpresisjon",
     "taxonGroup": "Artsgruppe",
     "riskCategory": "Kategori",
+    "basisOfRecord": "Funntype",
+    "individualCount": "Antall",
+    "behavior": "Aktivitet",
+    "collector": "Rapportør/observatør",
+    "county": "Fylke",
+    "dataset": "Datasett",
     "noResults": "Valgt filter har ingen registreringer"
   },
   "galleryView": {
