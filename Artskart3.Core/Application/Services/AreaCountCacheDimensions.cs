@@ -43,9 +43,21 @@ public readonly record struct DimensionSelection(bool IsActive, bool IsCacheable
     public static DimensionSelection Of(BucketSelection buckets) => new(true, true, buckets);
 }
 
-/// <summary>Det et utvalg trenger for å leses ut av et filter.</summary>
+/// <summary>
+/// Det et utvalg trenger for å leses ut av et filter.
+///
+/// Filteret er <see cref="IObservationFilter"/>, ikke <see cref="LocationSearchFilterDto"/>,
+/// slik at samme register kan lese både lokasjons- og observasjonsfilteret. Fasett-tallene
+/// kommer fra <see cref="ObservationSearchFilterDto"/>, og uten dette måtte registeret
+/// duplisseres per DTO. Alle dimensjonene leser bare felter som finnes på grensesnittet.
+///
+/// MERK at kartutsnittet ikke er med i grensesnittet. Det er riktig for fasett-tallene,
+/// som med vilje ikke følger utsnittet, men betyr at et <see cref="LocationSearchFilterDto"/>
+/// sendt hit får sin <c>Envelope</c> stilltiende ignorert — kalleren må selv ta hensyn
+/// til utsnittet, som <c>AreaCountCacheService</c> gjør via cellene.
+/// </summary>
 public sealed record CacheDimensionContext(
-    LocationSearchFilterDto Filter,
+    IObservationFilter Filter,
     ITaxonHierarchyService TaxonHierarchy,
     IAreaHierarchyService AreaHierarchy);
 

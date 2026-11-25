@@ -40,10 +40,26 @@ import { AutocompleteOptionDirective, AutocompleteSearch } from '../autocomplete
 import { HighlightTextComponent } from '../highlight-text/highlight-text.component';
 import { CadastralUnitSearchComponent } from '../cadastral-unit-search/cadastral-unit-search.component';
 import { MapViewService } from '../../services/map-view/map-view.service';
+import { FacetBoolKey, FacetCountService, FacetDimensionKey } from '../../services/facet-count/facet-count.service';
 import { LoggingService } from '../../logging.service';
 
 // adb-radio-group can't select an empty value, so "Alle" (id null) needs a value of its own.
 const ALL_REGISTRATION_STATUSES = 'all';
+
+/**
+ * Bool-filtrene som faktisk vises under «andre egenskaper», og som derfor åpnes og
+ * lukkes samlet.
+ *
+ * `uncertainIdentification` og `introduced` finnes i filtertilstanden og i backend, men
+ * har ingen kontroll i panelet ennå. De er utelatt her framfor å hentes for ingenting —
+ * hvert navn koster to oppslag serverside.
+ */
+const BOOL_FACET_KEYS: readonly FacetBoolKey[] = ['withImages', 'sensitive', 'changedByAnnotation'];
+
+/** `adb-accordion-item` holder åpen/lukket i `open` på elementet. */
+function isOpen(event: Event): boolean {
+  return (event.target as { open?: boolean } | null)?.open === true;
+}
 
 function toRegistrationStatusValue(id: number | null): string {
   return id === null ? ALL_REGISTRATION_STATUSES : String(id);
@@ -94,6 +110,7 @@ export class SidebarComponent {
   private readonly searchFilter = inject(SearchFilterService);
   private readonly savedFilterService = inject(SavedFilterService);
   private readonly mapView = inject(MapViewService);
+  private readonly facetCounts = inject(FacetCountService);
   protected readonly authService = inject(AuthService);
   private readonly logger = inject(LoggingService);
 
@@ -314,6 +331,72 @@ export class SidebarComponent {
 
   onTaxonTreeToggle(): void {
     this.taxonTreeOpened.set(true);
+  }
+
+  // -----------------------------------------------------------------------
+  // Fasett-tall
+  // -----------------------------------------------------------------------
+
+  /**
+   * Melder en filtergruppe på eller av fasett-tallene.
+   *
+   * Bare åpne grupper hentes. Artskart 2 oppdaterte alle gruppene ved hver
+   * filterendring og skrudde det av igjen — `refreshOthers` står kommentert ut i
+   * treeview.js — antakelig fordi N aggregeringer per klikk ble for dyrt.
+   *
+   * `adb-accordion-item` sender et vanlig `toggle`-event og holder tilstanden i
+   * `open` på elementet, så den leses av eventets target.
+   */
+  onFacetGroupToggle(key: FacetDimensionKey, event: Event): void {
+    this.facetCounts.setDimensionOpen(key, isOpen(event));
+  }
+
+  /**
+   * Funntype-gruppen inneholder også radioknappene for registreringsstatus, så begge
+   * dimensjonene melder seg på når den åpnes.
+   */
+  onBasisOfRecordGroupToggle(event: Event): void {
+    const open = isOpen(event);
+    this.facetCounts.setDimensionOpen('basisOfRecord', open);
+    this.facetCounts.setDimensionOpen('registrationStatus', open);
+  }
+
+  /**
+   * Områdelistene — fylke, kommune, havområde og Svalbard.
+   *
+   * Egen handler fordi områdetallene nøkles på Fid, ikke på en bøtte-id: geografi er
+   * flerverdi i bufferen, der én bøtte er hele settet av områder en observasjon
+   * tilhører.
+   */
+  onAreaGroupToggle(event: Event): void {
+    this.facetCounts.setAreasOpen(isOpen(event));
+  }
+
+  /** Antallet for ett område, eller null før listene er hentet. */
+  areaFacetCount(fid: string | null | undefined): number | null {
+    return this.facetCounts.areaCountFor(fid);
+  }
+
+  onBoolFacetGroupToggle(event: Event): void {
+    const open = isOpen(event);
+    for (const key of BOOL_FACET_KEYS) {
+      this.facetCounts.setBoolGroupOpen(key, open);
+    }
+  }
+
+  /**
+   * Antallet ved ett alternativ, eller null når gruppen ikke er hentet ennå.
+   *
+   * En bøtte som mangler i svaret har NULL treff — serveren utelater bøtter uten
+   * treff — så et manglende tall i en HENTET gruppe er 0, ikke ukjent.
+   */
+  facetCount(key: FacetDimensionKey, bucketId: number | null | undefined): number | null {
+    if (bucketId == null || !this.facetCounts.hasCountsFor(key)) return null;
+    return this.facetCounts.countsFor(key).get(bucketId) ?? 0;
+  }
+
+  boolFacetCount(key: FacetBoolKey, value: boolean): number | null {
+    return this.facetCounts.boolCountFor(key, value);
   }
 
   readonly includeDescendantTaxa = this.filterState.includeDescendantTaxa;

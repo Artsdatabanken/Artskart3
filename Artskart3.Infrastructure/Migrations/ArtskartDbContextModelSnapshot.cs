@@ -625,6 +625,87 @@ namespace Artskart3.Infrastructure.Migrations
                     b.ToTable("FAB4Exclude", (string)null);
                 });
 
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.FacetCountCacheLevel0", b =>
+                {
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Mask");
+
+                    b.ToTable("FacetCountCacheLevel0", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.FacetCountCacheLevel1", b =>
+                {
+                    b.Property<byte>("DimensionId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketId")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionId", "BucketId", "Mask");
+
+                    b.ToTable("FacetCountCacheLevel1", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.FacetCountCacheLevel2", b =>
+                {
+                    b.Property<byte>("DimensionPairId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("BucketA")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BucketB")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("Mask")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("ObservationCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("DimensionPairId", "BucketA", "BucketB", "Mask");
+
+                    b.ToTable("FacetCountCacheLevel2", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.FacetCountCacheState", b =>
+                {
+                    b.Property<byte>("Id")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("BuiltAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SourceRows")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FacetCountCacheState", (string)null);
+                });
+
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Filter", b =>
                 {
                     b.Property<int>("Id")
@@ -1770,6 +1851,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<bool>("ChangedByAnnotation")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("ClassTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CoordinatePrecisionInMeters")
                         .HasColumnType("int");
 
@@ -1782,17 +1866,29 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("FamilyTaxonId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("FormTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("GenusTaxonId")
                         .HasColumnType("int");
 
                     b.Property<bool>("HasMediaFiles")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("InfraclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InfraorderTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
                     b.Property<bool>("Introduced")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("KingdomTaxonId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
@@ -1803,8 +1899,14 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("OrderTaxonId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("PhylumTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<byte>("RegistrationStatusId")
                         .HasColumnType("tinyint");
+
+                    b.Property<int?>("SectionTaxonId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("Sensitive")
                         .HasColumnType("bit");
@@ -1812,11 +1914,47 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int?>("SpeciesTaxonId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SubclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubfamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubgenusTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubkingdomTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuborderTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubphylumTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubspeciesTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperclassTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperfamilyTaxonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuperorderTaxonId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TaxonGroupId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TribeTaxonId")
                         .HasColumnType("int");
 
                     b.Property<bool>("UncertainIdentification")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("VarietyTaxonId")
+                        .HasColumnType("int");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 

@@ -14,9 +14,10 @@ public class SearchControllerSpeciesTests
 {
     private readonly Mock<ISearchService> _searchServiceMock = new();
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
+    private readonly Mock<IFacetCountService> _facetCountServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
-    private SearchController CreateSut() => new(_searchServiceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+    private SearchController CreateSut() => new(_searchServiceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
     // -----------------------------------------------------------------------
     // Validering

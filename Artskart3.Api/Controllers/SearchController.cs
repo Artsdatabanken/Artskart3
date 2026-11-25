@@ -24,13 +24,15 @@ public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
     private readonly ISpeciesService _speciesService;
+    private readonly IFacetCountService _facetCountService;
     private readonly ILogger<SearchController> _logger;
     private readonly PaginationOptions _paginationOptions;
 
-    public SearchController(ISearchService searchService, ISpeciesService speciesService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
+    public SearchController(ISearchService searchService, ISpeciesService speciesService, IFacetCountService facetCountService, ILogger<SearchController> logger, IOptions<PaginationOptions> paginationOptions)
     {
         _searchService = searchService ?? throw new ArgumentNullException(nameof(searchService));
         _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
+        _facetCountService = facetCountService ?? throw new ArgumentNullException(nameof(facetCountService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _paginationOptions = paginationOptions?.Value ?? throw new ArgumentNullException(nameof(paginationOptions));
     }
@@ -340,6 +342,74 @@ public class SearchController : ControllerBase
             throw;
         }
     }
+
+    /// <summary>
+    /// Antall observasjoner ved hvert valg i filterpanelet.
+    ///
+    /// Tallet ved et alternativ er hva filteret ville gitt om man valgte NETTOPP det —
+    /// gjeldende filter minus alternativets egen gruppe. Tallet ved en avkrysset boks
+    /// er derfor ikke lik antallet treff i resultatet, og det er riktig: ellers ville
+    /// alle ikke-valgte alternativer i gruppen blitt 0 straks man krysset av det første.
+    ///
+    /// Tallene følger filteret, IKKE kartutsnittet.
+    ///
+    /// Klienten ber bare om de gruppene som er åpne i panelet, og får alt i ett kall.
+    /// Ukjente navn hoppes over framfor å feile — klient og server kan være i utakt
+    /// over en deploy.
+    /// </summary>
+    /// <param name="dimensions">Kommaseparert, f.eks. <c>taxonGroup,category</c>.</param>
+    /// <param name="boolFilters">Kommaseparert, f.eks. <c>withImages,sensitive</c>.</param>
+    /// <param name="includeAreas">
+    /// Tell også fylker, kommuner, havområder og Svalbard. Egen bryter fordi svaret
+    /// nøkles på Fid og ikke på en bøtte-id.
+    /// </param>
+    /// <param name="filter">Filteret slik det står i panelet.</param>
+    /// <param name="cancellationToken">Avbrytelse.</param>
+    [HttpPost("FacetCounts")]
+    [Produces("application/json")]
+    [ServiceFilter(typeof(SlowQueryLoggingFilter))]
+    public async Task<ActionResult<FacetCountsResponseDto>> GetFacetCounts(
+        [FromQuery] string? dimensions = null,
+        [FromQuery] string? boolFilters = null,
+        [FromQuery] bool includeAreas = false,
+        [FromBody] ObservationSearchFilterDto? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        filter ??= new ObservationSearchFilterDto();
+
+        if (!ValidateObservationSearchFilter(filter, out var validationError))
+        {
+            return validationError!;
+        }
+
+        var dimensionKeys = SplitKeys(dimensions);
+        var boolKeys = SplitKeys(boolFilters);
+
+        if (dimensionKeys.Count == 0 && boolKeys.Count == 0 && !includeAreas)
+        {
+            return BadRequest(new { error = "Oppgi minst én verdi i dimensions, boolFilters eller includeAreas." });
+        }
+
+        try
+        {
+            var result = await _facetCountService.GetFacetCountsAsync(
+                filter, dimensionKeys, boolKeys, includeAreas, cancellationToken);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Feil ved henting av fasett-tall for filter: {Filter}", filter);
+            throw; // håndteres av global filter
+        }
+    }
+
+    private static List<string> SplitKeys(string? commaSeparated) =>
+        string.IsNullOrWhiteSpace(commaSeparated)
+            ? []
+            : commaSeparated
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
 
     /// <summary>
     /// Søker etter arter via NorTaxa-API.

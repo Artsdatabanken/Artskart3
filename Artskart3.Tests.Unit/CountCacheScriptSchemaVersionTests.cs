@@ -36,6 +36,7 @@ public class CountCacheScriptSchemaVersionTests
 {
     private const string AreaScript = "Artskart3.Infrastructure.Scripts.BuildAreaCountCache.sql";
     private const string LocationScript = "Artskart3.Infrastructure.Scripts.BuildLocationCountCache.sql";
+    private const string FacetScript = "Artskart3.Infrastructure.Scripts.BuildFacetCountCache.sql";
 
     [Theory]
     [InlineData(AreaScript)]
@@ -50,6 +51,43 @@ public class CountCacheScriptSchemaVersionTests
         int.Parse(treff.Groups[1].Value).Should().Be(
             AreaCountCacheDimensions.SchemaVersion,
             "skriptet bygger bøtte-id-ene, og oppslaget nekter å bruke en buffer med annen versjon");
+    }
+
+    /// <summary>
+    /// Fasett-skriptet har sin EGEN versjon, ikke områderegisterets.
+    ///
+    /// FacetCountCacheDimensions.SchemaVersion er avledet av områderegisterets, så en
+    /// endring der slår gjennom begge veier — men fasettsettet kan også endres alene,
+    /// og da må fasett-bufferen bygges om uten at områdebufferen trenger det.
+    /// </summary>
+    [Fact]
+    public void Fasettskriptets_schemaversion_stemmer_med_koden()
+    {
+        var sql = LesSkript(FacetScript);
+
+        var treff = Regex.Match(sql, @"DECLARE\s+@SchemaVersion\s+INT\s*=\s*(-?\d+)\s*;");
+
+        treff.Success.Should().BeTrue($"{FacetScript} må deklarere @SchemaVersion som en literal");
+        int.Parse(treff.Groups[1].Value).Should().Be(
+            FacetCountCacheDimensions.SchemaVersion,
+            "oppslaget nekter å bruke en fasett-buffer med annen versjon enn koden som leser den");
+    }
+
+    /// <summary>
+    /// Maskeuttrykket i fasett-skriptet skal være <see cref="FilterMask.SqlExpression"/>.
+    ///
+    /// Fasett-skriptet bøtter masken ÉN gang, i #obs, og alle aggregeringene leser den
+    /// kolonnen. Det gjør uttrykket til ett punkt — og dermed til ett punkt som kan
+    /// gå fra C# uten at noe annet merker det. Spriker de to, er masken bygget etter
+    /// én definisjon og lest etter en annen: riktige tall for feil bool-filter.
+    /// </summary>
+    [Fact]
+    public void Fasettskriptet_bruker_filtermaskens_uttrykk()
+    {
+        var sql = Normaliser(LesSkript(FacetScript));
+
+        sql.Should().Contain(Normaliser(FilterMask.SqlExpression),
+            "masken bygges av dette uttrykket og leses av FilterMask.Select");
     }
 
     /// <summary>
@@ -134,6 +172,64 @@ public class CountCacheScriptSchemaVersionTests
 
         lokasjon.Should().BeEquivalentTo(omraade,
             "to uttrykk som skal gi samme bøtte er to uttrykk som en dag ikke gjør det");
+    }
+
+    /// <summary>
+    /// Fasett-skriptets dimensjonsliste er registeret, og uttrykkene er ORDRETT
+    /// områdeskriptets.
+    ///
+    /// Fasett-bufferen låner flerverdi-bøttene fra AreaCountCacheBucketMember, og for
+    /// de andre dimensjonene må en bøtte-id bety det samme i begge tabellene — ellers
+    /// summerer et par-oppslag rader som ikke hører sammen. Samme krav som
+    /// lokasjonsskriptet har, av samme grunn.
+    /// </summary>
+    [Fact]
+    public void Fasettskriptets_dimensjoner_er_registeret_med_samme_uttrykk()
+    {
+        var fasett = LesDimensjoner(FacetScript);
+
+        fasett.Select(d => (d.Id, d.Navn)).Should().Equal(Registeret(),
+            "pargruppe-id-ene er posisjonelle, så en manglende eller omdøpt dimensjon " +
+            "gir riktige tall for feil par");
+
+        fasett.ToDictionary(d => d.Id, d => d.Uttrykk)
+            .Should().BeEquivalentTo(LesDimensjoner(AreaScript).ToDictionary(d => d.Id, d => d.Uttrykk),
+                "bøtte-id-ene deles med områdebufferen, så uttrykkene må være de samme");
+    }
+
+    /// <summary>
+    /// Fasett-skriptet bruker dimensjonsnavnet som kolonnenavn i #obs, så hver
+    /// dimensjon MÅ ha en kolonne der. Mangler den, feiler bygget på INSERT-en — men
+    /// det skjer etter at bufferen er tømt og merket «Building», altså et par
+    /// minutter inn i en kjøring. Billigere å fange her.
+    /// </summary>
+    [Fact]
+    public void Fasettskriptet_har_en_obs_kolonne_per_dimensjon()
+    {
+        var sql = LesSkript(FacetScript);
+
+        var fra = sql.IndexOf("CREATE TABLE #obs", StringComparison.Ordinal);
+        fra.Should().BeGreaterThanOrEqualTo(0, "skriptet må opprette #obs eksplisitt");
+
+        var tabell = sql[fra..(fra + sql[fra..].IndexOf(");", StringComparison.Ordinal))];
+
+        foreach (var dimensjon in LesDimensjoner(FacetScript))
+        {
+            tabell.Should().Contain(dimensjon.Navn,
+                $"dimensjonen «{dimensjon.Navn}» bøttes inn i en kolonne med samme navn");
+        }
+    }
+
+    /// <summary>
+    /// Som for områdeskriptet: antallet par meldingen oppgir skal være det faktiske.
+    /// </summary>
+    [Fact]
+    public void Fasettskriptet_melder_riktig_antall_par()
+    {
+        var treff = Regex.Match(LesSkript(FacetScript), @"Nivaa 2 \((\d+) par\)");
+
+        treff.Success.Should().BeTrue("skriptet skal melde hvor mange par det bygger");
+        int.Parse(treff.Groups[1].Value).Should().Be(AreaCountCacheDimensions.PairCount);
     }
 
     /// <summary>

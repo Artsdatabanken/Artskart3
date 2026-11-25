@@ -17,12 +17,13 @@ public class SearchControllerAdditionalTests
 {
     private readonly Mock<ISearchService> _serviceMock = new();
     private readonly Mock<ISpeciesService> _speciesServiceMock = new();
+    private readonly Mock<IFacetCountService> _facetCountServiceMock = new();
     private readonly Mock<ILogger<SearchController>> _loggerMock = new();
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSearchServiceIsNull()
     {
-        var act = () => new SearchController(null!, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(null!, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("searchService");
@@ -31,7 +32,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenSpeciesServiceIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, null!, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(_serviceMock.Object, null!, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("speciesService");
@@ -40,7 +41,7 @@ public class SearchControllerAdditionalTests
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
     {
-        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, null!, Options.Create(new PaginationOptions()));
+        var act = () => new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, null!, Options.Create(new PaginationOptions()));
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("logger");
@@ -95,7 +96,7 @@ public class SearchControllerAdditionalTests
 
     private SearchController CreateSut()
     {
-        var controller = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        var controller = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _facetCountServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
         var services = new ServiceCollection();
         services.AddMvcCore();
         services.AddLogging();

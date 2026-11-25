@@ -157,7 +157,12 @@ DECLARE @HarArbeid BIT = 0;
 IF @MaxId >= @MinId AND EXISTS (
     SELECT 1 FROM (VALUES
         ('A_EntityIndexRows'), ('B_TaxonHierarchy'), ('C_EntityIndexFilterColumns'),
-        ('D_EntityIndexTaxonRanks'), ('E1_ObservationOrgColumns'),
+        -- D fikk nytt vannmerke da seksjonen gikk fra fire til alle 23
+        -- taksonranger. Det gamle ('D_EntityIndexTaxonRanks') står igjen i
+        -- BackfillProgress som historikk, og det nye mangler — så @HarArbeid blir
+        -- sann i miljøer der D alt var ferdig, og seksjonen kjører om igjen med
+        -- full kolonneliste. Det er nødvendig: de 19 nye står NULL.
+        ('D_EntityIndexAllTaxonRanks'), ('E1_ObservationOrgColumns'),
         ('E2_ObservationDataset'), ('E3_EntityIndexOrgColumns'),
         ('E4_EntityIndexBehavior')) AS s(Section)
     WHERE ISNULL((SELECT p.LastCompletedId FROM dbo.BackfillProgress p
@@ -452,7 +457,7 @@ END
 RAISERROR('=== SEKSJON D: OEI taksonrangkolonner ===', 0, 1) WITH NOWAIT;
 
 SELECT @CurrentId = ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
-                            WHERE Section = 'D_EntityIndexTaxonRanks'), @MinId - 1) + 1;
+                            WHERE Section = 'D_EntityIndexAllTaxonRanks'), @MinId - 1) + 1;
 SET @Total = 0;
 SET @SectionStart = SYSUTCDATETIME();
 
@@ -463,11 +468,34 @@ WHILE @CurrentId <= @MaxId
 BEGIN
     SET @BatchEnd = @CurrentId + @BatchSize - 1;
 
+    -- ALLE 23 RANGENE, ikke bare art/slekt/familie/orden.
+    --
+    -- Rangene som ikke forekommer som synlige noder i artstreet — kohort (9) — er
+    -- utelatt: ingen kolonne på indekstabellen, ingenting å fylle.
     UPDATE idx
-    SET idx.SpeciesTaxonId = h.SpeciesTaxonId,
-        idx.GenusTaxonId   = h.GenusTaxonId,
-        idx.FamilyTaxonId  = h.FamilyTaxonId,
-        idx.OrderTaxonId   = h.OrderTaxonId
+    SET idx.KingdomTaxonId     = h.KingdomTaxonId,
+        idx.SubkingdomTaxonId  = h.SubkingdomTaxonId,
+        idx.PhylumTaxonId      = h.PhylumTaxonId,
+        idx.SubphylumTaxonId   = h.SubphylumTaxonId,
+        idx.SuperclassTaxonId  = h.SuperclassTaxonId,
+        idx.ClassTaxonId       = h.ClassTaxonId,
+        idx.SubclassTaxonId    = h.SubclassTaxonId,
+        idx.InfraclassTaxonId  = h.InfraclassTaxonId,
+        idx.SuperorderTaxonId  = h.SuperorderTaxonId,
+        idx.OrderTaxonId       = h.OrderTaxonId,
+        idx.SuborderTaxonId    = h.SuborderTaxonId,
+        idx.InfraorderTaxonId  = h.InfraorderTaxonId,
+        idx.SuperfamilyTaxonId = h.SuperfamilyTaxonId,
+        idx.FamilyTaxonId      = h.FamilyTaxonId,
+        idx.SubfamilyTaxonId   = h.SubfamilyTaxonId,
+        idx.TribeTaxonId       = h.TribeTaxonId,
+        idx.SubgenusTaxonId    = h.SubgenusTaxonId,
+        idx.GenusTaxonId       = h.GenusTaxonId,
+        idx.SectionTaxonId     = h.SectionTaxonId,
+        idx.SpeciesTaxonId     = h.SpeciesTaxonId,
+        idx.SubspeciesTaxonId  = h.SubspeciesTaxonId,
+        idx.VarietyTaxonId     = h.VarietyTaxonId,
+        idx.FormTaxonId        = h.FormTaxonId
     FROM dbo.ObservationEntityIndex idx
     INNER JOIN dbo.ObservationTaxonHierarchy h ON h.ObservationId = idx.ObservationId
     WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
@@ -479,17 +507,40 @@ BEGIN
       -- NULL til OrderTaxonId, og raden matchet fortsatt etterpå. Som
       -- oppdateringsfilter var det bare bortkastet arbeid, men verifiseringen
       -- nederst brukte samme predikat og kunne dermed aldri nå null.
-      AND (   (idx.SpeciesTaxonId IS NULL AND h.SpeciesTaxonId IS NOT NULL)
-           OR (idx.GenusTaxonId   IS NULL AND h.GenusTaxonId   IS NOT NULL)
-           OR (idx.FamilyTaxonId  IS NULL AND h.FamilyTaxonId  IS NOT NULL)
-           OR (idx.OrderTaxonId   IS NULL AND h.OrderTaxonId   IS NOT NULL))
+      --
+      -- MERK at listen må speile SET-listen over, rad for rad, og den samme
+      -- listen står i verifiseringen nederst. Tre steder — går de fra hverandre,
+      -- stopper seksjonen for tidlig eller kan ikke nå null.
+      AND (   (idx.KingdomTaxonId     IS NULL AND h.KingdomTaxonId     IS NOT NULL)
+           OR (idx.SubkingdomTaxonId  IS NULL AND h.SubkingdomTaxonId  IS NOT NULL)
+           OR (idx.PhylumTaxonId      IS NULL AND h.PhylumTaxonId      IS NOT NULL)
+           OR (idx.SubphylumTaxonId   IS NULL AND h.SubphylumTaxonId   IS NOT NULL)
+           OR (idx.SuperclassTaxonId  IS NULL AND h.SuperclassTaxonId  IS NOT NULL)
+           OR (idx.ClassTaxonId       IS NULL AND h.ClassTaxonId       IS NOT NULL)
+           OR (idx.SubclassTaxonId    IS NULL AND h.SubclassTaxonId    IS NOT NULL)
+           OR (idx.InfraclassTaxonId  IS NULL AND h.InfraclassTaxonId  IS NOT NULL)
+           OR (idx.SuperorderTaxonId  IS NULL AND h.SuperorderTaxonId  IS NOT NULL)
+           OR (idx.OrderTaxonId       IS NULL AND h.OrderTaxonId       IS NOT NULL)
+           OR (idx.SuborderTaxonId    IS NULL AND h.SuborderTaxonId    IS NOT NULL)
+           OR (idx.InfraorderTaxonId  IS NULL AND h.InfraorderTaxonId  IS NOT NULL)
+           OR (idx.SuperfamilyTaxonId IS NULL AND h.SuperfamilyTaxonId IS NOT NULL)
+           OR (idx.FamilyTaxonId      IS NULL AND h.FamilyTaxonId      IS NOT NULL)
+           OR (idx.SubfamilyTaxonId   IS NULL AND h.SubfamilyTaxonId   IS NOT NULL)
+           OR (idx.TribeTaxonId       IS NULL AND h.TribeTaxonId       IS NOT NULL)
+           OR (idx.SubgenusTaxonId    IS NULL AND h.SubgenusTaxonId    IS NOT NULL)
+           OR (idx.GenusTaxonId       IS NULL AND h.GenusTaxonId       IS NOT NULL)
+           OR (idx.SectionTaxonId     IS NULL AND h.SectionTaxonId     IS NOT NULL)
+           OR (idx.SpeciesTaxonId     IS NULL AND h.SpeciesTaxonId     IS NOT NULL)
+           OR (idx.SubspeciesTaxonId  IS NULL AND h.SubspeciesTaxonId  IS NOT NULL)
+           OR (idx.VarietyTaxonId     IS NULL AND h.VarietyTaxonId     IS NOT NULL)
+           OR (idx.FormTaxonId        IS NULL AND h.FormTaxonId        IS NOT NULL))
     OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
     SET @Total = @Total + @Rows;
 
     MERGE dbo.BackfillProgress AS t
-    USING (SELECT 'D_EntityIndexTaxonRanks' AS Section, @BatchEnd AS LastCompletedId) AS s
+    USING (SELECT 'D_EntityIndexAllTaxonRanks' AS Section, @BatchEnd AS LastCompletedId) AS s
         ON t.Section = s.Section
     WHEN MATCHED THEN UPDATE SET LastCompletedId = s.LastCompletedId, UpdatedAt = SYSUTCDATETIME()
     WHEN NOT MATCHED THEN INSERT (Section, LastCompletedId) VALUES (s.Section, s.LastCompletedId);
@@ -508,9 +559,9 @@ END
 -- ===========================================================================
 -- SEKSJON E: CompleteFilter
 --
--- E1 Observation.InstitutionOrgId + CollectionOrgId  (begge verifisert 1:1)
+-- E1 Observation.InstitutionOrgId + DatasetOrgId  (begge verifisert 1:1)
 -- E2 ObservationDataset                              (datasett er IKKE 1:1)
--- E3 OEI.InstitutionOrgId + CollectionOrgId          (leser E1)
+-- E3 OEI.InstitutionOrgId + DatasetOrgId          (leser E1)
 -- E4 OEI.BehaviorId                                  (verifisert 1:1, tinyint)
 --
 -- E3 avhenger av E1, så rekkefølgen er ikke valgfri.
@@ -549,7 +600,7 @@ BEGIN
     RAISERROR('IX_OrgRel_Obs_Org opprettet.', 0, 1) WITH NOWAIT;
 END
 
-RAISERROR('=== SEKSJON E1: Observation.InstitutionOrgId + CollectionOrgId ===', 0, 1) WITH NOWAIT;
+RAISERROR('=== SEKSJON E1: Observation.InstitutionOrgId + DatasetOrgId ===', 0, 1) WITH NOWAIT;
 
 SELECT @CurrentId = ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
                             WHERE Section = 'E1_ObservationOrgColumns'), @MinId - 1) + 1;
@@ -563,12 +614,12 @@ BEGIN
     -- MAX(CASE ...) er trygt fordi begge typer er verifisert 1:1 per observasjon.
     UPDATE o
     SET o.InstitutionOrgId = x.InstitutionOrgId,
-        o.CollectionOrgId  = x.CollectionOrgId
+        o.DatasetOrgId  = x.DatasetOrgId
     FROM dbo.Observation o
     INNER JOIN (
         SELECT r.ObservationId,
                MAX(CASE WHEN g.OrganizationTypeId = 1 THEN r.OrganizationId END) AS InstitutionOrgId,
-               MAX(CASE WHEN g.OrganizationTypeId = 2 THEN r.OrganizationId END) AS CollectionOrgId
+               MAX(CASE WHEN g.OrganizationTypeId = 2 THEN r.OrganizationId END) AS DatasetOrgId
         FROM dbo.OrganizationRelation r
         INNER JOIN dbo.Organization g ON g.Id = r.OrganizationId
         WHERE r.ObservationId >= @CurrentId AND r.ObservationId <= @BatchEnd
@@ -578,8 +629,8 @@ BEGIN
     WHERE o.Id >= @CurrentId AND o.Id <= @BatchEnd
       -- Begge kolonnene sjekkes. Med bare InstitutionOrgId som markør ville en
       -- observasjon med institusjon men uten samling fått markøren brukt opp og
-      -- CollectionOrgId stående NULL for godt.
-      AND (o.InstitutionOrgId IS NULL OR o.CollectionOrgId IS NULL)
+      -- DatasetOrgId stående NULL for godt.
+      AND (o.InstitutionOrgId IS NULL OR o.DatasetOrgId IS NULL)
     OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
@@ -653,7 +704,7 @@ BEGIN
     DROP INDEX IX_OrgRel_Obs_Org ON dbo.OrganizationRelation;
 END
 
-RAISERROR('=== SEKSJON E3: OEI InstitutionOrgId + CollectionOrgId ===', 0, 1) WITH NOWAIT;
+RAISERROR('=== SEKSJON E3: OEI InstitutionOrgId + DatasetOrgId ===', 0, 1) WITH NOWAIT;
 
 SELECT @CurrentId = ISNULL((SELECT LastCompletedId FROM dbo.BackfillProgress
                             WHERE Section = 'E3_EntityIndexOrgColumns'), @MinId - 1) + 1;
@@ -666,14 +717,14 @@ BEGIN
 
     UPDATE idx
     SET idx.InstitutionOrgId = o.InstitutionOrgId,
-        idx.CollectionOrgId  = o.CollectionOrgId
+        idx.DatasetOrgId  = o.DatasetOrgId
     FROM dbo.ObservationEntityIndex idx
     INNER JOIN dbo.Observation o ON o.Id = idx.ObservationId
     WHERE idx.ObservationId >= @CurrentId AND idx.ObservationId <= @BatchEnd
       -- Samme oppfyllbarhetsregel som seksjon D: treff bare rader der kilden har
       -- en verdi indeksen mangler, slik at raden ikke matcher etterpå.
       AND (   (idx.InstitutionOrgId IS NULL AND o.InstitutionOrgId IS NOT NULL)
-           OR (idx.CollectionOrgId  IS NULL AND o.CollectionOrgId  IS NOT NULL))
+           OR (idx.DatasetOrgId  IS NULL AND o.DatasetOrgId  IS NOT NULL))
     OPTION (RECOMPILE);
 
     SET @Rows = @@ROWCOUNT;
@@ -804,11 +855,34 @@ BEGIN
 
     CREATE NONCLUSTERED COLUMNSTORE INDEX IX_OEI_Columnstore
     ON dbo.ObservationEntityIndex
+        -- LocationId MAA vaere med. Locations-endepunktene grupperer paa den, og
+        -- den finnes ellers bare i klyngeindeksen - ikke som include i
+        -- IX_OEI_AreaListView. Uten den her maa planen skanne klyngeindeksen, og
+        -- da blir spoerringen tregere for hver kolonne som legges paa tabellen.
+        -- Maalt 18.11.2026: Locations/oslo 7 889 ms uten, se nedenfor.
         (ObservationId, EntityTypeId, EntityId,
+         LocationId,
          TaxonGroupId, CategoryId, BasisOfRecordId, RegistrationStatusId,
          HasMediaFiles, DateTimeCollected, CoordinatePrecisionInMeters,
-         SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId,
-         InstitutionOrgId, CollectionOrgId, BehaviorId)
+         InstitutionOrgId, DatasetOrgId, BehaviorId,
+         -- FilterMask-bitene og maaneden. Uten dem kan ikke columnstore dekke
+         -- aggregeringen, og planen faller til en skanning av klyngeindeksen -
+         -- maalt 18.11.2026 til 55,4 millioner rader og 19-21 s per kall for
+         -- AreaCounts med fire tunge filtre, mot 901 ms i baselinen. Hvert case
+         -- som regredierte inneholdt minst ett av disse filtrene.
+         ChangedByAnnotation, Introduced, Sensitive, UncertainIdentification,
+         MonthCollected,
+         -- Alle 23 taksonrangene. Målt tillegg for de 19 nye: +65 MB, fordi de er
+         -- enten svært repetitive (272 klasser over 61M rader) eller nesten tomme
+         -- (varietet 0,1 %). En rangkolonne UTENFOR denne listen filtreres fra
+         -- rowstore og er treg — det var hele grunnen til at artstreet måtte gå om
+         -- ObservationTaxonHierarchy før.
+         KingdomTaxonId, SubkingdomTaxonId, PhylumTaxonId, SubphylumTaxonId,
+         SuperclassTaxonId, ClassTaxonId, SubclassTaxonId, InfraclassTaxonId,
+         SuperorderTaxonId, OrderTaxonId, SuborderTaxonId, InfraorderTaxonId,
+         SuperfamilyTaxonId, FamilyTaxonId, SubfamilyTaxonId, TribeTaxonId,
+         SubgenusTaxonId, GenusTaxonId, SectionTaxonId, SpeciesTaxonId,
+         SubspeciesTaxonId, VarietyTaxonId, FormTaxonId)
     WITH (MAXDOP = 4);
 
     RAISERROR('IX_OEI_Columnstore opprettet.', 0, 1) WITH NOWAIT;
@@ -910,13 +984,34 @@ SELECT 1, 'C: OEI denormaliserte filterkolonner',
         JOIN dbo.Observation o ON o.Id = idx.ObservationId
         WHERE idx.TaxonGroupId = 0)
 UNION ALL
-SELECT 2, 'D: OEI taksonrangkolonner',
+-- Speiler seksjon D sin oppdateringsliste, alle 23 rangene. Går de to fra
+-- hverandre, kan kontrollen enten ikke nå null eller gå god for en ufylt kolonne.
+SELECT 2, 'D: OEI taksonrangkolonner (alle 23)',
        (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex idx
         JOIN dbo.ObservationTaxonHierarchy h ON h.ObservationId = idx.ObservationId
-        WHERE (idx.SpeciesTaxonId IS NULL AND h.SpeciesTaxonId IS NOT NULL)
-           OR (idx.GenusTaxonId   IS NULL AND h.GenusTaxonId   IS NOT NULL)
-           OR (idx.FamilyTaxonId  IS NULL AND h.FamilyTaxonId  IS NOT NULL)
-           OR (idx.OrderTaxonId   IS NULL AND h.OrderTaxonId   IS NOT NULL))
+        WHERE (idx.KingdomTaxonId     IS NULL AND h.KingdomTaxonId     IS NOT NULL)
+           OR (idx.SubkingdomTaxonId  IS NULL AND h.SubkingdomTaxonId  IS NOT NULL)
+           OR (idx.PhylumTaxonId      IS NULL AND h.PhylumTaxonId      IS NOT NULL)
+           OR (idx.SubphylumTaxonId   IS NULL AND h.SubphylumTaxonId   IS NOT NULL)
+           OR (idx.SuperclassTaxonId  IS NULL AND h.SuperclassTaxonId  IS NOT NULL)
+           OR (idx.ClassTaxonId       IS NULL AND h.ClassTaxonId       IS NOT NULL)
+           OR (idx.SubclassTaxonId    IS NULL AND h.SubclassTaxonId    IS NOT NULL)
+           OR (idx.InfraclassTaxonId  IS NULL AND h.InfraclassTaxonId  IS NOT NULL)
+           OR (idx.SuperorderTaxonId  IS NULL AND h.SuperorderTaxonId  IS NOT NULL)
+           OR (idx.OrderTaxonId       IS NULL AND h.OrderTaxonId       IS NOT NULL)
+           OR (idx.SuborderTaxonId    IS NULL AND h.SuborderTaxonId    IS NOT NULL)
+           OR (idx.InfraorderTaxonId  IS NULL AND h.InfraorderTaxonId  IS NOT NULL)
+           OR (idx.SuperfamilyTaxonId IS NULL AND h.SuperfamilyTaxonId IS NOT NULL)
+           OR (idx.FamilyTaxonId      IS NULL AND h.FamilyTaxonId      IS NOT NULL)
+           OR (idx.SubfamilyTaxonId   IS NULL AND h.SubfamilyTaxonId   IS NOT NULL)
+           OR (idx.TribeTaxonId       IS NULL AND h.TribeTaxonId       IS NOT NULL)
+           OR (idx.SubgenusTaxonId    IS NULL AND h.SubgenusTaxonId    IS NOT NULL)
+           OR (idx.GenusTaxonId       IS NULL AND h.GenusTaxonId       IS NOT NULL)
+           OR (idx.SectionTaxonId     IS NULL AND h.SectionTaxonId     IS NOT NULL)
+           OR (idx.SpeciesTaxonId     IS NULL AND h.SpeciesTaxonId     IS NOT NULL)
+           OR (idx.SubspeciesTaxonId  IS NULL AND h.SubspeciesTaxonId  IS NOT NULL)
+           OR (idx.VarietyTaxonId     IS NULL AND h.VarietyTaxonId     IS NOT NULL)
+           OR (idx.FormTaxonId        IS NULL AND h.FormTaxonId        IS NOT NULL))
 UNION ALL
 SELECT 3, 'E1: Observation.InstitutionOrgId',
        (SELECT COUNT_BIG(*) FROM dbo.Observation o
@@ -925,9 +1020,9 @@ SELECT 3, 'E1: Observation.InstitutionOrgId',
                       JOIN dbo.Organization g ON g.Id = r.OrganizationId
                       WHERE r.ObservationId = o.Id AND g.OrganizationTypeId = 1))
 UNION ALL
-SELECT 4, 'E1: Observation.CollectionOrgId',
+SELECT 4, 'E1: Observation.DatasetOrgId',
        (SELECT COUNT_BIG(*) FROM dbo.Observation o
-        WHERE o.CollectionOrgId IS NULL
+        WHERE o.DatasetOrgId IS NULL
           AND EXISTS (SELECT 1 FROM dbo.OrganizationRelation r
                       JOIN dbo.Organization g ON g.Id = r.OrganizationId
                       WHERE r.ObservationId = o.Id AND g.OrganizationTypeId = 2))
@@ -943,11 +1038,11 @@ SELECT 5, 'E2: ObservationDataset',
                           WHERE d.ObservationId = r.ObservationId
                             AND d.DatasetOrgId  = r.OrganizationId))
 UNION ALL
-SELECT 6, 'E3: OEI InstitutionOrgId/CollectionOrgId',
+SELECT 6, 'E3: OEI InstitutionOrgId/DatasetOrgId',
        (SELECT COUNT_BIG(*) FROM dbo.ObservationEntityIndex idx
         JOIN dbo.Observation o ON o.Id = idx.ObservationId
         WHERE (idx.InstitutionOrgId IS NULL AND o.InstitutionOrgId IS NOT NULL)
-           OR (idx.CollectionOrgId  IS NULL AND o.CollectionOrgId  IS NOT NULL))
+           OR (idx.DatasetOrgId  IS NULL AND o.DatasetOrgId  IS NOT NULL))
 UNION ALL
 -- BehaviorId kan ikke kontrolleres med «IS NULL»: ~73 % av observasjonene har
 -- ingen atferd, og NULL er da riktig sluttilstand. Kilden avgjør.

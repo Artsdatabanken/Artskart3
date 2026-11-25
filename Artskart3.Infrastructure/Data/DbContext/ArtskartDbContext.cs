@@ -1269,6 +1269,49 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
         });
 
         // -------------------------------------------------------------------
+        // Fasett-buffer — forhåndsberegnede antall per filtervalg
+        //
+        // Samme tabeller som områdebufferen, men uten utdatacellen: dette er
+        // «antall per bøtte i én dimensjon» i stedet for «antall per område».
+        // Bøttene, maskene, dimensjons-id-ene og pargruppe-id-ene er delt, se
+        // FacetCountCacheDimensions.
+        //
+        // Nøkkelrekkefølgen speiler områdebufferens, masken sist. Oppslaget uten
+        // bool-filter summerer over maskene for samme bøtte, og de ligger da
+        // sammenhengende; med bool-filter er predikatet (Mask & Care) == Want,
+        // altså et restledd uansett hvor kolonnen står.
+        //
+        // Bare toernivået komprimeres. Null- og ettnivået er 32 og ~69 000 rader —
+        // der koster komprimering bare CPU.
+        // -------------------------------------------------------------------
+        modelBuilder.Entity<FacetCountCacheLevel0>(entity =>
+        {
+            entity.HasKey(e => e.Mask);
+            entity.ToTable("FacetCountCacheLevel0");
+            entity.Property(e => e.Mask).ValueGeneratedNever();
+        });
+
+        modelBuilder.Entity<FacetCountCacheLevel1>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionId, e.BucketId, e.Mask });
+            entity.ToTable("FacetCountCacheLevel1");
+        });
+
+        modelBuilder.Entity<FacetCountCacheLevel2>(entity =>
+        {
+            entity.HasKey(e => new { e.DimensionPairId, e.BucketA, e.BucketB, e.Mask });
+            entity.ToTable("FacetCountCacheLevel2");
+        });
+
+        modelBuilder.Entity<FacetCountCacheState>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("FacetCountCacheState");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
+        });
+
+        // -------------------------------------------------------------------
         // Lokasjonsbuffer — ferdig talte lokasjoner per filter
         //
         // Klyngenøkkelen speiler oppslaget: dimensjon og bøtte først, deretter

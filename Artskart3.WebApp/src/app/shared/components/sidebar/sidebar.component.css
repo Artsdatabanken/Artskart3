@@ -254,3 +254,20 @@ adb-checkbox.select-all {
   color: var(--adb-text-base-secondary);
   font-size: var(--adb-font-size-2);
 }
+
+/*
+  Fasett-tallene — antall observasjoner ved hvert valg.
+
+  Tallet er hva filteret ville gitt om man valgte NETTOPP dette alternativet, altså
+  gjeldende filter uten alternativets egen gruppe. Et alternativ uten treff dempes
+  framfor å deaktiveres: Artskart 2 regnet ut en disabled-tilstand for 0-treff og lot
+  den stå kommentert ut, og et valg man ikke kan ta bort igjen er verre enn et som
+  viser 0.
+*/
+.facet-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.facet-count-empty {
+  opacity: 0.45;
+}

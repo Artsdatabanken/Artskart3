@@ -49,10 +49,52 @@ public class ObservationEntityIndex
     public DateTime? DateTimeCollected { get; set; }
     public byte RegistrationStatusId { get; set; }
     public bool HasMediaFiles { get; set; }
-    public int? SpeciesTaxonId { get; set; }
-    public int? GenusTaxonId { get; set; }
-    public int? FamilyTaxonId { get; set; }
+    // Taksonrangkolonner — én per rang, denormalisert fra ObservationTaxonHierarchy
+    // av BackfillAll seksjon D. Alle 23 rangene som forekommer som synlige noder i
+    // artstreet ligger her.
+    //
+    // HVORFOR ALLE OG IKKE BARE FIRE
+    // Fram til nå hadde indekstabellen bare art, slekt, familie og orden, og alt
+    // annet falt tilbake til ObservationTaxonHierarchy. Det ga to ting:
+    // taksonfilteret hadde to kodestier, og artstreet kunne ikke vise filtrerte
+    // tall for 9 % av nodene uten et sekundoppslag per utvidelse.
+    //
+    // Målt kostnad for de 19 nye: +2,37 GB i rowstore (sidekomprimert) og +65 MB i
+    // columnstore. De komprimerer nær bort fordi de enten er svært repetitive
+    // (272 klasser over 61M rader) eller nesten tomme (varietet 0,1 %).
+    //
+    // MERK 2,2x-REDUNDANSEN. Tabellen har ~2,2 rader per observasjon, én per
+    // områdetype, så hver rangkolonne lagres 2,2 ganger. Det er prisen for at
+    // filteret og grupperingen ligger på samme rad som områdetilknytningen.
+    // ObservationTaxonHierarchy beholdes: den har én rad per observasjon og bærer
+    // taksonfilteret mot Observation-tabellen, der et seek på IX_OTH_* er målt 4,4x
+    // raskere enn DISTINCT over indekstabellen.
+    //
+    // ALLE MÅ MED I IX_OEI_Columnstore, se BackfillAll nederst. En kolonne utenfor
+    // den filtreres fra rowstore og er treg.
+    public int? KingdomTaxonId { get; set; }
+    public int? SubkingdomTaxonId { get; set; }
+    public int? PhylumTaxonId { get; set; }
+    public int? SubphylumTaxonId { get; set; }
+    public int? SuperclassTaxonId { get; set; }
+    public int? ClassTaxonId { get; set; }
+    public int? SubclassTaxonId { get; set; }
+    public int? InfraclassTaxonId { get; set; }
+    public int? SuperorderTaxonId { get; set; }
     public int? OrderTaxonId { get; set; }
+    public int? SuborderTaxonId { get; set; }
+    public int? InfraorderTaxonId { get; set; }
+    public int? SuperfamilyTaxonId { get; set; }
+    public int? FamilyTaxonId { get; set; }
+    public int? SubfamilyTaxonId { get; set; }
+    public int? TribeTaxonId { get; set; }
+    public int? SubgenusTaxonId { get; set; }
+    public int? GenusTaxonId { get; set; }
+    public int? SectionTaxonId { get; set; }
+    public int? SpeciesTaxonId { get; set; }
+    public int? SubspeciesTaxonId { get; set; }
+    public int? VarietyTaxonId { get; set; }
+    public int? FormTaxonId { get; set; }
 
     // CompleteFilter — lavselektive filtre som hører hjemme i columnstore.
     // Institusjon har 54 distinkte verdier (~1,13M rader per verdi), samling 1 908

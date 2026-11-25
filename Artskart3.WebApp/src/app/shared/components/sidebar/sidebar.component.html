@@ -16,7 +16,7 @@
   </div>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate" (toggle)="onFacetGroupToggle('taxonGroup', $event)">
       @if (taxonGroups(); as taxonGroupList) {
         @if (taxonGroupList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -31,10 +31,13 @@
             </adb-checkbox>
             @for (taxonGroup of taxonGroupList; track taxonGroup.id ?? $index) {
               @if (taxonGroup.id !== undefined && taxonGroup.id !== null) {
+                @let taxonGroupCount = facetCount('taxonGroup', taxonGroup.id);
                 <adb-checkbox [attr.checked]="isTaxonGroupSelected(taxonGroup.id) ? '' : null" (change)="onTaxonGroupToggle(taxonGroup.id)">
                   {{ taxonGroup.name }}
-                  @if (taxonGroup.observationCount !== null && taxonGroup.observationCount !== undefined) {
-                    <span slot="counter">{{ taxonGroup.observationCount | formatNumber: translate.currentLang }}</span>
+                  @if (taxonGroupCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="taxonGroupCount === 0">
+                      {{ taxonGroupCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
               }
@@ -66,7 +69,7 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.categories' | translate" (toggle)="onFacetGroupToggle('category', $event)">
       @if (categoryTypes(); as types) {
         @for (type of types; track type.id ?? $index) {
           <h6 class="category-section-heading">{{ 'sidebar.categoryType.' + type.name | translate }}</h6>
@@ -84,13 +87,16 @@
             }
             @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
               @if (category.id !== undefined) {
+                @let categoryCount = facetCount('category', category.id);
                 <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                   <span class="category-content">
                     <app-risk-category-badge [code]="category.code" />
                     <span>{{ category.name }}</span>
                   </span>
-                  @if (category.observationCount !== null && category.observationCount !== undefined) {
-                    <span slot="counter">{{ category.observationCount | formatNumber: translate.currentLang }}</span>
+                  @if (categoryCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="categoryCount === 0">
+                      {{ categoryCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
               }
@@ -102,7 +108,7 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.areas' | translate" (toggle)="onAreaGroupToggle($event)">
       <h6 class="area-section-heading area-search-heading">{{ 'sidebar.restrictedArea' | translate }}</h6>
       <app-autocomplete
         class="area-search restricted-area-search"
@@ -146,8 +152,11 @@
                   (change)="onCountyToggle(group)"
                 >
                   {{ group.county.name }}
-                  @if (group.county.observationCount !== null && group.county.observationCount !== undefined) {
-                    <span slot="counter">{{ group.county.observationCount | formatNumber: translate.currentLang }}</span>
+                  @let countyCount = areaFacetCount(group.county.fid);
+                  @if (countyCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="countyCount === 0">
+                      {{ countyCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
                 <div class="category-children">
@@ -158,8 +167,11 @@
                         (change)="onMunicipalityToggle(municipality.fid)"
                       >
                         {{ municipality.name }}
-                        @if (municipality.observationCount !== null && municipality.observationCount !== undefined) {
-                          <span slot="counter">{{ municipality.observationCount | formatNumber: translate.currentLang }}</span>
+                        @let municipalityCount = areaFacetCount(municipality.fid);
+                        @if (municipalityCount !== null) {
+                          <span slot="counter" class="facet-count" [class.facet-count-empty]="municipalityCount === 0">
+                            {{ municipalityCount | formatNumber: translate.currentLang }}
+                          </span>
                         }
                       </adb-checkbox>
                     }
@@ -173,10 +185,13 @@
               <h6 class="area-section-heading">{{ 'sidebar.areaSection.svalbardBjørnøyaAndJanMayen' | translate }}</h6>
               <div class="category-flat">
                 @for (area of sbjmAreas; track area.fid) {
+                  @let svalbardCount = areaFacetCount(area.fid);
                   <adb-checkbox [attr.checked]="isCountySelected(area.fid) ? '' : null" (change)="onCountyCheckboxToggle(area.fid)">
                     {{ area.name }}
-                    @if (area.observationCount !== null && area.observationCount !== undefined) {
-                      <span slot="counter">{{ area.observationCount | formatNumber: translate.currentLang }}</span>
+                    @if (svalbardCount !== null) {
+                      <span slot="counter" class="facet-count" [class.facet-count-empty]="svalbardCount === 0">
+                        {{ svalbardCount | formatNumber: translate.currentLang }}
+                      </span>
                     }
                   </adb-checkbox>
                 }
@@ -188,10 +203,13 @@
             <div class="category-flat">
               @for (area of oceanAreas.municipalities; track area.fid) {
                 @if (area.fid) {
+                  @let oceanCount = areaFacetCount(area.fid);
                   <adb-checkbox [attr.checked]="isOceanAreaSelected(area.fid) ? '' : null" (change)="onOceanAreaToggle(area.fid)">
                     {{ area.name }}
-                    @if (area.observationCount !== null && area.observationCount !== undefined) {
-                      <span slot="counter">{{ area.observationCount | formatNumber: translate.currentLang }}</span>
+                    @if (oceanCount !== null) {
+                      <span slot="counter" class="facet-count" [class.facet-count-empty]="oceanCount === 0">
+                        {{ oceanCount | formatNumber: translate.currentLang }}
+                      </span>
                     }
                   </adb-checkbox>
                 }
@@ -281,7 +299,7 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate" (toggle)="onFacetGroupToggle('behavior', $event)">
       @if (behaviors(); as behaviorList) {
         @if (behaviorList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -296,10 +314,13 @@
             </adb-checkbox>
             @for (behavior of behaviorList; track behavior.id ?? $index) {
               @if (behavior.id !== undefined && behavior.id !== null) {
+                @let behaviorCount = facetCount('behavior', behavior.id);
                 <adb-checkbox [attr.checked]="isBehaviorSelected(behavior.id) ? '' : null" (change)="onBehaviorToggle(behavior.id)">
                   {{ getBehaviorDisplayName(behavior) }}
-                  @if (behavior.observationCount !== null && behavior.observationCount !== undefined) {
-                    <span slot="counter">{{ behavior.observationCount | formatNumber: translate.currentLang }}</span>
+                  @if (behaviorCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="behaviorCount === 0">
+                      {{ behaviorCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
               }
@@ -311,7 +332,7 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate" (toggle)="onBasisOfRecordGroupToggle($event)">
       @if (basisOfRecords(); as basisOfRecordList) {
         @if (basisOfRecordList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -326,13 +347,16 @@
             </adb-checkbox>
             @for (basisOfRecord of basisOfRecordList; track basisOfRecord.id ?? $index) {
               @if (basisOfRecord.id !== undefined && basisOfRecord.id !== null) {
+                @let basisOfRecordCount = facetCount('basisOfRecord', basisOfRecord.id);
                 <adb-checkbox
                   [attr.checked]="isBasisOfRecordSelected(basisOfRecord.id) ? '' : null"
                   (change)="onBasisOfRecordToggle(basisOfRecord.id)"
                 >
                   {{ getBasisOfRecordDisplayName(basisOfRecord) }}
-                  @if (basisOfRecord.observationCount !== null && basisOfRecord.observationCount !== undefined) {
-                    <span slot="counter">{{ basisOfRecord.observationCount | formatNumber: translate.currentLang }}</span>
+                  @if (basisOfRecordCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="basisOfRecordCount === 0">
+                      {{ basisOfRecordCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
               }
@@ -349,11 +373,17 @@
         (change)="onRegistrationStatusChange($event)"
       >
         @for (option of registreringOptions; track option.id) {
+          @let registrationCount = facetCount('registrationStatus', option.id);
           <adb-radio
             [attr.value]="option.value"
             [attr.description]="option.descriptionKey ? (option.descriptionKey | translate) : null"
           >
             {{ option.labelKey | translate }}
+            @if (registrationCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="registrationCount === 0">
+                {{ registrationCount | formatNumber: translate.currentLang }}
+              </span>
+            }
           </adb-radio>
         }
       </adb-radio-group>
@@ -361,19 +391,22 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate" (toggle)="onFacetGroupToggle('institution', $event)">
       @if (institutions(); as institutionList) {
         @if (institutionList.length > 0) {
           <div class="checkbox-accordion-children">
             @for (institution of institutionList; track institution.id ?? $index) {
               @if (institution.id !== undefined && institution.id !== null) {
+                @let institutionCount = facetCount('institution', institution.id);
                 <adb-checkbox
                   [attr.checked]="isInstitutionSelected(institution.id) ? '' : null"
                   (change)="onInstitutionToggle(institution.id)"
                 >
                   {{ institution.name }}
-                  @if (institution.observationCount !== null && institution.observationCount !== undefined) {
-                    <span slot="counter">{{ institution.observationCount | formatNumber: translate.currentLang }}</span>
+                  @if (institutionCount !== null) {
+                    <span slot="counter" class="facet-count" [class.facet-count-empty]="institutionCount === 0">
+                      {{ institutionCount | formatNumber: translate.currentLang }}
+                    </span>
                   }
                 </adb-checkbox>
               }
@@ -385,7 +418,7 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
+    <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate" (toggle)="onBoolFacetGroupToggle($event)">
       <div class="other-properties-filter">
         <div class="other-properties-label">
           {{ 'sidebar.project' | translate }}
@@ -460,9 +493,25 @@
           [attr.value]="imageFilter()"
           (change)="onImageFilterChange($event)"
         >
+          @let withImageCount = boolFacetCount('withImages', true);
+          @let withoutImageCount = boolFacetCount('withImages', false);
           <adb-radio value="all">{{ 'sidebar.imageAll' | translate }}</adb-radio>
-          <adb-radio value="withImage">{{ 'sidebar.imageWith' | translate }}</adb-radio>
-          <adb-radio value="withoutImage">{{ 'sidebar.imageWithout' | translate }}</adb-radio>
+          <adb-radio value="withImage">
+            {{ 'sidebar.imageWith' | translate }}
+            @if (withImageCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="withImageCount === 0">
+                {{ withImageCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
+          <adb-radio value="withoutImage">
+            {{ 'sidebar.imageWithout' | translate }}
+            @if (withoutImageCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="withoutImageCount === 0">
+                {{ withoutImageCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
         </adb-radio-group>
 
         <adb-radio-group
@@ -472,9 +521,25 @@
           [attr.value]="sensitiveFilter()"
           (change)="onSensitiveFilterChange($event)"
         >
+          @let sensitiveCount = boolFacetCount('sensitive', true);
+          @let notSensitiveCount = boolFacetCount('sensitive', false);
           <adb-radio value="all">{{ 'sidebar.sensitiveAll' | translate }}</adb-radio>
-          <adb-radio value="sensitive">{{ 'sidebar.sensitiveOnly' | translate }}</adb-radio>
-          <adb-radio value="notSensitive">{{ 'sidebar.sensitiveNot' | translate }}</adb-radio>
+          <adb-radio value="sensitive">
+            {{ 'sidebar.sensitiveOnly' | translate }}
+            @if (sensitiveCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="sensitiveCount === 0">
+                {{ sensitiveCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
+          <adb-radio value="notSensitive">
+            {{ 'sidebar.sensitiveNot' | translate }}
+            @if (notSensitiveCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="notSensitiveCount === 0">
+                {{ notSensitiveCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
         </adb-radio-group>
 
         <adb-radio-group
@@ -484,9 +549,25 @@
           [attr.value]="annotationFilter()"
           (change)="onAnnotationFilterChange($event)"
         >
+          @let changedCount = boolFacetCount('changedByAnnotation', true);
+          @let notChangedCount = boolFacetCount('changedByAnnotation', false);
           <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
-          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
-          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+          <adb-radio value="changed">
+            {{ 'sidebar.annotationChanged' | translate }}
+            @if (changedCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="changedCount === 0">
+                {{ changedCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
+          <adb-radio value="notChanged">
+            {{ 'sidebar.annotationNotChanged' | translate }}
+            @if (notChangedCount !== null) {
+              <span slot="counter" class="facet-count" [class.facet-count-empty]="notChangedCount === 0">
+                {{ notChangedCount | formatNumber: translate.currentLang }}
+              </span>
+            }
+          </adb-radio>
         </adb-radio-group>
       </div>
     </adb-accordion-item>

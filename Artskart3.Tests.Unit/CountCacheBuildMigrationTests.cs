@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using FluentAssertions;
-using RebuildCountCaches = Artskart3.Infrastructure.Migrations.RebuildCountCaches;
+using Byggemigrasjonen = Artskart3.Infrastructure.Migrations.RebuildCountCachesAfterTaxonRanks;
 
 namespace Artskart3.Tests.Unit;
 
@@ -9,11 +9,18 @@ namespace Artskart3.Tests.Unit;
 /// Vakt for byggemigrasjonen til tellebufferne.
 ///
 /// HVA DEN BESKYTTER MOT
-/// RebuildCountCaches kjører Scripts/BuildAreaCountCache.sql og
-/// BuildLocationCountCache.sql som innebygde ressurser — altså skriptene slik de ser
-/// ut NÅ, ikke slik de så ut da migrasjonen ble skrevet. Det går bare så lenge alle
-/// kolonnene skriptene bruker finnes når migrasjonen kjører, og det er sant bare hvis
-/// ingen senere migrasjon endrer skjemaet på annen måte enn med indekser.
+/// Byggemigrasjonen kjører Scripts/BuildAreaCountCache.sql,
+/// BuildLocationCountCache.sql og BuildFacetCountCache.sql som innebygde ressurser —
+/// altså skriptene slik de ser ut NÅ, ikke slik de så ut da migrasjonen ble skrevet.
+/// Det går bare så lenge alle kolonnene og tabellene skriptene bruker finnes når
+/// migrasjonen kjører, og det er sant bare hvis ingen senere migrasjon endrer
+/// skjemaet på annen måte enn med indekser.
+///
+/// <c>Byggemigrasjonen</c> er et alias, så testen følger med når byggingen flyttes.
+/// Den har flyttet tre ganger: 20261007134334_BuildCountCaches →
+/// 20261111112446_RebuildCountCaches → 20261116143428_RebuildCountCachesWithFacets
+/// (da fasett-tabellene kom bak den) → 20261117151539_RebuildCountCachesAfterTaxonRanks
+/// (da de 19 taksonrangkolonnene kom bak den).
 ///
 /// Det gikk galt én gang alt: byggingen lå opprinnelig i 20261007134334, skriptene
 /// vokste til å referere Mask, UncertainIdentification, Introduced og
@@ -38,7 +45,7 @@ public class CountCacheBuildMigrationTests
     [Fact]
     public void Etter_byggemigrasjonen_kommer_bare_indeksendringer()
     {
-        var migrasjoner = typeof(RebuildCountCaches).Assembly
+        var migrasjoner = typeof(Byggemigrasjonen).Assembly
             .GetTypes()
             .Where(t => t.IsSubclassOf(typeof(Migration)) && !t.IsAbstract)
             .Select(t => new
@@ -54,13 +61,14 @@ public class CountCacheBuildMigrationTests
             .Select(m => m.Type)
             .ToList();
 
-        migrasjoner.Should().Contain(typeof(RebuildCountCaches), "migrasjonene skal ligge i Infrastructure-assemblyet");
+        migrasjoner.Should().Contain(typeof(Byggemigrasjonen), "migrasjonene skal ligge i Infrastructure-assemblyet");
 
-        var senere = migrasjoner.SkipWhile(t => t != typeof(RebuildCountCaches)).Skip(1);
+        var senere = migrasjoner.SkipWhile(t => t != typeof(Byggemigrasjonen)).Skip(1);
 
         senere.SelectMany(AndreEndringerEnnIndekser).Should().BeEmpty(
             "byggemigrasjonen leser byggeskriptene som de ser ut nå, så alle kolonnene de " +
-            "bruker må finnes når den kjører. Flytt RebuildCountCaches bakerst med et nytt tidsstempel.");
+            "bruker må finnes når den kjører. Flytt byggemigrasjonen bakerst med et nytt " +
+            "tidsstempel, tøm den gamle, og pek aliaset Byggemigrasjonen på den nye.");
     }
 
     [Fact]
@@ -72,22 +80,27 @@ public class CountCacheBuildMigrationTests
     }
 
     /// <summary>
-    /// Den gamle byggemigrasjonen skal bli stående tom. Fylles den igjen, er feilen
-    /// over tilbake — den ligger midt i rekken, før kolonnene skriptene bruker.
+    /// De gamle byggemigrasjonene skal bli stående tomme. Fylles én av dem igjen, er
+    /// feilen over tilbake — de ligger midt i rekken, før skjemaet skriptene trenger.
+    ///
+    /// Begge er flyttet av samme grunn: 20261007134334 lå før kolonnene skriptene
+    /// bruker, og 20261111112446 lå før fasett-tabellene.
     /// </summary>
-    [Fact]
-    public void Den_gamle_byggemigrasjonen_bygger_ingenting()
+    [Theory]
+    [InlineData("BuildCountCaches")]
+    [InlineData("RebuildCountCaches")]
+    [InlineData("RebuildCountCachesWithFacets")]
+    public void De_gamle_byggemigrasjonene_bygger_ingenting(string navn)
     {
-        var gammel = typeof(RebuildCountCaches).Assembly
+        var gammel = typeof(Byggemigrasjonen).Assembly
             .GetTypes()
-            .Single(t => t.Name == "BuildCountCaches");
+            .Single(t => t.Name == navn);
 
         var migrasjon = (Migration)Activator.CreateInstance(gammel)!;
-        var operasjoner = migrasjon.UpOperations;
 
-        operasjoner.Should().BeEmpty(
-            "20261007134334_BuildCountCaches ligger før kolonnene byggeskriptene bruker. " +
-            "Skal bufferne bygges av en migrasjon, hører det i RebuildCountCaches.");
+        migrasjon.UpOperations.Should().BeEmpty(
+            $"{navn} ligger før skjemaet byggeskriptene trenger. Skal bufferne bygges av " +
+            "en migrasjon, hører det i den nyeste byggemigrasjonen.");
     }
 
     private static IEnumerable<string> AndreEndringerEnnIndekser(Type migrasjon) =>

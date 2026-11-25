@@ -873,7 +873,8 @@ public class SearchRepository : ISearchRepository
     /// Lokasjonene innenfor matrikkelenhetene i filteret, eller null når filteret ikke har noen.
     /// Slås opp før spørringen bygges, fordi geometrien kommer fra Kartverket.
     /// </summary>
-    private async Task<int[]?> ResolveCadastralLocationIdsAsync(IObservationFilter filter, CancellationToken cancellationToken) =>
+    /// <inheritdoc />
+    public async Task<int[]?> ResolveCadastralLocationIdsAsync(IObservationFilter filter, CancellationToken cancellationToken = default) =>
         filter.CadastralUnitIds?.Length > 0
             ? await _cadastralUnits.GetLocationIdsAsync(filter.CadastralUnitIds, cancellationToken)
             : null;
@@ -2192,6 +2193,49 @@ public class SearchRepository : ISearchRepository
         }
     }
 
+    /// <inheritdoc />
+    public async Task<Dictionary<string, int>> GetAreaFacetCountsAsync(
+        IObservationFilter filter, CancellationToken cancellationToken = default)
+    {
+        // Gjenbruker hele tellestien til GetAreaCountsAsync — buffer, opprulling og
+        // telling — men med geografien og kartutsnittet fjernet, se FacetFilters.
+        //
+        // DET ER DET SOM GJØR GJENBRUKEN RIKTIG: uten områdevalg er hasAreaSelection
+        // usann i FilterAndComputeCounts, så FilterAreasBySelection hopper over og ALLE
+        // områdene beholdes som utdataceller. Det er nettopp det en fasett trenger —
+        // tallet for hvert område, ikke bare for de valgte.
+        //
+        // Uten filtre faller stien tilbake til Area.ObservationCount. Det er trygt her:
+        // den kolonnen er målt identisk med en telling fra indekstabellen for alle
+        // fylker, i motsetning til ObservationCount på Taxon og Category, som teller fra
+        // Observation og ligger opptil 5 % høyere.
+        var areaFilter = FacetFilters.ForAreaFacet(filter);
+
+        // Begge zoomnivåene i én liste: fylker (1), kommuner (2), og havområder og
+        // Svalbard, som ligger på nivå 1 men vises på begge. Ett kall gir hele
+        // områdelista i panelet, og bufferoppslaget tåler flere områdetyper samtidig.
+        var areas = await SelectAreas(
+                _context.Set<Area>().AsNoTracking()
+                    .Where(a => a.IsCurrent == true && (
+                        a.ZoomLevel == 1 ||
+                        a.ZoomLevel == 2 ||
+                        a.AreaTypeId == (int)AreaType.OceanArea ||
+                        a.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen)),
+                includeGeometry: false)
+            .ToListAsync(cancellationToken);
+
+        var (filteredAreas, countFor) = await FilterAndComputeCounts(areas, areaFilter, cancellationToken);
+
+        // Gruppert på Fid: samme Fid kan forekomme i flere rader når et område finnes
+        // på begge zoomnivåene, og da er tallet det samme — summen er over cellene
+        // CountResolver slo opp, ikke over duplikater.
+        return filteredAreas
+            .GroupBy(a => a.Fid)
+            .Select(g => new { Fid = g.Key, Count = g.Sum(countFor) })
+            .Where(x => x.Count > 0)
+            .ToDictionary(x => x.Fid, x => x.Count);
+    }
+
     /// <summary>
     /// Henter pre-beregnede observasjonsantall for valgte kommuner og aggregerer per forelder-fylke.
     /// Brukes når kommune-filter er aktivt på fylkesnivå — unngår tung observasjonstelling.
@@ -2356,21 +2400,199 @@ public class SearchRepository : ISearchRepository
     /// et nytt filter lagt til ett sted gitt stille forskjellige tall mellom
     /// zoomnivåene.
     /// </summary>
+    /// <summary>
+    /// Fasett-tall for én dimensjon, aggregert live: antall observasjoner per bøtte,
+    /// med filteret anvendt MINUS dimensjonens egen gruppe.
+    ///
+    /// Dette er fall-through-en når fasett-bufferen ikke dekker filteret, altså ved to
+    /// eller flere andre aktive dimensjoner, katalognummer, matrikkelenheter eller
+    /// takson under ordensnivå. At det er de SELEKTIVE filtrene som havner her, er
+    /// grunnen til at det går an: målt 130-250 ms ved to eller flere filtre, mot
+    /// 3,5-7,5 s for de brede filtrene bufferen tar.
+    ///
+    /// COUNT(DISTINCT ObservationId) ER NØDVENDIG
+    /// Indekstabellen har én rad per (observasjon, områdetype), i snitt ~2,2 per
+    /// observasjon. COUNT(*) ville gitt for høye tall, og det finnes ingen kanonisk rad
+    /// å forankre på: fylkesraden dekker 56 677 364 av 61 052 216 observasjoner.
+    ///
+    /// NULL-BØTTA UTELATES, som i bufferen. Et filter peker alltid ut konkrete verdier,
+    /// så «uten kategori» kan ikke velges — og tallene må stemme mellom de to stiene.
+    /// </summary>
+    public async Task<Dictionary<int, int>> AggregateFacetCountsAsync(
+        IObservationFilter filter, FacetDimension facet, FilterMask.Selection mask,
+        int[]? cadastralLocationIds, CancellationToken cancellationToken = default)
+    {
+        var query = FacetBaseQuery(filter, facet.DimensionId, mask, cadastralLocationIds);
+
+        List<FacetBucketCount> rows = facet.DimensionId switch
+        {
+            FacetDimensionIds.TaxonGroup => await query
+                .GroupBy(idx => idx.TaxonGroupId)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            FacetDimensionIds.Category => await query
+                .Where(idx => idx.CategoryId != null)
+                .GroupBy(idx => idx.CategoryId!.Value)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            FacetDimensionIds.Behavior => await query
+                .Where(idx => idx.BehaviorId != null)
+                .GroupBy(idx => idx.BehaviorId!.Value)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            FacetDimensionIds.BasisOfRecord => await query
+                .GroupBy(idx => idx.BasisOfRecordId)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            FacetDimensionIds.Institution => await query
+                .Where(idx => idx.InstitutionOrgId != null)
+                .GroupBy(idx => idx.InstitutionOrgId!.Value)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            FacetDimensionIds.RegistrationStatus => await query
+                .GroupBy(idx => idx.RegistrationStatusId)
+                .Select(g => new FacetBucketCount(g.Key, g.Select(x => x.ObservationId).Distinct().Count()))
+                .ToListAsync(cancellationToken),
+
+            // Registeret slipper bare de seks gjennom, og det sjekkes ved oppstart. Er
+            // vi her, er registeret utvidet uten at denne ble det.
+            _ => throw new NotSupportedException(
+                $"Fasetten «{facet.Key}» peker på dimensjon {facet.DimensionId}, som ikke har " +
+                "en grupperingsgren i AggregateFacetCountsAsync."),
+        };
+
+        return rows.ToDictionary(r => r.BucketId, r => r.Count);
+    }
+
+    /// <summary>
+    /// Antall observasjoner for filteret med ett bool-alternativ satt. Fall-through for
+    /// maskefasettene, og samme grunnlag som <see cref="AggregateFacetCountsAsync"/>.
+    /// </summary>
+    public async Task<int> AggregateFacetTotalAsync(
+        IObservationFilter filter, FilterMask.Selection mask,
+        int[]? cadastralLocationIds, CancellationToken cancellationToken = default)
+    {
+        var query = FacetBaseQuery(filter, excludeDimensionId: null, mask, cadastralLocationIds);
+
+        return await query
+            .Select(idx => idx.ObservationId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Radene fasett-tellingene aggregerer over: indekstabellen med områdefilteret og
+    /// attributtfiltrene anvendt, men uten fasettens egen dimensjon.
+    ///
+    /// Det er IKKE forankret på noen områdetype. Uten et områdefilter skal alle rader
+    /// være med, og COUNT(DISTINCT ObservationId) hos kalleren rydder opp i at en
+    /// observasjon har flere områderader.
+    ///
+    /// Kartutsnittet er med vilje ikke med: fasett-tallene følger filteret, ikke hva
+    /// som er synlig på skjermen. Se semantikken i FacetCountCacheDimensions.
+    /// </summary>
+    private IQueryable<ObservationEntityIndex> FacetBaseQuery(
+        IObservationFilter filter, byte? excludeDimensionId, FilterMask.Selection mask,
+        int[]? cadastralLocationIds)
+    {
+        var areaIds = ResolveAreaFilterIds(filter, envelope: null);
+
+        var query = _context.Set<ObservationEntityIndex>().AsNoTracking();
+
+        query = ApplyAreaFilterToEntityIndex(query, areaIds, cadastralLocationIds);
+        query = ApplyAttributeFiltersToEntityIndex(query, filter, excludeDimensionId, mask);
+
+        return query;
+    }
+
+    /// <summary>Én bøtte med sitt antall. Navngitt fordi EF ikke projiserer til tupler.</summary>
+    private readonly record struct FacetBucketCount(int BucketId, int Count);
+
+    /// <summary>
+    /// De fem bool-filtrene, anvendt fra maskeutvalget framfor fra filteret direkte.
+    ///
+    /// Bitene og semantikken er <see cref="FilterMask"/> sine, de samme bufferen
+    /// bygges og leses med. Står predikatene her, kan aggregeringen og bufferen ikke
+    /// bli uenige om hva «uten bilde» betyr.
+    /// </summary>
+    private static IQueryable<ObservationEntityIndex> ApplyMaskToEntityIndex(
+        IQueryable<ObservationEntityIndex> query, FilterMask.Selection mask)
+    {
+        if (!mask.IsActive) return query;
+
+        if ((mask.Care & FilterMask.HasMediaFiles) != 0)
+        {
+            var want = (mask.Want & FilterMask.HasMediaFiles) != 0;
+            query = query.Where(idx => idx.HasMediaFiles == want);
+        }
+
+        if ((mask.Care & FilterMask.ChangedByAnnotation) != 0)
+        {
+            var want = (mask.Want & FilterMask.ChangedByAnnotation) != 0;
+            query = query.Where(idx => idx.ChangedByAnnotation == want);
+        }
+
+        if ((mask.Care & FilterMask.Sensitive) != 0)
+        {
+            var want = (mask.Want & FilterMask.Sensitive) != 0;
+            query = query.Where(idx => idx.Sensitive == want);
+        }
+
+        if ((mask.Care & FilterMask.UncertainIdentification) != 0)
+        {
+            var want = (mask.Want & FilterMask.UncertainIdentification) != 0;
+            query = query.Where(idx => idx.UncertainIdentification == want);
+        }
+
+        if ((mask.Care & FilterMask.Introduced) != 0)
+        {
+            var want = (mask.Want & FilterMask.Introduced) != 0;
+            query = query.Where(idx => idx.Introduced == want);
+        }
+
+        return query;
+    }
+
+    /// <summary>Attributtfiltrene anvendt på indekstabellen.</summary>
+    /// <param name="query">Radene som skal filtreres.</param>
+    /// <param name="filter">Filteret slik det kom inn.</param>
+    /// <param name="excludeDimensionId">
+    /// Dimensjonen som IKKE skal filtreres på, oppgitt som id fra
+    /// <c>AreaCountCacheDimensions</c>. Brukes av fasett-tellingene: tallet ved et valg
+    /// svarer på «hva får du hvis du velger denne», så brukerens valg i samme gruppe
+    /// skal ikke begrense. Artskart 2 gjorde det samme, men i frontend
+    /// (<c>countFilter[node.id] = []</c>); her gjøres det serverside, så det er ett
+    /// sted å ta feil.
+    /// </param>
+    /// <param name="maskOverride">
+    /// Når satt, erstatter denne de fem bool-filtrene i <paramref name="filter"/>.
+    /// Fasett-tallet for «uten bilde» må regnes med den biten AV selv om brukeren har
+    /// valgt «med bilde», og <see cref="FilterMask.WithBit"/> har allerede gjort det
+    /// valget. Uten dette ville bool-fasettene svart 0 på sitt eget motstykke.
+    /// </param>
     private IQueryable<ObservationEntityIndex> ApplyAttributeFiltersToEntityIndex(
-        IQueryable<ObservationEntityIndex> query, LocationSearchFilterDto filter)
+        IQueryable<ObservationEntityIndex> query,
+        IObservationFilter filter,
+        byte? excludeDimensionId = null,
+        FilterMask.Selection? maskOverride = null)
     {
         // Denormaliserte filtre — anvendes direkte på indekstabellen
-        if (filter.TaxonGroupIds?.Any() == true)
+        if (filter.TaxonGroupIds?.Any() == true && excludeDimensionId != FacetDimensionIds.TaxonGroup)
         {
             var ids = filter.TaxonGroupIds.ToList();
             query = query.Where(idx => ids.Contains(idx.TaxonGroupId));
         }
-        if (filter.CategoryIds?.Any() == true)
+        if (filter.CategoryIds?.Any() == true && excludeDimensionId != FacetDimensionIds.Category)
         {
             var ids = filter.CategoryIds.ToList();
             query = query.Where(idx => idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value));
         }
-        if (filter.BasisOfRecordIds?.Any() == true)
+        if (filter.BasisOfRecordIds?.Any() == true && excludeDimensionId != FacetDimensionIds.BasisOfRecord)
         {
             var ids = filter.BasisOfRecordIds.ToList();
             query = query.Where(idx => ids.Contains(idx.BasisOfRecordId));
@@ -2420,45 +2642,21 @@ public class SearchRepository : ISearchRepository
                 : query.Where(idx => idx.MonthCollected.HasValue && months.Contains(idx.MonthCollected.Value));
         }
 
-        if (filter.RegistrationStatusId.HasValue)
+        if (filter.RegistrationStatusId.HasValue && excludeDimensionId != FacetDimensionIds.RegistrationStatus)
         {
             var statusId = (byte)filter.RegistrationStatusId.Value;
             query = query.Where(idx => idx.RegistrationStatusId == statusId);
         }
 
-        if (filter.WithImages.HasValue)
-        {
-            query = filter.WithImages.Value
-                ? query.Where(idx => idx.HasMediaFiles)
-                : query.Where(idx => !idx.HasMediaFiles);
-        }
-
-        // Annotering og sensitivitet — denormaliserte kolonner i columnstore.
-        // Semi-joinen mot ObservationTags kostet 759-1000 ms på negasjonen;
-        // kolonnene skannes med resten av filteret i batch mode.
-        if (filter.ChangedByAnnotation.HasValue)
-        {
-            var changedByAnnotation = filter.ChangedByAnnotation.Value;
-            query = query.Where(idx => idx.ChangedByAnnotation == changedByAnnotation);
-        }
-
-        if (filter.Sensitive.HasValue)
-        {
-            var sensitive = filter.Sensitive.Value;
-            query = query.Where(idx => idx.Sensitive == sensitive);
-        }
-
-        if (filter.UncertainIdentification.HasValue)
-        {
-            var uncertainIdentification = filter.UncertainIdentification.Value;
-            query = query.Where(idx => idx.UncertainIdentification == uncertainIdentification);
-        }
-
-        if (filter.Introduced.HasValue)
-        {
-            var introduced = filter.Introduced.Value;
-            query = query.Where(idx => idx.Introduced == introduced);
-        }
+        // Bool-filtrene — denormaliserte kolonner i columnstore. Semi-joinen mot
+        // ObservationTags kostet 759-1000 ms på negasjonen; kolonnene skannes med
+        // resten av filteret i batch mode.
+        //
+        // Alle fem går gjennom maskeutvalget, også uten overstyring: da leses det ut
+        // av filteret og gir nøyaktig de samme predikatene som før. Formen er valgt
+        // slik at bool-semantikken står ETT sted, og ikke kan bli ulik mellom
+        // fasettveien og resten.
+        query = ApplyMaskToEntityIndex(query, maskOverride ?? FilterMask.Select(filter));
 
         if (filter.TaxonIds?.Any() == true && !filter.IncludeDescendantTaxa)
         {
@@ -2482,7 +2680,7 @@ public class SearchRepository : ISearchRepository
         // Institusjonsfilteret gikk tidligere via self-join mot EntityTypeId=101-
         // radene. Kolonnen erstatter både den self-joinen og radene, som fjernes
         // i oppryddingssteget.
-        if (filter.OrganizationIds?.Any() == true)
+        if (filter.OrganizationIds?.Any() == true && excludeDimensionId != FacetDimensionIds.Institution)
         {
             var orgIds = filter.OrganizationIds;
             query = query.Where(idx => idx.InstitutionOrgId.HasValue && orgIds.Contains(idx.InstitutionOrgId.Value));
@@ -2494,7 +2692,7 @@ public class SearchRepository : ISearchRepository
             query = query.Where(idx => idx.DatasetOrgId.HasValue && datasetOrgIds.Contains(idx.DatasetOrgId.Value));
         }
 
-        if (filter.BehaviorIds?.Any() == true)
+        if (filter.BehaviorIds?.Any() == true && excludeDimensionId != FacetDimensionIds.Behavior)
         {
             // Atferd er tinyint på indekstabellen — bare 6 mulige verdier.
             //

@@ -70,7 +70,11 @@ public static class FilterMask
         public bool IsActive => Care != 0;
     }
 
-    /// <summary>Leser maskeutvalget ut av filteret.</summary>
+    /// <summary>
+    /// Leser maskeutvalget ut av filteret.
+    ///
+    /// Tar grensesnittet, så den dekker både lokasjons- og observasjonsfilteret.
+    /// </summary>
     public static Selection Select(IObservationFilter filter)
     {
         byte care = 0, want = 0;
@@ -91,24 +95,16 @@ public static class FilterMask
         }
     }
 
-    /// <summary>Samme utvalg lest ut av lokasjonsfilteret.</summary>
-    public static Selection Select(LocationSearchFilterDto filter)
-    {
-        byte care = 0, want = 0;
-
-        Add(filter.ChangedByAnnotation, ChangedByAnnotation);
-        Add(filter.Sensitive, Sensitive);
-        Add(filter.UncertainIdentification, UncertainIdentification);
-        Add(filter.Introduced, Introduced);
-        Add(filter.WithImages, HasMediaFiles);
-
-        return new Selection(care, want);
-
-        void Add(bool? value, byte bit)
-        {
-            if (value is not { } v) return;
-            care |= bit;
-            if (v) want |= bit;
-        }
-    }
+    /// <summary>
+    /// Maskeutvalget for ETT bool-alternativ, brukt av fasett-tallene.
+    ///
+    /// Brukerens eget valg på samme bit skal ikke begrense — tallet svarer på «hva om
+    /// du valgte denne i stedet». Biten settes derfor til alternativets verdi uansett
+    /// hva filteret sa. <c>Care</c> trenger ingen utmaskering først: å slå av en bit og
+    /// straks på igjen er det samme som å slå den på.
+    /// </summary>
+    public static Selection WithBit(Selection selection, byte bit, bool value) =>
+        new(
+            (byte)(selection.Care | bit),
+            (byte)(value ? selection.Want | bit : selection.Want & ~bit));
 }

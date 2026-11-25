@@ -44,6 +44,7 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
 {
     private const string AreaScript = "Artskart3.Infrastructure.Scripts.BuildAreaCountCache.sql";
     private const string LocationScript = "Artskart3.Infrastructure.Scripts.BuildLocationCountCache.sql";
+    private const string FacetScript = "Artskart3.Infrastructure.Scripts.BuildFacetCountCache.sql";
 
     private const int Kommune = (int)ObservationIndexEntityType.Municipality;
     private const int Fylke = (int)ObservationIndexEntityType.County;
@@ -114,10 +115,12 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Skriptbygget_buffer_godtas_og_stemmer_med_telling()
     {
-        // Rekkefølgen er et krav, ikke en preferanse: lokasjonsskriptet låner
-        // flerverdi-bøttene fra områdebufferen. Testes slik den kjøres.
+        // Rekkefølgen er et krav, ikke en preferanse: både lokasjons- og
+        // fasett-skriptet låner flerverdi-bøttene fra områdebufferen. Testes slik de
+        // kjøres av RebuildCountCachesWithFacets.
         await RunAreaScriptAsync();
         await RunLocationScriptAsync();
+        await RunFacetScriptAsync();
 
         // --- Tilstanden oppslaget krever ---------------------------------------
         var kilderader = await CountCacheSourceRows.ReadAsync(_context, CancellationToken.None);
@@ -137,10 +140,22 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
         lokasjon.SchemaVersion.Should().Be(AreaCountCacheDimensions.SchemaVersion);
         lokasjon.SourceRows.Should().Be(kilderader);
 
+        var fasett = await _context.Set<FacetCountCacheState>().AsNoTracking()
+            .SingleAsync(s => s.Id == 1);
+
+        fasett.Status.Should().Be("Ready");
+        fasett.SchemaVersion.Should().Be(FacetCountCacheDimensions.SchemaVersion,
+            "fasett-bufferen har sin EGEN versjon — fasettsettet kan endres uten at " +
+            "områderegisteret gjør det");
+        fasett.SourceRows.Should().Be(kilderader);
+
         // Tomme tabeller ville bestått alt over. Bufferen skal inneholde noe.
         (await _context.Set<AreaCountCacheLevel1>().CountAsync()).Should().BePositive();
         (await _context.Set<AreaCountCacheLevel2>().CountAsync()).Should().BePositive();
         (await _context.Set<LocationCountCacheLevel1>().CountAsync()).Should().BePositive();
+        (await _context.Set<FacetCountCacheLevel0>().CountAsync()).Should().BePositive();
+        (await _context.Set<FacetCountCacheLevel1>().CountAsync()).Should().BePositive();
+        (await _context.Set<FacetCountCacheLevel2>().CountAsync()).Should().BePositive();
 
         // Dimensjon 12 og 13 er flerverdi, og lokasjonsskriptet slår bøttene opp i
         // denne tabellen. Mangler de, stopper det — men da ville vi feilet over.
@@ -208,6 +223,58 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
         {
             CoordinatePrecision = new CoordinatePrecisionDto { From = 5000, To = 9000 },
         });
+
+        // --- Fasett-bufferen ---------------------------------------------------
+        //
+        // Samme påstand som over, men for fasett-tallene: bufferen skal gi NØYAKTIG
+        // det en aggregering gir, bøtte for bøtte.
+        //
+        // Observasjon 0 har TO områderader (kommune og fylke), så en buffer som
+        // teller indeksrader i stedet for observasjoner svarer 5 der den skal svare
+        // 4 for taksongruppe A. Det er den feilen #obs-dedupliseringen finnes for.
+
+        // Tomt filter: nivå 1.
+        await AssertFacetSameAsAggregationAsync("taxonGroup", new LocationSearchFilterDto());
+        await AssertFacetSameAsAggregationAsync("category", new LocationSearchFilterDto());
+
+        // Ett annet aktivt filter: nivå 2, paret (taksongruppe, periode).
+        await AssertFacetSameAsAggregationAsync("taxonGroup", new LocationSearchFilterDto
+        {
+            Period = new PeriodDto { Months = [6] },
+        });
+
+        // Egen dimensjon skal IKKE begrense: taksongruppefasetten med taksongruppe
+        // valgt er fortsatt nivå 1, og tallene er de samme som for tomt filter.
+        var medEgetValg = await FacetService().TryGetDimensionCountsAsync(
+            FacetCountCacheDimensions.FindDimension("taxonGroup")!,
+            new LocationSearchFilterDto { TaxonGroupIds = [TaksongruppeA] });
+
+        var utenValg = await FacetService().TryGetDimensionCountsAsync(
+            FacetCountCacheDimensions.FindDimension("taxonGroup")!,
+            new LocationSearchFilterDto());
+
+        // Begge må svare FØR de sammenlignes: to null-svar ville bestått en
+        // sammenligning uten å ha rørt en bufferrad.
+        medEgetValg.Should().NotBeNull();
+        utenValg.Should().NotBeNull();
+
+        medEgetValg.Should().Equal(utenValg,
+            "tallet svarer på «hva får du hvis du velger denne», så brukerens eget " +
+            "valg i samme gruppe skal ikke begrense");
+
+        // Maskefasett: ingen av de seedede observasjonene har mediefiler, så
+        // negasjonen skal gi alle og det positive alternativet null. Negasjonen er
+        // den som lett blir feil.
+        var medBilde = await FacetService().TryGetMaskCountAsync(
+            FacetCountCacheDimensions.FindMaskFacet("withImages")!, true, new LocationSearchFilterDto());
+        var utenBilde = await FacetService().TryGetMaskCountAsync(
+            FacetCountCacheDimensions.FindMaskFacet("withImages")!, false, new LocationSearchFilterDto());
+
+        var alle = await _context.Set<ObservationEntityIndex>().AsNoTracking()
+            .Select(i => i.ObservationId).Distinct().CountAsync();
+
+        medBilde.Should().Be(0);
+        utenBilde.Should().Be(alle);
     }
 
     // -----------------------------------------------------------------------
@@ -318,6 +385,8 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
 
     private Task RunLocationScriptAsync() => RunScriptAsync(LocationScript);
 
+    private Task RunFacetScriptAsync() => RunScriptAsync(FacetScript);
+
     /// <summary>
     /// Leser skriptet fra samme innebygde ressurs som migrasjonen BuildCountCaches
     /// kjører, så testen kan ikke komme i utakt med det som faktisk deployes.
@@ -378,6 +447,91 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
             Options.Create(new LocationCountCacheOptions()),
             NullLogger<LocationCountCacheService>.Instance);
 
+    private FacetCountCacheService FacetService() =>
+        new(_context, new StubTaxonHierarchyService(), new StubAreaHierarchyService(),
+            Options.Create(new FacetCountCacheOptions()),
+            NullLogger<FacetCountCacheService>.Instance);
+
+    /// <summary>
+    /// Fasett-tallene fra bufferen skal være identiske med en aggregering over
+    /// indekstabellen, bøtte for bøtte.
+    ///
+    /// Aggregeringen teller DISTINKTE observasjoner per bøtte — ikke indeksrader.
+    /// Det er hele poenget: observasjon 0 har to områderader, så en buffer som
+    /// teller rader svarer én for mye for taksongruppe A.
+    ///
+    /// FØRST kontrolleres at bufferen i det hele tatt SVARER. Uten den sjekken er
+    /// sammenligningen verdiløs — en buffer som avviser filteret gir null, og null
+    /// mot en aggregering ville bare vist at testen ikke rørte en bufferrad.
+    /// </summary>
+    private async Task AssertFacetSameAsAggregationAsync(string facetKey, LocationSearchFilterDto filter)
+    {
+        var facet = FacetCountCacheDimensions.FindDimension(facetKey)!;
+
+        var fraBuffer = await FacetService().TryGetDimensionCountsAsync(facet, filter);
+
+        fraBuffer.Should().NotBeNull(
+            $"bufferen må svare på fasetten «{facetKey}» for dette filteret, ellers " +
+            "sammenligner testen ingenting");
+
+        var aggregert = await AggregerAsync(facet.DimensionId, filter);
+
+        fraBuffer!.Should().Equal(aggregert,
+            "fasett-bufferen skal gi nøyaktig det aggregeringen gir, ikke omtrent");
+
+        // OG den ekte fall-through-stien, ikke bare testens egen aggregering.
+        //
+        // Dette er invarianten som holder de to kildene sammen i produksjon: brukeren
+        // skal ikke se tallet endre seg fordi filteret falt ut av bufferens dekning.
+        // Testens AggregerAsync er et uavhengig grunnlag; denne er koden som faktisk
+        // kjører, med egen dimensjon utelatt av ApplyAttributeFiltersToEntityIndex.
+        var fraRepository = await WithoutCache().AggregateFacetCountsAsync(
+            filter, facet, FilterMask.Select(filter), cadastralLocationIds: null);
+
+        fraRepository.Where(b => b.Value > 0).Should().Equal(aggregert,
+            "aggregeringsstien og bufferen må svare likt, ellers endrer tallet seg når " +
+            "filteret faller ut av bufferens dekning");
+    }
+
+    /// <summary>
+    /// Aggregerer fasett-tallene for én dimensjon direkte fra indekstabellen, med
+    /// filteret anvendt MINUS dimensjonen det regnes fasett for.
+    ///
+    /// Dekker bare de dimensjonene og filtrene testen over bruker. En generell
+    /// reimplementasjon av filterstien her ville vært en ny kilde til feil, ikke et
+    /// uavhengig sammenligningsgrunnlag.
+    /// </summary>
+    private async Task<Dictionary<int, int>> AggregerAsync(byte dimensionId, LocationSearchFilterDto filter)
+    {
+        var query = _context.Set<ObservationEntityIndex>().AsNoTracking();
+
+        // Periodefilteret er det eneste andre filteret testen setter. Egen dimensjon
+        // utelates ikke eksplisitt her: ingen av tilfellene setter både fasettens
+        // egen dimensjon OG et periodefilter.
+        if (filter.Period?.Months is { Length: > 0 } months)
+        {
+            var monthValues = months.Select(m => (byte)m).ToArray();
+            query = query.Where(i => i.MonthCollected != null && monthValues.Contains(i.MonthCollected.Value));
+        }
+
+        // Bøtta per observasjon. Distinct på paret gir COUNT(DISTINCT ObservationId)
+        // per bøtte, siden hver observasjon har én verdi i dimensjonen.
+        var par = dimensionId switch
+        {
+            7 => await query.Select(i => new { i.ObservationId, Bucket = (int?)i.TaxonGroupId })
+                            .Distinct().ToListAsync(),
+            5 => await query.Select(i => new { i.ObservationId, Bucket = i.CategoryId })
+                            .Distinct().ToListAsync(),
+            _ => throw new NotSupportedException($"Aggregering for dimensjon {dimensionId} er ikke skrevet."),
+        };
+
+        // NULL-bøtta bygges ikke, så den skal heller ikke sammenlignes.
+        return par
+            .Where(x => x.Bucket.HasValue)
+            .GroupBy(x => x.Bucket!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
     private async Task ClearCacheAsync()
     {
         await _context.Set<AreaCountCacheLevel1>().ExecuteDeleteAsync();
@@ -386,6 +540,10 @@ public class CountCacheScriptIntegrationTests : IAsyncLifetime
         await _context.Set<AreaCountCacheState>().ExecuteDeleteAsync();
         await _context.Set<LocationCountCacheLevel1>().ExecuteDeleteAsync();
         await _context.Set<LocationCountCacheState>().ExecuteDeleteAsync();
+        await _context.Set<FacetCountCacheLevel0>().ExecuteDeleteAsync();
+        await _context.Set<FacetCountCacheLevel1>().ExecuteDeleteAsync();
+        await _context.Set<FacetCountCacheLevel2>().ExecuteDeleteAsync();
+        await _context.Set<FacetCountCacheState>().ExecuteDeleteAsync();
     }
 
     /// <summary>

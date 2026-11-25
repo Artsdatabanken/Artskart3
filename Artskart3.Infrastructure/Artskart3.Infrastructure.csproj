@@ -37,6 +37,7 @@
     <EmbeddedResource Include="..\Scripts\BackfillAll.sql" Link="Scripts\BackfillAll.sql" />
     <EmbeddedResource Include="..\Scripts\BuildAreaCountCache.sql" Link="Scripts\BuildAreaCountCache.sql" />
     <EmbeddedResource Include="..\Scripts\BuildLocationCountCache.sql" Link="Scripts\BuildLocationCountCache.sql" />
+    <EmbeddedResource Include="..\Scripts\BuildFacetCountCache.sql" Link="Scripts\BuildFacetCountCache.sql" />
   </ItemGroup>
 
 </Project>

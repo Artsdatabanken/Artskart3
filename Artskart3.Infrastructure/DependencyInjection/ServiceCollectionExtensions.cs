@@ -48,6 +48,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBlobStorageService, BlobStorageService>();
         services.AddScoped<IAreaCountCacheService, AreaCountCacheService>();
         services.AddScoped<ILocationCountCacheService, LocationCountCacheService>();
+        services.AddScoped<IFacetCountCacheService, FacetCountCacheService>();
+        services.AddScoped<IFacetCountService, FacetCountService>();
+        services.AddScoped<IFacetAggregationRunner, FacetAggregationRunner>();
 
         // Polygondatasettet i minnet. Singleton fordi det er ~360 MB som skal
         // bygges én gang, og en egen bakgrunnstjeneste bygger det uten å holde
