@@ -625,12 +625,6 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         _logger.LogInformation("PolygonLocationStore klar: {Beskrivelse}", _beskrivelse);
     }
 
-    private static readonly LocationGeometryType[] Geometrityper =
-    [
-        LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
-        LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
-    ];
-
     /// <summary>
     /// Lokasjonene, med WKT, omsluttende boks og rutenettflagg regnet ut én
     /// gang. Det er her NTS-materialiseringen og AsText() betales — 130 ms per
@@ -640,7 +634,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
         IArtsKartDbContext context, CancellationToken ct)
     {
         var rader = await context.Set<Location>().AsNoTracking()
-            .Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null)
+            .Where(l => LocationGeometryRules.TegnedeGeometrityper.Contains(l.GeometryTypeId) && l.Geometry != null)
             .OrderBy(l => l.Id)
             .Select(l => new { l.Id, l.East, l.North, l.Locality, l.Geometry, l.LookupId })
             .ToListAsync(ct);
@@ -682,7 +676,7 @@ public sealed class PolygonLocationStore : IPolygonLocationStore
     private async Task LastHistoriskeOmraaderAsync(IArtsKartDbContext context, CancellationToken ct)
     {
         var rader = await context.Set<HistoricalAreaLocation>().AsNoTracking()
-            .Join(context.Set<Location>().Where(l => Geometrityper.Contains(l.GeometryTypeId) && l.Geometry != null),
+            .Join(context.Set<Location>().Where(l => LocationGeometryRules.TegnedeGeometrityper.Contains(l.GeometryTypeId) && l.Geometry != null),
                 h => h.LocationId, l => l.Id, (h, l) => new { h.AreaId, h.LocationId })
             .ToListAsync(ct);
 

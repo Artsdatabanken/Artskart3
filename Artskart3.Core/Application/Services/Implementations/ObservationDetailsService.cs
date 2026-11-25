@@ -37,6 +37,22 @@ public sealed class ObservationDetailsService(
         return detail;
     }
 
+    public async Task<ObservationMapSubject?> GetMapSubjectAsync(int id, CancellationToken cancellationToken)
+    {
+        var location = await repository.GetMapLocationAsync(id, cancellationToken);
+        if (location is null) return null;
+
+        var shape = location is { Geometry: { } geometry, GeometryType: { } type }
+            && LocationGeometryRules.TegnedeGeometrityper.Contains(type)
+            && LocationGeometryRules.TegnesSomGeometri(geometry.AsText(), location.LookupId)
+                ? geometry : null;
+        return new ObservationMapSubject(
+            ObservationPointValidator.UsableOrNull(location.Point),
+            location.CoordinatePrecision,
+            shape,
+            shape is not null && LocationGeometryRules.ErSensitivLokalitet(location.LookupId));
+    }
+
     public Task<int?> FindIdByOccurrenceIdAsync(string occurrenceId, CancellationToken cancellationToken) =>
         repository.FindIdByOccurrenceIdAsync(occurrenceId, cancellationToken);
 

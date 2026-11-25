@@ -98,6 +98,18 @@ public sealed partial class ObservationDetailsRepository(
         return detail;
     }
 
+    public Task<ObservationMapLocation?> GetMapLocationAsync(int id, CancellationToken cancellationToken) =>
+        // Samme offentlige data som GetAsync; aldri SensitiveObservationData.
+        context.Set<Observation>().AsNoTracking()
+            .Where(o => o.Id == id && !o.IsDeleted)
+            .Select(o => new ObservationMapLocation(
+                new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North),
+                o.CoordinatePrecisionInMeters,
+                o.Location != null ? o.Location.GeometryTypeId : null,
+                o.Location != null ? o.Location.Geometry : null,
+                o.Location != null ? o.Location.LookupId : null))
+            .SingleOrDefaultAsync(cancellationToken);
+
     /// <summary>
     /// Slår opp intern ID for eksterne lenker, som bare kjenner det de kaller occurrenceId.
     /// For noen kilder er det vår ProxyId: NINA har nina/skandobs/&lt;guid&gt; i ProxyId og bare

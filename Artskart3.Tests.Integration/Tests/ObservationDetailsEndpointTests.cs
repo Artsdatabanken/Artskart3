@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -10,8 +11,11 @@ using Artskart3.Infrastructure.Services;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NetTopologySuite.IO;
+using SkiaSharp;
 
 namespace Artskart3.Tests.Integration.Tests;
 
@@ -200,6 +204,59 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
     public async Task Map_InvalidPresetIsRejectedWithoutCsrfHeader()
     {
         (await client.GetAsync($"/api/observations/{ObservationId}/maps/arbitrary")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await client.GetAsync("/api/observations/999999999/maps/local")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Map_DrawsTheLocationShapeAndAnswersNotModifiedWithoutFetchingMaps()
+    {
+        using var wms = new TransparentWmsHandler();
+        using var mapFactory = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddSingleton<IObservationMapService>(new ObservationMapService(new StubHttpClientFactory(wms)))));
+        using var mapClient = mapFactory.CreateClient();
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var observation = await context.Observations.Include(o => o.Location).SingleAsync(o => o.Id == ObservationId);
+        var location = observation.Location!;
+        var originalGeometry = location.Geometry;
+        var url = $"/api/observations/{ObservationId}/maps/local";
+
+        var first = await mapClient.GetAsync(url);
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        first.Content.Headers.ContentType!.MediaType.Should().Be("image/webp");
+        first.Headers.CacheControl!.MaxAge.Should().Be(TimeSpan.FromMinutes(5));
+        var etag = first.Headers.ETag!;
+        etag.IsWeak.Should().BeTrue();
+        wms.Calls.Should().Be(3);
+
+        using (var revalidation = new HttpRequestMessage(HttpMethod.Get, url))
+        {
+            revalidation.Headers.IfNoneMatch.Add(etag);
+            (await mapClient.SendAsync(revalidation)).StatusCode.Should().Be(HttpStatusCode.NotModified);
+        }
+        wms.Calls.Should().Be(3);
+
+        // En sekskant rundt funnet, så GeometryTypeId-kolonnen sier Polygon og rektangelregelen ikke slår inn.
+        var (east, north) = (observation.East, observation.North);
+        location.Geometry = new WKTReader().Read(FormattableString.Invariant(
+            $"POLYGON (({east - 3000} {north}, {east - 1500} {north - 2600}, {east + 1500} {north - 2600}, {east + 3000} {north}, {east + 1500} {north + 2600}, {east - 1500} {north + 2600}, {east - 3000} {north}))"));
+        location.Geometry.SRID = originalGeometry?.SRID ?? 25833;
+        await context.SaveChangesAsync();
+        try
+        {
+            using var changed = new HttpRequestMessage(HttpMethod.Get, url);
+            changed.Headers.IfNoneMatch.Add(etag);
+            var response = await mapClient.SendAsync(changed);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            response.Headers.ETag.Should().NotBe(etag);
+            using var bitmap = SKBitmap.Decode(await response.Content.ReadAsByteArrayAsync());
+            bitmap.GetPixel(400, 400).Red.Should().BeInRange((byte)200, (byte)235, "the shape's fill replaces the marker");
+        }
+        finally
+        {
+            location.Geometry = originalGeometry;
+            await context.SaveChangesAsync();
+        }
     }
 
     private async Task<ObservationDetailDto> GetDetailAsync()
@@ -248,6 +305,30 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
             RequestUri = request.RequestUri;
             RequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+        }
+    }
+
+    private sealed class StubHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, false);
+    }
+
+    private sealed class TransparentWmsHandler : HttpMessageHandler
+    {
+        private int calls;
+        public int Calls => calls;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref calls);
+            var query = QueryHelpers.ParseQuery(request.RequestUri!.Query);
+            using var surface = SKSurface.Create(new SKImageInfo(int.Parse(query["WIDTH"].ToString()), int.Parse(query["HEIGHT"].ToString())));
+            surface.Canvas.Clear(SKColors.Transparent);
+            using var snapshot = surface.Snapshot();
+            using var png = snapshot.Encode(SKEncodedImageFormat.Png, 100);
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(png.ToArray()) };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            return Task.FromResult(response);
         }
     }
 

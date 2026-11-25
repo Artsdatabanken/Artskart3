@@ -118,8 +118,8 @@ try
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
         // Håndtereren er FELLES for alle policyene, så den må si hvilken som avviste.
-        // Sto meldingen fast på kartkøen, ville et avvist søk rapportert seg som et
-        // kartproblem — i svaret, og i loggen noen leser mens de feilsøker.
+        // Med én fast melding ville et avvist søk rapportert seg som noe annet — i
+        // svaret, og i loggen noen leser mens de feilsøker.
         options.OnRejected = async (context, cancellationToken) =>
         {
             var sti = context.HttpContext.Request.Path.Value ?? "ukjent";
@@ -155,17 +155,11 @@ try
             }
             else
             {
-                logger.LogWarning("Observation map request queue is full ({Path})", sti);
+                logger.LogWarning("Request queue is full ({Path})", sti);
                 await context.HttpContext.Response.WriteAsJsonAsync(
-                    new { error = "Too many map requests. Please retry." }, cancellationToken);
+                    new { error = "Too many requests. Please retry." }, cancellationToken);
             }
         };
-        options.AddConcurrencyLimiter("observation-maps", limiter =>
-        {
-            limiter.PermitLimit = 4;
-            limiter.QueueLimit = 16;
-            limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-        });
 
         // Hvert kall går til annoteringstjenesten i Artskart 2, i produksjon også fra testmiljøene.
         // Eget tak, så en treg tjeneste der ikke binder opp API-et.

@@ -5,6 +5,7 @@ namespace Artskart3.Core.Application.Services.Interfaces;
 public interface IObservationDetailsService
 {
     Task<ObservationDetailDto?> GetAsync(int id, CancellationToken cancellationToken);
+    Task<ObservationMapSubject?> GetMapSubjectAsync(int id, CancellationToken cancellationToken);
     Task<int?> FindIdByOccurrenceIdAsync(string occurrenceId, CancellationToken cancellationToken);
     Task<ObservationImageFile?> GetImageAsync(int observationId, int mediaId, CancellationToken cancellationToken);
 }

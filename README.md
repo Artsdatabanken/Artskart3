@@ -227,7 +227,7 @@ API:
   ved behov. Nettleseren prøver først `MediaFile.Origin`, deretter blob-endepunktet
   én gang. Kun støttede rasterbildetyper vises; tomme bildegallerier skjules.
 - `GET /api/observations/{id}/maps/local` og `/maps/overview` returnerer
-  henholdsvis 800x800 og 500x800 PNG. Begge bildeendepunktene er offentlige,
+  henholdsvis 800x800 og 500x800 WebP. Begge bildeendepunktene er offentlige,
   skrivebeskyttede og unntatt BFF-headerkravet slik at de virker i `<img>`.
   Slettede funn/bilder eller bilder som tilhører et annet funn, utleveres ikke.
 
@@ -236,13 +236,20 @@ Kartene genereres med SkiaSharp fra faste HTTPS WMS-kilder hos Kartverket
 Kildelenker vises under kartene og i bildeviseren. Ingen vilkårlige WMS-adresser,
 lag, bildestørrelser eller koordinater kan angis av API-klienten.
 Offentlige koordinater brukes gjennomgående; `SensitiveObservationData`
-brukes ikke. Lokalkartet er omtrent 82 km bredt, og oversiktskartet utvides
-ved behov for å inkludere funnet.
+brukes ikke. Lokalkartet er 5 km bredt og viser funnet slik hovedkartet gjør:
+lokasjoner med flate eller linje tegnes med formen (maskeringsruta til sensitive
+funn stiplet), andre som punkt med en presisjonsring når ringen er større enn
+punktet. Utsnittet utvides til ringen eller formen får plass, opptil 500 km. Oversiktskartet
+utvides ved behov for å inkludere funnet. Innenfor standardutsnittet hentes
+bakgrunnen én gang og deles av alle funn; funn ute ved kanten tegnes for seg.
 
-Rendereren har fire samtidige jobber, en egen 64 MiB minnebuffer med 15 minutters
-levetid, 25 sekunders samlet tidsgrense og maksimalt 12 MiB per WMS-svar.
-Kartendepunktet tillater fire samtidige forespørsler og 16 i kø; over dette
-returneres 429. Feil fra kartkilder gir 502/504 og kan prøves på nytt i panelet.
+Rendereren henter kartlagene samtidig og avbryter resten når ett lag feiler. Den
+har fire samtidige jobber og 16 i kø (over dette returneres 429 med en gang), en
+egen 64 MiB minnebuffer med 15 minutters levetid, 25 sekunders samlet tidsgrense
+og maksimalt 12 MiB per WMS-svar. Bilder i bufferen går utenom køen. Bildene kan
+mellomlagres i fem minutter. ETag-en er svak og regnes ut fra det bildet tegnes
+av, så en nettleser med gjeldende bilde får 304 uten nye kall mot kartkildene.
+Feil fra kartkilder gir 502/504 og kan prøves på nytt i panelet.
 Bilder støtter ETag og fem minutters HTTP-mellomlagring. Deployment må inkludere
 SkiaSharps native Linux-bibliotek (pakken `SkiaSharp.NativeAssets.Linux.NoDependencies`);
 en bygging på macOS alene verifiserer ikke Linux-runtime.
