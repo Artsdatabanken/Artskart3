@@ -14,7 +14,6 @@ public class ObservationEntityIndex
     // Denormaliserte observasjonsattributter for rask filtrert telling
     public int TaxonGroupId { get; set; }
     public int? CategoryId { get; set; }
-    public int? AlienSpeciesCategoryId { get; set; }
     public int BasisOfRecordId { get; set; }
     public int? CoordinatePrecisionInMeters { get; set; }
 

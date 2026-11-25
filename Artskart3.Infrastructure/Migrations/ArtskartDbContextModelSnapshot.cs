@@ -14,6 +14,7 @@ namespace Artskart3.Infrastructure.Migrations
     [DbContext(typeof(ArtskartDbContext))]
     partial class ArtskartDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -1477,9 +1478,6 @@ namespace Artskart3.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AlienSpeciesCategoryId")
-                        .HasColumnType("int");
-
                     b.Property<int>("BasisOfRecordId")
                         .HasColumnType("int");
 
@@ -1689,10 +1687,6 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), DataCompressionType.Page);
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), new[] { "DateTimeCollected", "BasisOfRecordId", "TaxonId", "TaxonGroupId", "YearCollected", "MonthCollected", "Id", "HiddenByAnnotation" });
 
-                    b.HasIndex(new[] { "AlienSpeciesCategoryId" }, "IX_Observation_AlienSpeciesCategoryId")
-                        .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
-                        .HasAnnotation("SqlServer:Online", true);
-
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 
                     b.HasIndex(new[] { "CategoryId" }, "IX_Observation_CategoryId");
@@ -1863,9 +1857,6 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("AlienSpeciesCategoryId")
-                        .HasColumnType("int");
-
                     b.Property<int>("BasisOfRecordId")
                         .HasColumnType("int");
 
@@ -1930,13 +1921,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
-
-                    b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId")
-                        .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
-                        .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
-                        .HasAnnotation("SqlServer:Online", true);
-
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId"), new[] { "DateTimeCollected", "ObservationId" });
 
                     b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
                         .IsDescending(false, false, true, true)
@@ -3480,11 +3464,6 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Observation", b =>
                 {
-                    b.HasOne("Artskart3.Core.Domain.Entities.Category", "AlienSpeciesCategory")
-                        .WithMany("AlienSpeciesObservations")
-                        .HasForeignKey("AlienSpeciesCategoryId")
-                        .HasConstraintName("FK_dbo.Observation_dbo.Category_AlienSpeciesCategoryId");
-
                     b.HasOne("Artskart3.Core.Domain.Entities.BasisOfRecord", "BasisOfRecord")
                         .WithMany("Observations")
                         .HasForeignKey("BasisOfRecordId")
@@ -3520,8 +3499,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_dbo.Observation_dbo.Taxon_TaxonId");
-
-                    b.Navigation("AlienSpeciesCategory");
 
                     b.Navigation("BasisOfRecord");
 
@@ -3806,8 +3783,6 @@ namespace Artskart3.Infrastructure.Migrations
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.Category", b =>
                 {
-                    b.Navigation("AlienSpeciesObservations");
-
                     b.Navigation("Observations");
 
                     b.Navigation("TaxonAssessments");

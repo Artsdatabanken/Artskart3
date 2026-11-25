@@ -1265,8 +1265,27 @@ public class SearchRepository : ISearchRepository
             var categoryIds = filter.CategoryIds.ToList();
             query = query.Where(idx =>
                 (idx.CategoryId.HasValue && categoryIds.Contains(idx.CategoryId.Value)) ||
-                (idx.AlienSpeciesCategoryId.HasValue &&
-                 categoryIds.Contains(idx.AlienSpeciesCategoryId.Value)));
+                _context.Set<Observation>().Any(o =>
+                    o.Id == idx.ObservationId &&
+                    o.Taxon.Assessments.Any(a =>
+                        !a.IsDeleted &&
+                        a.IsEffective &&
+                        a.CategoryType.Name == "Fremmedart" &&
+                        categoryIds.Contains(a.CategoryId) &&
+                        a.Area == (
+                            o.Location != null &&
+                            o.Location.Areas.Any(area =>
+                                !area.IsDeleted &&
+                                area.IsCurrent &&
+                                (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                                 (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                            o.Taxon.Assessments.Any(s =>
+                                !s.IsDeleted &&
+                                s.IsEffective &&
+                                s.CategoryType.Name == "Fremmedart" &&
+                                s.Area == "S")
+                                ? "S"
+                                : "N"))));
         }
 
         if (filter.OrganizationIds?.Any() == true)
@@ -1470,7 +1489,27 @@ public class SearchRepository : ISearchRepository
                 .FirstOrDefault(),
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
-            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
+            AlienSpeciesCategoryId = o.Taxon.Assessments
+                .Where(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N"))
+                .Select(a => (int?)a.CategoryId)
+                .FirstOrDefault(),
             DateTimeCollected = o.DateTimeCollected,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             Point = new ObservationPointDto(o.Latitude, o.Longitude, o.East, o.North)
@@ -1622,9 +1661,69 @@ public class SearchRepository : ISearchRepository
             CategoryName = o.Category != null ? o.Category.Name : string.Empty,
             CategoryCode = o.Category != null ? o.Category.Code : null,
             CategoryTypeId = o.Category != null ? o.Category.CategoryTypeId : null,
-            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
-            AlienSpeciesCategoryName = o.AlienSpeciesCategory != null ? o.AlienSpeciesCategory.Name : null,
-            AlienSpeciesCategoryCode = o.AlienSpeciesCategory != null ? o.AlienSpeciesCategory.Code : null,
+            AlienSpeciesCategoryId = o.Taxon.Assessments
+                .Where(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N"))
+                .Select(a => (int?)a.CategoryId)
+                .FirstOrDefault(),
+            AlienSpeciesCategoryName = o.Taxon.Assessments
+                .Where(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N"))
+                .Select(a => a.Category.Name)
+                .FirstOrDefault(),
+            AlienSpeciesCategoryCode = o.Taxon.Assessments
+                .Where(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N"))
+                .Select(a => a.Category.Code)
+                .FirstOrDefault(),
             RegistrationType = o.Tags.Select(t => t.Name),
             Collector = o.ObservationDetail != null ? o.ObservationDetail.Collector : string.Empty,
         }).ToListAsync(cancellationToken);
@@ -2007,8 +2106,25 @@ public class SearchRepository : ISearchRepository
             var categoryIds = filter.CategoryIds.ToList();
             query = query.Where(o =>
                 (o.CategoryId.HasValue && categoryIds.Contains(o.CategoryId.Value)) ||
-                (o.AlienSpeciesCategoryId.HasValue &&
-                 categoryIds.Contains(o.AlienSpeciesCategoryId.Value)));
+                o.Taxon.Assessments.Any(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    categoryIds.Contains(a.CategoryId) &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N")));
         }
 
         // Geografiske områdefiltre (OR — observasjon i minst ett av områdene). Fylker,
@@ -2727,8 +2843,27 @@ public class SearchRepository : ISearchRepository
             var ids = filter.CategoryIds.ToList();
             query = query.Where(idx =>
                 (idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value)) ||
-                (idx.AlienSpeciesCategoryId.HasValue &&
-                 ids.Contains(idx.AlienSpeciesCategoryId.Value)));
+                _context.Set<Observation>().Any(o =>
+                    o.Id == idx.ObservationId &&
+                    o.Taxon.Assessments.Any(a =>
+                        !a.IsDeleted &&
+                        a.IsEffective &&
+                        a.CategoryType.Name == "Fremmedart" &&
+                        ids.Contains(a.CategoryId) &&
+                        a.Area == (
+                            o.Location != null &&
+                            o.Location.Areas.Any(area =>
+                                !area.IsDeleted &&
+                                area.IsCurrent &&
+                                (area.AreaTypeId == (int)AreaType.SvalbardBjørnøyaAndJanMayen ||
+                                 (area.AreaTypeId == (int)AreaType.County && area.Fid == "21"))) &&
+                            o.Taxon.Assessments.Any(s =>
+                                !s.IsDeleted &&
+                                s.IsEffective &&
+                                s.CategoryType.Name == "Fremmedart" &&
+                                s.Area == "S")
+                                ? "S"
+                                : "N"))));
         }
         if (filter.BasisOfRecordIds?.Any() == true)
         {

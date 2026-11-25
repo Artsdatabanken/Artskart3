@@ -6,6 +6,7 @@ using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Artskart3.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using GeographicAreaType = Artskart3.Core.Domain.Enums.AreaType;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 
@@ -202,8 +203,26 @@ public static class ObservationQueryBuilder
         if (filter.CategoryIds?.Any() == true)
             query = query.Where(o =>
                 (o.CategoryId != null && filter.CategoryIds.Contains(o.CategoryId.Value)) ||
-                (o.AlienSpeciesCategoryId != null &&
-                 filter.CategoryIds.Contains(o.AlienSpeciesCategoryId.Value)));
+                o.Taxon.Assessments.Any(a =>
+                    !a.IsDeleted &&
+                    a.IsEffective &&
+                    a.CategoryType.Name == "Fremmedart" &&
+                    filter.CategoryIds.Contains(a.CategoryId) &&
+                    a.Area == (
+                        o.Location != null &&
+                        o.Location.Areas.Any(area =>
+                            !area.IsDeleted &&
+                            area.IsCurrent &&
+                            (area.AreaTypeId == (int)GeographicAreaType.SvalbardBjørnøyaAndJanMayen ||
+                             (area.AreaTypeId == (int)GeographicAreaType.County &&
+                              area.Fid == "21"))) &&
+                        o.Taxon.Assessments.Any(s =>
+                            !s.IsDeleted &&
+                            s.IsEffective &&
+                            s.CategoryType.Name == "Fremmedart" &&
+                            s.Area == "S")
+                            ? "S"
+                            : "N")));
 
         // Atferd — denormalisert kolonne. Verdiene filtreres til tinyint-området
         // FØR castet: C# caster unchecked, så (byte)257 ville blitt 1.

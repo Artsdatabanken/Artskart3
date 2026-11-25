@@ -1,10 +1,7 @@
-using System.Data;
-using System.Text.Json;
 using Artskart3.Core.Application.Persistence;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AssessmentCategory = Artskart3.Core.Domain.Entities.Category;
@@ -83,7 +80,6 @@ public sealed class AlienSpeciesAssessmentSyncService(
                 .Where(a => a.CategoryTypeId == categoryType.Id)
                 .ToListAsync(cancellationToken);
             var existing = allExisting.Where(a => !a.IsDeleted).ToList();
-            var effectiveBefore = GetEffectiveProjection(existing);
 
             if (_options.ResetAssessmentsBeforeSync)
             {
@@ -123,22 +119,6 @@ public sealed class AlienSpeciesAssessmentSyncService(
             var skippedCount = snapshotResult.Skipped + currentResult.Skipped;
 
             AlienSpeciesAssessmentMerger.SelectEffective(existing);
-            var effectiveAfter = GetEffectiveProjection(existing);
-            var changedTaxonIds = effectiveBefore.Keys
-                .Concat(effectiveAfter.Keys)
-                .Select(key => key.TaxonId)
-                .Distinct()
-                .Where(taxonId =>
-                    effectiveBefore
-                        .Where(pair => pair.Key.TaxonId == taxonId)
-                        .OrderBy(pair => pair.Key.Area)
-                        .Select(pair => $"{pair.Key.Area}:{pair.Value}")
-                        .SequenceEqual(
-                            effectiveAfter
-                                .Where(pair => pair.Key.TaxonId == taxonId)
-                                .OrderBy(pair => pair.Key.Area)
-                                .Select(pair => $"{pair.Key.Area}:{pair.Value}")) == false)
-                .ToArray();
             var retainedCount = existing.Count(a => a.IsEffective && a.IsRetained);
 
             run.CurrentPageCount = currentFetch.PageCount;
@@ -150,9 +130,6 @@ public sealed class AlienSpeciesAssessmentSyncService(
             run.Status = TaxonAssessmentSyncStatus.Succeeded;
             run.CompletedAt = DateTime.UtcNow;
 
-            await context.SaveChangesAsync(cancellationToken);
-            await ProjectObservationCategoriesAsync(
-                categoryType.Id, changedTaxonIds, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -221,6 +198,32 @@ public sealed class AlienSpeciesAssessmentSyncService(
                 assessment => assessment.ExternalAssessmentId,
                 assessment => assessment,
                 StringComparer.Ordinal);
+        var previousSnapshotIds = incoming
+            .Where(assessment =>
+                assessment.Source == TaxonAssessmentSource.Current &&
+                assessment.Previous2023AssessmentId is not null)
+            .Select(assessment => assessment.Previous2023AssessmentId!)
+            .Distinct()
+            .ToArray();
+        var persistedSnapshotAssessment = await context.Set<TaxonAssessment>()
+            .AsNoTracking()
+            .Where(assessment =>
+                !assessment.IsDeleted &&
+                assessment.Source == TaxonAssessmentSource.Snapshot2023 &&
+                previousSnapshotIds.Contains(assessment.ExternalAssessmentId))
+            .Select(assessment => new
+            {
+                assessment.ExternalAssessmentId,
+                assessment.TaxonId,
+                assessment.ScientificNameId
+            })
+            .ToDictionaryAsync(
+                assessment => assessment.ExternalAssessmentId,
+                assessment => new ResolvedAssessmentTaxon(
+                    assessment.TaxonId,
+                    assessment.ScientificNameId),
+                StringComparer.Ordinal,
+                cancellationToken);
         foreach (var current in incoming.Where(assessment =>
                      assessment.Source == TaxonAssessmentSource.Current &&
                      !resolved.ContainsKey((TaxonAssessmentSource.Current, assessment.SourceTaxonIdentifier)) &&
@@ -232,6 +235,13 @@ public sealed class AlienSpeciesAssessmentSyncService(
                     out var previousTaxon))
             {
                 resolved[(TaxonAssessmentSource.Current, current.SourceTaxonIdentifier)] = previousTaxon;
+            }
+            else if (persistedSnapshotAssessment.TryGetValue(
+                         current.Previous2023AssessmentId!,
+                         out var persistedPreviousTaxon))
+            {
+                resolved[(TaxonAssessmentSource.Current, current.SourceTaxonIdentifier)] =
+                    persistedPreviousTaxon;
             }
         }
 
@@ -363,227 +373,6 @@ public sealed class AlienSpeciesAssessmentSyncService(
 
     private string BuildSnapshot2023AssessmentUrl(string externalAssessmentId) =>
         $"{_options.Snapshot2023AssessmentUrlPrefix.TrimEnd('/')}/{Uri.EscapeDataString(externalAssessmentId)}";
-
-    private async Task ProjectObservationCategoriesAsync(
-        int categoryTypeId,
-        IReadOnlyCollection<int> taxonIds,
-        CancellationToken cancellationToken)
-    {
-        if (taxonIds.Count == 0)
-            return;
-
-        var taxonJson = JsonSerializer.Serialize(taxonIds);
-        var parameters = new object[]
-        {
-            new SqlParameter("@ChangedTaxonIds", SqlDbType.NVarChar, -1) { Value = taxonJson },
-            new SqlParameter("@CategoryTypeId", categoryTypeId),
-            new SqlParameter(
-                "@ProjectionBatchSize",
-                Math.Max(1, _options.ProjectionBatchSize))
-        };
-
-        var previousTimeout = context.Database.GetCommandTimeout();
-        context.Database.SetCommandTimeout(
-            _options.ProjectionCommandTimeoutSeconds > 0
-                ? _options.ProjectionCommandTimeoutSeconds
-                : 21_600);
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE #ChangedTaxon
-            (
-                TaxonId INT NOT NULL PRIMARY KEY
-            );
-
-            INSERT INTO #ChangedTaxon (TaxonId)
-            SELECT DISTINCT TRY_CONVERT(int, [value])
-            FROM OPENJSON(@ChangedTaxonIds);
-
-            CREATE TABLE #ProjectionWork
-            (
-                ObservationId INT NOT NULL PRIMARY KEY
-            );
-
-            INSERT INTO #ProjectionWork (ObservationId)
-            SELECT observation.Id
-            FROM dbo.Observation observation
-            INNER JOIN #ChangedTaxon changed ON changed.TaxonId = observation.TaxonId;
-
-            CREATE TABLE #ProjectionBatch
-            (
-                ObservationId INT NOT NULL PRIMARY KEY
-            );
-
-            CREATE TABLE #CategoryTransition
-            (
-                ObservationId INT NOT NULL PRIMARY KEY,
-                OldCategoryId INT NULL,
-                OldAlienSpeciesCategoryId INT NULL,
-                NewCategoryId INT NULL,
-                NewAlienSpeciesCategoryId INT NULL
-            );
-
-            DECLARE @BatchSize INT = @ProjectionBatchSize;
-            DECLARE @BatchCount INT;
-
-            WHILE EXISTS (SELECT 1 FROM #ProjectionWork)
-            BEGIN
-                TRUNCATE TABLE #ProjectionBatch;
-                TRUNCATE TABLE #CategoryTransition;
-
-                WITH NextBatch AS
-                (
-                    SELECT TOP (@BatchSize) ObservationId
-                    FROM #ProjectionWork
-                    ORDER BY ObservationId
-                )
-                DELETE NextBatch
-                OUTPUT deleted.ObservationId INTO #ProjectionBatch (ObservationId);
-
-                SET @BatchCount = @@ROWCOUNT;
-                IF @BatchCount = 0 BREAK;
-
-                UPDATE observation
-                SET
-                    AlienSpeciesCategoryId = COALESCE(
-                        CASE WHEN region.IsSvalbard = 1 THEN svalbard.CategoryId END,
-                        norway.CategoryId),
-                    CategoryId = CASE
-                        WHEN legacyCategory.CategoryTypeId = @CategoryTypeId THEN NULL
-                        ELSE observation.CategoryId
-                    END
-                OUTPUT
-                    inserted.Id,
-                    deleted.CategoryId,
-                    deleted.AlienSpeciesCategoryId,
-                    inserted.CategoryId,
-                    inserted.AlienSpeciesCategoryId
-                INTO #CategoryTransition
-                (
-                    ObservationId,
-                    OldCategoryId,
-                    OldAlienSpeciesCategoryId,
-                    NewCategoryId,
-                    NewAlienSpeciesCategoryId
-                )
-                FROM dbo.Observation observation
-                INNER JOIN #ProjectionBatch batch ON batch.ObservationId = observation.Id
-                LEFT JOIN dbo.Category legacyCategory ON legacyCategory.Id = observation.CategoryId
-                CROSS APPLY
-                (
-                    SELECT CASE WHEN EXISTS
-                    (
-                        SELECT 1
-                        FROM dbo.LocationAreas locationArea
-                        INNER JOIN dbo.Area area ON area.Id = locationArea.AreaId
-                        WHERE locationArea.LocationId = observation.LocationId
-                          AND area.IsCurrent = 1
-                          AND area.IsDeleted = 0
-                          AND (
-                              area.AreaTypeId = 6 OR
-                              (area.AreaTypeId = 2 AND area.Fid = N'21')
-                          )
-                    ) THEN 1 ELSE 0 END AS IsSvalbard
-                ) region
-                LEFT JOIN dbo.TaxonAssessment svalbard
-                  ON svalbard.TaxonId = observation.TaxonId
-                 AND svalbard.CategoryTypeId = @CategoryTypeId
-                 AND svalbard.Area = N'S'
-                 AND svalbard.IsEffective = 1
-                 AND svalbard.IsDeleted = 0
-                LEFT JOIN dbo.TaxonAssessment norway
-                  ON norway.TaxonId = observation.TaxonId
-                 AND norway.CategoryTypeId = @CategoryTypeId
-                 AND norway.Area = N'N'
-                 AND norway.IsEffective = 1
-                 AND norway.IsDeleted = 0
-                OPTION (RECOMPILE);
-
-                UPDATE observationIndex
-                SET
-                    CategoryId = observation.CategoryId,
-                    AlienSpeciesCategoryId = observation.AlienSpeciesCategoryId
-                FROM dbo.ObservationEntityIndex observationIndex
-                INNER JOIN #ProjectionBatch batch
-                  ON batch.ObservationId = observationIndex.ObservationId
-                INNER JOIN dbo.Observation observation
-                  ON observation.Id = observationIndex.ObservationId
-                OPTION (RECOMPILE);
-
-                WITH OldAssignment AS
-                (
-                    SELECT ObservationId, OldCategoryId AS CategoryId
-                    FROM #CategoryTransition
-                    WHERE OldCategoryId IS NOT NULL
-                    UNION
-                    SELECT ObservationId, OldAlienSpeciesCategoryId
-                    FROM #CategoryTransition
-                    WHERE OldAlienSpeciesCategoryId IS NOT NULL
-                ),
-                NewAssignment AS
-                (
-                    SELECT ObservationId, NewCategoryId AS CategoryId
-                    FROM #CategoryTransition
-                    WHERE NewCategoryId IS NOT NULL
-                    UNION
-                    SELECT ObservationId, NewAlienSpeciesCategoryId
-                    FROM #CategoryTransition
-                    WHERE NewAlienSpeciesCategoryId IS NOT NULL
-                ),
-                RemovedAssignment AS
-                (
-                    SELECT ObservationId, CategoryId FROM OldAssignment
-                    EXCEPT
-                    SELECT ObservationId, CategoryId FROM NewAssignment
-                ),
-                AddedAssignment AS
-                (
-                    SELECT ObservationId, CategoryId FROM NewAssignment
-                    EXCEPT
-                    SELECT ObservationId, CategoryId FROM OldAssignment
-                ),
-                Delta AS
-                (
-                    SELECT CategoryId, -1 AS Change FROM RemovedAssignment
-                    UNION ALL
-                    SELECT CategoryId, 1 AS Change FROM AddedAssignment
-                )
-                UPDATE category
-                SET ObservationCount =
-                    CASE
-                        WHEN category.ObservationCount IS NULL THEN NULL
-                        ELSE category.ObservationCount + categoryDelta.Change
-                    END
-                FROM dbo.Category category
-                INNER JOIN
-                (
-                    SELECT CategoryId, SUM(Change) AS Change
-                    FROM Delta
-                    GROUP BY CategoryId
-                ) categoryDelta ON categoryDelta.CategoryId = category.Id
-                OPTION (RECOMPILE);
-            END;
-
-            DROP TABLE #CategoryTransition;
-            DROP TABLE #ProjectionBatch;
-            DROP TABLE #ProjectionWork;
-            DROP TABLE #ChangedTaxon;
-            """,
-            parameters,
-            cancellationToken);
-        }
-        finally
-        {
-            context.Database.SetCommandTimeout(previousTimeout);
-        }
-    }
-
-    private static Dictionary<(int TaxonId, string Area), int?> GetEffectiveProjection(
-        IEnumerable<TaxonAssessment> assessments) =>
-        assessments
-            .Where(a => a.IsEffective && !a.IsDeleted)
-            .ToDictionary(a => (a.TaxonId, a.Area), a => (int?)a.CategoryId);
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];

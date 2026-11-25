@@ -24,10 +24,6 @@ public sealed class AlienSpeciesAssessmentOptions
 
     public int MinimumCurrentAssessmentCount { get; set; } = 1;
 
-    public int ProjectionBatchSize { get; set; } = 50_000;
-
-    public int ProjectionCommandTimeoutSeconds { get; set; } = 21_600;
-
     public string CategoryTypeName { get; set; } = "Fremmedart";
 
     public string CurrentAssessmentUrlPrefix { get; set; } =

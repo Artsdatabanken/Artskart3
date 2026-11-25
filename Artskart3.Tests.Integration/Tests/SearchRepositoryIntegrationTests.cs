@@ -30,6 +30,7 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     private const int TestCategoryTypeId = 930001;
     private const int TestCategoryOneId = 930002;
     private const int TestCategoryTwoId = 930003;
+    private int _testAlienCategoryId;
     private const int TestTaxonGroupId = 940001;
     private const int TestTaxonRankId = 940002;
     private const int TestTaxonExactId = 950001;
@@ -208,6 +209,30 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
 
         result.Should().ContainSingle();
         result[0].Id.Should().Be(_locationOne.Id);
+    }
+
+    [Fact]
+    public async Task GetLocationsAsync_FiltersByEffectiveAlienSpeciesAssessment()
+    {
+        var filter = new LocationSearchFilterDto
+        {
+            CategoryIds = [_testAlienCategoryId],
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false
+        };
+        var result = await _repository.GetLocationsAsync(filter);
+
+        result.Select(location => location.Id)
+            .Should().BeEquivalentTo([_locationOne.Id, _locationTwo.Id, _locationThree.Id]);
+
+        var observations = await _repository.GetObservationsAsync(new ObservationSearchFilterDto
+        {
+            CategoryIds = [_testAlienCategoryId],
+            TaxonIds = [TestTaxonExactId],
+            IncludeDescendantTaxa = false
+        });
+        observations.Should().HaveCount(6)
+            .And.OnlyContain(observation => observation.AlienSpeciesCategoryId == _testAlienCategoryId);
     }
 
     [Fact]
@@ -2161,6 +2186,10 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
     {
         if (await _context.Set<TaxonGroup>().AnyAsync(group => group.Id == TestTaxonGroupId))
         {
+            _testAlienCategoryId = await _context.Set<Category>()
+                .Where(category => category.CategoryType.Name == "Fremmedart" && category.Code == "HI")
+                .Select(category => category.Id)
+                .SingleAsync();
             _locationOne = await _context.Set<Location>().SingleAsync(location => location.Locality == "Repo lokalitet 1");
             _locationTwo = await _context.Set<Location>().SingleAsync(location => location.Locality == "Repo lokalitet 2");
             _locationThree = await _context.Set<Location>().SingleAsync(location => location.Locality == "Repo lokalitet 3");
@@ -2179,6 +2208,12 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
         _context.Set<Category>().AddRange(
             new Category { Id = TestCategoryOneId, Code = "NT", Name = "Nær truet", CategoryTypeId = TestCategoryTypeId },
             new Category { Id = TestCategoryTwoId, Code = "CR", Name = "Kritisk truet", CategoryTypeId = TestCategoryTypeId });
+        var alienCategoryType = await _context.Set<CategoryType>()
+            .SingleAsync(type => type.Name == "Fremmedart");
+        _testAlienCategoryId = await _context.Set<Category>()
+            .Where(category => category.CategoryTypeId == alienCategoryType.Id && category.Code == "HI")
+            .Select(category => category.Id)
+            .SingleAsync();
 
         _context.Set<TaxonGroup>().Add(new TaxonGroup { Id = TestTaxonGroupId, Name = "Fugl" });
         _context.Set<TaxonRank>().Add(new TaxonRank { Id = TestTaxonRankId, Name = "Art" });
@@ -2204,6 +2239,19 @@ public class SearchRepositoryIntegrationTests : IAsyncLifetime
             new TaxonPopularName { SourceId = 1, Language = "nb", Name = "repo-slettet-fugl", Preferred = true, TaxonId = TestTaxonDeletedId },
             new TaxonPopularName { SourceId = 1, Language = "nb", Name = "repo-uten-observasjon-fugl", Preferred = true, TaxonId = TestTaxonMissingObservationId });
 
+        await _context.SaveChangesAsync();
+
+        _context.TaxonAssessments.Add(new TaxonAssessment
+        {
+            ScientificNameId = TestTaxonNameExactId,
+            TaxonId = TestTaxonExactId,
+            CategoryTypeId = alienCategoryType.Id,
+            CategoryId = _testAlienCategoryId,
+            Area = "N",
+            ExternalAssessmentId = "repo-alien-assessment",
+            Source = Artskart3.Core.Domain.Enums.TaxonAssessmentSource.Current,
+            IsEffective = true
+        });
         await _context.SaveChangesAsync();
 
         _locationOne = new Location

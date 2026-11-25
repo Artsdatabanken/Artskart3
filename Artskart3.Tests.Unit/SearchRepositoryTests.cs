@@ -152,9 +152,43 @@ public class SearchRepositoryTests
         await using var context = CreateInMemoryContext();
         var sut = CreateRepository(context);
         SeedLocations(context, CreateLocation(1, "Oslo"), CreateLocation(2, "Trondheim"));
-        var observation = CreateObservation(1, 1, categoryId: 12);
-        observation.AlienSpeciesCategoryId = 7;
-        SeedObservations(context, observation, CreateObservation(2, 2, categoryId: 13));
+        var taxon = new Taxon
+        {
+            Id = 10,
+            ValidScientificNameId = 10,
+            ScientificNameIdHiarchy = "10",
+            TaxonIdHiarchy = "10"
+        };
+        var categoryType = new CategoryType { Id = 2, Name = "Fremmedart" };
+        var category = new Category
+        {
+            Id = 7,
+            Code = "HI",
+            Name = "Høy risiko",
+            CategoryTypeId = categoryType.Id,
+            CategoryType = categoryType
+        };
+        context.Taxons.Add(taxon);
+        context.CategoryTypes.Add(categoryType);
+        context.Categories.Add(category);
+        context.TaxonAssessments.Add(new TaxonAssessment
+        {
+            Id = 1,
+            ScientificNameId = 10,
+            TaxonId = 10,
+            CategoryTypeId = 2,
+            CategoryId = 7,
+            Category = category,
+            CategoryType = categoryType,
+            Area = "N",
+            ExternalAssessmentId = "1",
+            Source = Artskart3.Core.Domain.Enums.TaxonAssessmentSource.Current,
+            IsEffective = true
+        });
+        SeedObservations(
+            context,
+            CreateObservation(1, 1, taxonId: taxon.Id, categoryId: 12),
+            CreateObservation(2, 2, categoryId: 13));
         await context.SaveChangesAsync();
 
         var result = await sut.GetLocationsAsync(new LocationSearchFilterDto { CategoryIds = [7] });
@@ -825,7 +859,6 @@ public class SearchRepositoryTests
             LocationId = o.LocationId,
             TaxonGroupId = o.TaxonGroupId,
             CategoryId = o.CategoryId,
-            AlienSpeciesCategoryId = o.AlienSpeciesCategoryId,
             BasisOfRecordId = o.BasisOfRecordId,
             CoordinatePrecisionInMeters = o.CoordinatePrecisionInMeters,
             DateTimeCollected = o.DateTimeCollected,

@@ -8,7 +8,7 @@ Bakgrunnstjeneste for Artskart3 som kjører planlagte jobber via **Hangfire**. D
 |------|----------|-------------|
 | CSV-eksport (poll) | Hvert sekund | Poller databasen for ventende eksportjobber, genererer CSV og Excel, laster opp til Azure Blob Storage |
 | CSV-eksport (opprydding) | Daglig kl. 03:00 | Sletter utløpte eksportjobber og tilhørende blob-filer |
-| Fremmedartsvurderinger | Ukentlig mandag kl. 02:00 | Leser Lister-API-et, lagrer effektiv vurdering og oppdaterer observasjonsprojeksjonen |
+| Fremmedartsvurderinger | Ukentlig mandag kl. 02:00 | Leser Lister-API-et og lagrer effektive takson- og områdevurderinger |
 | Harvest | Placeholder | Henter data fra eksterne datakilder (GBIF, Artsobservasjoner m.fl.) |
 | Import | Placeholder | Prosesserer data fra cache til index-databasen |
 | Vedlikehold | Placeholder | Taksonomi-sync, områdeoppdateringer |
@@ -102,8 +102,6 @@ Viktige innstillinger i `appsettings.json`:
 | `AlienSpeciesAssessment:ForceSnapshot2023Refresh` | `false` | Setter `true` for å hente det statiske 2023-opptaket på nytt |
 | `AlienSpeciesAssessment:Snapshot2023AssessmentUrlPrefix` | `https://lister.artsdatabanken.no/fremmedartslista/2023/` | URL-prefix for lenker til vurderinger fra 2023 |
 | `AlienSpeciesAssessment:ResetAssessmentsBeforeSync` | `false` | Sletter eksisterende fremmedartsvurderinger i samme transaksjon som en full ny synkronisering |
-| `AlienSpeciesAssessment:ProjectionBatchSize` | `50000` | Antall observasjoner per projeksjonsbatch i én transaksjon |
-| `AlienSpeciesAssessment:ProjectionCommandTimeoutSeconds` | `21600` | Maks SQL-tid for den samlede projeksjonskommandoen |
 | `Hangfire:ScheduleDefaults:AlienSpeciesAssessment` | `0 2 * * 1` | Ukentlig cron-plan for vurderingssynkronisering |
 
 ## Hangfire

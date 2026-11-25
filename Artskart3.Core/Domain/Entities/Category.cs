@@ -16,7 +16,5 @@ public partial class Category : BaseEntity
 
     public virtual ICollection<Observation> Observations { get; set; } = new List<Observation>();
 
-    public virtual ICollection<Observation> AlienSpeciesObservations { get; set; } = new List<Observation>();
-
     public virtual ICollection<TaxonAssessment> TaxonAssessments { get; set; } = new List<TaxonAssessment>();
 }

@@ -595,10 +595,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.HasIndex(e => new { e.TaxonGroupId, e.CategoryId }, "IX_TaxonGroupId");
 
-            entity.HasIndex(e => e.AlienSpeciesCategoryId, "IX_Observation_AlienSpeciesCategoryId")
-                .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
-                .IsCreatedOnline();
-
             entity.HasIndex(e => new { e.TaxonId, e.Id, e.CoordinatePrecisionInMeters, e.YearCollected }, "IX_Rodliste");
 
             entity.Property(e => e.CatalogNumber).HasMaxLength(200);
@@ -782,9 +778,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasOne(d => d.Category).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.CategoryId)
                 .HasConstraintName("FK_dbo.Observation_dbo.Category_CategoryId");
-            entity.HasOne(d => d.AlienSpeciesCategory).WithMany(p => p.AlienSpeciesObservations)
-                .HasForeignKey(d => d.AlienSpeciesCategoryId)
-                .HasConstraintName("FK_dbo.Observation_dbo.Category_AlienSpeciesCategoryId");
             entity.HasOne(d => d.Location).WithMany(p => p.Observations)
                 .HasForeignKey(d => d.LocationId)
                 .HasConstraintName("FK_dbo.Observation_dbo.Location_LocationId");
@@ -1311,11 +1304,6 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
-            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.AlienSpeciesCategoryId })
-                .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
-                .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
-                .IncludeProperties(e => new { e.DateTimeCollected, e.ObservationId })
-                .IsCreatedOnline();
 
             // Listevisningen med områdefilter leser hvert område nyeste først og stopper når
             // siden er full, se SearchRepository.GetAreaFilteredObservationIdsAsync. Uten denne
