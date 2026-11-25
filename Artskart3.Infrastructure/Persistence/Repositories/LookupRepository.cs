@@ -607,7 +607,9 @@ public class LookupRepository : ILookupRepository
         try
         {
             return await _context.Set<BasisOfRecord>()
-                .Where(b => !b.IsDeleted)
+                .Where(b => !b.IsDeleted
+                    && b.ObservationCount != null
+                    && b.ObservationCount > 0)
                 .OrderBy(b => b.Name)
                 .Select(b => new BasisOfRecordDto
                 {
