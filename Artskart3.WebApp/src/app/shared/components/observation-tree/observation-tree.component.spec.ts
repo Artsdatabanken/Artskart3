@@ -168,9 +168,10 @@ describe('ObservationTreeComponent', () => {
     await fixture.whenStable();
     expect(rows()).toHaveLength(4);
     rows()[1].click();
+    await fixture.whenStable();
     expect(rows()).toHaveLength(5);
     expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
-
+  });
 
   it('opens the first section of each group while keeping species collapsed', async () => {
     await create(true);
@@ -217,5 +218,4 @@ describe('ObservationTreeComponent', () => {
     await press(rows()[2], 'ArrowLeft');
     expect(document.activeElement).toBe(rows()[1]);
   });
-})
 });
