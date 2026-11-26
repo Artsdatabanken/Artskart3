@@ -4,6 +4,7 @@ using Artskart3.Core.Application.Services;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.Enums;
+using Artskart3.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
@@ -15,29 +16,86 @@ namespace Artskart3.Infrastructure.Persistence.QueryBuilders;
 public static class ObservationQueryBuilder
 {
     /// <summary>
-    /// Asynkron fordi matrikkelenhetene i filteret slås opp mot Kartverket før
-    /// spørringen bygges.
+    /// Filteret på skjulte funn. Predikatet er en konstant, ikke en parameter, fordi den
+    /// filtrerte indeksen bare kan brukes når optimizeren ser verdien.
+    /// </summary>
+    public static IQueryable<Observation> ApplyHiddenFilter(
+        IQueryable<Observation> query, HiddenObservationFilter filter) =>
+        filter.RequiredHiddenValue() switch
+        {
+            true => query.Where(o => o.HiddenByAnnotation),
+            false => query.Where(o => !o.HiddenByAnnotation),
+            null => query,
+        };
+
+    /// <summary>Samme filter på indekstabellen.</summary>
+    public static IQueryable<ObservationEntityIndex> ApplyHiddenFilter(
+        IQueryable<ObservationEntityIndex> query, HiddenObservationFilter filter) =>
+        filter.RequiredHiddenValue() switch
+        {
+            true => query.Where(idx => idx.HiddenByAnnotation),
+            false => query.Where(idx => !idx.HiddenByAnnotation),
+            null => query,
+        };
+
+    /// <summary>
+    /// Asynkron fordi matrikkelenhetene og det egendefinerte området i filteret slås
+    /// opp til lokasjoner før spørringen bygges. Det egendefinerte området deles som i
+    /// søket, se <see cref="CustomAreaFilters"/>.
+    /// </summary>
+    public static Task<IQueryable<Observation>> ApplyFiltersAsync(
+        IArtsKartDbContext context,
+        ITaxonHierarchyService taxonHierarchy,
+        ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
+        IQueryable<Observation> query,
+        ObservationSearchFilterDto filter,
+        CancellationToken cancellationToken) =>
+        ApplyFiltersAsync(context, taxonHierarchy, cadastralUnits, customAreas, query, filter, storedListIds: null, cancellationToken);
+
+    /// <summary>
+    /// Som over, og legger ID-ene til de lagrede lokasjonslistene spørringen leser i
+    /// <paramref name="storedListIds"/>. En spørring som kjøres lenger enn listene lever,
+    /// som eksporten, må merke dem som brukt, se <see cref="LocationListStore.MarkUsedAsync"/>.
     /// </summary>
     public static async Task<IQueryable<Observation>> ApplyFiltersAsync(
         IArtsKartDbContext context,
         ITaxonHierarchyService taxonHierarchy,
         ICadastralUnitService cadastralUnits,
+        ICustomAreaService customAreas,
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter,
+        ICollection<int>? storedListIds,
         CancellationToken cancellationToken)
     {
-        var cadastralLocationIds = filter.CadastralUnitIds?.Length > 0
-            ? await cadastralUnits.GetLocationIdsAsync(filter.CadastralUnitIds, cancellationToken)
-            : null;
+        filter = await CustomAreaFilters.SplitAsync(filter, customAreas, cancellationToken);
+        var locations = await LocationSelection.ResolveAsync(filter, cadastralUnits, customAreas, cancellationToken);
+        var customAreaLocationIds = await CustomAreaFilters.ResolveLocationIdsAsync(filter, customAreas, cancellationToken);
+        if (storedListIds != null)
+        {
+            foreach (var list in new[] { locations?.CadastralLocationIds, customAreaLocationIds })
+            {
+                if (list != null && LocationListStore.StoredListId(list) is { } listId) storedListIds.Add(listId);
+            }
+        }
 
         query = ApplyDirectFilters(query, filter);
         query = ApplyTaxonFilter(context, taxonHierarchy, query, filter);
         query = ApplyIdentifierFilters(context, query, filter);
-        query = ApplyAreaFilters(context, query, filter, cadastralLocationIds);
+        query = ApplyAreaFilters(context, query, filter, locations);
+        query = WhereInCustomArea(context, query, customAreaLocationIds);
         query = ApplyRangeFilters(query, filter);
 
         return query;
     }
+
+    /// <summary>
+    /// Bare observasjonene på lokasjonene i det egendefinerte området. AND-es med resten
+    /// av filteret. Null betyr at filteret ikke har noe egendefinert område.
+    /// </summary>
+    public static IQueryable<Observation> WhereInCustomArea(
+        IArtsKartDbContext context, IQueryable<Observation> query, int[]? customAreaLocationIds) =>
+        customAreaLocationIds == null ? query : LocationListStore.WhereAtLocations(context, query, customAreaLocationIds);
 
     private static IQueryable<Observation> ApplyTaxonFilter(
         IArtsKartDbContext context,
@@ -194,6 +252,8 @@ public static class ObservationQueryBuilder
             query = query.Where(o => o.ChangedByAnnotation == changedByAnnotation);
         }
 
+        query = ApplyHiddenFilter(query, filter.HiddenObservations);
+
         if (filter.Sensitive.HasValue)
         {
             var sensitive = filter.Sensitive.Value;
@@ -219,13 +279,13 @@ public static class ObservationQueryBuilder
         IArtsKartDbContext context,
         IQueryable<Observation> query,
         ObservationSearchFilterDto filter,
-        int[]? cadastralLocationIds)
+        LocationSelection? locations)
     {
         // Områdefiltre (OR — observasjon i minst ett av områdene). Fylker, kommuner,
         // verneområder og havområder via ObservationEntityIndex-tabellen, matrikkelenheter
-        // via lokasjonene som ligger innenfor dem.
+        // og historiske områder via lokasjonene som ligger innenfor dem.
         // Speiler logikken i SearchRepository slik at CSV-eksporten filtrerer identisk med søk.
-        query = WhereInAreasOrLocations(context, query, SelectedAreaIndexRows(context, filter), cadastralLocationIds);
+        query = WhereInAreasOrLocations(context, query, SelectedAreaIndexRows(context, filter), locations);
 
         // Institusjonsfilteret er flyttet ut av OR-blokken over, til den
         // denormaliserte kolonnen.
@@ -259,9 +319,9 @@ public static class ObservationQueryBuilder
     /// Observasjoner som har en av indeksradene eller ligger på en av lokasjonene. Null
     /// betyr at den delen ikke er med i filteret, og uten noen av dem filtreres ingenting.
     ///
-    /// Lokasjonslisten sendes som én JSON-parameter (OPENJSON) og blir en join. Som én
-    /// parameter per ID, som er EF sin standard for korte lister, blir den et restfilter
-    /// med hundrevis av sammenligninger per rad.
+    /// Matrikkelenhetenes lokasjonsliste sendes som én JSON-parameter (OPENJSON) og blir
+    /// en join. Som én parameter per ID, som er EF sin standard for korte lister, blir den
+    /// et restfilter med hundrevis av sammenligninger per rad.
     ///
     /// Med begge delene slås observasjons-ID-ene sammen med UNION ALL, ikke OR. Med OR
     /// kan ingen av sidene drive spørringen, se SearchRepository.ApplyAreaFilterToEntityIndex.
@@ -270,25 +330,22 @@ public static class ObservationQueryBuilder
         IArtsKartDbContext context,
         IQueryable<Observation> query,
         IQueryable<ObservationEntityIndex>? areaIndexRows,
-        int[]? locationIds)
+        LocationSelection? locations)
     {
-        if (locationIds == null)
+        if (locations == null)
         {
             return areaIndexRows == null ? query : query.Where(o => areaIndexRows.Any(idx => idx.ObservationId == o.Id));
         }
 
         if (areaIndexRows == null)
         {
-            return AtLocations(query, locationIds);
+            return locations.Apply(context, query);
         }
 
         var observationIds = areaIndexRows.Select(idx => idx.ObservationId)
-            .Concat(AtLocations(context.Set<Observation>(), locationIds).Select(o => o.Id));
+            .Concat(locations.Apply(context, context.Set<Observation>()).Select(o => o.Id));
         return query.Where(o => observationIds.Contains(o.Id));
     }
-
-    private static IQueryable<Observation> AtLocations(IQueryable<Observation> query, int[] locationIds) =>
-        query.Where(o => o.LocationId != null && EF.Parameter(locationIds).Contains(o.LocationId.Value));
 
     /// <summary>
     /// Indeksradene for fylkene, kommunene, verneområdene og havområdene i filteret,

@@ -57,4 +57,7 @@ public class LocationPolygonDto
     public string WktPolygon { get; set; } = null!;
 
     public int ObservationCount { get; set; }
+
+    /// <summary>Maskeringsruta til sensitive funn, se LocationGeometryRules.ErSensitivLokalitet.</summary>
+    public bool IsSensitive { get; set; }
 }

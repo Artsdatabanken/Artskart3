@@ -22,6 +22,10 @@ dialog[open] {
   display: flex;
   flex-direction: column;
 }
+:host(.fill-height) dialog:not(.expanded) {
+  height: 100%;
+  max-height: none;
+}
 dialog.expanded {
   position: fixed;
   inset: 5rem 1rem 1rem;

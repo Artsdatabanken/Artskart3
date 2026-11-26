@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILookupService, LookupService>();
         services.AddScoped<IMapLayerService, MapLayerService>();
         services.AddScoped<IExportService, ExportService>();
+        services.AddSingleton<IAnonymousUserTokenService, AnonymousUserTokenService>();
         services.AddScoped<ISavedFilterService, SavedFilterService>();
         services.AddSingleton<ExportColumnRegistry>();
         services.AddScoped<IBlobStorageService, BlobStorageService>();
@@ -60,16 +61,27 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Brukes av både API-et og workeren, fordi CSV-eksporten også må kunne filtrere på
-    /// matrikkelenhet.
+    /// matrikkelenhet og egendefinert område. storeLocationLists er CustomArea:StoreLocationLists,
+    /// se <see cref="LocationListStore.Enabled"/>.
     /// </summary>
-    public static IServiceCollection AddCadastralUnitService(this IServiceCollection services, KartverketEiendomOptions options)
+    public static IServiceCollection AddAreaLookupServices(
+        this IServiceCollection services, KartverketEiendomOptions options, bool storeLocationLists)
     {
+        LocationListStore.Enabled = storeLocationLists;
         services.AddMemoryCache();
         services.AddHttpClient<ICadastralUnitService, CadastralUnitService>(client =>
         {
             client.BaseAddress = new Uri(options.BaseUrl);
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
         });
+        services.AddScoped<ICustomAreaService, CustomAreaService>();
         return services;
     }
+
+    /// <summary>
+    /// Bare i API-et, se <see cref="LocationsWithoutAreasWarmup"/>. Workeren kjører eksporter,
+    /// der noen sekunder ekstra på første egendefinerte område ikke merkes.
+    /// </summary>
+    public static IServiceCollection AddCustomAreaWarmup(this IServiceCollection services) =>
+        services.AddHostedService<LocationsWithoutAreasWarmup>();
 }

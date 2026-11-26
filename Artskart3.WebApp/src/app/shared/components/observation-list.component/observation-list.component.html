@@ -22,7 +22,10 @@
       }
     }
     @if (requestState() === 'ready') {
-      <div>{{ 'observationList.registrations' | translate: { number: observationList().length } }}</div>
+      <div>
+        {{ 'observationList.registrations' | translate: { number: observationList().length } }},
+        {{ 'observationList.locations' | translate: { number: selection().locationIds.length } }}
+      </div>
     }
     <adb-dropdown
       class="filter"

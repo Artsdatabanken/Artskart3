@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Artskart3.Infrastructure.Migrations
 {
     [DbContext(typeof(ArtskartDbContext))]
-    [Migration("20261111112446_RebuildCountCaches")]
-    partial class RebuildCountCaches
+    [Migration("20261117134744_AddListViewIndexes")]
+    partial class AddListViewIndexes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -724,6 +724,19 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasName("geometry_columns_pk");
 
                     b.ToTable("geometry_columns", (string)null);
+                });
+
+            modelBuilder.Entity("Artskart3.Core.Domain.Entities.HistoricalAreaLocation", b =>
+                {
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AreaId", "LocationId");
+
+                    b.ToTable("HistoricalAreaLocation", (string)null);
                 });
 
             modelBuilder.Entity("Artskart3.Core.Domain.Entities.ImportLog", b =>
@@ -1460,6 +1473,11 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("HashCode")
                         .HasColumnType("int");
 
+                    b.Property<bool>("HiddenByAnnotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
@@ -1559,7 +1577,15 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasDatabaseName("IX_Observation_HasMediaFiles")
                         .HasFilter("[HasMediaFiles] = 1");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId" });
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HasMediaFiles", "DateTimeCollected", "Id"), new[] { "BasisOfRecordId", "BehaviorId", "CategoryId", "CoordinatePrecisionInMeters", "DatasetOrgId", "InstitutionOrgId", "MonthCollected", "RegistrationStatusId", "TaxonGroupId", "TaxonId", "HiddenByAnnotation" });
+
+                    b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Observation_HiddenByAnnotation")
+                        .HasFilter("[HiddenByAnnotation] = 1");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("HiddenByAnnotation", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex("Introduced", "DateTimeCollected", "Id")
                         .IsDescending(false, true, true)
@@ -1590,6 +1616,9 @@ namespace Artskart3.Infrastructure.Migrations
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UncertainIdentification", "DateTimeCollected", "Id"), new[] { "HasMediaFiles", "BehaviorId", "CoordinatePrecisionInMeters" });
 
                     b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId");
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "LocationId", "CategoryId" }, "IX_LocationId"), new[] { "DateTimeCollected", "BasisOfRecordId", "TaxonId", "TaxonGroupId", "YearCollected", "MonthCollected", "Id", "HiddenByAnnotation" });
 
                     b.HasIndex(new[] { "BasisOfRecordId" }, "IX_Observation_BasisOfRecordId");
 
@@ -1791,6 +1820,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<bool>("HasMediaFiles")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("HiddenByAnnotation")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("InstitutionOrgId")
                         .HasColumnType("int");
 
@@ -1823,8 +1855,24 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
 
+                    b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_OEI_AreaListView")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId"), new[] { "TaxonGroupId", "CategoryId", "HiddenByAnnotation" });
+
                     b.HasIndex("EntityTypeId", "EntityId", "TaxonGroupId", "CategoryId")
                         .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+
+                    b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView")
+                        .IsDescending(false, false, true, true)
+                        .HasFilter("[HasMediaFiles] = 1")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.UseDataCompression(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), DataCompressionType.Page);
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId" }, "IX_OEI_MediaListView"), new[] { "CategoryId", "TaxonGroupId", "HiddenByAnnotation" });
 
                     b.ToTable("ObservationEntityIndex", (string)null);
                 });

@@ -3,7 +3,6 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideRouter, Router } from '@angular/router';
 import { Subject, throwError, of } from 'rxjs';
-
 import { NbicMapComponent, LayerDef } from '@artsdatabanken/nbic-map-component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapComponent } from './map.component';
@@ -26,6 +25,14 @@ import type BaseLayer from 'ol/layer/Base';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import { get as getProjection, transform } from 'ol/proj';
+import ImageLayer from 'ol/layer/Image';
+import TileLayer from 'ol/layer/Tile';
+import ImageWMS from 'ol/source/ImageWMS';
+import TileWMS from 'ol/source/TileWMS';
+import WMTS from 'ol/source/WMTS';
+import type { default as Tile, LoadFunction } from 'ol/Tile';
+import { ImageSourceEvent, type ImageSourceEventTypes } from 'ol/source/Image';
+import type ImageWrapper from 'ol/Image';
 import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
@@ -34,6 +41,10 @@ import { ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
+import { MAP_CONSTANTS } from '@core/constants/map-constants';
+
+const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image: ImageWrapper) =>
+  source.dispatchEvent(new ImageSourceEvent(type, image));
 
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
@@ -170,6 +181,216 @@ describe('MapComponent', () => {
     expect(setZoom).toHaveBeenCalledWith(place.zoomLevel);
   });
 
+  it.each([
+    ['Climate areas', 0.5],
+    ['Property', 1],
+  ])('uses configured opacity for %s', (name, opacity) => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: { id: 1, name, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity },
+      visible: true,
+    });
+
+    expect(component['mapOverlayLayers'].get(1)?.getOpacity()).toBe(opacity);
+  });
+
+  it('loads tiled WMS overlays through the load timeout', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: { id: 1, name: 'Boundaries', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1 },
+      visible: true,
+    });
+
+    const source = (component['mapOverlayLayers'].get(1) as TileLayer).getSource() as TileWMS;
+    expect(source.getTileLoadFunction()).toBe(component['loadTile']);
+  });
+
+  it('uses configured WMS scale bounds and single-image mode', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 4,
+        name: 'Property boundaries',
+        type: 'WMS',
+        url: 'https://example.test/wms',
+        layers: 'boundary,parcel_id',
+        minScaleDenominator: 50_000,
+        maxScaleDenominator: 2_000_000,
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(4);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getMinResolution()).toBeCloseTo(14);
+    expect(overlay?.getMaxResolution()).toBeCloseTo(560);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe('boundary,parcel_id');
+  });
+
+  it('does not retry a WMS image layer unless loading fails', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: { id: 5, name: 'Unavailable WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
+        visible: true,
+      });
+
+      const overlay = component['mapOverlayLayers'].get(5);
+      expect(overlay).toBeInstanceOf(ImageLayer);
+
+      const source = overlay?.getSource() as ImageWMS;
+      expect(source.getImageLoadFunction()).toBeDefined();
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).not.toHaveBeenCalled();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries failed WMS images after the configured delay and clears the failure after success', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: {
+          id: 5,
+          name: 'Unavailable WMS',
+          type: 'WMS',
+          url: 'https://example.test/wms',
+          useSingleImage: true,
+          retryAfterSeconds: 30,
+          opacity: 1,
+        },
+        visible: true,
+      });
+
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).not.toHaveBeenCalled();
+
+      source.dispatchEvent('imageloaderror');
+      const failedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', failedImage);
+      dispatchImageEvent(source, 'imageloaderror', failedImage);
+      expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(true);
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(true);
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+
+      const retriedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', retriedImage);
+      dispatchImageEvent(source, 'imageloadend', retriedImage);
+      expect(component['mapLayerService'].failedLayerIds().has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores load results from WMS images that a newer request has replaced', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      component.onMapToolbarMenuItemChange({
+        layer: { id: 5, name: 'Slow WMS', type: 'WMS', url: 'https://example.test/wms', useSingleImage: true, retryAfterSeconds: 30, opacity: 1 },
+        visible: true,
+      });
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+      const isFailed = () => component['mapLayerService'].failedLayerIds().has(5);
+
+      const slowImage = {} as ImageWrapper;
+      const failingImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', slowImage);
+      dispatchImageEvent(source, 'imageloadstart', failingImage);
+      dispatchImageEvent(source, 'imageloaderror', failingImage);
+      dispatchImageEvent(source, 'imageloadend', slowImage);
+      expect(isFailed()).toBe(true);
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
+
+      const lateFailingImage = {} as ImageWrapper;
+      const loadedImage = {} as ImageWrapper;
+      dispatchImageEvent(source, 'imageloadstart', lateFailingImage);
+      dispatchImageEvent(source, 'imageloadstart', loadedImage);
+      dispatchImageEvent(source, 'imageloadend', loadedImage);
+      dispatchImageEvent(source, 'imageloaderror', lateFailingImage);
+      expect(isFailed()).toBe(false);
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not schedule another retry when a WMS layer is re-enabled', () => {
+    vi.useFakeTimers();
+    try {
+      component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+      const layer = {
+        id: 5,
+        name: 'Unavailable WMS',
+        type: 'WMS',
+        url: 'https://example.test/wms',
+        useSingleImage: true,
+        retryAfterSeconds: 30,
+        opacity: 1,
+      };
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+
+      const source = component['mapOverlayLayers'].get(5)?.getSource() as ImageWMS;
+      const refreshSpy = vi.spyOn(source, 'refresh');
+
+      component.onMapToolbarMenuItemChange({ layer, visible: false });
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+      expect(refreshSpy).toHaveBeenCalledOnce();
+      expect(component['mapOverlayRefreshTimers'].has(5)).toBe(false);
+
+      vi.advanceTimersByTime(30_000);
+      expect(refreshSpy).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders all maritime sublayers in one WMS image request rather than tiled requests', () => {
+    component.map = { adoptLayer: vi.fn() } as unknown as NbicMapComponent;
+
+    component.onMapToolbarMenuItemChange({
+      layer: {
+        id: 6,
+        name: 'MaritimeGrenser',
+        type: 'WMS',
+        url: 'https://wms.geonorge.no/skwms1/wms.nmg?',
+        layers: 'Maritime_grenser,Maritime_grenser_navn',
+        useSingleImage: true,
+        retryAfterSeconds: 0,
+        opacity: 1,
+      },
+      visible: true,
+    });
+
+    const overlay = component['mapOverlayLayers'].get(6);
+    expect(overlay).toBeInstanceOf(ImageLayer);
+    expect(overlay?.getSource()).toBeInstanceOf(ImageWMS);
+    expect((overlay?.getSource() as ImageWMS).getParams().LAYERS).toBe(
+      'Maritime_grenser,Maritime_grenser_navn',
+    );
+  });
+
   describe('linked feature styling', () => {
     const location = (id: number, observationCount = 2) => new Feature({ id, geometry: new Point([id, id]), observationCount });
     const polygon = (id: number) => new Feature({ id, geometry: new Polygon([[[0, 0], [10, 0], [10, 10], [0, 0]]]) });
@@ -187,6 +408,8 @@ describe('MapComponent', () => {
         ['--adb-color-brand-sun-70', '#F8AE00'],
         ['--adb-color-special-100', '#F34F39'],
         ['--adb-color-special-110', '#D61900'],
+        ['--adb-color-brand-evergreen-70', '#0C936B'],
+        ['--adb-color-functional-red-70', '#B80738'],
       ]) tokens.setProperty(token, value);
       component['featureStyles'] = new MapFeatureStyles(tokens);
       component['mapReady'] = true;
@@ -303,6 +526,10 @@ describe('MapComponent', () => {
       expect(grouped.at(-1)?.getText()?.getText()).toBe('4');
       expect(render('location-polygons', polygon(1))).toBe(styles.polygon());
       expect(render('location-polygon-highlights', polygon(1))).toBe(styles.polygonHighlight('selected'));
+      const sensitive = polygon(1);
+      sensitive.set('isSensitive', true);
+      expect(render('location-polygons', sensitive)).toBe(styles.polygon(true));
+      expect(render('location-polygon-highlights', sensitive)).toBe(styles.polygonHighlight('selected', true));
       expect(layers.get('location-highlights')?.pickable).toBe(true);
       expect(layers.get('location-polygon-highlights')?.pickable).toBe(false);
       expect(render('observation-details-highlight', location(2))).toBe(styles.marker('observation', 'selected'));
@@ -328,7 +555,7 @@ describe('MapComponent', () => {
       expect(render('observation-details-highlight', highlight)).toBe(styles.marker('observation', 'selected', '', 'notRecovered'));
     });
 
-    it('highlights single points and polygons on overlays without redrawing every location when clustering is off', () => {
+    it('highlights single points and polygons on overlays without redrawing every location when clustering is off', async () => {
       const olLayers = new Map(
         ['area-markers-locations', 'location-polygons', 'location-highlights', 'location-polygon-highlights'].map(
           (id) => [id, new VectorLayer({ source: new VectorSource<Feature>() })] as const,
@@ -366,6 +593,12 @@ describe('MapComponent', () => {
 
       point.set('isPolygon', true);
       expect(render('location-highlights', point)).toBe(component['featureStyles']!.polygonMarker('unclusteredLocation', 'selected'));
+
+      component.observationList.set([{ id: 42, locationId: 1 }]);
+      await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+      TestBed.tick();
+      expect(source('location-highlights').getFeatures()).toEqual([]);
+      expect(source('location-polygon-highlights').getFeatures()).toEqual([outline]);
     });
 
     it('gives a polygon location alone in its cluster the polygon marker with its count', () => {
@@ -504,6 +737,140 @@ describe('MapComponent', () => {
       expect(component['locationFeatureState'](polygon(1))).toBe('default');
     });
 
+    it('keeps the outline of the open observation\'s location selected while details are open', async () => {
+      const router = TestBed.inject(Router);
+      select([1, 2]);
+      component.observationList.set([
+        { id: 42, locationId: 1 },
+        { id: 43, locationId: 2 },
+      ]);
+      await router.navigate([], { queryParams: { observationId: 42 } });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('default');
+      expect(component['locationFeatureState'](location(1))).toBe('default');
+      expect(render('location-polygon-highlights', polygon(1))).toBe(component['featureStyles']!.polygonHighlight('selected'));
+      await router.navigate([], { queryParams: { observationId: 43 } });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('default');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('selected');
+      await router.navigate([], { queryParams: { observationId: 44 } });
+      expect(component['polygonFeatureState'](polygon(2))).toBe('default');
+      await router.navigate([], { queryParams: {} });
+      expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+      expect(component['polygonFeatureState'](polygon(2))).toBe('selected');
+    });
+
+    describe('details of a polygon find', () => {
+      const point = { east: 353063, north: 7201367, registrationStatus: 'found' } as const;
+      let outline: Feature;
+      let squarePoint: Feature;
+      let polygons: VectorLayer;
+      let points: VectorLayer;
+      let updateGeoJSONLayer: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        outline = polygon(1);
+        outline.setId(1);
+        squarePoint = new Feature({ id: 1, geometry: new Point([5, 5]), isPolygon: true, registrationStatus: 'found' });
+        squarePoint.setId(1);
+        polygons = new VectorLayer({ source: new VectorSource<Feature>({ features: [outline] }) });
+        points = new VectorLayer({ source: new VectorSource<Feature>({ features: [squarePoint] }) });
+        updateGeoJSONLayer = vi.fn();
+        const layersById: Record<string, VectorLayer> = { 'location-polygons': polygons, 'area-markers-locations': points };
+        component.map = {
+          ...component.map,
+          updateGeoJSONLayer,
+          getLayerById: (id: string) => layersById[id] ?? null,
+        } as unknown as NbicMapComponent;
+        component['mapVisible'] = true;
+      });
+
+      function markers(): unknown[] {
+        const [, geojson] = updateGeoJSONLayer.mock.calls.filter(([layerId]) => layerId === 'observation-details-highlight').at(-1)!;
+        return (JSON.parse(geojson as string) as { features: unknown[] }).features;
+      }
+
+      function layersChanged(): void {
+        component['locationLayersChanged']();
+        TestBed.tick();
+      }
+
+      async function openFromList(): Promise<void> {
+        select([1]);
+        component.observationList.set([{ id: 42, locationId: 1 }]);
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+      }
+
+      it('lets a shown sensitive square\'s own marker stand in for the details marker', async () => {
+        await openFromList();
+        component.highlightObservation(point);
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        outline.set('isSensitive', true);
+        layersChanged();
+        expect(markers()).toEqual([]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+        polygons.setVisible(false);
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+      });
+
+      it('keeps the details marker while the square\'s own marker is not drawn as a found polygon', async () => {
+        outline.set('isSensitive', true);
+        await openFromList();
+        component.highlightObservation(point);
+        expect(markers()).toEqual([]);
+        squarePoint.set('registrationStatus', 'notRecovered');
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        points.getSource()!.clear();
+        squarePoint.set('registrationStatus', 'found');
+        layersChanged();
+        expect(markers()).toHaveLength(1);
+        points.getSource()!.addFeature(squarePoint);
+        layersChanged();
+        expect(markers()).toEqual([]);
+      });
+
+      it('keeps the details marker of a find that was not found, also in a found square', async () => {
+        vi.spyOn(TestBed.inject(ObservationService), 'getDetail').mockReturnValue(of({ id: 42, locationId: 1, tags: ['Absent'] }));
+        outline.set('isSensitive', true);
+        layersChanged();
+        await openFromList();
+        await fixture.whenStable();
+        component.highlightObservation({ ...point, registrationStatus: 'absent' });
+        expect(markers()).toHaveLength(1);
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+      });
+
+      it('keeps the marker of a clicked sensitive square selected as its details open', async () => {
+        outline.set('isSensitive', true);
+        layersChanged();
+        select([1]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+        component.observationList.set([{ id: 42, locationId: 1 }]);
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+      });
+
+      it('selects the polygon of details opened from a link once they load, and drops the marker when the square arrives', async () => {
+        vi.spyOn(TestBed.inject(ObservationService), 'getDetail').mockReturnValue(of({ id: 42, locationId: 1 }));
+        polygons.getSource()!.clear();
+        await TestBed.inject(Router).navigate([], { queryParams: { observationId: 42 } });
+        await fixture.whenStable();
+        expect(component['polygonFeatureState'](polygon(1))).toBe('selected');
+        expect(component['locationFeatureState'](location(1))).toBe('default');
+        component.highlightObservation(point);
+        expect(markers()).toHaveLength(1);
+        outline.set('isSensitive', true);
+        polygons.getSource()!.addFeature(outline);
+        layersChanged();
+        expect(markers()).toEqual([]);
+        expect(component['locationFeatureState'](location(1))).toBe('selected');
+      });
+    });
+
     it('styles replacement features and regrouped clusters by current IDs, not object identity', () => {
       select([1, 2]);
       hover([{ feature: location(3), layerId: 'area-markers-locations' }]);
@@ -532,7 +899,7 @@ describe('MapComponent', () => {
 
     it('clears transient hover on drag, camera motion, and viewport exit and removes listeners on destruction', () => {
       const map = new OlMap({ target: document.createElement('div'), controls: [], interactions: [] });
-      const control = new ArtskartZoomControl({ zoomInTipLabel: 'Zoom in', zoomOutTipLabel: 'Zoom out' });
+      const control = new ArtskartZoomControl({ zoomInTipLabel: 'Zoom in', zoomOutTipLabel: 'Zoom out', zoomInTooltip: '', zoomOutTooltip: '' });
       map.addControl(control);
       component['zoomControl'] = control;
       const feature = new Feature<Point>({ id: 1, geometry: new Point([0, 0]) });
@@ -1163,7 +1530,7 @@ describe('MapComponent', () => {
         CLICK_ANIMATION_DURATION_MS: number;
       };
 
-    const animationDuration = () => accessPrivate(component).CLICK_ANIMATION_DURATION_MS;
+    const animationDuration = () => MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS;
 
     const centroid = { x: 250000, y: 7100000 };
 
@@ -1364,10 +1731,12 @@ describe('MapComponent', () => {
         const redraw = vi.spyOn(restyle, 'redrawLocationStyles');
 
         priv.rebuildWithExtent({}, [0, 0, 1000, 1000]);
+        const revision = component['locationLayersRevision']();
         vi.advanceTimersByTime(300);
 
         expect(mark).toHaveBeenCalledOnce();
         expect(mark).toHaveBeenCalledBefore(redraw);
+        expect(component['locationLayersRevision']()).toBeGreaterThan(revision);
       } finally {
         vi.useRealTimers();
       }
@@ -1721,6 +2090,81 @@ describe('MapComponent', () => {
 
       await vi.waitFor(() => expect(component['clusteringEnabled']()).toBe(true));
       expect(component.map.adoptLayer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('base map layers', () => {
+    const layers = new Map<string, LayerDef>();
+    const adoptLayer = vi.fn();
+
+    const tileLoadFunction = (id: string) => {
+      const source = layers.get(id)?.source;
+      return source?.type === 'wmts' ? source.options.tileLoadFunction : undefined;
+    };
+    const adopted = (id: string) => adoptLayer.mock.calls.find(([layerId]) => layerId === id)?.[1] as TileLayer;
+
+    beforeEach(() => {
+      layers.clear();
+      adoptLayer.mockClear();
+      component.map = {
+        addLayer: (definition: LayerDef) => { layers.set(definition.id, definition); },
+        adoptLayer,
+      } as unknown as NbicMapComponent;
+    });
+
+    it('loads every base map through the load timeout', () => {
+      component['setupBaseMapLayers']();
+
+      for (const id of ['topografisk', 'topo4graatone', 'svalbard', 'janmayen']) {
+        expect(tileLoadFunction(id), id).toBe(component['loadTile']);
+      }
+      expect((adopted('gebco').getSource() as TileWMS).getTileLoadFunction()).toBe(component['loadTile']);
+    });
+
+    it('adds Norge i bilder in UTM 33 as a hidden base map', () => {
+      component['setupBaseMapLayers']();
+
+      expect(adoptLayer).toHaveBeenCalledWith('nib', expect.any(TileLayer), { base: 'regional' });
+      const nib = adopted('nib');
+      const source = nib.getSource() as WMTS;
+      expect(nib.getVisible()).toBe(false);
+      expect(source.getLayer()).toBe('Nibcache_UTM33_EUREF89_v2');
+      expect(source.getProjection()?.getCode()).toBe('EPSG:25833');
+      expect(source.getTileGrid()?.getOrigin(0)).toEqual([-2500000, 9045984]);
+      expect(source.getTileGrid()?.getResolution(0)).toBe(21664);
+      expect(source.getTileGrid()?.getMaxZoom()).toBe(17);
+    });
+
+    it('adds the URL-encoded NiB token before loading through the load timeout', () => {
+      vi.spyOn(TestBed.inject(SharedMapService), 'getNibToken').mockReturnValue('a+b/c=');
+      const loadTile = vi.spyOn(component as unknown as { loadTile: LoadFunction }, 'loadTile').mockImplementation(() => undefined);
+      component['setupBaseMapLayers']();
+      const tile = {} as Tile;
+
+      (adopted('nib').getSource() as WMTS).getTileLoadFunction()(tile, 'https://nib.test/tile?x=1');
+
+      expect(loadTile).toHaveBeenCalledWith(tile, 'https://nib.test/tile?x=1&token=a%2Bb%2Fc%3D');
+    });
+
+    it('requests Kartverket topo tiles in UTM 33 with all 19 levels', () => {
+      component['setupBaseMapLayers']();
+
+      for (const id of ['topografisk', 'topo4graatone']) {
+        expect(layers.get(id)?.source).toMatchObject({
+          type: 'wmts',
+          options: { matrixSet: 'utm33n', projection: 'EPSG:25833', levels: 19 },
+        });
+      }
+    });
+
+    it('adds the GEBCO background in the map projection, enlarging tiles past its max zoom', () => {
+      component['setupBaseMapLayers']();
+
+      expect(adoptLayer).toHaveBeenCalledWith('gebco', expect.any(TileLayer), { base: 'super' });
+      const source = adopted('gebco').getSource() as TileWMS;
+      expect(source.getParams()).toMatchObject({ LAYERS: 'gebco_skyggerelieff2' });
+      expect(source.getProjection()?.getCode()).toBe('EPSG:25833');
+      expect(source.getTileGrid()?.getMaxZoom()).toBe(MAP_CONFIG.backgroundMaxTileZoom);
     });
   });
 

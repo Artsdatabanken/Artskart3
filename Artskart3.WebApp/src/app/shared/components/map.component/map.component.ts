@@ -4,6 +4,7 @@ import {
   MapEventPayload,
   NbicMapComponent,
   nbicMapPresets,
+  type LayerDef,
 } from '@artsdatabanken/nbic-map-component';
 import type { Style } from 'ol/style';
 import type { FeatureLike } from 'ol/Feature';
@@ -23,14 +24,16 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggingService } from '@shared/logging.service';
 import { Observable, Subject, EMPTY, merge, concat as rxConcat, defer, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, map as rxMap, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { AreasService, LocationPoint, LocationSearchFilter } from '@core/services/areas/areas.service';
 import { LocationCountResult } from '@shared/types/api.types';
-import { AreaMarkerDto } from '@shared/types/api.types';
+import { AreaMarkerDto } from '@shared/types/api.types'
+import { MapLayerDto } from '@shared/types/api.types';
 import { ZoomConfig } from '@shared/helpers/zoom/zoom-config';
+import { registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
 import { AbbreviateNumberHelper } from '@shared/helpers/number/abbreviate-number.helper';
 import { LanguageService } from '@shared/services/languages/language.service';
 import { MAP_CONFIG } from '@shared/config/map.config';
@@ -38,7 +41,7 @@ import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import type { AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
-import { Feature, ImageTile } from 'ol';
+import { Feature } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import type { Coordinate } from 'ol/coordinate';
@@ -52,14 +55,15 @@ import type { EventsKey } from 'ol/events';
 import { ApiZoomLevel, LocationFeatureProperties, PointerClickFeature } from './map.types';
 import {
   annotationFilterToChangedByAnnotation,
+  annotationFilterToHiddenObservations,
   FilterStateService,
   imageFilterToWithImages,
   sensitiveFilterToSensitive,
 } from '../../services/filter-state/filter-state.service';
 import { AreaService } from '../../services/area/area.service';
-import { ArtskartZoomControl } from './controls/zoom.control';
-import { ArtskartFullscreenControl } from './controls/fullscreen.control';
-import { createGeolocationControl, GeolocationMapControl } from './controls/geolocation.control';
+import { ArtskartZoomControl, ZoomControlLabels } from './controls/zoom.control';
+import { ArtskartFullscreenControl, FullscreenControlLabels } from './controls/fullscreen.control';
+import { createGeolocationControl, GeolocationControlLabels, GeolocationMapControl } from './controls/geolocation.control';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '@shared/services/observation/observation.service';
 import { ActiveObservationPoint, ObservationPanelComponent } from '../observation-panel/observation-panel.component';
@@ -69,13 +73,24 @@ import { SearchFilterService } from '@shared/services/search-filter/search-filte
 import { ObservationRequestState, ObservationSelection } from '../observation-list.component/observation-list.model';
 import { MapViewService } from '@shared/services/map-view/map-view.service';
 import { CadastralUnitService } from '@shared/services/cadastral-unit/cadastral-unit.service';
+import { CustomAreaDrawingService } from '@shared/services/custom-area-drawing/custom-area-drawing.service';
+import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
+import type { LoadFunction } from 'ol/Tile';
+import { loadTileWithTimeout } from './tile-load-timeout';
 import Layer from 'ol/layer/Layer';
 import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
+import ImageLayer from 'ol/layer/Image';
+import ImageWMS from 'ol/source/ImageWMS';
+import WMTS from 'ol/source/WMTS';
+import WMTSTileGrid from 'ol/tilegrid/WMTS';
+import { createForProjection } from 'ol/tilegrid';
+import { getTopLeft, getWidth } from 'ol/extent';
+import type ImageWrapper from 'ol/Image';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
@@ -85,9 +100,11 @@ import {
   MapFeatureStyles,
   MapFeatureState,
   hasPolygonMarker,
+  isSensitivePolygon,
   popOuts,
   registrationStatusOf,
 } from './map-feature-styles';
+import { MAP_CONSTANTS } from '@core/constants/map-constants';
 
 @Component({
   selector: 'app-map',
@@ -97,12 +114,12 @@ import {
 })
 export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapEl', { static: false }) mapEl!: ElementRef<HTMLDivElement>;
+  private readonly mapControls = viewChild.required<ElementRef<HTMLDivElement>>('mapControls');
   readonly mapReadyAction = output<boolean>();
   readonly detailsOpened = output<void>();
   readonly observationPanel = viewChild(ObservationPanelComponent);
   private activeObservationPoint: ActiveObservationPoint | null = null;
   private observationFilterInitialized = false;
-  private readonly OBSERVATION_HIGHLIGHT_ID = 'observation-details-highlight';
   readonly searchPlaces: AutocompleteSearch<PlaceSearchResult> = (term) =>
     new Observable((subscriber) => {
       const controller = new AbortController();
@@ -123,22 +140,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.map.setZoom(place.zoomLevel);
   }
 
-  private readonly MAP_TYPE_PREFIX = 'map-type:';
-  private readonly COUNTIES_LAYER_ID = 'area-markers-counties';
-  private readonly MUNICIPALITIES_LAYER_ID = 'area-markers-municipalities';
-  private readonly LOCATIONS_LAYER_ID = 'area-markers-locations';
-  private readonly LOCATION_POLYGONS_LAYER_ID = 'location-polygons';
-  private readonly LOCATION_HIGHLIGHTS_LAYER_ID = 'location-highlights';
-  private readonly LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID = 'location-polygon-highlights';
-  private readonly SELECTED_AREAS_OVERLAY_ID = 'area-overlay-selected';
-  private readonly HIT_TOLERANCE_PX = 5;
-  private readonly CLUSTER_DISTANCE_PX = 60;
-  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS>>();
+  private readonly mapOverlayLayers = new Map<number, TileLayer<TileWMS> | ImageLayer<ImageWMS>>();
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
+  private readonly mapOverlayRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly mapLayerService = inject(MapLayerService);
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
+  private readonly loadTile = loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs);
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -190,6 +199,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly mapView = inject(MapViewService);
   private readonly cadastralUnitService = inject(CadastralUnitService);
+  private readonly customAreaDrawing = inject(CustomAreaDrawingService);
+  private customAreaDraw?: CustomAreaDraw;
+
+  private readonly _onCustomAreaDrawingCommand = this.customAreaDrawing.commands
+    .pipe(takeUntilDestroyed())
+    .subscribe((command) => {
+      if (this.customAreaDraw) this.customAreaDraw.run(command);
+      else this.customAreaDrawing.stopped();
+    });
+
+  private readonly _onCustomAreaChange = effect(() => {
+    const rejected = this.customAreaDrawing.rejected();
+    const wkt = rejected?.wkt ?? this.filterState.customAreaWkt();
+    untracked(() => this.customAreaDraw?.show(wkt, rejected !== null));
+  });
 
   private readonly selectedCadastralUnits = rxResource({
     params: () => this.filterState.selectedCadastralUnitIds(),
@@ -224,8 +248,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       const catalogObservationIds = this.filterState.catalogObservationIds();
       const cadastralUnitIds = this.filterState.selectedCadastralUnitIds();
       const restrictedAreaIds = this.filterState.selectedRestrictedAreaIds();
+      const historicalAreaIds = this.filterState.selectedHistoricalAreaIds();
       const withImages = imageFilterToWithImages(this.filterState.imageFilter());
       const changedByAnnotation = annotationFilterToChangedByAnnotation(this.filterState.annotationFilter());
+      const hiddenObservations = annotationFilterToHiddenObservations(this.filterState.annotationFilter());
       const sensitive = sensitiveFilterToSensitive(this.filterState.sensitiveFilter());
       const periodMonths = this.filterState.selectedMonths();
 
@@ -249,8 +275,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         cadastralUnitIds: cadastralUnitIds.length ? cadastralUnitIds : undefined,
         // Not pre-counted per county or municipality either.
         restrictedAreaIds: restrictedAreaIds.length ? restrictedAreaIds : undefined,
+        historicalAreaIds: historicalAreaIds.length ? historicalAreaIds : undefined,
+        // Same for the custom area.
+        customAreaWkt: this.filterState.customAreaWkt() ?? undefined,
         withImages,
         changedByAnnotation,
+        hiddenObservations,
         sensitive,
         periodMonths: periodMonths.length ? periodMonths : undefined,
       };
@@ -305,15 +335,51 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   public observationList = signal<ObservationListInfoDto[]>([]);
   readonly observationSelection = signal<ObservationSelection | null>(null);
   readonly observationRequestState = signal<ObservationRequestState>('ready');
-  private readonly selectedLocationIds = computed(
-    () =>
-      new Set(
-        this.showObservationList() && !this.observationPanel()?.detailsOpen() ? (this.observationSelection()?.locationIds ?? []) : [],
-      ),
+  private readonly listedLocationIds = computed(
+    () => new Set(this.showObservationList() ? (this.observationSelection()?.locationIds ?? []) : []),
   );
+  /** The details marker is only a point, so the outline of the open observation's location stays selected. */
+  private readonly selectedPolygonIds = computed(() => {
+    const panel = this.observationPanel();
+    if (!panel?.detailsOpen()) return this.listedLocationIds();
+    const observationId = panel.selectedId();
+    // The list knows the location before the details have loaded.
+    const locationId = this.observationList().find(({ id }) => id === observationId)?.locationId ?? panel.detail()?.locationId;
+    return new Set(locationId != null ? [locationId] : []);
+  });
+  /** Bumped when the drawn points or polygons or their visibility change, which no signal tracks. */
+  private readonly locationLayersRevision = signal(0);
+  /**
+   * A sensitive find's point is only the center of its masking square, so the square's own marker can stand in for
+   * the details marker, as long as it is drawn and shows the same status.
+   */
+  private readonly squareMarkerStandsIn = computed(() => {
+    this.locationLayersRevision();
+    const ids = this.selectedPolygonIds();
+    if (ids.size !== 1 || !this.mapReady) return false;
+    const [locationId] = ids;
+    // Zoomed out, the polygons are kept but hidden.
+    if (!this.map.getLayerById(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getVisible()) return false;
+    const square = this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getFeatureById(locationId);
+    const point = this.locationPoints().source?.getFeatureById(locationId);
+    // Until the details have loaded, the location's status stands in for the find's.
+    const detail = this.observationPanel()?.detail();
+    const found = !detail || registrationStatusFromTags(detail.tags) === 'found';
+    return found && square instanceof Feature && isSensitivePolygon(square) && point instanceof Feature && hasPolygonMarker(point);
+  });
+  /** While details are open, the details marker shows what is selected, unless the square's own marker stands in for it. */
+  private readonly selectedLocationIds = computed(() => {
+    if (!this.observationPanel()?.detailsOpen()) return this.listedLocationIds();
+    return this.squareMarkerStandsIn() ? this.selectedPolygonIds() : new Set<number>();
+  });
   private readonly _redrawSelection = effect(() => {
     this.selectedLocationIds();
+    this.selectedPolygonIds();
     untracked(() => this.redrawLocationStyles());
+  });
+  private readonly _redrawObservationMarker = effect(() => {
+    this.squareMarkerStandsIn();
+    untracked(() => this.highlightObservation(this.activeObservationPoint));
   });
 
   private readonly _onObservationFilterChange = effect(() => {
@@ -371,14 +437,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (generation !== this.locationsLayerGeneration || !this.mapReady || !styles) return;
 
     this.disposeWebglLocationsLayer();
-    this.map.removeLayer(this.LOCATIONS_LAYER_ID);
+    this.map.removeLayer(MAP_CONSTANTS.LOCATIONS_LAYER_ID);
     if (webgl) {
       this.webglLocationsLayer = new webgl.default({
         source: new VectorSource<Feature>(),
         style: styles.webglLocationMarker(),
         disableHitDetection: true,
       });
-      this.map.adoptLayer(this.LOCATIONS_LAYER_ID, this.webglLocationsLayer, { zIndex: 100, pickable: false });
+      this.map.adoptLayer(MAP_CONSTANTS.LOCATIONS_LAYER_ID, this.webglLocationsLayer, { zIndex: 100, pickable: false });
     } else {
       this.addClusteredLocationsLayer(styles);
     }
@@ -423,6 +489,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.listenForLanguageChanges();
       this.map.on(MapEvents.Ready, () => this.onMapReady());
       this.map.on(MapEvents.PointerClick, (payload) => {
+        // Clicks place corners while drawing.
+        if (this.customAreaDrawing.isDrawing()) return;
         this.handleLocationClick(payload);
         this.handleAreaMarkerClick(payload.features as PointerClickFeature[] | null);
       });
@@ -471,9 +539,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   highlightObservation(point: ActiveObservationPoint | null): void {
     this.activeObservationPoint = point;
     if (!this.mapReady || !this.mapVisible) return;
-    const coordinates: [number, number] | null = point?.east != null && point.north != null ? [point.east, point.north] : null;
+    const coordinates: [number, number] | null =
+      point?.east != null && point.north != null && !this.squareMarkerStandsIn() ? [point.east, point.north] : null;
     this.map.updateGeoJSONLayer(
-      this.OBSERVATION_HIGHLIGHT_ID,
+      MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       JSON.stringify({
         type: 'FeatureCollection',
         features: coordinates
@@ -491,37 +560,96 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupBaseMapLayers(): void {
     if (!this.map) return;
-    this.map.addLayer(nbicMapPresets.osm);
-    this.map.addLayer(nbicMapPresets.topografiskBaseLayer);
-    this.map.addLayer(nbicMapPresets.topo4graatoneBaseLayer);
-    this.map.addLayer(nbicMapPresets.svalbardBaseLayer);
-    this.map.addLayer(nbicMapPresets.janmayenBaseLayer);
+    this.map.adoptLayer('gebco', this.createGebcoLayer(), { base: 'super' });
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topografiskBaseLayer));
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topo4graatoneBaseLayer));
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.svalbardBaseLayer, this.loadTile));
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.janmayenBaseLayer, this.loadTile));
+    this.map.adoptLayer(nbicMapPresets.nib.id, this.createNibLayer(), { base: 'regional' });
+  }
 
-    const nib = {
-      ...nbicMapPresets.nib,
-      source: { ...nbicMapPresets.nib.source },
-    };
-    if (nib.source.type === 'wmts') {
-      nib.source.options = {
-        ...nib.source.options,
-        tileLoadFunction: (tile: unknown, src: string) => {
-          const token = this.sharedMapService.getNibToken();
-          const separator = src.includes('?') ? '&' : '?';
-          const img = (tile as ImageTile).getImage() as HTMLImageElement;
-          img.src = token ? `${src}${separator}token=${token}` : src;
+  /**
+   * Norge i bilder in UTM 33, so the photos are drawn without reprojection. Built here because the
+   * map package applies its Jan Mayen grid to every `default028mm` tile set in EPSG:25833.
+   */
+  private createNibLayer(): TileLayer {
+    const gridExtent = MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT;
+    const resolutions = Array.from({ length: MAP_CONSTANTS.NIB_UTM33_LEVELS }, (_, z) => getWidth(gridExtent) / 256 / 2 ** z);
+    return new TileLayer({
+      visible: false,
+      source: new WMTS({
+        url: 'https://tilecache.norgeibilder.no/wmts/utm33_euref89',
+        layer: 'Nibcache_UTM33_EUREF89_v2',
+        matrixSet: 'default028mm',
+        format: 'image/jpgpng',
+        style: 'default',
+        projection: 'EPSG:25833',
+        tileGrid: new WMTSTileGrid({
+          origin: getTopLeft(gridExtent),
+          extent: gridExtent,
+          resolutions,
+          matrixIds: resolutions.map((_, z) => String(z)),
+        }),
+        crossOrigin: 'anonymous',
+        attributions: 'Kartverket',
+        tileLoadFunction: (tile, src) => this.loadTile(tile, this.withNibToken(src)),
+      }),
+    });
+  }
+
+  private withNibToken(src: string): string {
+    const token = this.sharedMapService.getNibToken();
+    if (!token) return src;
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}token=${encodeURIComponent(token)}`;
+  }
+
+  private withTileLoader(layer: LayerDef, tileLoadFunction: LoadFunction): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return { ...layer, source: { ...layer.source, options: { ...layer.source.options, tileLoadFunction } } };
+  }
+
+  /** GEBCO shaded relief (sea depth and terrain) as the background where the topo map has no data. */
+  private createGebcoLayer(): TileLayer {
+    return new TileLayer({
+      source: new TileWMS({
+        url: 'https://wms.geonorge.no/skwms1/wms.gebco_skyggerelieff2',
+        params: { LAYERS: 'gebco_skyggerelieff2' },
+        projection: 'EPSG:25833',
+        tileGrid: createForProjection('EPSG:25833', MAP_CONFIG.backgroundMaxTileZoom),
+        attributions: 'Kartverket, GEBCO',
+        tileLoadFunction: this.loadTile,
+      }),
+    });
+  }
+
+  /**
+   * Kartverket tiles in the map's own projection, so they're drawn without reprojection,
+   * with all 19 zoom levels (the finest have 1 m contours).
+   */
+  private withKartverketUtm33nTiles(layer: LayerDef): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return {
+      ...layer,
+      source: {
+        ...layer.source,
+        options: {
+          ...layer.source.options,
+          matrixSet: 'utm33n',
+          projection: 'EPSG:25833',
+          extent: MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT,
+          levels: 19,
+          wrapX: false,
+          tileLoadFunction: this.loadTile,
         },
-      };
-    }
-    this.map.addLayer(nib);
+      },
+    };
   }
 
   private adoptMapControls(): void {
     this.adoptGeolocationControl();
     this.adoptFullscreenControl();
     this.adoptZoomControl();
-    // TODO: Polygon draw controls should be adopted here using nbic-map-component's draw API
-    // (map.startDrawing, map.stopDrawing, map.undoLastPoint, map.finishCurrent, etc.)
-    // See Artsobservasjoner3's shared-map.component.ts for reference implementation.
   }
 
   /** nbic-map-component has no rotation option, so alt+shift-drag and pinch rotation are toggled on the underlying OL interaction. */
@@ -536,55 +664,60 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private adoptZoomControl(): void {
     if (!this.map) return;
-    this.zoomControl = new ArtskartZoomControl({
-      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-    });
+    this.zoomControl = new ArtskartZoomControl(this.zoomControlLabels(), this.mapControls().nativeElement);
     this.map.adoptControl(this.zoomControl, 'zoom');
   }
 
   private adoptFullscreenControl(): void {
     if (!this.map) return;
     // Fullscreen the container wrapping the map so the toolbar (map type selector etc.) stays visible
-    const fullscreenSource = this.mapEl.nativeElement.parentElement ?? undefined;
-    this.fullscreenControl = new ArtskartFullscreenControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-      },
-      fullscreenSource,
-    );
+    const source = this.mapEl.nativeElement.parentElement ?? undefined;
+    this.fullscreenControl = new ArtskartFullscreenControl(this.fullscreenControlLabels(), { source, target: this.mapControls().nativeElement });
     this.map.adoptControl(this.fullscreenControl, 'fullscreen');
   }
 
   private adoptGeolocationControl(): void {
     if (!this.map) return;
     this.geolocationControl = createGeolocationControl(
-      {
-        tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-        deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-      },
-      {
-        onClick: () => this.map.zoomToGeolocation(14),
-      },
+      this.geolocationControlLabels(),
+      { onClick: () => this.map.zoomToGeolocation(14) },
+      this.mapControls().nativeElement,
     );
     this.map.adoptControl(this.geolocationControl, 'geolocation');
+  }
+
+  private zoomControlLabels(): ZoomControlLabels {
+    return {
+      zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
+      zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
+      zoomInTooltip: this.translate.instant('mapToolbar.zoomInTooltip'),
+      zoomOutTooltip: this.translate.instant('mapToolbar.zoomOutTooltip'),
+    };
+  }
+
+  private fullscreenControlLabels(): FullscreenControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.fullscreenTooltip'),
+      exitTooltip: this.translate.instant('mapToolbar.exitFullscreenTooltip'),
+    };
+  }
+
+  private geolocationControlLabels(): GeolocationControlLabels {
+    return {
+      tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
+      tooltip: this.translate.instant('mapToolbar.geolocationTooltip'),
+      deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
+    };
   }
 
   private listenForLanguageChanges(): void {
     this.translate.onLangChange
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.zoomControl?.updateLabels({
-          zoomInTipLabel: this.translate.instant('mapToolbar.zoomInAriaLabel'),
-          zoomOutTipLabel: this.translate.instant('mapToolbar.zoomOutAriaLabel'),
-        });
-        this.fullscreenControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.fullscreenAriaLabel'),
-        });
-        this.geolocationControl?.updateLabels({
-          tipLabel: this.translate.instant('mapToolbar.geolocationAriaLabel'),
-          deniedTooltip: this.translate.instant('mapToolbar.geolocationDeniedTooltip'),
-        });
+        this.zoomControl?.updateLabels(this.zoomControlLabels());
+        this.fullscreenControl?.updateLabels(this.fullscreenControlLabels());
+        this.geolocationControl?.updateLabels(this.geolocationControlLabels());
         this.featureStyles?.clearMarkerCache();
         this.redrawLocationStyles();
         this.rebuildAllLayers();
@@ -605,6 +738,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.setupLocationCountPipeline();
     this.setupCameraChangePipeline();
     this.setupVisibilityObserver();
+    this.setupCustomAreaDraw();
     this.prefetchAreaGeometries();
     this.locationCountFetch$.next(this.locationFilter());
     this.tryApplyRequestedExtent();
@@ -626,8 +760,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const extent = this.mapView.consumeRequestedExtent();
     if (extent) this.map.fitExtent(extent, 0);
   }
-
-  private readonly CLICK_ANIMATION_DURATION_MS = 300;
 
   private handleAreaMarkerClick(features: PointerClickFeature[] | null): void {
     if (!features?.length) return;
@@ -651,8 +783,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private zoomTargetForLayer(layerId: string): number | null {
-    if (layerId === this.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
-    if (layerId === this.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
+    if (layerId === MAP_CONSTANTS.COUNTIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_COUNTY_CLICK;
+    if (layerId === MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID) return ZoomConfig.ZOOM_AFTER_MUNICIPALITY_CLICK;
     return null;
   }
 
@@ -667,7 +799,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // nbic-map-component exposes no fly-to; use the OL view via the adopted zoom control.
     const view = this.zoomControl?.getMap()?.getView();
     if (view) {
-      view.animate({ center: centroid, zoom, duration: this.CLICK_ANIMATION_DURATION_MS });
+      view.animate({ center: centroid, zoom, duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS });
       return;
     }
     this.map?.setCenter(centroid);
@@ -699,12 +831,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       view.animate({
         center: [minX, minY],
         zoom: Math.min(currentZoom + ZoomConfig.CLUSTER_CLICK_ZOOM_STEP, MAP_CONFIG.maxZoom),
-        duration: this.CLICK_ANIMATION_DURATION_MS,
+        duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS,
       });
     } else {
       view.fit([minX, minY, maxX, maxY], {
         padding: [80, 80, 80, 80],
-        duration: this.CLICK_ANIMATION_DURATION_MS,
+        duration: MAP_CONSTANTS.CLICK_ANIMATION_DURATION_MS,
         maxZoom: MAP_CONFIG.maxZoom,
       });
     }
@@ -769,9 +901,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           else if (layerId) areaKey = this.areaMarkerKey(layerId, feature);
         }
         // A popped out polygon marker covers whatever lies under it.
-        if (layerId === this.LOCATION_HIGHLIGHTS_LAYER_ID) return 'pointer';
+        if (layerId === MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID) return 'pointer';
         if (isAreaMarker) return 'zoom-in';
-        if (layerId === this.LOCATIONS_LAYER_ID) {
+        if (layerId === MAP_CONSTANTS.LOCATIONS_LAYER_ID) {
           const members = feature.get('features') as Feature<Point>[] | undefined;
           if ((members?.length ?? 1) > ZoomConfig.CLUSTER_CLICK_MAX_LOCATIONS && !this.isAtMaxZoom()) return 'zoom-in';
         }
@@ -779,7 +911,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         return undefined;
       },
       {
-        hitTolerance: this.HIT_TOLERANCE_PX,
+        hitTolerance: MAP_CONSTANTS.HIT_TOLERANCE_PX,
         layerFilter: (layer) => this.isInteractiveLayer(layer.get('id')) && layer !== this.webglLocationsLayer,
       },
     );
@@ -787,16 +919,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private isInteractiveLayer(id: unknown): boolean {
-    return id === this.COUNTIES_LAYER_ID || id === this.MUNICIPALITIES_LAYER_ID || this.isLocationLayer(id);
+    return id === MAP_CONSTANTS.COUNTIES_LAYER_ID || id === MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID || this.isLocationLayer(id);
   }
 
   private isLocationLayer(id: unknown): boolean {
-    return this.isLocationPointLayer(id) || id === this.LOCATION_POLYGONS_LAYER_ID;
+    return this.isLocationPointLayer(id) || id === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID;
   }
 
   /** Popped out polygon points are drawn on the highlights layer, so it is clickable like the clusters. */
   private isLocationPointLayer(id: unknown): boolean {
-    return id === this.LOCATIONS_LAYER_ID || id === this.LOCATION_HIGHLIGHTS_LAYER_ID;
+    return id === MAP_CONSTANTS.LOCATIONS_LAYER_ID || id === MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID;
   }
 
   private setMarkerHover(locationIds: number[], areaKey: string | null): void {
@@ -812,8 +944,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.hoveredAreaKey = areaKey;
     this.redrawLocationStyles();
     if (areaChanged && this.mapReady && this.featureStyles) {
-      this.map.getLayerById(this.COUNTIES_LAYER_ID)?.changed();
-      this.map.getLayerById(this.MUNICIPALITIES_LAYER_ID)?.changed();
+      this.map.getLayerById(MAP_CONSTANTS.COUNTIES_LAYER_ID)?.changed();
+      this.map.getLayerById(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID)?.changed();
     }
   }
 
@@ -830,7 +962,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapReady || !this.featureStyles) return;
     // Clusters are few enough to restyle in place. Unclustered points have a fixed WebGL style,
     // so they and the polygons get their hover and selection styles from overlay layers.
-    if (this.locationPoints().clustered) this.map.getLayerById(this.LOCATIONS_LAYER_ID)?.changed();
+    if (this.locationPoints().clustered) this.map.getLayerById(MAP_CONSTANTS.LOCATIONS_LAYER_ID)?.changed();
     this.refreshLocationHighlights();
   }
 
@@ -842,9 +974,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const points = clustered
       ? this.featuresById(source, [...this.selectedLocationIds()]).filter(hasPolygonMarker)
       : this.featuresById(source, ids);
-    const polygons = this.featuresById(this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID), ids);
-    this.fillHighlightLayer(this.LOCATION_HIGHLIGHTS_LAYER_ID, points);
-    this.fillHighlightLayer(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, polygons);
+    const polygons = this.featuresById(this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID), [
+      ...new Set([...this.hoveredLocationIds, ...this.selectedPolygonIds()]),
+    ]);
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, points);
+    this.fillHighlightLayer(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, polygons);
   }
 
   private featuresById(source: VectorSource<Feature> | null, ids: number[]): Feature[] {
@@ -874,7 +1008,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const source = this.webglLocationsSource();
     if (!source || !coordinate || !resolution) return [];
     const markerReach = (feature: Feature) => (hasPolygonMarker(feature) ? UNCLUSTERED_POLYGON_MARKER_REACH : UNCLUSTERED_LOCATION_RADIUS);
-    const radius = (Math.max(UNCLUSTERED_POLYGON_MARKER_REACH, UNCLUSTERED_LOCATION_RADIUS) + this.HIT_TOLERANCE_PX) * resolution;
+    const radius = (Math.max(UNCLUSTERED_POLYGON_MARKER_REACH, UNCLUSTERED_LOCATION_RADIUS) + MAP_CONSTANTS.HIT_TOLERANCE_PX) * resolution;
     const [x, y] = coordinate;
     const squaredDistance = (feature: Feature) => {
       const [featureX, featureY] = (feature.getGeometry() as Point).getCoordinates();
@@ -882,7 +1016,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     };
     return source
       .getFeaturesInExtent([x - radius, y - radius, x + radius, y + radius])
-      .filter((feature) => squaredDistance(feature) <= ((markerReach(feature) + this.HIT_TOLERANCE_PX) * resolution) ** 2)
+      .filter((feature) => squaredDistance(feature) <= ((markerReach(feature) + MAP_CONSTANTS.HIT_TOLERANCE_PX) * resolution) ** 2)
       .sort((a, b) => squaredDistance(a) - squaredDistance(b));
   }
 
@@ -900,12 +1034,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   /** Follows the layer itself rather than the clustering setting, which changes before the WebGL layer has loaded. */
   private locationPoints(): { source: VectorSource<Feature> | null; clustered: boolean } {
-    const source = this.vectorSourceOf(this.LOCATIONS_LAYER_ID);
+    const source = this.vectorSourceOf(MAP_CONSTANTS.LOCATIONS_LAYER_ID);
     return source instanceof Cluster ? { source: source.getSource(), clustered: true } : { source, clustered: false };
   }
 
   private drawnPolygonIds(): Set<string | number | undefined> {
-    return new Set(this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID)?.getFeatures().map((polygon) => polygon.getId()));
+    return new Set(this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getFeatures().map((polygon) => polygon.getId()));
+  }
+
+  private locationLayersChanged(): void {
+    this.locationLayersRevision.update((revision) => revision + 1);
   }
 
   private markPolygonLocationPoints(): void {
@@ -925,12 +1063,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return features.map((member): unknown => member.get('id')).filter((id): id is number => typeof id === 'number' && Number.isFinite(id));
   }
 
-  private locationFeatureState(feature: FeatureLike): MapFeatureState {
+  private locationFeatureState(feature: FeatureLike, selectedIds = this.selectedLocationIds()): MapFeatureState {
     const ids = this.locationIdsForFeature(feature);
     if (!ids.length) return 'default';
     // A cluster that also holds unselected locations would suggest its whole count is selected.
-    if (ids.every((id) => this.selectedLocationIds().has(id))) return 'selected';
+    if (ids.every((id) => selectedIds.has(id))) return 'selected';
     return ids.every((id) => this.hoveredLocationIds.has(id)) ? 'hover' : 'default';
+  }
+
+  private polygonFeatureState(feature: FeatureLike): MapFeatureState {
+    return this.locationFeatureState(feature, this.selectedPolygonIds());
   }
 
   private areaMarkerKey(layerId: string, feature: FeatureLike): string {
@@ -946,7 +1088,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const styles = this.featureStyles;
     if (!styles) throw new Error('Map feature styles must be initialized before adding layers');
     this.map.addLayer({
-      id: this.OBSERVATION_HIGHLIGHT_ID,
+      id: MAP_CONSTANTS.OBSERVATION_HIGHLIGHT_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -958,18 +1100,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       },
     });
     this.map.addLayer({
-      id: this.COUNTIES_LAYER_ID,
+      id: MAP_CONSTANTS.COUNTIES_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
       zIndex: 50,
       zIndexPinned: true,
       maxZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
-      style: this.areaMarkerStyle(this.COUNTIES_LAYER_ID, styles),
+      style: this.areaMarkerStyle(MAP_CONSTANTS.COUNTIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
-      id: this.MUNICIPALITIES_LAYER_ID,
+      id: MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -977,11 +1119,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       minZoom: ZoomConfig.ZOOM_COUNTIES_THRESHOLD,
       maxZoom: ZoomConfig.ZOOM_MUNICIPALITIES_THRESHOLD,
-      style: this.areaMarkerStyle(this.MUNICIPALITIES_LAYER_ID, styles),
+      style: this.areaMarkerStyle(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, styles),
     });
 
     this.map.addLayer({
-      id: this.SELECTED_AREAS_OVERLAY_ID,
+      id: MAP_CONSTANTS.SELECTED_AREAS_OVERLAY_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -992,17 +1134,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     else void this.replaceLocationsLayer();
 
     this.map.addLayer({
-      id: this.LOCATION_POLYGONS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
       zIndex: 90,
       zIndexPinned: true,
-      style: { type: 'raw', options: { instance: () => styles.polygon() } },
+      style: { type: 'raw', options: { instance: (feature: FeatureLike) => styles.polygon(isSensitivePolygon(feature)) } },
     });
 
     this.map.addLayer({
-      id: this.LOCATION_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -1023,7 +1165,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
 
     this.map.addLayer({
-      id: this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: false,
@@ -1031,7 +1173,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zIndexPinned: true,
       style: {
         type: 'raw',
-        options: { instance: (feature: FeatureLike) => styles.polygonHighlight(this.locationFeatureState(feature)) },
+        options: {
+          instance: (feature: FeatureLike) => styles.polygonHighlight(this.polygonFeatureState(feature), isSensitivePolygon(feature)),
+        },
       },
     });
   }
@@ -1040,7 +1184,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // Synlighet styres manuelt i rebuildWithExtent (ikke minZoom) slik at
     // direkte klustermodus kan vise laget på alle zoomnivåer.
     this.map.addLayer({
-      id: this.LOCATIONS_LAYER_ID,
+      id: MAP_CONSTANTS.LOCATIONS_LAYER_ID,
       kind: 'vector',
       source: { type: 'memory' },
       pickable: true,
@@ -1054,7 +1198,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       },
       cluster: {
         enabled: true,
-        distance: this.CLUSTER_DISTANCE_PX,
+        distance: MAP_CONSTANTS.CLUSTER_DISTANCE_PX,
         keepSingleAsCluster: true,
         countField: 'observationCount',
         style: {
@@ -1112,7 +1256,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     // The cluster already shows the selection, also when the point is alone in it.
     if (this.locationFeatureState(cluster) === 'selected') return [];
     // Laid out together with the cluster's other popped out points, so that they don't cover each other.
-    const highlights = this.vectorSourceOf(this.LOCATION_HIGHLIGHTS_LAYER_ID);
+    const highlights = this.vectorSourceOf(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID);
     const poppedOut = (cluster.get('features') as Feature[]).filter((member) => member === point || highlights?.hasFeature(member));
     const locations = poppedOut.map((member) => (member.getGeometry() as Point).getCoordinates());
     const rotation = this.zoomControl?.getMap()?.getView().getRotation();
@@ -1122,8 +1266,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private clusterContaining(point: FeatureLike, [x, y]: Coordinate, resolution: number): Feature | undefined {
     // Members lie within the cluster distance of the cluster's first member, so its center is at most twice that away.
-    const reach = 2 * this.CLUSTER_DISTANCE_PX * resolution;
-    return this.vectorSourceOf(this.LOCATIONS_LAYER_ID)
+    const reach = 2 * MAP_CONSTANTS.CLUSTER_DISTANCE_PX * resolution;
+    return this.vectorSourceOf(MAP_CONSTANTS.LOCATIONS_LAYER_ID)
       ?.getFeaturesInExtent([x - reach, y - reach, x + reach, y + reach])
       .find((cluster) => (cluster.get('features') as FeatureLike[] | undefined)?.includes(point));
   }
@@ -1232,12 +1376,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     // Lagene har ingen minZoom — synlighet styres her. Fylke-/kommunelagene
     // har egne zoomterskler som begrenser dem når de er satt synlige.
-    this.map.setLayerVisibility(this.LOCATIONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_POLYGONS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
-    this.map.setLayerVisibility(this.COUNTIES_LAYER_ID, !locationsAtAllZooms);
-    this.map.setLayerVisibility(this.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATIONS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.map.setLayerVisibility(MAP_CONSTANTS.LOCATION_POLYGON_HIGHLIGHTS_LAYER_ID, showLocations);
+    this.locationLayersChanged();
+    this.map.setLayerVisibility(MAP_CONSTANTS.COUNTIES_LAYER_ID, !locationsAtAllZooms);
+    this.map.setLayerVisibility(MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID, !locationsAtAllZooms);
 
     // Oppdater overlay
     this.updateSelectedAreaOverlays();
@@ -1317,11 +1462,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       ? this.webglLocationHits(payload.clickCoordinate, this.zoomControl?.getMap()?.getView().getResolution())
       : [];
     const hits: Pick<PointerClickFeature, 'feature' | 'layerId'>[] = [
-      ...pointHits.map((feature) => ({ feature, layerId: this.LOCATIONS_LAYER_ID })),
+      ...pointHits.map((feature) => ({ feature, layerId: MAP_CONSTANTS.LOCATIONS_LAYER_ID })),
       ...((payload.features as PointerClickFeature[] | null) ?? []),
     ];
     // A popped out polygon marker covers whatever lies under it.
-    const poppedOut = hits.find(({ layerId }) => layerId === this.LOCATION_HIGHLIGHTS_LAYER_ID);
+    const poppedOut = hits.find(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_HIGHLIGHTS_LAYER_ID);
     const features = poppedOut && this.locationPoints().clustered ? [poppedOut] : hits;
     if (!features.length) {
       this.closeObservationList();
@@ -1354,7 +1499,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .map((member) => (member.getProperties() as LocationFeatureProperties).id);
 
     const polygonLocationIds = features
-      .filter(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)
+      .filter(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)
       .map(({ feature }) => (feature.getProperties() as LocationFeatureProperties).id);
 
     const ids = [...new Set([...locationIds, ...polygonLocationIds].filter((item): item is number => item !== undefined))];
@@ -1365,8 +1510,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const projection = this.zoomControl?.getMap()?.getView().getProjection() ?? MAP_CONFIG.projection;
     // A location drawn as a polygon is described by its polygon, also when only its point was clicked.
     const polygon =
-      features.find(({ layerId }) => layerId === this.LOCATION_POLYGONS_LAYER_ID)?.feature ??
-      (ids.length === 1 ? this.vectorSourceOf(this.LOCATION_POLYGONS_LAYER_ID)?.getFeatureById(ids[0]) : null);
+      features.find(({ layerId }) => layerId === MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.feature ??
+      (ids.length === 1 ? this.vectorSourceOf(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID)?.getFeatureById(ids[0]) : null);
     const singleFeature = ids.length === 1 ? (polygon ?? memberGroups.flat()[0]) : undefined;
     const geometry = singleFeature?.getGeometry();
     const isPolygon = geometry?.getType() === 'Polygon' || geometry?.getType() === 'MultiPolygon';
@@ -1524,8 +1669,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
             tap(({ geojson, count }) => {
               if (this.mapVisible && generation === this.fetchGeneration) {
                 this.clearMarkerHover();
-                this.map.updateGeoJSONLayer(this.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
+                this.map.updateGeoJSONLayer(MAP_CONSTANTS.LOCATION_POLYGONS_LAYER_ID, geojson, { mode: 'replace' });
                 this.markPolygonLocationPoints();
+                this.locationLayersChanged();
                 this.redrawLocationStyles();
                 underLimit.polygons = count < ZoomConfig.MAX_POLYGONS_PER_FETCH;
                 recordCoverage();
@@ -1672,8 +1818,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const oceanAreaFids = new Set(filter.oceanAreaIds ?? []);
 
     // Matrikkelenheter OR-es med områdene, så treff kan ligge utenfor de valgte områdene.
-    // The same goes for protected areas.
-    if (filter.cadastralUnitIds?.length || filter.restrictedAreaIds?.length) return areas;
+    // The same goes for protected and historical areas.
+    if (filter.cadastralUnitIds?.length || filter.restrictedAreaIds?.length || filter.historicalAreaIds?.length) return areas;
 
     if (countyFids.size === 0 && municipalityFids.size === 0 && oceanAreaFids.size === 0) {
       return areas;
@@ -1744,7 +1890,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       features: [...countyFeatures, ...municipalityFeatures, ...cadastralUnitFeatures],
     });
 
-    this.map.updateGeoJSONLayer(this.SELECTED_AREAS_OVERLAY_ID, combined, { mode: 'replace' });
+    this.map.updateGeoJSONLayer(MAP_CONSTANTS.SELECTED_AREAS_OVERLAY_ID, combined, { mode: 'replace' });
   }
 
   private applyGeoJsonToLayer(apiZoomLevel: number, geojson: string): void {
@@ -1753,7 +1899,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map || !this.mapVisible) return;
 
     this.clearMarkerHover();
-    const layerId = apiZoomLevel >= ApiZoomLevel.Municipalities ? this.MUNICIPALITIES_LAYER_ID : this.COUNTIES_LAYER_ID;
+    const layerId = apiZoomLevel >= ApiZoomLevel.Municipalities ? MAP_CONSTANTS.MUNICIPALITIES_LAYER_ID : MAP_CONSTANTS.COUNTIES_LAYER_ID;
     this.map.updateGeoJSONLayer(layerId, geojson, { mode: 'replace' });
   }
 
@@ -1776,48 +1922,149 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
     pointSource.clear(true);
     pointSource.addFeatures(features);
+    this.locationLayersChanged();
     this.refreshLocationHighlights();
     return true;
   }
 
   onIconClick(iconName: string): void {
-    if (!iconName.startsWith(this.MAP_TYPE_PREFIX)) {
+    if (!iconName.startsWith(MAP_CONSTANTS.MAP_TYPE_PREFIX)) {
       return;
     }
-    const layerId = iconName.slice(this.MAP_TYPE_PREFIX.length);
+    const layerId = iconName.slice(MAP_CONSTANTS.MAP_TYPE_PREFIX.length);
     if (!this.map || !layerId) return;
     this.map.setLayerVisibility(layerId, true);
+  }
+
+  private scaleDenominatorToResolution(scaleDenominator: number): number {
+    return scaleDenominator * MAP_CONSTANTS.OGC_PIXEL_SIZE_METERS;
   }
 
   onMapToolbarMenuItemChange({ layer, visible }: MapToolbarMenuItemChange): void {
     const existing = this.mapOverlayLayers.get(layer.id);
     if (existing) {
       existing.setVisible(visible);
-      if (visible) existing.getSource()?.refresh();
-      else this.mapLayerService.setLayerFailed(layer.id, false);
+      if (visible) {
+        existing.getSource()?.refresh();
+      } else {
+        // Clear failure flag and cancel pending refresh when hiding
+        this.mapLayerService.setLayerFailed(layer.id, false);
+        this.cancelRefreshAfterCooldown(layer.id);
+      }
       return;
     }
-    if (!visible || !this.map || !layer.url || layer.type.toLowerCase() !== 'wms') return;
 
-    const overlay = new TileLayer({
-      source: new TileWMS({
-        url: layer.url,
-        params: {
-          LAYERS: layer.layers ?? undefined,
-          FORMAT: layer.format ?? 'image/png',
-          VERSION: layer.version ?? '1.3.0',
-        },
-        attributions: layer.attribution ?? undefined,
-      }),
-    });
-    const source = overlay.getSource()!;
-    this.mapOverlayLoadKeys.push(
-      source.on('tileloaderror', () => {
-        if (overlay.getVisible()) this.mapLayerService.setLayerFailed(layer.id, true);
-      }),
-    );
+    if (!visible || !this.map || layer.type.toLowerCase() !== 'wms') return;
+
+    const params = {
+      LAYERS: layer.layers ?? undefined,
+      FORMAT: layer.format ?? 'image/png',
+      VERSION: layer.version ?? '1.3.0',
+    };
+    const useSingleImage = layer.useSingleImage;
+
+    const commonOptions = {
+      opacity: Math.max(0, Math.min(1, layer.opacity)),
+      minResolution:
+        layer.minScaleDenominator != null ? this.scaleDenominatorToResolution(layer.minScaleDenominator) : undefined,
+      maxResolution:
+        layer.maxScaleDenominator != null ? this.scaleDenominatorToResolution(layer.maxScaleDenominator) : undefined,
+    };
+
+    const overlay = useSingleImage
+      ? new ImageLayer({
+        ...commonOptions,
+        source: new ImageWMS({
+          url: layer.url,
+          params,
+          attributions: layer.attribution ?? undefined,
+        }),
+      })
+      : new TileLayer({
+        ...commonOptions,
+        source: new TileWMS({
+          url: layer.url,
+          params,
+          attributions: layer.attribution ?? undefined,
+          tileLoadFunction: this.loadTile,
+        }),
+      });
+
+    const markFailedIfVisible = () => {
+      if (overlay.getVisible()) {
+        this.mapLayerService.setLayerFailed(layer.id, true);
+        this.scheduleRefreshAfterCooldown(layer);
+      }
+    };
+
+    const markLoadedIfVisible = () => {
+      if (!overlay.getVisible()) return;
+      this.mapLayerService.setLayerFailed(layer.id, false);
+      this.cancelRefreshAfterCooldown(layer.id);
+    };
+
+    const source = overlay.getSource();
+    if (useSingleImage) {
+      const imageSource = source as ImageWMS;
+      // OpenLayers also reports results for images that a newer request has replaced.
+      let latestImage: ImageWrapper | undefined;
+      this.mapOverlayLoadKeys.push(
+        imageSource.on('imageloadstart', (event) => {
+          latestImage = event.image;
+        }),
+        imageSource.on('imageloaderror', (event) => {
+          if (event.image === latestImage) markFailedIfVisible();
+        }),
+        imageSource.on('imageloadend', (event) => {
+          if (event.image === latestImage) markLoadedIfVisible();
+        }),
+      );
+    } else {
+      this.mapOverlayLoadKeys.push((source as TileWMS).on('tileloaderror', markFailedIfVisible));
+    }
+
     this.mapOverlayLayers.set(layer.id, overlay);
     this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+  }
+
+  private cancelRefreshAfterCooldown(layerId: number): void {
+    const timer = this.mapOverlayRefreshTimers.get(layerId);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    this.mapOverlayRefreshTimers.delete(layerId);
+  }
+
+  private scheduleRefreshAfterCooldown(layer: MapLayerDto): void {
+    this.cancelRefreshAfterCooldown(layer.id);
+
+    const retryDelayMs = Math.max(0, layer.retryAfterSeconds) * 1000;
+    if (retryDelayMs === 0) return;
+
+    const timer = setTimeout(() => {
+      const overlay = this.mapOverlayLayers.get(layer.id);
+      if (overlay && overlay.getVisible()) {
+        overlay.getSource()?.refresh();
+      }
+      this.mapOverlayRefreshTimers.delete(layer.id);
+    }, retryDelayMs);
+
+    this.mapOverlayRefreshTimers.set(layer.id, timer);
+  }
+
+  private setupCustomAreaDraw(): void {
+    if (!this.featureStyles) return;
+    this.customAreaDraw = new CustomAreaDraw(
+      this.map,
+      () => this.zoomControl?.getMap()?.getView().getProjection().getCode() ?? MAP_CONFIG.projection,
+      { normal: this.featureStyles.customArea(), rejected: this.featureStyles.customArea(true) },
+      {
+        areaChanged: (wkt) => this.customAreaDrawing.submit(wkt),
+        pointCountChanged: (count) => this.customAreaDrawing.setPointCount(count),
+        drawingStopped: () => this.customAreaDrawing.stopped(),
+      },
+    );
+    const rejected = this.customAreaDrawing.rejected();
+    this.customAreaDraw.show(rejected?.wkt ?? this.filterState.customAreaWkt(), rejected !== null);
   }
 
   private cleanup(): void {
@@ -1838,9 +2085,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.countsCache.clear();
     unByKey(this.mapOverlayLoadKeys);
     this.mapOverlayLoadKeys.length = 0;
+    for (const [, timer] of this.mapOverlayRefreshTimers) {
+      clearTimeout(timer);
+    }
     for (const layerId of this.mapOverlayLayers.keys()) this.mapLayerService.setLayerFailed(layerId, false);
     this.mapOverlayLayers.clear();
     this.disposeWebglLocationsLayer();
+    this.customAreaDraw?.dispose();
+    this.customAreaDraw = undefined;
+    this.customAreaDrawing.stopped();
     this.map?.destroy?.();
   }
 

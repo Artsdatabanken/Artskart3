@@ -27,7 +27,7 @@ public class SearchControllerTests
         _serviceMock = new Mock<ISearchService>();
         _speciesServiceMock = new Mock<ISpeciesService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
-        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()));
+        _sut = new SearchController(_serviceMock.Object, _speciesServiceMock.Object, _loggerMock.Object, Options.Create(new PaginationOptions()), new StubCustomAreaService());
 
         var services = new ServiceCollection();
         services.AddMvcCore();

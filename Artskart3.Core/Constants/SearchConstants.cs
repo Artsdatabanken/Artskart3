@@ -8,6 +8,8 @@ public static class SearchConstants
     public const int MinTaxonResults = 1;
     public const int DefaultMaxOrganizationCount = 10;
     public const int MaxOrganizationCount = 50;
+    public const int DefaultMaxAreaSearchCount = 20;
+    public const int MaxAreaSearchCount = 50;
 
     // Location search constants
     public const int DefaultMaxLocations = 100000;
@@ -57,6 +59,21 @@ public static class SearchConstants
 
     // Matrikkelenheter slås opp én og én mot Kartverket.
     public const int MaxCadastralUnitFilterSize = 20;
+
+    // Hvert historisk område er lokasjonene sine i HistoricalAreaLocation. Alle 443 i
+    // ett filter gir en delspørring på 12,6 millioner rader, kompilert på nytt hver gang.
+    public const int MaxHistoricalAreaFilterSize = 20;
+
+    // Et håndtegnet polygon har sjelden mer enn noen titalls hjørner. Grensen hindrer
+    // misbruk av det anonyme endepunktet, og begrenser ikke hvor stort området kan være.
+    public const int MaxCustomAreaVertices = 1000;
+
+    // Gjelder lokasjonene søkene må lese som liste: hele polygonet, eller bare kanten når
+    // områder ligger helt innenfor, se ICustomAreaService.GetSplitAsync. Vanlige tegninger
+    // rundt Oslo kom ikke over 373 000; mer krever striper eller kryss gjennom de tetteste
+    // områdene. Målt lokalt med 500 000-660 000: oppslaget 1,3-3,2 s, første karttelling
+    // 1,5-1,8 s, og liste, galleri, områdeantall og punkter under 1,3 s.
+    public const int MaxCustomAreaLocations = 600_000;
 
     // Minstelengde for katalognummer-oppslaget, håndhevet på serveren.
     // 1 tegn ville krevd DISTINCT over millioner av indeksrader for hvert

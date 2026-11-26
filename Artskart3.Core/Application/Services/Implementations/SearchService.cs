@@ -65,7 +65,12 @@ public class SearchService : ISearchService
 
     public async Task<List<ObservationDto>> GetObservationsAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
-        return await _searchRepository.GetObservationsAsync(filter, cancellationToken);
+        var observations = await _searchRepository.GetObservationsAsync(filter, cancellationToken);
+        foreach (var observation in observations)
+        {
+            observation.Point = ObservationPointValidator.UsableOrNull(observation.Point);
+        }
+        return observations;
     }
 
     public async Task<List<ObservationImageDto>> GetObservationImagesAsync(ObservationSearchFilterDto filter, CancellationToken cancellationToken = default)
@@ -79,10 +84,7 @@ public class SearchService : ISearchService
         var images = await _searchRepository.GetObservationImagesAsync(filter, cancellationToken);
         foreach (var item in images)
         {
-            if (item.Point is not null && !ObservationPointValidator.IsUsable(item.Point))
-            {
-                item.Point = null;
-            }
+            item.Point = ObservationPointValidator.UsableOrNull(item.Point);
             if (item.Image.Origin is not null && !WebUrl.IsValid(item.Image.Origin))
             {
                 item.Image.Origin = null;

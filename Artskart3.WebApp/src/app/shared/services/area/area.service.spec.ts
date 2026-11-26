@@ -175,7 +175,7 @@ describe('AreaService', () => {
       filterState.selectedMunicipalityIds.set(['5001']);
 
       expect(service.resolvedAreaFilter().municipalityIds).toEqual(['5001']);
-      expect(service.mainlandSelectionCount()).toBe(1);
+      expect(service.mainlandSelectionNames()).toHaveLength(1);
     });
 
     it('teller ukjente kommuner og fylker med, så filterbrikken vises', () => {
@@ -183,7 +183,24 @@ describe('AreaService', () => {
       filterState.selectedMunicipalityIds.set(['9999']);
       filterState.selectedCountyIds.set(['99']);
 
-      expect(service.mainlandSelectionCount()).toBe(2);
+      expect(service.mainlandSelectionNames()).toHaveLength(2);
+    });
+  });
+
+  describe('mainlandSelectionNames', () => {
+    it('names a county whose municipalities are all selected, and the selected municipalities otherwise', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['0301', '1101']);
+
+      expect(service.mainlandSelectionNames()).toEqual(['Oslo', 'Eigersund']);
+    });
+
+    it('shows the ids of areas that are not in the current division', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['9999']);
+      filterState.selectedCountyIds.set(['99']);
+
+      expect(service.mainlandSelectionNames()).toEqual(['99', '9999']);
     });
   });
 
@@ -255,6 +272,53 @@ describe('AreaService', () => {
 
       expect(service.restrictedAreaName('Naturbase VV1')).toBe('Hvaler nasjonalpark');
       expect(service.restrictedAreaName('Naturbase VV2')).toBeUndefined();
+    });
+  });
+
+  describe('addSearchedArea', () => {
+    it('ticks a current county in the list, as all its municipalities', () => {
+      flushAreas();
+
+      service.addSearchedArea({ id: 2, fid: '11', name: 'Rogaland', areaTypeId: 2, isCurrent: true, endYear: 2024 });
+
+      expect(filterState.selectedMunicipalityIds()).toEqual(['1101', '1103']);
+      expect(filterState.selectedCountyIds()).toEqual([]);
+    });
+
+    it('ticks a current municipality and keeps what was already selected', () => {
+      flushAreas();
+      filterState.selectedMunicipalityIds.set(['0301']);
+
+      service.addSearchedArea({ id: 11, fid: '1101', name: 'Eigersund', areaTypeId: 1, isCurrent: true, endYear: 2024 });
+
+      expect(filterState.selectedMunicipalityIds()).toEqual(['0301', '1101']);
+    });
+
+    it('ticks a current ocean area', () => {
+      flushAreas();
+
+      service.addSearchedArea({ id: 450, fid: '1', name: 'Nordsjøen og Skagerak', areaTypeId: 4, isCurrent: true, endYear: 2019 });
+
+      expect(filterState.selectedOceanAreaIds()).toEqual(['1']);
+    });
+
+    it('keeps Svalbard and Jan Mayen as a county id, as the list does', () => {
+      flushAreas();
+
+      service.addSearchedArea({ id: 39315, fid: '2101', name: 'Svalbard', areaTypeId: 6, isCurrent: true, endYear: 2024 });
+
+      expect(filterState.selectedCountyIds()).toEqual(['2101']);
+    });
+
+    it('adds a historical area as a filter of its own instead of ticking the list', () => {
+      flushAreas();
+      const area = { id: 669, fid: '54', name: 'Troms og Finnmark', areaTypeId: 2, isCurrent: false, endYear: 2021 };
+
+      service.addSearchedArea(area);
+
+      expect(filterState.selectedHistoricalAreas()).toEqual([area]);
+      expect(filterState.selectedCountyIds()).toEqual([]);
+      expect(filterState.selectedMunicipalityIds()).toEqual([]);
     });
   });
 });
