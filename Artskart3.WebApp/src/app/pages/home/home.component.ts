@@ -50,9 +50,6 @@ const SAVED_FILTER_LOGIN_RETRY_MS = 2 * 60 * 1000;
     FormatFileSizePipe,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  host: {
-    '(window:resize)': 'onWindowResize()',
-  },
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -73,28 +70,17 @@ export class HomeComponent {
   readonly filterPanelWidth = signal(this.minWidth);
 
   private readonly HANDLE_HEIGHT = this.getCSSVar('--home-handle-height', 56);
-  private readonly MOBILE_BREAKPOINT = this.getCSSVar('--home-mobile-breakpoint', 768);
   private readonly OPEN_GAP = this.getCSSVar('--home-open-gap', 24);
   private readonly filterSheet = viewChild.required<ElementRef<HTMLElement>>('filterSheet');
   readonly isFilterOpen = signal(false);
   readonly isDragging = signal(false);
   private readonly dragTranslatePx = signal<number | null>(null);
-  private readonly viewportTick = signal(0);
   private dragStartY = 0;
   private dragStartTranslate = 0;
 
-  readonly sheetTransform = computed(() => {
-    this.viewportTick();
-    if (!this.isMobileViewport()) {
-      return 'none';
-    }
+  readonly dragTransform = computed(() => {
     const dragValue = this.dragTranslatePx();
-    if (dragValue !== null) {
-      return `translateY(${dragValue}px)`;
-    }
-    return this.isFilterOpen()
-      ? `translateY(${this.OPEN_GAP}px)`
-      : 'translateY(calc(100% - var(--home-handle-height, 56px)))';
+    return dragValue === null ? null : `translateY(${dragValue}px)`;
   });
 
   activeTab = signal(0);
@@ -280,10 +266,6 @@ export class HomeComponent {
     this.isFilterOpen.update((open) => !open);
   }
 
-  onWindowResize(): void {
-    this.viewportTick.update((tick) => tick + 1);
-  }
-
   onHandlePointerDown(event: PointerEvent): void {
     this.isDragging.set(true);
     this.dragStartY = event.clientY;
@@ -321,10 +303,6 @@ export class HomeComponent {
 
   private getCollapsedTranslateY(): number {
     return Math.max(this.filterSheet().nativeElement.offsetHeight - this.HANDLE_HEIGHT, 0);
-  }
-
-  private isMobileViewport(): boolean {
-    return (this.document.defaultView?.innerWidth ?? 0) <= this.MOBILE_BREAKPOINT;
   }
 
   private startExportWithName(filter: ObservationSearchFilter, name: string): void {

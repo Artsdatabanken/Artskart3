@@ -137,39 +137,39 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
     expect(component.activeTab()).toBe(0);
   });
 
-  it('holder filterfanen ved bunnen av panelet og bruker panelhøyden ved draing', async () => {
-    const originalWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 393 });
+  it('bruker panelhøyden under draing og lar CSS styre hvileposisjonene', async () => {
+    await create(null);
+    const component = fixture.componentInstance;
+    const sheet: HTMLElement = fixture.nativeElement.querySelector('.sidebar');
+    const handle: HTMLElement = fixture.nativeElement.querySelector('.sheet-handle');
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 616 });
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
 
-    try {
-      await create(null);
-      const component = fixture.componentInstance;
-      const sheet: HTMLElement = fixture.nativeElement.querySelector('.sidebar');
-      const handle: HTMLElement = fixture.nativeElement.querySelector('.sheet-handle');
-      Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 616 });
-      handle.setPointerCapture = vi.fn();
-      handle.releasePointerCapture = vi.fn();
+    expect(sheet.style.transform).toBe('');
+    expect(sheet.classList.contains('open')).toBe(false);
 
-      expect(component.sheetTransform()).toBe('translateY(calc(100% - var(--home-handle-height, 56px)))');
+    handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 600 }));
+    TestBed.tick();
+    expect(sheet.style.transform).toBe('translateY(560px)');
+    handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 600 }));
+    TestBed.tick();
+    expect(sheet.style.transform).toBe('');
+    expect(sheet.classList.contains('open')).toBe(true);
 
-      handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 600 }));
-      expect(component.sheetTransform()).toBe('translateY(560px)');
-      handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 600 }));
-      expect(component.sheetTransform()).toBe('translateY(24px)');
+    component.isFilterOpen.set(false);
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 516 });
+    TestBed.tick();
+    expect(sheet.classList.contains('open')).toBe(false);
 
-      component.isFilterOpen.set(false);
-      Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 516 });
-      component.onWindowResize();
-      expect(component.sheetTransform()).toBe('translateY(calc(100% - var(--home-handle-height, 56px)))');
-
-      handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 500 }));
-      handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 450 }));
-      expect(component.sheetTransform()).toBe('translateY(410px)');
-      handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 450 }));
-      expect(component.isFilterOpen()).toBe(false);
-    } finally {
-      if (originalWidth) Object.defineProperty(window, 'innerWidth', originalWidth);
-    }
+    handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 500 }));
+    handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 450 }));
+    TestBed.tick();
+    expect(sheet.style.transform).toBe('translateY(410px)');
+    handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 450 }));
+    TestBed.tick();
+    expect(sheet.style.transform).toBe('');
+    expect(sheet.classList.contains('open')).toBe(false);
   });
 
   it('gjør ingenting uten parameter', async () => {
