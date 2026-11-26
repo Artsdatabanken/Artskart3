@@ -20,6 +20,7 @@ export class MapToolbarComponent {
   readonly clusteringEnabled = model(true);
   readonly clusteringLock = input<ClusteringLock | null>(null);
   readonly geolocationActive = input(false);
+  readonly legendHidden = input(false);
 
   protected readonly openMenu = signal<MapToolbarMenu | null>(null);
   protected readonly activeLayers = inject(MapLayerService).activeLayers;

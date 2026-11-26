@@ -1037,6 +1037,34 @@ describe('MapComponent', () => {
       component.map = { getLayerById: (id: string) => (id === 'location-polygons' ? polygonLayer : null) } as unknown as NbicMapComponent;
     });
 
+    it('hides the legend for the observation list and details without losing its open state', () => {
+      fixture.detectChanges();
+      const element: HTMLElement = fixture.nativeElement;
+      const legend = element.querySelector<HTMLElement>('.map-toolbar-bottom')!;
+      element.querySelector<HTMLElement>('app-map-legend adb-icon-button')!.click();
+      fixture.detectChanges();
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      component.showObservationList.set(true);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(true);
+
+      component.showObservationList.set(false);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(false);
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+
+      component.observationPanel()!.rawId.set('7');
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(true);
+
+      component.observationPanel()!.rawId.set(null);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(false);
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+    });
+
     it('selects the location of a popped out point and describes a polygon location by its polygon', () => {
       const outline = new Feature(new Polygon([[[1, 2], [3, 4], [5, 6], [1, 2]]]));
       outline.setId(1);
