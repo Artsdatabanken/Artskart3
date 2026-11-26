@@ -41,6 +41,7 @@ import { MapLayerDto, ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
+import type { GeolocationMapControl } from './controls/geolocation.control';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
 import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { ApiClientService } from '@core/services/api-client.service';
@@ -51,16 +52,29 @@ const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
   let component: MapComponent;
+  let layerResponses: Subject<MapLayerDto[]>;
   const lifecycle = () =>
     component as unknown as {
       initializeMap(): void;
       onMapReady(): void;
-      cleanup(): void;
-      restoreActiveLayers(layers: MapLayerDto[]): void;
+      adoptGeolocationControl(): void;
+      setupAreaMarkerLayers(): void;
+      setRotationEnabled(enabled: boolean): void;
+      setupMarkerCursor(): void;
+      setupCountsFetchPipeline(): void;
+      setupLocationsFetchPipeline(): void;
+      setupLocationCountPipeline(): void;
+      setupCameraChangePipeline(): void;
+      setupVisibilityObserver(): void;
+      setupCustomAreaDraw(): void;
+      prefetchAreaGeometries(): void;
+      tryApplyRequestedExtent(): void;
+      rebuildAllLayers(): void;
     };
 
   beforeEach(async () => {
     vi.useFakeTimers();
+    layerResponses = new Subject<MapLayerDto[]>();
     await TestBed.configureTestingModule({
       imports: [MapComponent],
       providers: [
@@ -70,8 +84,7 @@ describe('MapComponent lifecycle', () => {
         {
           provide: ApiClientService,
           useValue: {
-            fetchJson: () =>
-              of([{ id: 1, name: 'Test layer', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1 }]),
+            fetchJson: () => layerResponses,
           },
         },
       ],
@@ -84,6 +97,7 @@ describe('MapComponent lifecycle', () => {
   afterEach(() => {
     fixture.destroy();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -120,18 +134,61 @@ describe('MapComponent lifecycle', () => {
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
   });
 
-  it('preserves enabled map layers when destroyed and restores their overlays on the next map', () => {
+  it.each([true, false])('restores enabled overlays on a new map when layers load before ready: %s', (loadBeforeReady) => {
+    const layer: MapLayerDto = {
+      id: 1, name: 'Test layer', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1,
+    };
     const mapLayerService = TestBed.inject(MapLayerService);
+    if (loadBeforeReady) layerResponses.next([layer]);
     mapLayerService.setLayerEnabled(1, true);
-    lifecycle().cleanup();
+    fixture.destroy();
     expect(mapLayerService.enabledLayerIds().has(1)).toBe(true);
 
+    fixture = TestBed.createComponent(MapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
     const adoptLayer = vi.fn();
     Object.assign(component, { map: { adoptLayer } });
-    lifecycle().restoreActiveLayers(mapLayerService.activeLayers());
+    for (const method of [
+      'setupAreaMarkerLayers', 'setRotationEnabled', 'setupMarkerCursor', 'setupCountsFetchPipeline', 'setupLocationsFetchPipeline',
+      'setupLocationCountPipeline', 'setupCameraChangePipeline', 'setupVisibilityObserver', 'setupCustomAreaDraw',
+      'prefetchAreaGeometries', 'tryApplyRequestedExtent', 'rebuildAllLayers',
+    ] as const) {
+      vi.spyOn(lifecycle(), method).mockImplementation(() => undefined);
+    }
+    vi.spyOn(component, 'highlightObservation').mockImplementation(() => undefined);
+    lifecycle().onMapReady();
+    if (!loadBeforeReady) layerResponses.next([layer]);
+    fixture.detectChanges();
 
-    expect(adoptLayer).toHaveBeenCalledOnce();
-    expect(mapLayerService.activeLayers().map((layer) => layer.id)).toEqual([1]);
+    expect(adoptLayer).toHaveBeenCalledExactlyOnceWith('backend-map-layer-1', expect.any(TileLayer), { role: 'overlay', zIndex: 10 });
+  });
+
+  it('shows the position in the legend only after a successful geolocation', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: { getCurrentPosition: (success: () => void) => success() },
+    });
+    const zoomToGeolocation = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const adoptControl = vi.fn<(control: GeolocationMapControl, name: string) => void>();
+    Object.assign(component, { map: { adoptControl, zoomToGeolocation } });
+    lifecycle().adoptGeolocationControl();
+    const button = adoptControl.mock.calls[0][0]['element'].querySelector('button')!;
+    const element: HTMLElement = fixture.nativeElement;
+    element.querySelector<HTMLElement>('app-map-legend adb-icon-button')!.click();
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('mapToolbar.legend.position');
+
+    button.click();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('mapToolbar.legend.position');
+
+    button.click();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(zoomToGeolocation).toHaveBeenCalledTimes(2);
+    expect(zoomToGeolocation).toHaveBeenLastCalledWith(14);
+    expect(element.textContent).toContain('mapToolbar.legend.position');
   });
 
   it('disposes an initialized map without reactivating it on a late ready callback', () => {
