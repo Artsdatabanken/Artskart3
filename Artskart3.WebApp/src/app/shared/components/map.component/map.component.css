@@ -36,7 +36,8 @@
   --home-handle-height: 0px;
 }
 
-::ng-deep .artskart-fullscreen.ol-control {
+/* OpenLayers skjuler knappen uten Fullscreen API; fallbacken trenger den synlig. */
+::ng-deep .artskart-fullscreen.ol-unsupported {
   display: block;
 }
 
