@@ -1,4 +1,5 @@
 <div class="map-toolbar-menu-container" appMapControlTooltip>
+  <!-- Må leses også når boksen er lukket, slik at feilede bilder prøves på nytt ved gjenåpning. -->
   @let legends = layerLegends();
   <adb-icon-button
     [attr.variant]="isOpen() ? 'primary' : 'secondary'"
