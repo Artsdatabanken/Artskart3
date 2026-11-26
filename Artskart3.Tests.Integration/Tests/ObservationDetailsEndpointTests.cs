@@ -66,6 +66,33 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
     }
 
     [Fact]
+    public async Task Get_ReturnsFirstWebUrlFromAssociatedReferencesAsOriginalUrl()
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var detailRow = new ObservationDetail
+        {
+            Id = ObservationId,
+            AssociatedReferences = "Schartau et al. 1997|https://mobil.artsobservasjoner.no/sighting/5299619|https://www.gbif.org/occurrence/1",
+        };
+        context.ObservationDetails.Add(detailRow);
+        await context.SaveChangesAsync();
+        try
+        {
+            (await GetDetailAsync()).OriginalUrl.Should().Be("https://mobil.artsobservasjoner.no/sighting/5299619");
+
+            detailRow.AssociatedReferences = "#http://www.jbjordal.no/publikasjoner/Rogaland2007.PDF#";
+            await context.SaveChangesAsync();
+            (await GetDetailAsync()).OriginalUrl.Should().BeNull();
+        }
+        finally
+        {
+            context.ObservationDetails.Remove(detailRow);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
     public async Task FindByOccurrenceId_MatchesOccurrenceIdOrProxyId()
     {
         using var scope = factory.Services.CreateScope();
@@ -173,6 +200,15 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
     public async Task Map_InvalidPresetIsRejectedWithoutCsrfHeader()
     {
         (await client.GetAsync($"/api/observations/{ObservationId}/maps/arbitrary")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private async Task<ObservationDetailDto> GetDetailAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/observations/{ObservationId}");
+        request.Headers.Add("X-CSRF", "1");
+        var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<ObservationDetailDto>())!;
     }
 
     private async Task<HttpResponseMessage> GetByOccurrenceIdAsync(string encodedOccurrenceId)

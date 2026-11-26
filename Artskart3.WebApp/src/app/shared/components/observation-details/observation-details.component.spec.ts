@@ -296,6 +296,23 @@ describe('ObservationDetails', () => {
     expect(link.textContent).toContain('observationDetails.sensitiveDataLink');
   });
 
+  it('links to the original observation in the observation section only when there is one', async () => {
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.original-link')).toBeNull();
+
+    fixture.componentRef.setInput('detail', { id: 42, originalUrl: 'https://mobil.artsobservasjoner.no/sighting/5299619' });
+    await fixture.whenStable();
+    const links = element.querySelectorAll<HTMLAnchorElement>('.original-link a');
+    expect(links).toHaveLength(1);
+    expect(links[0].closest('adb-accordion-item')).toBe(element.querySelector('adb-accordion-item'));
+    expect(links[0].href).toBe('https://mobil.artsobservasjoner.no/sighting/5299619');
+    expect(links[0].target).toBe('_blank');
+    expect(links[0].rel).toBe('noopener noreferrer');
+    expect(links[0].textContent).toContain('observationDetails.originalLink.artsobservasjoner');
+    expect(links[0].textContent).toContain('feedback.opensInNewTab');
+  });
+
   it('never hides a quality warning behind a validated label', async () => {
     const fixture = await create();
     fixture.componentRef.setInput('detail', { id: 42, quality: 2, tags: ['Validated'], hasErrors: true });

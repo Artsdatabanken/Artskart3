@@ -161,6 +161,13 @@ dt {
 dd {
   margin: 0;
 }
+dl:has(+ .original-link) {
+  margin-bottom: 0;
+}
+.original-link {
+  font-size: 0.875rem;
+  margin: 0.6rem 0 1.25rem;
+}
 dd.empty,
 dd .note {
   font-style: italic;

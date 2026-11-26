@@ -21,6 +21,16 @@
     "speciesLink": "Read more about the species",
     "redAssessment": "Read the Red List assessment",
     "alienAssessment": "Read the alien species assessment",
+    "originalLink": {
+      "other": "View the original observation",
+      "artsobservasjoner": "View the observation in Artsobservasjoner",
+      "gbif": "View the observation on GBIF",
+      "vannmiljo": "View the observation in Vannmiljø",
+      "naturbase": "View the observation in Naturbase",
+      "miljolare": "View the observation on Miljølære.no",
+      "bold": "View the observation in BOLD Systems",
+      "skandobs": "View the observation in Skandobs"
+    },
     "location": "Map reference",
     "noCoordinates": "Public coordinates are not available.",
     "maskedPosition": "This observation contains species data exempt from public disclosure, so its position is masked.",

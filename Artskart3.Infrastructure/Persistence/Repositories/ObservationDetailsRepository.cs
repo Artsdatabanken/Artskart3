@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Persistence;
+using Artskart3.Core.Application.Validation;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Persistence.Extensions;
@@ -51,6 +52,7 @@ public sealed partial class ObservationDetailsRepository(
             Dataset = context.Set<Organization>().Where(org => org.Id == o.DatasetOrgId && !org.IsDeleted)
                 .Select(org => org.Name).FirstOrDefault(),
             CatalogNumber = o.CatalogNumber,
+            OriginalUrl = OriginalObservationUrl.FromAssociatedReferences(o.ObservationDetail != null ? o.ObservationDetail.AssociatedReferences : null),
         }).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
         if (detail is null) return null;
 

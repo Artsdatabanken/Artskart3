@@ -172,6 +172,14 @@
                         </div>
                       }
                     </dl>
+                    @if (section.id === 'observation' && detail.originalUrl) {
+                      <p class="original-link">
+                        <a class="adb-link adb-link--external" [href]="detail.originalUrl" target="_blank" rel="noopener noreferrer">
+                          {{ originalLinkKey() | translate }}
+                          <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                        </a>
+                      </p>
+                    }
                   </adb-accordion-item>
                 }
                 @if (annotations().length || annotationsFailed()) {
