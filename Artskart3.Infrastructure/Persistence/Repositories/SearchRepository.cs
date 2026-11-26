@@ -1265,7 +1265,9 @@ public class SearchRepository : ISearchRepository
             var categoryIds = filter.CategoryIds.ToList();
             query = query.Where(idx =>
                 (idx.CategoryId.HasValue && categoryIds.Contains(idx.CategoryId.Value)) ||
-                _context.Set<Observation>().Any(o =>
+                (idx.AlienSpeciesCategoryId.HasValue &&
+                 categoryIds.Contains(idx.AlienSpeciesCategoryId.Value)) ||
+                (idx.AlienSpeciesCategoryId == null && _context.Set<Observation>().Any(o =>
                     o.Id == idx.ObservationId &&
                     o.Taxon.Assessments.Any(a =>
                         !a.IsDeleted &&
@@ -1285,7 +1287,7 @@ public class SearchRepository : ISearchRepository
                                 s.CategoryType.Name == "Fremmedart" &&
                                 s.Area == "S")
                                 ? "S"
-                                : "N"))));
+                                : "N")))));
         }
 
         if (filter.OrganizationIds?.Any() == true)
@@ -2843,7 +2845,9 @@ public class SearchRepository : ISearchRepository
             var ids = filter.CategoryIds.ToList();
             query = query.Where(idx =>
                 (idx.CategoryId.HasValue && ids.Contains(idx.CategoryId.Value)) ||
-                _context.Set<Observation>().Any(o =>
+                (idx.AlienSpeciesCategoryId.HasValue &&
+                 ids.Contains(idx.AlienSpeciesCategoryId.Value)) ||
+                (idx.AlienSpeciesCategoryId == null && _context.Set<Observation>().Any(o =>
                     o.Id == idx.ObservationId &&
                     o.Taxon.Assessments.Any(a =>
                         !a.IsDeleted &&
@@ -2863,7 +2867,7 @@ public class SearchRepository : ISearchRepository
                                 s.CategoryType.Name == "Fremmedart" &&
                                 s.Area == "S")
                                 ? "S"
-                                : "N"))));
+                                : "N")))));
         }
         if (filter.BasisOfRecordIds?.Any() == true)
         {

@@ -6,7 +6,7 @@ namespace Artskart3.Workers.AlienAssessment;
 public sealed class AlienSpeciesAssessmentSyncJob(
     AlienSpeciesAssessmentSyncService syncService)
 {
-    [DisableConcurrentExecution(timeoutInSeconds: 600)]
+    [DisableConcurrentExecution(timeoutInSeconds: 86_400)]
     public async Task ExecuteAsync(CancellationToken cancellationToken) =>
         await syncService.SynchronizeAsync(cancellationToken);
 }

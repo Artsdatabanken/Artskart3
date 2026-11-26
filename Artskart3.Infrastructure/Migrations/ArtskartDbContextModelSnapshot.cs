@@ -14,7 +14,6 @@ namespace Artskart3.Infrastructure.Migrations
     [DbContext(typeof(ArtskartDbContext))]
     partial class ArtskartDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -1857,6 +1856,9 @@ namespace Artskart3.Infrastructure.Migrations
                     b.Property<int>("EntityId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("AlienSpeciesCategoryId")
+                        .HasColumnType("int");
+
                     b.Property<int>("BasisOfRecordId")
                         .HasColumnType("int");
 
@@ -1921,6 +1923,18 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.HasKey("ObservationId", "EntityTypeId", "EntityId");
+
+                    b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId")
+                        .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
+                        .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                        .HasAnnotation("SqlServer:Online", true);
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EntityTypeId", "EntityId", "AlienSpeciesCategoryId"), new[] { "DateTimeCollected", "ObservationId" });
+
+                    b.HasIndex("ObservationId", "EntityTypeId", "EntityId")
+                        .HasDatabaseName("IX_OEI_AlienSpeciesUnmaterialized")
+                        .HasFilter("[AlienSpeciesCategoryId] IS NULL")
+                        .HasAnnotation("SqlServer:Online", true);
 
                     b.HasIndex("EntityTypeId", "EntityId", "DateTimeCollected", "ObservationId")
                         .IsDescending(false, false, true, true)
@@ -2973,9 +2987,6 @@ namespace Artskart3.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int>("ExternalTaxonId")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -2987,6 +2998,10 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("ScientificNameId")
+                        .HasColumnType("int")
+                        .HasColumnName("ExternalTaxonId");
 
                     b.Property<int>("Source")
                         .HasColumnType("int");
@@ -3002,7 +3017,7 @@ namespace Artskart3.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "CategoryId" }, "IX_TaxonAssessment_CategoryId");
 
-                    b.HasIndex(new[] { "CategoryTypeId", "ExternalTaxonId", "Area" }, "IX_TaxonAssessment_ExternalLookup");
+                    b.HasIndex(new[] { "CategoryTypeId", "ScientificNameId", "Area" }, "IX_TaxonAssessment_ExternalLookup");
 
                     b.HasIndex(new[] { "TaxonId", "CategoryTypeId", "Area" }, "UX_TaxonAssessment_Effective")
                         .IsUnique()

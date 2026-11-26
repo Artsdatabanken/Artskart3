@@ -1304,6 +1304,15 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeks for filtrert telling: dekker (EntityTypeId, EntityId) pluss vanlige filterkolonner
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.AlienSpeciesCategoryId })
+                .HasDatabaseName("IX_OEI_AreaAlienSpeciesCategory")
+                .HasFilter("[AlienSpeciesCategoryId] IS NOT NULL")
+                .IncludeProperties(e => new { e.DateTimeCollected, e.ObservationId })
+                .IsCreatedOnline();
+            entity.HasIndex(e => new { e.ObservationId, e.EntityTypeId, e.EntityId })
+                .HasDatabaseName("IX_OEI_AlienSpeciesUnmaterialized")
+                .HasFilter("[AlienSpeciesCategoryId] IS NULL")
+                .IsCreatedOnline();
 
             // Listevisningen med områdefilter leser hvert område nyeste først og stopper når
             // siden er full, se SearchRepository.GetAreaFilteredObservationIdsAsync. Uten denne

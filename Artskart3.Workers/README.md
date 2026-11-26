@@ -101,6 +101,9 @@ Viktige innstillinger i `appsettings.json`:
 | `AlienSpeciesAssessment:BaseUrl` | `https://lister.artsdatabanken.no/odata/v1/` | OData-kilde for fremmedartsvurderinger |
 | `AlienSpeciesAssessment:ForceSnapshot2023Refresh` | `false` | Setter `true` for å hente det statiske 2023-opptaket på nytt |
 | `AlienSpeciesAssessment:Snapshot2023AssessmentUrlPrefix` | `https://lister.artsdatabanken.no/fremmedartslista/2023/` | URL-prefix for lenker til vurderinger fra 2023 |
+| `AlienSpeciesAssessment:IndexProjectionBatchSize` | `500000` | Antall `ObservationEntityIndex`-rader per søkeindeksbatch |
+| `AlienSpeciesAssessment:IndexZeroProjectionBatchSize` | `500000` | Antall rader uten vurdering som settes til `0` per batch |
+| `AlienSpeciesAssessment:IndexProjectionCommandTimeoutSeconds` | `900` | Tidsavbrudd per søkeindeksbatch |
 | `AlienSpeciesAssessment:ResetAssessmentsBeforeSync` | `false` | Sletter eksisterende fremmedartsvurderinger i samme transaksjon som en full ny synkronisering |
 | `Hangfire:ScheduleDefaults:AlienSpeciesAssessment` | `0 2 * * 1` | Ukentlig cron-plan for vurderingssynkronisering |
 
