@@ -182,6 +182,32 @@ dd .note {
   grid-column: 2;
   justify-self: start;
 }
+.annotations {
+  font-size: 0.875rem;
+  margin: 1.25rem 0;
+  overflow-wrap: anywhere;
+}
+.annotations ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.annotations > ul > li + li {
+  margin-top: 0.75rem;
+}
+.annotations p {
+  margin: 0.25rem 0;
+}
+.annotations .byline {
+  color: var(--adb-text-base-secondary);
+}
+.annotations .arrow {
+  margin: 0 0.25rem;
+}
+.annotations ins {
+  font-weight: 700;
+  text-decoration: none;
+}
 .maps {
   display: grid;
   grid-template-columns: 1fr 1fr;

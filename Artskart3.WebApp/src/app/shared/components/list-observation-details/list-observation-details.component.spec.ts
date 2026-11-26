@@ -16,7 +16,7 @@ describe('ListObservationDetails', () => {
     getDetail.mockReset().mockImplementation((id) => of({ id, scientificName: `Species ${id}` }));
     await TestBed.configureTestingModule({
       imports: [ListObservationDetailsComponent, TranslateModule.forRoot()],
-      providers: [{ provide: ObservationService, useValue: { getDetail } }],
+      providers: [{ provide: ObservationService, useValue: { getDetail, getAnnotations: () => of([]) } }],
     }).compileComponents();
     fixture = TestBed.createComponent(ListObservationDetailsComponent);
     fixture.componentRef.setInput('observationId', 2);

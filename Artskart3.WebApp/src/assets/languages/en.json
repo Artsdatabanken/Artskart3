@@ -39,7 +39,8 @@
     "description": "Description",
     "license": "License",
     "maps": { "local": "Local map showing the observation", "overview": "Overview map showing the observation" },
-    "sections": { "observation": "Observation information", "place": "Locality", "dataset": "Data source" },
+    "annotations": { "unknownAuthor": "Unknown author", "originalValue": "Original value:", "newValue": "New value:", "unavailable": "Could not load annotations." },
+    "sections": { "observation": "Observation information", "place": "Locality", "dataset": "Data source", "annotations": "Change log" },
     "qualities": { "0": "Not checked", "1": "Good quality", "2": "Quality issue", "3": "Quality issue — hidden by default" },
     "fields": {
       "registration": "Registration type",

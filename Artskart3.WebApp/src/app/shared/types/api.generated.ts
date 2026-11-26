@@ -1264,6 +1264,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/observations/{id}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ObservationAnnotationDto"][];
+                        "application/json": components["schemas"]["ObservationAnnotationDto"][];
+                        "text/json": components["schemas"]["ObservationAnnotationDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/observations/{id}/media/{mediaId}/image": {
         parameters: {
             query?: never;
@@ -2299,6 +2374,18 @@ export interface components {
             /** Format: date-time */
             eventEnd?: null | string;
             canClose?: boolean;
+        };
+        ObservationAnnotationChangeDto: {
+            field?: string;
+            originalValue?: null | string;
+            newValue?: null | string;
+        };
+        ObservationAnnotationDto: {
+            author?: null | string;
+            /** Format: date-time */
+            created?: null | string;
+            comment?: null | string;
+            changes?: components["schemas"]["ObservationAnnotationChangeDto"][];
         };
         ObservationDetailDto: {
             /** Format: int32 */
