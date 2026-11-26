@@ -46,10 +46,6 @@ describe('ObservationTreeComponent', () => {
     element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
     await fixture.whenStable();
   };
-  const waitForExpansion = async () => {
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    await fixture.whenStable();
-  };
 
   it('starts with headings open and lazy status children collapsed', () => {
     expect(rows()).toHaveLength(4);
@@ -88,7 +84,7 @@ describe('ObservationTreeComponent', () => {
 
   it('uses the shared badge for species while keeping status indicators as dots', async () => {
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     const badges = fixture.debugElement.queryAll(By.directive(RiskCategoryBadgeComponent));
     expect(badges).toHaveLength(1);
     expect(badges[0].injector.get(RiskCategoryBadgeComponent).code()).toBe('VU');
@@ -102,10 +98,9 @@ describe('ObservationTreeComponent', () => {
     const activated = vi.fn();
     component.observationActivated.subscribe(activated);
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     expect(rows()).toHaveLength(5);
     await press(rows()[2], 'Enter');
-    await waitForExpansion();
     expect(rows()).toHaveLength(6);
     expect(rows()[3].classList.contains('leaf')).toBe(true);
     await press(rows()[3], 'Enter');
@@ -128,9 +123,8 @@ describe('ObservationTreeComponent', () => {
 
   it('preserves expansion and focus when node data updates without a reset', async () => {
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     await press(rows()[2], 'Enter');
-    await waitForExpansion();
     const leaf = rows()[3];
     leaf.focus();
     fixture.componentRef.setInput('nodes', structuredClone(component.nodes()));
@@ -143,7 +137,7 @@ describe('ObservationTreeComponent', () => {
 
   it('resets branches without stealing focus from outside the tree or recreating the root', async () => {
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     await press(rows()[2], 'Enter');
     const root = fixture.nativeElement.querySelector('[role="tree"]');
     const outside = document.createElement('button');
@@ -157,7 +151,7 @@ describe('ObservationTreeComponent', () => {
       expect(component.expandedNodeIds().size).toBe(0);
       expect(document.activeElement).toBe(outside);
       rows()[1].click();
-      await waitForExpansion();
+      await fixture.whenStable();
       expect(rows()).toHaveLength(5);
       expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
     } finally {
@@ -167,18 +161,16 @@ describe('ObservationTreeComponent', () => {
 
   it('keeps descendants collapsed when a parent branch is closed and reopened', async () => {
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     await press(rows()[2], 'Enter');
-    await waitForExpansion();
     expect(rows()).toHaveLength(6);
     rows()[1].click();
     await fixture.whenStable();
     expect(rows()).toHaveLength(4);
     rows()[1].click();
-    await waitForExpansion();
     expect(rows()).toHaveLength(5);
     expect(rows()[2].getAttribute('aria-expanded')).toBe('false');
-  });
+
 
   it('opens the first section of each group while keeping species collapsed', async () => {
     await create(true);
@@ -213,9 +205,9 @@ describe('ObservationTreeComponent', () => {
 
   it('keeps independent branches open and returns to the parent on Left', async () => {
     rows()[1].click();
-    await waitForExpansion();
+    await fixture.whenStable();
     rows().at(-1)!.click();
-    await waitForExpansion();
+    await fixture.whenStable();
     expect(rows().filter((row) => !row.classList.contains('group-heading') && row.getAttribute('aria-expanded') === 'true')).toHaveLength(
       2,
     );
@@ -225,4 +217,5 @@ describe('ObservationTreeComponent', () => {
     await press(rows()[2], 'ArrowLeft');
     expect(document.activeElement).toBe(rows()[1]);
   });
+})
 });
