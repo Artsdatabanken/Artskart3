@@ -17,7 +17,7 @@
       <div id="map-legend-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">
         {{ 'mapToolbar.legendHeading' | translate }}
       </div>
-      <ul class="map-legend-list" [style.--map-legend-symbol-size]="symbolSize + 'px'">
+      <ul class="map-legend-list">
         <li class="map-legend-row">
           <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
             <circle class="found-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
@@ -50,7 +50,7 @@
         <li class="map-legend-row">
           <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
             <circle class="found-marker" [attr.cx]="center" [attr.cy]="center" [attr.r]="clusterRadius" [attr.stroke-width]="borderWidth" />
-            <text class="marker-label" [attr.x]="center" [attr.y]="center" [style.font]="labelFont" text-anchor="middle" dominant-baseline="central">10</text>
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" text-anchor="middle" dominant-baseline="central">10</text>
           </svg>
           <span>{{ 'mapToolbar.legend.cluster' | translate }}</span>
         </li>
@@ -60,7 +60,7 @@
             <g [attr.transform]="polygonTransform">
               <path class="polygon-marker" [attr.d]="polygonPath" [attr.stroke-width]="polygonBorderWidth" clip-path="url(#map-legend-polygon-outline)" />
             </g>
-            <text class="marker-label" [attr.x]="center" [attr.y]="center" [style.font]="labelFont" text-anchor="middle" dominant-baseline="central">10</text>
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" text-anchor="middle" dominant-baseline="central">10</text>
           </svg>
           <span>{{ 'mapToolbar.legend.polygonCluster' | translate }}</span>
         </li>

@@ -6,7 +6,6 @@ import { MapLayerDto } from '@shared/types/api.types';
 import {
   BORDER_WIDTH,
   CLUSTER_MARKER_RADIUS,
-  LABEL_FONT,
   POLYGON_ICON_VIEWBOX_SIZE,
   POLYGON_MARKER_SIZE,
   UNCLUSTERED_LOCATION_RADIUS,
@@ -40,14 +39,12 @@ export class MapLegendComponent {
   readonly geolocationActive = input(false);
 
   // Symbolene tegnes etter de samme målene som markørene i kartet
-  protected readonly symbolSize = SYMBOL_SIZE;
   protected readonly viewBox = `0 0 ${SYMBOL_SIZE} ${SYMBOL_SIZE}`;
   protected readonly center = CENTER;
   protected readonly locationCx = LOCATION_CX;
   protected readonly locationRadius = UNCLUSTERED_LOCATION_RADIUS;
   protected readonly clusterRadius = CLUSTER_MARKER_RADIUS;
   protected readonly borderWidth = BORDER_WIDTH;
-  protected readonly labelFont = LABEL_FONT;
   protected readonly absentGlyph = negativeGlyphPath('absent', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
   protected readonly notRecoveredGlyph = negativeGlyphPath('notRecovered', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
   protected readonly polygonPath = polygonIconPath();

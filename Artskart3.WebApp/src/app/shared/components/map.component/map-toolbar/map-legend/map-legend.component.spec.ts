@@ -5,6 +5,7 @@ import { MapLegendComponent } from './map-legend.component';
 import {
   BORDER_WIDTH,
   CLUSTER_MARKER_RADIUS,
+  LABEL_FONT,
   POLYGON_MARKER_SIZE,
   UNCLUSTERED_LOCATION_RADIUS,
   negativeGlyphPath,
@@ -83,6 +84,9 @@ describe('MapLegendComponent', () => {
     );
     expect(symbol(3).querySelector('.found-marker')!.getAttribute('r')).toBe(String(CLUSTER_MARKER_RADIUS));
     expect(symbol(3).querySelector('.found-marker')!.getAttribute('stroke-width')).toBe(String(BORDER_WIDTH));
+    const clusterSvg = symbol(3).querySelector('svg')!;
+    expect(getComputedStyle(clusterSvg).width).toBe(`${clusterSvg.getAttribute('viewBox')!.split(' ')[2]}px`);
+    expect(getComputedStyle(clusterSvg.querySelector('.marker-label')!).font).toBe(LABEL_FONT);
     const polygon = symbol(4).querySelector('.polygon-marker')!;
     expect(polygon.getAttribute('d')).toBe(polygonIconPath());
     expect(Number(polygon.getAttribute('stroke-width'))).toBeCloseTo(polygonIconBorderWidth(POLYGON_MARKER_SIZE));

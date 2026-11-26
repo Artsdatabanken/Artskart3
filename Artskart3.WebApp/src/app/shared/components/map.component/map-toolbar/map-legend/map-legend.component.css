@@ -39,8 +39,9 @@
 
 .map-legend-symbol {
   flex: none;
-  width: var(--map-legend-symbol-size);
-  height: var(--map-legend-symbol-size);
+  /* Må samsvare med SYMBOL_SIZE i map-legend.component.ts. */
+  width: 36px;
+  height: 36px;
 }
 
 .found-marker,
@@ -75,6 +76,8 @@
 
 .marker-label {
   fill: var(--adb-color-brand-white);
+  /* Må samsvare med LABEL_FONT i map-feature-styles.ts. */
+  font: 600 10px "Chivo", sans-serif;
 }
 
 .map-legend-layer {
