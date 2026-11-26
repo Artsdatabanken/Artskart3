@@ -54,7 +54,7 @@ describe('ArtskartFullscreenControl tooltip', () => {
     expect(button.innerHTML).toBe(initialIcon);
   });
 
-  it('does nothing when the Fullscreen API is supported', () => {
+  it('does nothing when the control is not marked unsupported', () => {
     const source = document.createElement('div');
     const control = new ArtskartFullscreenControl(labels, { source });
     const button = control['element'].querySelector('button')!;
