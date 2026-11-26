@@ -40,6 +40,7 @@ describe('ArtskartFullscreenControl tooltip', () => {
     const button = control['element'].querySelector('button')!;
     const tooltip = control['element'].querySelector('.map-control-tooltip')!;
     const initialIcon = button.innerHTML;
+    const expandIcon = button.firstElementChild;
     control['element'].classList.add(CLASS_UNSUPPORTED);
 
     button.click();
@@ -47,12 +48,17 @@ describe('ArtskartFullscreenControl tooltip', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(tooltip.textContent).toBe('Exit fullscreen');
     expect(button.innerHTML).not.toBe(initialIcon);
+    const collapseIcon = button.firstElementChild;
 
     button.click();
     expect(source.classList.contains('map-pseudo-fullscreen')).toBe(false);
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(tooltip.textContent).toBe('Show the map in fullscreen');
     expect(button.innerHTML).toBe(initialIcon);
+    expect(button.firstElementChild).toBe(expandIcon);
+
+    button.click();
+    expect(button.firstElementChild).toBe(collapseIcon);
   });
 
   it('does nothing when the control is not marked unsupported', () => {
