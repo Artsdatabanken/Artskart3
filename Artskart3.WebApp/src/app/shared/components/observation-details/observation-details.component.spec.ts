@@ -255,6 +255,24 @@ describe('ObservationDetails', () => {
     expect(registration().textContent).toContain('– målrettet søk på tidligere kjent lokalitet uten gjenfunn');
   });
 
+  it('explains the masked position of sensitive observations with the coordinates', async () => {
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.masked-position')).toBeNull();
+
+    fixture.componentRef.setInput('detail', { id: 42, tags: ['Sensitive'] });
+    await fixture.whenStable();
+    const notice = element.querySelector('.masked-position')!;
+    expect(notice.tagName).toBe('DD');
+    expect(notice.parentElement!.querySelector('dt')!.textContent).toBe('observationDetails.fields.longitude:');
+    expect(notice.textContent).toContain('observationDetails.maskedPosition');
+    const link = notice.querySelector('a')!;
+    expect(link.getAttribute('href')).toBe('https://sensitive-artsdata.miljodirektoratet.no');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener noreferrer');
+    expect(link.textContent).toContain('observationDetails.sensitiveDataLink');
+  });
+
   it('never hides a quality warning behind a validated label', async () => {
     const fixture = await create();
     fixture.componentRef.setInput('detail', { id: 42, quality: 2, tags: ['Validated'], hasErrors: true });

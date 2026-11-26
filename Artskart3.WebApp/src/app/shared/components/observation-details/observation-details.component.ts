@@ -33,6 +33,7 @@ interface DetailRow {
   empty: boolean;
   status?: RegistrationStatus;
   note?: string;
+  positionMasked?: boolean;
 }
 
 const NOT_FOUND_DESCRIPTION_KEYS: Record<Exclude<RegistrationStatus, 'found'>, string> = {
@@ -104,6 +105,7 @@ export class ObservationDetailsComponent {
         ? this.translate.instant('observationDetails.qualityWarning')
         : '';
     const status = registrationStatusFromTags(d?.tags);
+    const sensitive = d?.tags?.includes('Sensitive') ?? false;
     return [
       {
         id: 'observation',
@@ -130,7 +132,7 @@ export class ObservationDetailsComponent {
           row('municipality', d?.municipalities?.join(', ')),
           row('county', d?.counties?.join(', ')),
           row('latitude', d?.point?.latitude),
-          row('longitude', d?.point?.longitude),
+          { ...row('longitude', d?.point?.longitude), positionMasked: sensitive },
           row('precision', d?.coordinatePrecision != null ? `${d.coordinatePrecision} m` : null),
         ],
       },

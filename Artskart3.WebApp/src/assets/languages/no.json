@@ -23,6 +23,8 @@
     "alienAssessment": "Les fremmedartsvurderingen",
     "location": "Kartreferanse",
     "noCoordinates": "Offentlige koordinater er ikke tilgjengelige.",
+    "maskedPosition": "Funnet inneholder artsdata unntatt offentligheten, og posisjonen er derfor maskert.",
+    "sensitiveDataLink": "Lær mer om sensitive artsdata",
     "mapUnavailable": "Kartet er ikke tilgjengelig.",
     "enlargeMap": "Forstørr kart",
     "images": "Bilder av funnet",

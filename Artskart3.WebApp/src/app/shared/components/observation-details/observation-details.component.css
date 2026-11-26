@@ -169,6 +169,19 @@ dd .note {
 .registration-marker {
   vertical-align: middle;
 }
+.masked-position {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem 0.25rem;
+  margin-top: 0.6rem;
+}
+.masked-position p {
+  margin: 0;
+}
+.masked-position a {
+  grid-column: 2;
+  justify-self: start;
+}
 .maps {
   display: grid;
   grid-template-columns: 1fr 1fr;

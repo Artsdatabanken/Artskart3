@@ -154,6 +154,21 @@
                           } @else {
                             <dd [class.empty]="row.empty">{{ row.value }}</dd>
                           }
+                          @if (row.positionMasked) {
+                            <dd class="masked-position">
+                              <adb-icon name="location-off" aria-hidden="true" />
+                              <p>{{ 'observationDetails.maskedPosition' | translate }}</p>
+                              <a
+                                class="adb-link adb-link--external"
+                                href="https://sensitive-artsdata.miljodirektoratet.no"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {{ 'observationDetails.sensitiveDataLink' | translate }}
+                                <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                              </a>
+                            </dd>
+                          }
                         </div>
                       }
                     </dl>
