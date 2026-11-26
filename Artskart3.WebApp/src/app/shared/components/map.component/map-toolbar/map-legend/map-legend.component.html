@@ -1,4 +1,5 @@
 <div class="map-toolbar-menu-container" appMapControlTooltip>
+  @let legends = layerLegends();
   <adb-icon-button
     [attr.variant]="isOpen() ? 'primary' : 'secondary'"
     (click)="toggleMapLegend()"
@@ -63,7 +64,7 @@
           <span>{{ 'mapToolbar.legend.polygonCluster' | translate }}</span>
         </li>
       </ul>
-      @for (legend of layerLegends(); track legend.layer.id) {
+      @for (legend of legends; track legend.layer.id) {
         <section class="map-legend-layer">
           @let layerLabel = (mapLayerLabels[legend.layer.name] ?? legend.layer.name) | translate;
           <h3 class="map-legend-layer-heading adb-heading-2xsm">{{ layerLabel }}</h3>

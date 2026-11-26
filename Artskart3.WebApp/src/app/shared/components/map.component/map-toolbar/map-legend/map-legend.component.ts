@@ -70,14 +70,15 @@ export class MapLegendComponent {
     },
   });
 
-  protected readonly layerLegends = computed<LayerLegend[]>(() =>
-    this.activeLayers()
+  protected readonly layerLegends = computed<LayerLegend[]>(() => {
+    const failedImageUrls = this.failedImageUrls();
+    return this.activeLayers()
       .map((layer) => ({
         layer,
-        images: wmsLegendImages(layer).filter((image) => !this.failedImageUrls().get(layer.id)?.has(image.url)),
+        images: wmsLegendImages(layer).filter((image) => !failedImageUrls.get(layer.id)?.has(image.url)),
       }))
-      .filter(({ images }) => images.length > 0),
-  );
+      .filter(({ images }) => images.length > 0);
+  });
 
   toggleMapLegend(): void {
     this.isOpen.update((open) => !open);
