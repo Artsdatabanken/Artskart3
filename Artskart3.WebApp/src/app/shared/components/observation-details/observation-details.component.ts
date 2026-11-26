@@ -12,12 +12,15 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { ObservationDetailDto } from '@shared/types/api.types';
+import { tap } from 'rxjs';
+import { ObservationAnnotationChangeDto, ObservationDetailDto } from '@shared/types/api.types';
+import { ObservationService } from '@shared/services/observation/observation.service';
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { LoggingService } from '@shared/logging.service';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
+import { formatCollectors } from '@shared/helpers/collector/format-collectors';
 import { RegistrationMarkerComponent } from '../registration-marker/registration-marker.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ObservationGalleryComponent } from '../observation-gallery/observation-gallery.component';
@@ -27,12 +30,20 @@ import { ViewerImage } from '../image-viewer/image-source';
 export type DetailState = 'loading' | 'ready' | 'notFound' | 'error';
 type MapView = 'local' | 'overview';
 
+interface AnnotationView {
+  author: string;
+  date: string;
+  comment: string;
+  changes: ObservationAnnotationChangeDto[];
+}
+
 interface DetailRow {
   label: string;
   value: string;
   empty: boolean;
   status?: RegistrationStatus;
   note?: string;
+  positionMasked?: boolean;
 }
 
 const NOT_FOUND_DESCRIPTION_KEYS: Record<Exclude<RegistrationStatus, 'found'>, string> = {
@@ -63,7 +74,7 @@ export class ObservationDetailsComponent {
   readonly dismiss = output<void>();
   readonly retry = output<void>();
   readonly expanded = model(false);
-  readonly sectionsOpen = signal<Record<string, boolean>>({ observation: true, place: false, dataset: false });
+  readonly sectionsOpen = signal<Record<string, boolean>>({ observation: true, place: false, dataset: false, annotations: false });
   readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
   private readonly backButton = viewChild.required<ElementRef<HTMLElement>>('backButton');
@@ -83,7 +94,28 @@ export class ObservationDetailsComponent {
   readonly mapViews: MapView[] = ['local', 'overview'];
   private readonly translate = inject(TranslateService);
   private readonly logger = inject(LoggingService);
+  private readonly api = inject(ObservationService);
   private readonly language = toSignal(this.translate.onLangChange);
+  // Separate from the details so a slow or unavailable annotation service never holds them back.
+  // Keyed on the loaded details, which both hosts clear while loading, so retrying the details retries this too.
+  private readonly annotationLoad = rxResource({
+    params: () => this.detail()?.id,
+    stream: ({ params }) =>
+      this.api
+        .getAnnotations(params)
+        .pipe(tap({ error: (error: unknown) => this.logger.warn('Annotations unavailable', 'ObservationDetails', { id: params, error }) })),
+  });
+  readonly annotationsFailed = computed(() => this.annotationLoad.status() === 'error');
+  readonly annotations = computed<AnnotationView[]>(() => {
+    const language = this.language()?.lang ?? this.translate.getCurrentLang();
+    const annotations = this.annotationLoad.hasValue() ? this.annotationLoad.value() : [];
+    return annotations.map((annotation) => ({
+      author: annotation.author || this.translate.instant('observationDetails.annotations.unknownAuthor'),
+      date: new LocaleDatePipe().transform(annotation.created, language),
+      comment: annotation.comment ?? '',
+      changes: annotation.changes ?? [],
+    }));
+  });
   private modal = false;
   readonly title = computed(() => {
     this.language();
@@ -104,6 +136,7 @@ export class ObservationDetailsComponent {
         ? this.translate.instant('observationDetails.qualityWarning')
         : '';
     const status = registrationStatusFromTags(d?.tags);
+    const sensitive = d?.tags?.includes('Sensitive') ?? false;
     return [
       {
         id: 'observation',
@@ -114,7 +147,7 @@ export class ObservationDetailsComponent {
             note: status === 'found' ? '' : this.translate.instant(NOT_FOUND_DESCRIPTION_KEYS[status]).toLocaleLowerCase(language),
           },
           row('date', new LocaleDatePipe().transform(d?.collected, language)),
-          row('collector', d?.collector),
+          row('collector', formatCollectors(d?.collector)),
           row('basis', this.lookup('basisOfRecordName', d?.basisOfRecord)),
           row('activity', d?.behaviors?.map((name) => this.lookup('behaviorName', name)).join(', ')),
           row(
@@ -130,7 +163,7 @@ export class ObservationDetailsComponent {
           row('municipality', d?.municipalities?.join(', ')),
           row('county', d?.counties?.join(', ')),
           row('latitude', d?.point?.latitude),
-          row('longitude', d?.point?.longitude),
+          { ...row('longitude', d?.point?.longitude), positionMasked: sensitive },
           row('precision', d?.coordinatePrecision != null ? `${d.coordinatePrecision} m` : null),
         ],
       },
@@ -180,6 +213,10 @@ export class ObservationDetailsComponent {
         dialog.show();
       }
     });
+  }
+
+  retryAnnotations(): void {
+    this.annotationLoad.reload();
   }
 
   setSection(id: string, event: Event): void {

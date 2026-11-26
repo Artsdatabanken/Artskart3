@@ -565,6 +565,41 @@ public class LookupEndpointTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         doc.RootElement.GetProperty("name").GetString().Should().Be("Testprosjekt for lagrede filter");
+        doc.RootElement.GetProperty("organizationTypeId").GetInt32().Should().Be(9003);
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Artskart2Bookmarks/{id}
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetArtskart2Bookmark_WithUnknownId_Returns404()
+    {
+        var response = await _client.GetAsync($"/api/Lookup/Artskart2Bookmarks/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetArtskart2Bookmark_WithStoredBookmark_ReturnsItsFilterJson()
+    {
+        // Artskart 2 lagret GUID-en som første felt i JSON-en, ikke som tabellens Id.
+        var id = Guid.NewGuid();
+        var serializedFilter = $"{{\"Id\":\"{id}\",\"Name\":\"Brugde\",\"TaxonIds\":[26016]}}";
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+            context.Set<Filter>().Add(new Filter { Name = "Brugde", SerializedFilter = serializedFilter });
+            await context.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/Lookup/Artskart2Bookmarks/{id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/json");
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("Id").GetString().Should().Be(id.ToString());
+        doc.RootElement.GetProperty("TaxonIds")[0].GetInt32().Should().Be(26016);
     }
 
     // -----------------------------------------------------------------------

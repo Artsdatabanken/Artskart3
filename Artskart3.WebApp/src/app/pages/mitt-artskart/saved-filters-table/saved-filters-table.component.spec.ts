@@ -53,7 +53,7 @@ describe('SavedFiltersTableComponent', () => {
   it('lenker til kartet med filter-ID-en', () => {
     const link = rows()[0].querySelector('a[href^="/"]') as HTMLAnchorElement;
 
-    expect(link.getAttribute('href')).toBe('/?filter=a');
+    expect(link.getAttribute('href')).toBe('/?savedFilter=a');
   });
 
   it('viser en tom-melding uten filtre', () => {

@@ -454,6 +454,38 @@ public class LookupControllerTests
     }
 
     [Fact]
+    public async Task GetArtskart2Bookmark_WhenFound_ReturnsTheStoredJsonAsIs()
+    {
+        var id = Guid.NewGuid();
+        _serviceMock.Setup(s => s.GetArtskart2BookmarkAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync("{\"TaxonIds\":[1]}");
+
+        var result = await _sut.GetArtskart2Bookmark(id);
+
+        var content = result.Should().BeOfType<ContentResult>().Subject;
+        content.Content.Should().Be("{\"TaxonIds\":[1]}");
+        content.ContentType.Should().Be("application/json");
+    }
+
+    [Fact]
+    public void GetArtskart2Bookmark_IsRateLimitedLikeSearch()
+    {
+        var attribute = typeof(LookupController).GetMethod(nameof(LookupController.GetArtskart2Bookmark))!
+            .GetCustomAttribute<EnableRateLimitingAttribute>();
+
+        attribute!.PolicyName.Should().Be(SearchConstants.SearchRateLimitPolicy);
+    }
+
+    [Fact]
+    public async Task GetArtskart2Bookmark_WhenNotFound_ReturnsNotFound()
+    {
+        _serviceMock.Setup(s => s.GetArtskart2BookmarkAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
+
+        var result = await _sut.GetArtskart2Bookmark(Guid.NewGuid());
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
     public async Task GetOrganizationById_WhenNotFound_ReturnsNotFound()
     {
         _serviceMock.Setup(s => s.GetOrganizationByIdAsync(5, It.IsAny<CancellationToken>())).ReturnsAsync((OrganizationDto?)null);
