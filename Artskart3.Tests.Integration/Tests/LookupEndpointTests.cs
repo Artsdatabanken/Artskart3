@@ -86,6 +86,41 @@ public class LookupEndpointTests : IAsyncLifetime
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
+    [Fact]
+    public async Task GetBasisOfRecords_OmitsTypesWithoutObservations()
+    {
+        int[] ids = [930101, 930102, 930103];
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+            context.Set<BasisOfRecord>().AddRange(
+                new BasisOfRecord { Id = ids[0], Name = "TestMedFunn", Variants = "TestMedFunn", ObservationCount = 5 },
+                new BasisOfRecord { Id = ids[1], Name = "TestNullFunn", Variants = "TestNullFunn", ObservationCount = null },
+                new BasisOfRecord { Id = ids[2], Name = "TestNullteFunn", Variants = "TestNullteFunn", ObservationCount = 0 });
+            await context.SaveChangesAsync();
+        }
+
+        try
+        {
+            var response = await _client.GetAsync("/api/Lookup/BasisOfRecords");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var returnedIds = (await response.Content.ReadFromJsonAsync<JsonElement>())
+                .EnumerateArray().Select(e => e.GetProperty("id").GetInt32()).ToList();
+            returnedIds.Should().Contain(ids[0]);
+            returnedIds.Should().NotContain([ids[1], ids[2]]);
+        }
+        finally
+        {
+            using var scope = _factory.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+            await context.Set<BasisOfRecord>().Where(b => ids.Contains(b.Id)).ExecuteDeleteAsync();
+        }
+    }
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // GET /api/Lookup/Behaviors
     // -----------------------------------------------------------------------
     // GET /api/Lookup/Behaviors
     // -----------------------------------------------------------------------

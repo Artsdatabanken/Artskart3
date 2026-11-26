@@ -4,6 +4,7 @@ import {
   MapEventPayload,
   NbicMapComponent,
   nbicMapPresets,
+  type LayerDef,
 } from '@artsdatabanken/nbic-map-component';
 import type { Style } from 'ol/style';
 import type { FeatureLike } from 'ol/Feature';
@@ -40,7 +41,7 @@ import { CommonModule } from '@angular/common';
 import { SharedMapService } from '../../services/shared-map.service';
 import { MapToolbarComponent } from './map-toolbar/map-toolbar.component';
 import type { AutocompleteSearch } from '../autocomplete/autocomplete-option.directive';
-import { Feature, ImageTile } from 'ol';
+import { Feature } from 'ol';
 import type OlMap from 'ol/Map';
 import type { Pixel } from 'ol/pixel';
 import type { Coordinate } from 'ol/coordinate';
@@ -76,6 +77,8 @@ import { CustomAreaDrawingService } from '@shared/services/custom-area-drawing/c
 import { CustomAreaDraw } from './custom-area-draw';
 import { ClusteringLock, MapToolbarMenuItemChange } from './map-toolbar/map-toolbar.constants';
 import TileLayer from 'ol/layer/Tile';
+import type { LoadFunction } from 'ol/Tile';
+import { loadTileWithTimeout } from './tile-load-timeout';
 import Layer from 'ol/layer/Layer';
 import type WebGLVectorLayer from 'ol/layer/WebGLVector';
 import VectorSource from 'ol/source/Vector';
@@ -83,6 +86,10 @@ import Cluster from 'ol/source/Cluster';
 import TileWMS from 'ol/source/TileWMS';
 import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
+import WMTS from 'ol/source/WMTS';
+import WMTSTileGrid from 'ol/tilegrid/WMTS';
+import { createForProjection } from 'ol/tilegrid';
+import { getTopLeft, getWidth } from 'ol/extent';
 import type ImageWrapper from 'ol/Image';
 import { PlaceSearchComponent } from './place-search/place-search.component';
 import type { PlaceSearchResult } from '@artsdatabanken/nbic-map-component';
@@ -144,6 +151,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
+  private readonly loadTile = loadTileWithTimeout(MAP_CONFIG.tileLoadTimeoutMs);
 
   public map!: NbicMapComponent;
   private zoomControl?: ArtskartZoomControl;
@@ -557,28 +565,90 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private setupBaseMapLayers(): void {
     if (!this.map) return;
-    this.map.addLayer(nbicMapPresets.osm);
-    this.map.addLayer(nbicMapPresets.topografiskBaseLayer);
-    this.map.addLayer(nbicMapPresets.topo4graatoneBaseLayer);
-    this.map.addLayer(nbicMapPresets.svalbardBaseLayer);
-    this.map.addLayer(nbicMapPresets.janmayenBaseLayer);
+    this.map.adoptLayer('gebco', this.createGebcoLayer(), { base: 'super' });
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topografiskBaseLayer));
+    this.map.addLayer(this.withKartverketUtm33nTiles(nbicMapPresets.topo4graatoneBaseLayer));
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.svalbardBaseLayer, this.loadTile));
+    this.map.addLayer(this.withTileLoader(nbicMapPresets.janmayenBaseLayer, this.loadTile));
+    this.map.adoptLayer(nbicMapPresets.nib.id, this.createNibLayer(), { base: 'regional' });
+  }
 
-    const nib = {
-      ...nbicMapPresets.nib,
-      source: { ...nbicMapPresets.nib.source },
-    };
-    if (nib.source.type === 'wmts') {
-      nib.source.options = {
-        ...nib.source.options,
-        tileLoadFunction: (tile: unknown, src: string) => {
-          const token = this.sharedMapService.getNibToken();
-          const separator = src.includes('?') ? '&' : '?';
-          const img = (tile as ImageTile).getImage() as HTMLImageElement;
-          img.src = token ? `${src}${separator}token=${token}` : src;
+  /**
+   * Norge i bilder in UTM 33, so the photos are drawn without reprojection. Built here because the
+   * map package applies its Jan Mayen grid to every `default028mm` tile set in EPSG:25833.
+   */
+  private createNibLayer(): TileLayer {
+    const gridExtent = MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT;
+    const resolutions = Array.from({ length: MAP_CONSTANTS.NIB_UTM33_LEVELS }, (_, z) => getWidth(gridExtent) / 256 / 2 ** z);
+    return new TileLayer({
+      visible: false,
+      source: new WMTS({
+        url: 'https://tilecache.norgeibilder.no/wmts/utm33_euref89',
+        layer: 'Nibcache_UTM33_EUREF89_v2',
+        matrixSet: 'default028mm',
+        format: 'image/jpgpng',
+        style: 'default',
+        projection: 'EPSG:25833',
+        tileGrid: new WMTSTileGrid({
+          origin: getTopLeft(gridExtent),
+          extent: gridExtent,
+          resolutions,
+          matrixIds: resolutions.map((_, z) => String(z)),
+        }),
+        crossOrigin: 'anonymous',
+        attributions: 'Kartverket',
+        tileLoadFunction: (tile, src) => this.loadTile(tile, this.withNibToken(src)),
+      }),
+    });
+  }
+
+  private withNibToken(src: string): string {
+    const token = this.sharedMapService.getNibToken();
+    if (!token) return src;
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}token=${encodeURIComponent(token)}`;
+  }
+
+  private withTileLoader(layer: LayerDef, tileLoadFunction: LoadFunction): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return { ...layer, source: { ...layer.source, options: { ...layer.source.options, tileLoadFunction } } };
+  }
+
+  /** GEBCO shaded relief (sea depth and terrain) as the background where the topo map has no data. */
+  private createGebcoLayer(): TileLayer {
+    return new TileLayer({
+      source: new TileWMS({
+        url: 'https://wms.geonorge.no/skwms1/wms.gebco_skyggerelieff2',
+        params: { LAYERS: 'gebco_skyggerelieff2' },
+        projection: 'EPSG:25833',
+        tileGrid: createForProjection('EPSG:25833', MAP_CONFIG.backgroundMaxTileZoom),
+        attributions: 'Kartverket, GEBCO',
+        tileLoadFunction: this.loadTile,
+      }),
+    });
+  }
+
+  /**
+   * Kartverket tiles in the map's own projection, so they're drawn without reprojection,
+   * with all 19 zoom levels (the finest have 1 m contours).
+   */
+  private withKartverketUtm33nTiles(layer: LayerDef): LayerDef {
+    if (layer.source.type !== 'wmts') return layer;
+    return {
+      ...layer,
+      source: {
+        ...layer.source,
+        options: {
+          ...layer.source.options,
+          matrixSet: 'utm33n',
+          projection: 'EPSG:25833',
+          extent: MAP_CONSTANTS.UTM33_TILE_GRID_EXTENT,
+          levels: 19,
+          wrapX: false,
+          tileLoadFunction: this.loadTile,
         },
-      };
-    }
-    this.map.addLayer(nib);
+      },
+    };
   }
 
   private adoptMapControls(): void {
@@ -1936,6 +2006,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           url: layer.url,
           params,
           attributions: layer.attribution ?? undefined,
+          tileLoadFunction: this.loadTile,
         }),
       });
 
