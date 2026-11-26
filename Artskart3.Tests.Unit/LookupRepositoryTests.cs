@@ -182,7 +182,7 @@ public class LookupRepositoryTests
     }
 
     [Fact]
-    public async Task GetOrganizationByIdAsync_ReturnsNameAndSkipsDeleted()
+    public async Task GetOrganizationByIdAsync_ReturnsNameAndTypeAndSkipsDeleted()
     {
         var context = CreateContext();
         context.Organizations.AddRange(
@@ -191,8 +191,27 @@ public class LookupRepositoryTests
         await context.SaveChangesAsync();
         var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
 
-        (await sut.GetOrganizationByIdAsync(1))!.Name.Should().Be("Prosjekt A");
+        var organization = await sut.GetOrganizationByIdAsync(1);
+        organization!.Name.Should().Be("Prosjekt A");
+        organization.OrganizationTypeId.Should().Be(3);
         (await sut.GetOrganizationByIdAsync(2)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetArtskart2BookmarkAsync_FindsTheBookmarkByTheGuidInItsJson()
+    {
+        var context = CreateContext();
+        context.Set<Filter>().AddRange(
+            new Filter { Id = 1, Name = "Fugler", SerializedFilter = "{\"Id\":\"45652bc7-5911-4918-ae64-0007e7969f73\",\"TaxonIds\":[1]}" },
+            new Filter { Id = 2, Name = "Annet", SerializedFilter = "{\"Id\":\"9c3c3030-1832-4d01-a01c-00112b3443b3\",\"TaxonIds\":[2]}" },
+            new Filter { Id = 3, Name = "Slettet", SerializedFilter = "{\"Id\":\"353d7bff-6e80-4de3-915e-001d25e4125b\"}", IsDeleted = true });
+        await context.SaveChangesAsync();
+        var sut = new LookupRepository(context, NullLogger<LookupRepository>.Instance);
+
+        (await sut.GetArtskart2BookmarkAsync(Guid.Parse("9c3c3030-1832-4d01-a01c-00112b3443b3")))
+            .Should().Be("{\"Id\":\"9c3c3030-1832-4d01-a01c-00112b3443b3\",\"TaxonIds\":[2]}");
+        (await sut.GetArtskart2BookmarkAsync(Guid.Parse("353d7bff-6e80-4de3-915e-001d25e4125b"))).Should().BeNull();
+        (await sut.GetArtskart2BookmarkAsync(Guid.NewGuid())).Should().BeNull();
     }
 
     /// <summary>

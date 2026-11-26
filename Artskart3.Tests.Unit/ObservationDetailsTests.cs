@@ -125,6 +125,28 @@ public class ObservationDetailsTests
     }
 
     [Fact]
+    public async Task Controller_AnnotationsReturnNotFoundAndSurfaceUpstreamFailures()
+    {
+        var annotations = new Mock<IObservationAnnotationService>();
+        var controller = CreateController(new Mock<IObservationDetailsService>(), new Mock<IObservationMapService>(), annotations);
+        (await controller.Annotations(0, default)).Result.Should().BeOfType<BadRequestObjectResult>();
+        (await controller.Annotations(42, default)).Result.Should().BeOfType<NotFoundObjectResult>();
+
+        annotations.Setup(a => a.GetAsync(42, default)).ReturnsAsync([new ObservationAnnotationDto { Comment = "Forkastes" }]);
+        (await controller.Annotations(42, default)).Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<List<ObservationAnnotationDto>>().Which.Should().ContainSingle();
+
+        annotations.Setup(a => a.GetAsync(42, default)).ThrowsAsync(new HttpRequestException("503"));
+        (await controller.Annotations(42, default)).Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(502);
+
+        annotations.Setup(a => a.GetAsync(42, default)).ThrowsAsync(new System.Text.Json.JsonException("<html>"));
+        (await controller.Annotations(42, default)).Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(502);
+
+        annotations.Setup(a => a.GetAsync(42, default)).ThrowsAsync(new TaskCanceledException("timeout"));
+        (await controller.Annotations(42, default)).Result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(504);
+    }
+
+    [Fact]
     public async Task Controller_ImagesAreSeparateAndSupportConditionalRequests()
     {
         var details = new Mock<IObservationDetailsService>();
@@ -137,8 +159,9 @@ public class ObservationDetailsTests
         details.Verify(d => d.GetAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static ObservationsController CreateController(Mock<IObservationDetailsService> details, Mock<IObservationMapService> maps) =>
-        new(details.Object, maps.Object, NullLogger<ObservationsController>.Instance)
+    private static ObservationsController CreateController(
+        Mock<IObservationDetailsService> details, Mock<IObservationMapService> maps, Mock<IObservationAnnotationService>? annotations = null) =>
+        new(details.Object, maps.Object, annotations?.Object ?? new Mock<IObservationAnnotationService>().Object, NullLogger<ObservationsController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

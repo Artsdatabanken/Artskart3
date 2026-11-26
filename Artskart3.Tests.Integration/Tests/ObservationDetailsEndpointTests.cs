@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
+using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
 using Artskart3.Infrastructure.Data;
+using Artskart3.Infrastructure.Services;
 using Artskart3.Tests.Integration.Fixtures;
 using FluentAssertions;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -118,6 +123,52 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
         }
     }
 
+    /// <summary>
+    /// Annoteringstjenesten byttes ut med en stub. Testen sjekker at oppslaget av egenskapene
+    /// (datasett via NodeId, matchet navn, gjeldende fylke) lar seg oversette mot SQL Server.
+    /// </summary>
+    [Fact]
+    public async Task Annotations_SendsObservationPropertiesAndReturnsTheComment()
+    {
+        var handler = new CapturingHandler("""
+            [{ "id": 837, "comment": "Uten dokumentasjon og forkastes.", "authorName": "Reidar Elven",
+               "dateCreated": "2024-09-17T17:41:49", "fields": [], "actions": { "acceptChanges": true },
+               "observations": [{ "observationProxyId": "x" }] }]
+            """);
+        await using var stubbed = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient<IObservationAnnotationService, ObservationAnnotationService>()
+                .ConfigurePrimaryHttpMessageHandler(() => handler)));
+        using var stubbedClient = stubbed.CreateClient();
+        stubbedClient.DefaultRequestHeaders.Add("X-CSRF", "1");
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ArtskartDbContext>();
+        var observation = await context.Observations.SingleAsync(o => o.Id == ObservationId);
+        var scientificName = await context.Set<TaxonName>()
+            .Where(n => n.Id == observation.MatchedScientificNameId).Select(n => n.ScientificName).SingleAsync();
+        var county = await context.Set<Location>().Where(l => l.Id == observation.LocationId)
+            .SelectMany(l => l.Areas).Where(a => !a.IsDeleted && a.IsCurrent && a.AreaTypeId == 2)
+            .OrderBy(a => a.Name).Select(a => a.Name).FirstOrDefaultAsync();
+        var datasetId = await context.Set<ImportState>().Where(s => s.Id == observation.NodeId)
+            .Select(s => (Guid?)s.GbifDataSetId).FirstOrDefaultAsync();
+
+        var response = await stubbedClient.GetAsync($"/api/observations/{ObservationId}/annotations");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var annotations = await response.Content.ReadFromJsonAsync<List<ObservationAnnotationDto>>();
+        annotations.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            Author = "Reidar Elven", Comment = "Uten dokumentasjon og forkastes.", Changes = Array.Empty<object>(),
+        });
+        handler.RequestUri!.AbsolutePath.Should().EndWith("/annotationapi/api/public-annotations/forObservation");
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        body.RootElement.GetProperty("occurrenceId").GetString().Should().Be(observation.ProxyId ?? "");
+        body.RootElement.GetProperty("scientificName").GetString().Should().Be(scientificName);
+        body.RootElement.GetProperty("stateProvince").GetString().Should().Be(county ?? "");
+        body.RootElement.GetProperty("gbifDataSetId").GetGuid().Should().Be(datasetId ?? Guid.Empty);
+
+        (await stubbedClient.GetAsync("/api/observations/999999999/annotations")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     [Fact]
     public async Task Map_InvalidPresetIsRejectedWithoutCsrfHeader()
     {
@@ -149,6 +200,19 @@ public sealed class ObservationDetailsEndpointTests(DatabaseFixture db) : IAsync
         context.MediaFiles.Remove(media);
         context.Set<MediaFileType>().Remove(type);
         await context.SaveChangesAsync();
+    }
+
+    private sealed class CapturingHandler(string json) : HttpMessageHandler
+    {
+        public Uri? RequestUri { get; private set; }
+        public string? RequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestUri = request.RequestUri;
+            RequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+        }
     }
 
     public async Task DisposeAsync()

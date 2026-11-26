@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Interfaces;
 using Duende.Bff.Configuration;
@@ -14,6 +15,7 @@ namespace Artskart3.Api.Controllers;
 public sealed class ObservationsController(
     IObservationDetailsService detailsService,
     IObservationMapService maps,
+    IObservationAnnotationService annotations,
     ILogger<ObservationsController> logger) : ControllerBase
 {
     [HttpGet("{id:int}")]
@@ -37,6 +39,33 @@ public sealed class ObservationsController(
         if (string.IsNullOrEmpty(value)) return BadRequest(new { error = "Occurrence ID is required." });
         var id = await detailsService.FindIdByOccurrenceIdAsync(value, cancellationToken);
         return id is null ? NotFound(new { error = "Observation not found." }) : Ok(id.Value);
+    }
+
+    [HttpGet("{id:int}/annotations")]
+    [EnableRateLimiting("observation-annotations")]
+    [ProducesResponseType<List<ObservationAnnotationDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+    public async Task<ActionResult<List<ObservationAnnotationDto>>> Annotations(int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest(new { error = "Observation ID must be positive." });
+        try
+        {
+            var result = await annotations.GetAsync(id, cancellationToken);
+            return result is null ? NotFound(new { error = "Observation not found." }) : Ok(result);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Annotation service timed out for observation {ObservationId}", id);
+            return StatusCode(504, new { error = "Annotation service timed out. Please retry." });
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            logger.LogWarning(ex, "Annotation service failed for observation {ObservationId}", id);
+            return StatusCode(502, new { error = "Annotations are temporarily unavailable. Please retry." });
+        }
     }
 
     [HttpGet("{id:int}/media/{mediaId:int}/image")]

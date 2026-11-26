@@ -305,7 +305,8 @@ public class LookupRepository : ILookupRepository
                 .Select(o => new OrganizationDto
                 {
                     Id = o.Id,
-                    Name = o.Name
+                    Name = o.Name,
+                    OrganizationTypeId = o.OrganizationTypeId
                 })
                 .FirstOrDefaultAsync(cancellationToken);
         }
@@ -313,6 +314,28 @@ public class LookupRepository : ILookupRepository
         {
             _logger.LogError(ex, "Feil ved henting av organisasjon med id: {Id}", id);
             throw new ApplicationException("Feil ved henting av organisasjon", ex);
+        }
+    }
+
+    /// <summary>
+    /// Tabellens egen Id er ikke bokmerkets. Artskart 2 skrev GUID-en som første felt i JSON-en,
+    /// så oppslaget er et prefikssøk på den.
+    /// </summary>
+    public async Task<string?> GetArtskart2BookmarkAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{{\"Id\":\"{id:D}\"";
+        try
+        {
+            return await _context.Set<Filter>()
+                .AsNoTracking()
+                .Where(f => !f.IsDeleted && f.SerializedFilter.StartsWith(prefix))
+                .Select(f => f.SerializedFilter)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Feil ved henting av Artskart 2-bokmerke: {Id}", id);
+            throw new ApplicationException("Feil ved henting av bokmerke", ex);
         }
     }
 
@@ -607,7 +630,9 @@ public class LookupRepository : ILookupRepository
         try
         {
             return await _context.Set<BasisOfRecord>()
-                .Where(b => !b.IsDeleted)
+                .Where(b => !b.IsDeleted
+                    && b.ObservationCount != null
+                    && b.ObservationCount > 0)
                 .OrderBy(b => b.Name)
                 .Select(b => new BasisOfRecordDto
                 {

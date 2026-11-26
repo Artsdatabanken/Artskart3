@@ -40,7 +40,7 @@ describe('ObservationPanel', () => {
           withComponentInputBinding(),
         ),
         provideLocationMocks(),
-        { provide: ObservationService, useValue: { getDetail, findIdByOccurrenceId } },
+        { provide: ObservationService, useValue: { getDetail, findIdByOccurrenceId, getAnnotations: () => of([]) } },
       ],
     }).compileComponents();
     harness = await RouterTestingHarness.create();

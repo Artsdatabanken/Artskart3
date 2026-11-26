@@ -702,6 +702,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/Lookup/Artskart2Bookmarks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Lookup/Organizations/{id}": {
         parameters: {
             query?: never;
@@ -1218,6 +1253,81 @@ export interface paths {
                         "application/json": components["schemas"]["ProblemDetails"];
                         "text/json": components["schemas"]["ProblemDetails"];
                     };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/observations/{id}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ObservationAnnotationDto"][];
+                        "application/json": components["schemas"]["ObservationAnnotationDto"][];
+                        "text/json": components["schemas"]["ObservationAnnotationDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Gateway Timeout */
+                504: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -2265,6 +2375,18 @@ export interface components {
             eventEnd?: null | string;
             canClose?: boolean;
         };
+        ObservationAnnotationChangeDto: {
+            field?: string;
+            originalValue?: null | string;
+            newValue?: null | string;
+        };
+        ObservationAnnotationDto: {
+            author?: null | string;
+            /** Format: date-time */
+            created?: null | string;
+            comment?: null | string;
+            changes?: components["schemas"]["ObservationAnnotationChangeDto"][];
+        };
         ObservationDetailDto: {
             /** Format: int32 */
             id?: number;
@@ -2307,12 +2429,20 @@ export interface components {
             scientificName?: null | string;
             author?: null | string;
             institution?: null | string;
+            dataset?: null | string;
             locality?: null | string;
             municipalityId?: null | string;
+            countyId?: null | string;
             /** Format: int32 */
             taxonGroupId?: null | number;
             /** Format: int32 */
             categoryId?: null | number;
+            /** Format: int32 */
+            basisOfRecordId?: null | number;
+            /** Format: int32 */
+            behaviorId?: null | number;
+            individualCount?: null | string;
+            collector?: null | string;
             /** Format: date-time */
             dateTimeCollected?: null | string;
             /** Format: int32 */
@@ -2426,6 +2556,8 @@ export interface components {
             name?: string;
             /** Format: int32 */
             observationCount?: null | number;
+            /** Format: int32 */
+            organizationTypeId?: null | number;
         };
         PagedObservationImageResponseDto: {
             items?: null | components["schemas"]["ObservationImageDto"][];

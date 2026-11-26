@@ -12,6 +12,10 @@ import { SavedFilterService } from '../../services/saved-filter/saved-filter.ser
 import { SavedFilterDto } from '../../types/api.types';
 import { AutocompleteComponent } from '../autocomplete/autocomplete.component';
 
+function sectionTitle(item: Element): string | undefined {
+  return item.querySelector(':scope > [slot="heading"]')?.textContent?.trim();
+}
+
 describe('SidebarComponent', () => {
   let component: SidebarComponent;
   let fixture: ComponentFixture<SidebarComponent>;
@@ -102,7 +106,7 @@ describe('SidebarComponent', () => {
     await flushAll();
     const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
     const categoriesItem = Array.from(accordionItems).find(
-      (el) => (el as Element).getAttribute('heading') === 'sidebar.categories',
+      (el) => sectionTitle(el as Element) === 'sidebar.categories',
     );
     expect(categoriesItem).toBeTruthy();
   });
@@ -111,7 +115,7 @@ describe('SidebarComponent', () => {
     await flushAll();
     const accordionItems = fixture.nativeElement.querySelectorAll(':scope > .sidebar-content > adb-accordion > adb-accordion-item');
     const categoriesItem = Array.from(accordionItems).find(
-      (el) => (el as Element).getAttribute('heading') === 'sidebar.categories',
+      (el) => sectionTitle(el as Element) === 'sidebar.categories',
     ) as Element;
     expect(categoriesItem).toBeTruthy();
     expect(categoriesItem.querySelector('adb-accordion')).toBeFalsy();
@@ -247,7 +251,7 @@ describe('SidebarComponent', () => {
       await flushAll();
       const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
       const institutionItem = Array.from(accordionItems).find(
-        (el) => (el as Element).getAttribute('heading') === 'sidebar.institutions',
+        (el) => sectionTitle(el as Element) === 'sidebar.institutions',
       );
       expect(institutionItem).toBeTruthy();
     });
@@ -272,7 +276,7 @@ describe('SidebarComponent', () => {
       await flushAll();
       const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
       const behaviorItem = Array.from(accordionItems).find(
-        (el) => (el as Element).getAttribute('heading') === 'sidebar.behaviors',
+        (el) => sectionTitle(el as Element) === 'sidebar.behaviors',
       );
       expect(behaviorItem).toBeTruthy();
     });
@@ -297,7 +301,7 @@ describe('SidebarComponent', () => {
       await flushAll();
       const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
       const basisOfRecordItem = Array.from(accordionItems).find(
-        (el) => (el as Element).getAttribute('heading') === 'sidebar.basisOfRecords',
+        (el) => sectionTitle(el as Element) === 'sidebar.basisOfRecords',
       );
       expect(basisOfRecordItem).toBeTruthy();
     });
@@ -321,7 +325,7 @@ describe('SidebarComponent', () => {
   it('shows no "select all" for a category type without categories', async () => {
     await flushAll([...mockCategoryTypes, { id: 3, name: 'Tom', categories: [] }]);
     const accordionItems = Array.from(fixture.nativeElement.querySelectorAll('adb-accordion-item')) as Element[];
-    const categoriesItem = accordionItems.find((el) => el.getAttribute('heading') === 'sidebar.categories')!;
+    const categoriesItem = accordionItems.find((el) => sectionTitle(el) === 'sidebar.categories')!;
     const lists = Array.from(categoriesItem.querySelectorAll('.category-flat'));
     expect(lists.map((list) => list.querySelector('.select-all') !== null)).toEqual([true, true, false]);
   });
@@ -329,7 +333,7 @@ describe('SidebarComponent', () => {
   describe('select all', () => {
     function accordionItem(heading: string): Element {
       const items = Array.from(fixture.nativeElement.querySelectorAll('adb-accordion-item')) as Element[];
-      return items.find((el) => el.getAttribute('heading') === heading)!;
+      return items.find((el) => sectionTitle(el) === heading)!;
     }
 
     function selectAll(heading: string, index = 0): Element {
@@ -442,7 +446,7 @@ describe('SidebarComponent', () => {
       await flushAll();
       const accordionItems = fixture.nativeElement.querySelectorAll('adb-accordion-item');
       const periodItem = Array.from(accordionItems).find(
-        (el) => (el as Element).getAttribute('heading') === 'sidebar.period',
+        (el) => sectionTitle(el as Element) === 'sidebar.period',
       );
       expect(periodItem).toBeTruthy();
     });
@@ -635,7 +639,7 @@ describe('SidebarComponent', () => {
     const sectionsWithIndicator = () =>
       sectionItems()
         .filter((item) => item.hasAttribute('indicator'))
-        .map((item) => item.getAttribute('heading'));
+        .map((item) => sectionTitle(item));
 
     beforeEach(() => flushAll());
 

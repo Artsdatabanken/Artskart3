@@ -37,6 +37,21 @@
   }
 }
 
+/* One line with an ellipsis, so the active-filter dot after the title never wraps onto a line of its own. */
+.section-title {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+/* Room for adb-accordion-item's dot: its 8px width plus its leading margin. */
+adb-accordion-item[indicator] > .section-title {
+  max-width: calc(100% - 8px - var(--adb-spacing-2xsm));
+}
+
 /* Reduce summary spacing on nested accordion items */
 adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   padding-bottom: var(--adb-spacing-3xsm);

@@ -109,10 +109,9 @@
   <p class="export-info-size">
     {{ 'export.estimatedSize' | translate: { size: (estimatedFileSizeBytes() | formatFileSize: translate.currentLang) } }}
   </p>
-  <label class="export-dont-show-label">
-    <input type="checkbox" [checked]="dontShowAgain()" (change)="dontShowAgain.set($any($event.target).checked)" />
+  <adb-checkbox class="export-dont-show-label" [attr.checked]="dontShowAgain() ? '' : null" (change)="dontShowAgain.set(!dontShowAgain())">
     {{ 'export.dontShowAgain' | translate }}
-  </label>
+  </adb-checkbox>
 </app-modal>
 
 <!-- Export exceeds limit modal -->

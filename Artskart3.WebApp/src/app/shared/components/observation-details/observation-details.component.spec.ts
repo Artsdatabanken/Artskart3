@@ -1,6 +1,10 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Observable, of, throwError } from 'rxjs';
 import '@artsdatabanken/components';
+import { ObservationService } from '@shared/services/observation/observation.service';
+import { ObservationAnnotationDto } from '@shared/types/api.types';
 import { ObservationDetailsComponent } from './observation-details.component';
 
 interface DesignSystemElement extends HTMLElement {
@@ -8,6 +12,12 @@ interface DesignSystemElement extends HTMLElement {
 }
 
 describe('ObservationDetails', () => {
+  const getAnnotations = vi.fn<(id: number) => Observable<ObservationAnnotationDto[]>>();
+
+  beforeEach(() => {
+    getAnnotations.mockReset().mockReturnValue(of([]));
+  });
+
   async function settle(fixture: ComponentFixture<ObservationDetailsComponent>): Promise<void> {
     await fixture.whenStable();
     const host: HTMLElement = fixture.nativeElement;
@@ -28,7 +38,10 @@ describe('ObservationDetails', () => {
   }
 
   async function create() {
-    await TestBed.configureTestingModule({ imports: [ObservationDetailsComponent, TranslateModule.forRoot()] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [ObservationDetailsComponent, TranslateModule.forRoot()],
+      providers: [{ provide: ObservationService, useValue: { getAnnotations } }],
+    }).compileComponents();
     const fixture = TestBed.createComponent(ObservationDetailsComponent);
     fixture.componentRef.setInput('observationId', 42);
     fixture.componentRef.setInput('detail', { id: 42, scientificName: 'Vulpes vulpes', images: [] });
@@ -223,6 +236,16 @@ describe('ObservationDetails', () => {
     ]);
   });
 
+  it('separates several collectors with commas', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('detail', { id: 42, collector: 'Ellen Svalheim|Liv Guri Velle' });
+    await fixture.whenStable();
+
+    const element: HTMLElement = fixture.nativeElement;
+    const collector = [...element.querySelectorAll('dt')].find((dt) => dt.textContent === 'observationDetails.fields.collector:')!;
+    expect(collector.nextElementSibling!.textContent).toBe('Ellen Svalheim, Liv Guri Velle');
+  });
+
   it('shows the registration type first, with a description for not found records', async () => {
     const fixture = await create();
     const element: HTMLElement = fixture.nativeElement;
@@ -255,6 +278,24 @@ describe('ObservationDetails', () => {
     expect(registration().textContent).toContain('– målrettet søk på tidligere kjent lokalitet uten gjenfunn');
   });
 
+  it('explains the masked position of sensitive observations with the coordinates', async () => {
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.masked-position')).toBeNull();
+
+    fixture.componentRef.setInput('detail', { id: 42, tags: ['Sensitive'] });
+    await fixture.whenStable();
+    const notice = element.querySelector('.masked-position')!;
+    expect(notice.tagName).toBe('DD');
+    expect(notice.parentElement!.querySelector('dt')!.textContent).toBe('observationDetails.fields.longitude:');
+    expect(notice.textContent).toContain('observationDetails.maskedPosition');
+    const link = notice.querySelector('a')!;
+    expect(link.getAttribute('href')).toBe('https://sensitive-artsdata.miljodirektoratet.no');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener noreferrer');
+    expect(link.textContent).toContain('observationDetails.sensitiveDataLink');
+  });
+
   it('never hides a quality warning behind a validated label', async () => {
     const fixture = await create();
     fixture.componentRef.setInput('detail', { id: 42, quality: 2, tags: ['Validated'], hasErrors: true });
@@ -262,5 +303,80 @@ describe('ObservationDetails', () => {
     expect(fixture.nativeElement.textContent).toContain('observationDetails.validated');
     expect(fixture.nativeElement.textContent).toContain('observationDetails.qualities.2');
     expect(fixture.nativeElement.textContent).toContain('observationDetails.qualityWarning');
+  });
+
+  it('lists annotations in a closed section of their own with the comment and the old and new values', async () => {
+    getAnnotations.mockReturnValue(
+      of([
+        {
+          author: 'Reidar Elven',
+          created: '2025-01-15T15:25:00',
+          comment: 'Funnet flyttet dit.',
+          changes: [{ field: 'Longitude', originalValue: '8.80075', newValue: '9.10019' }],
+        },
+        { author: null, created: null, comment: null, changes: [] },
+      ]),
+    );
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(getAnnotations).toHaveBeenCalledExactlyOnceWith(42);
+    const items = element.querySelectorAll('adb-accordion-item');
+    expect(items).toHaveLength(4);
+    expect(items[3].getAttribute('heading')).toBe('observationDetails.sections.annotations');
+    expect(accordionDetails(fixture).map((details) => details.open)).toEqual([true, false, false, false]);
+    const block = items[3].querySelector('.annotations')!;
+
+    const [changed, anonymous] = [...block.querySelectorAll(':scope > ul > li')];
+    expect(changed.querySelector('.byline')!.textContent).toContain('Reidar Elven');
+    expect(changed.querySelector('.byline')!.textContent).toContain('2025');
+    expect(changed.querySelector('q')!.textContent).toBe('Funnet flyttet dit.');
+    const change = changed.querySelector('.changes li')!;
+    expect(change.textContent).toContain('Longitude:');
+    expect(change.querySelector('del')!.textContent).toBe('observationDetails.annotations.originalValue8.80075');
+    expect(change.querySelector('ins')!.textContent).toBe('observationDetails.annotations.newValue9.10019');
+    expect(anonymous.querySelector('.byline')!.textContent!.trim()).toBe('observationDetails.annotations.unknownAuthor');
+    expect(anonymous.querySelector('q')).toBeNull();
+    expect(anonymous.querySelector('.changes')).toBeNull();
+  });
+
+  it('loads annotations only once the details have loaded', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('observationId', 43);
+    fixture.componentRef.setInput('state', 'loading');
+    fixture.componentRef.setInput('detail', null);
+    await settle(fixture);
+    expect(getAnnotations).not.toHaveBeenCalledWith(43);
+
+    fixture.componentRef.setInput('state', 'ready');
+    fixture.componentRef.setInput('detail', { id: 43 });
+    await settle(fixture);
+    expect(getAnnotations).toHaveBeenLastCalledWith(43);
+  });
+
+  it('offers a retry when annotations fail, and fetches them again when the details are retried', async () => {
+    getAnnotations.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 502 })));
+    const fixture = await create();
+    const element: HTMLElement = fixture.nativeElement;
+    const block = () => element.querySelector('.annotations');
+    expect(block()!.closest('adb-accordion-item')!.getAttribute('heading')).toBe('observationDetails.sections.annotations');
+    expect(block()!.querySelector('[role="status"]')!.textContent).toBe('observationDetails.annotations.unavailable');
+    expect(block()!.querySelector('ul')).toBeNull();
+
+    getAnnotations.mockReturnValueOnce(of([{ author: 'A', comment: 'Forkastes', changes: [] }]));
+    block()!.querySelector('button')!.click();
+    await settle(fixture);
+    expect(getAnnotations).toHaveBeenCalledTimes(2);
+    expect(block()!.querySelector('q')!.textContent).toBe('Forkastes');
+    expect(block()!.querySelector('[role="status"]')).toBeNull();
+
+    // Both hosts clear the details while retrying them.
+    fixture.componentRef.setInput('state', 'loading');
+    fixture.componentRef.setInput('detail', null);
+    await settle(fixture);
+    fixture.componentRef.setInput('state', 'ready');
+    fixture.componentRef.setInput('detail', { id: 42 });
+    await settle(fixture);
+    expect(getAnnotations).toHaveBeenCalledTimes(3);
+    expect(getAnnotations).toHaveBeenLastCalledWith(42);
   });
 });
