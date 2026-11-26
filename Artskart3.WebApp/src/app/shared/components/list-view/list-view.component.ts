@@ -12,16 +12,21 @@ import {
   output,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { catchError, of } from 'rxjs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ObservationService } from '../../services/observation/observation.service';
 import { AreaService } from '../../services/area/area.service';
 import { CategoryService } from '../../services/category/category.service';
 import { TaxonGroupService } from '../../services/taxon-group/taxon-group.service';
+import { BasisOfRecordService, basisOfRecordDisplayName } from '../../services/basis-of-record/basis-of-record.service';
+import { BehaviorService, behaviorDisplayName } from '../../services/behavior/behavior.service';
 import { SearchFilterService } from '../../services/search-filter/search-filter.service';
 import { MapViewService } from '../../services/map-view/map-view.service';
 import {
+  BasisOfRecordDto,
+  BehaviorDto,
   CategoryDto,
   CategoryTypeDto,
   ObservationDto,
@@ -32,6 +37,7 @@ import {
 import { LocaleDatePipe } from '../../pipes/locale-date.pipe';
 import { MeterUnitPipe } from '../../pipes/meter-unit.pipe';
 import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
+import { formatCollectors } from '../../helpers/collector/format-collectors';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ListObservationDetailsComponent } from '../list-observation-details/list-observation-details.component';
 
@@ -57,10 +63,14 @@ export class ListViewComponent {
   private readonly areaService = inject(AreaService);
   private readonly categoryService = inject(CategoryService);
   private readonly taxonGroupService = inject(TaxonGroupService);
+  private readonly basisOfRecordService = inject(BasisOfRecordService);
+  private readonly behaviorService = inject(BehaviorService);
   private readonly searchFilter = inject(SearchFilterService);
   private readonly mapView = inject(MapViewService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+
+  protected readonly formatCollectors = formatCollectors;
 
   readonly active = input(true);
 
@@ -68,12 +78,22 @@ export class ListViewComponent {
   readonly observationShown = output<void>();
 
   private readonly categoriesResource = rxResource<CategoryTypeDto[], void>({
-    stream: () => this.categoryService.getCategories(),
+    stream: () => this.categoryService.getCategories().pipe(catchError(() => of([]))),
   });
 
   private readonly taxonGroupsResource = rxResource<TaxonGroupDto[], void>({
-    stream: () => this.taxonGroupService.getTaxonGroups(),
+    stream: () => this.taxonGroupService.getTaxonGroups().pipe(catchError(() => of([]))),
   });
+
+  private readonly basisOfRecordsResource = rxResource<BasisOfRecordDto[], void>({
+    stream: () => this.basisOfRecordService.getBasisOfRecords().pipe(catchError(() => of([]))),
+  });
+
+  private readonly behaviorsResource = rxResource<BehaviorDto[], void>({
+    stream: () => this.behaviorService.getBehaviors().pipe(catchError(() => of([]))),
+  });
+
+  private readonly language = toSignal(this.translate.onLangChange);
 
   readonly categoryById = computed(() => {
     const map = new Map<number, CategoryDto>();
@@ -93,6 +113,26 @@ export class ListViewComponent {
       if (group.id != null && group.name) {
         map.set(group.id, group.name);
       }
+    }
+    return map;
+  });
+
+  readonly basisOfRecordNameMap = computed(() => {
+    this.language();
+    const translate = (key: string): string => this.translate.instant(key);
+    const map = new Map<number, string>();
+    for (const basisOfRecord of this.basisOfRecordsResource.value() ?? []) {
+      if (basisOfRecord.id != null) map.set(basisOfRecord.id, basisOfRecordDisplayName(basisOfRecord, translate));
+    }
+    return map;
+  });
+
+  readonly behaviorNameMap = computed(() => {
+    this.language();
+    const translate = (key: string): string => this.translate.instant(key);
+    const map = new Map<number, string>();
+    for (const behavior of this.behaviorsResource.value() ?? []) {
+      if (behavior.id != null) map.set(behavior.id, behaviorDisplayName(behavior, translate));
     }
     return map;
   });

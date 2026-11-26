@@ -236,6 +236,16 @@ describe('ObservationDetails', () => {
     ]);
   });
 
+  it('separates several collectors with commas', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('detail', { id: 42, collector: 'Ellen Svalheim|Liv Guri Velle' });
+    await fixture.whenStable();
+
+    const element: HTMLElement = fixture.nativeElement;
+    const collector = [...element.querySelectorAll('dt')].find((dt) => dt.textContent === 'observationDetails.fields.collector:')!;
+    expect(collector.nextElementSibling!.textContent).toBe('Ellen Svalheim, Liv Guri Velle');
+  });
+
   it('shows the registration type first, with a description for not found records', async () => {
     const fixture = await create();
     const element: HTMLElement = fixture.nativeElement;

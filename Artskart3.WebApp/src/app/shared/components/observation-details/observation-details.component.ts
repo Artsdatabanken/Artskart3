@@ -20,6 +20,7 @@ import { ObservationService } from '@shared/services/observation/observation.ser
 import { LocaleDatePipe } from '@shared/pipes/locale-date.pipe';
 import { LoggingService } from '@shared/logging.service';
 import { RegistrationStatus, registrationStatusFromTags } from '@shared/helpers/registration-status/registration-status';
+import { formatCollectors } from '@shared/helpers/collector/format-collectors';
 import { RegistrationMarkerComponent } from '../registration-marker/registration-marker.component';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ObservationGalleryComponent } from '../observation-gallery/observation-gallery.component';
@@ -146,7 +147,7 @@ export class ObservationDetailsComponent {
             note: status === 'found' ? '' : this.translate.instant(NOT_FOUND_DESCRIPTION_KEYS[status]).toLocaleLowerCase(language),
           },
           row('date', new LocaleDatePipe().transform(d?.collected, language)),
-          row('collector', d?.collector),
+          row('collector', formatCollectors(d?.collector)),
           row('basis', this.lookup('basisOfRecordName', d?.basisOfRecord)),
           row('activity', d?.behaviors?.map((name) => this.lookup('behaviorName', name)).join(', ')),
           row(

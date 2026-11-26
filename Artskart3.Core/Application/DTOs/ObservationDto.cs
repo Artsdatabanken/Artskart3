@@ -12,13 +12,25 @@ public record ObservationDto
 
     public string? Institution { get; set; }
 
+    public string? Dataset { get; set; }
+
     public string? Locality { get; set; }
 
     public string? MunicipalityId { get; set; }
 
+    public string? CountyId { get; set; }
+
     public int? TaxonGroupId { get; set; }
 
     public int? CategoryId { get; set; }
+
+    public int? BasisOfRecordId { get; set; }
+
+    public int? BehaviorId { get; set; }
+
+    public string? IndividualCount { get; set; }
+
+    public string? Collector { get; set; }
 
     public DateTime? DateTimeCollected { get; set; }
 

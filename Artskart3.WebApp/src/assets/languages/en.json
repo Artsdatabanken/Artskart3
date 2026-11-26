@@ -181,6 +181,12 @@
     "precision": "Coordinate precision",
     "taxonGroup": "Taxon group",
     "riskCategory": "Category",
+    "basisOfRecord": "Basis of record",
+    "individualCount": "Count",
+    "behavior": "Activity",
+    "collector": "Reporter/observer",
+    "county": "County",
+    "dataset": "Dataset",
     "noResults": "The selected filter has no observations"
   },
   "galleryView": {

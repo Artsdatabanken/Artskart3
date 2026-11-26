@@ -29,11 +29,17 @@
               <th>{{ 'listView.author' | translate }}</th>
               <th>{{ 'listView.taxonGroup' | translate }}</th>
               <th>{{ 'listView.riskCategory' | translate }}</th>
-              <th>{{ 'listView.institution' | translate }}</th>
+              <th>{{ 'listView.basisOfRecord' | translate }}</th>
+              <th class="right">{{ 'listView.individualCount' | translate }}</th>
+              <th>{{ 'listView.behavior' | translate }}</th>
               <th>{{ 'listView.date' | translate }}</th>
+              <th>{{ 'listView.collector' | translate }}</th>
               <th>{{ 'listView.locality' | translate }}</th>
               <th class="right">{{ 'listView.precision' | translate }}</th>
               <th>{{ 'listView.municipality' | translate }}</th>
+              <th>{{ 'listView.county' | translate }}</th>
+              <th>{{ 'listView.institution' | translate }}</th>
+              <th>{{ 'listView.dataset' | translate }}</th>
             </tr>
           </thead>
           <tbody lang="no">
@@ -82,15 +88,21 @@
                     </span>
                   }
                 </td>
-                <td>{{ obs.institution }}</td>
+                <td>{{ obs.basisOfRecordId | lookupName: basisOfRecordNameMap() }}</td>
+                <td class="right">{{ obs.individualCount }}</td>
+                <td>{{ obs.behaviorId | lookupName: behaviorNameMap() }}</td>
                 <td>{{ obs.dateTimeCollected | localeDate: translate.currentLang }}</td>
+                <td>{{ formatCollectors(obs.collector) }}</td>
                 <td>{{ obs.locality }}</td>
                 <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit: translate.currentLang }}</td>
                 <td>{{ getAreaName(obs.municipalityId) }}</td>
+                <td>{{ getAreaName(obs.countyId) }}</td>
+                <td>{{ obs.institution }}</td>
+                <td>{{ obs.dataset }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="11" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+                <td colspan="17" class="empty-message">{{ 'listView.noResults' | translate }}</td>
               </tr>
             }
           </tbody>
