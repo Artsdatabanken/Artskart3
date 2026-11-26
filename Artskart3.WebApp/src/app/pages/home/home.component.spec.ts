@@ -17,6 +17,7 @@ import { SavedFilterService } from '../../shared/services/saved-filter/saved-fil
 import { AlertService } from '../../shared/services/alert/alert.service';
 import { SavedFilterDto } from '../../shared/types/api.types';
 import { CustomAreaDrawingService } from '../../shared/services/custom-area-drawing/custom-area-drawing.service';
+import { FilterLinkService } from '../../shared/services/filter-link/filter-link.service';
 
 describe('HomeComponent – aktivering av lagret filter fra URL', () => {
   let fixture: ComponentFixture<HomeComponent>;
@@ -35,9 +36,14 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
     activate: vi.fn().mockResolvedValue(undefined),
   };
   const alertService = { showError: vi.fn(), showSuccess: vi.fn() };
+  const filterLinkService = { apply: vi.fn().mockResolvedValue(undefined) };
 
   async function create(filterId: string | null): Promise<void> {
-    queryParamMap = new BehaviorSubject(convertToParamMap(filterId ? { filter: filterId } : {}));
+    await createWithParams(filterId ? { savedFilter: filterId } : {});
+  }
+
+  async function createWithParams(params: Record<string, string>): Promise<void> {
+    queryParamMap = new BehaviorSubject(convertToParamMap(params));
 
     await TestBed.configureTestingModule({
       imports: [HomeComponent, TranslateModule.forRoot()],
@@ -49,6 +55,7 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
         { provide: AuthService, useValue: authService },
         { provide: SavedFilterService, useValue: savedFilterService },
         { provide: AlertService, useValue: alertService },
+        { provide: FilterLinkService, useValue: filterLinkService },
       ],
     })
       .overrideComponent(HomeComponent, {
@@ -74,7 +81,7 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
 
     expect(savedFilterService.findById).toHaveBeenCalledWith('abc');
     expect(savedFilterService.activate).toHaveBeenCalledWith(savedFilter);
-    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { filter: null }, replaceUrl: true }));
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { savedFilter: null }, replaceUrl: true }));
   });
 
   it('viser en feil når filteret ikke finnes, og fjerner parameteren', async () => {
@@ -134,6 +141,44 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
     await create(null);
 
     expect(savedFilterService.findById).not.toHaveBeenCalled();
+    expect(filterLinkService.apply).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  /** The link is cleared from the URL after the render in which the map reacts to the new filter. */
+  async function render(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('applies a filter link without login and then clears it from the URL', async () => {
+    session = null;
+
+    await createWithParams({ filter: '{"taxonIds":[26016]}', extent: '1,2,3,4' });
+    await render();
+
+    expect(filterLinkService.apply).toHaveBeenCalledWith('{"taxonIds":[26016]}', '1,2,3,4');
+    expect(authService.login).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ queryParams: { filter: null, extent: null, observationId: null }, queryParamsHandling: 'merge', replaceUrl: true }),
+    );
+  });
+
+  it("opens the link's observation after the filter is applied, since the map closes the details on a filter change", async () => {
+    await createWithParams({ filter: '{"taxonIds":[26016]}', observationId: '7' });
+    await render();
+
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { filter: null, extent: null, observationId: '7' } }));
+  });
+
+  it('opens an old ?filter=<id> link as a saved filter, not as JSON', async () => {
+    await createWithParams({ filter: '0193f4d2-8c1a-7c3e-9b2a-4f5e6d7c8b9a' });
+
+    expect(filterLinkService.apply).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ queryParams: { filter: null, savedFilter: '0193f4d2-8c1a-7c3e-9b2a-4f5e6d7c8b9a' }, replaceUrl: true }),
+    );
   });
 });

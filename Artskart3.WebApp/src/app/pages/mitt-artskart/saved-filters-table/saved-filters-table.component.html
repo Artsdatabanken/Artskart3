@@ -32,7 +32,7 @@
           <td>
             <a
               routerLink="/"
-              [queryParams]="{ filter: savedFilter.id }"
+              [queryParams]="{ savedFilter: savedFilter.id }"
               [attr.aria-label]="'savedFilters.activateAriaLabel' | translate: { name: savedFilter.name }"
             >{{ 'savedFilters.activate' | translate }}</a>
           </td>
