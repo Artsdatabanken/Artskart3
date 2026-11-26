@@ -34,6 +34,7 @@ export class MapLayerService {
     { initialValue: [] as MapLayerDto[] },
   );
   private readonly enabledLayerIdsState = signal<ReadonlySet<number>>(new Set());
+  private readonly layerActivationOrder = new Map<number, number>();
   readonly enabledLayerIds = this.enabledLayerIdsState.asReadonly();
   /** De påslåtte lagene i samme rekkefølge som kartlagslisten. */
   readonly activeLayers = computed(() => this.mapLayers().filter((layer) => this.enabledLayerIds().has(layer.id)));
@@ -43,9 +44,22 @@ export class MapLayerService {
     if (current.has(layerId) === enabled) return;
 
     const next = new Set(current);
-    if (enabled) next.add(layerId);
-    else next.delete(layerId);
+    if (enabled) {
+      this.ensureLayerActivationOrder(layerId);
+      next.add(layerId);
+    } else {
+      next.delete(layerId);
+    }
     this.enabledLayerIdsState.set(next);
+  }
+
+  ensureLayerActivationOrder(layerId: number): number {
+    let order = this.layerActivationOrder.get(layerId);
+    if (order === undefined) {
+      order = this.layerActivationOrder.size;
+      this.layerActivationOrder.set(layerId, order);
+    }
+    return order;
   }
 
   setLayerFailed(layerId: number, failed: boolean): void {

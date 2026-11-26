@@ -2044,7 +2044,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     this.mapOverlayLayers.set(layer.id, overlay);
-    this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+    const order = this.mapLayerService.ensureLayerActivationOrder(layer.id);
+    // Holder kartlagene mellom z-indeks 10 og 11, under observasjonene.
+    const zIndex = 10 + order / (order + 1);
+    this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex });
   }
 
   private cancelRefreshAfterCooldown(layerId: number): void {

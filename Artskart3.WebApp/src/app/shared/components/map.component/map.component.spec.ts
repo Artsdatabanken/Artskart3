@@ -135,19 +135,27 @@ describe('MapComponent lifecycle', () => {
   });
 
   it.each([true, false])('restores enabled overlays on a new map when layers load before ready: %s', (loadBeforeReady) => {
-    const layer: MapLayerDto = {
-      id: 1, name: 'Test layer', type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1,
-    };
+    const layers: MapLayerDto[] = [1, 2, 3].map((id) => ({
+      id, name: `Layer ${id}`, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1,
+    }));
     const mapLayerService = TestBed.inject(MapLayerService);
-    if (loadBeforeReady) layerResponses.next([layer]);
-    mapLayerService.setLayerEnabled(1, true);
+    if (loadBeforeReady) layerResponses.next(layers);
+    const firstAdopt = vi.fn<(id: string, overlay: BaseLayer, options: { role: string; zIndex: number }) => void>();
+    Object.assign(component, { map: { adoptLayer: firstAdopt } });
+    for (const layer of [...layers].reverse()) {
+      mapLayerService.setLayerEnabled(layer.id, true);
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+    }
+    mapLayerService.setLayerEnabled(3, false);
+    component.onMapToolbarMenuItemChange({ layer: layers[2], visible: false });
+    const originalOrder = firstAdopt.mock.calls.map(([id, , options]) => [id, options.zIndex] as const);
     fixture.destroy();
-    expect(mapLayerService.enabledLayerIds().has(1)).toBe(true);
+    expect([...mapLayerService.enabledLayerIds()]).toEqual([2, 1]);
 
     fixture = TestBed.createComponent(MapComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    const adoptLayer = vi.fn();
+    const adoptLayer = vi.fn<(id: string, overlay: BaseLayer, options: { role: string; zIndex: number }) => void>();
     Object.assign(component, { map: { adoptLayer } });
     for (const method of [
       'setupAreaMarkerLayers', 'setRotationEnabled', 'setupMarkerCursor', 'setupCountsFetchPipeline', 'setupLocationsFetchPipeline',
@@ -158,10 +166,20 @@ describe('MapComponent lifecycle', () => {
     }
     vi.spyOn(component, 'highlightObservation').mockImplementation(() => undefined);
     lifecycle().onMapReady();
-    if (!loadBeforeReady) layerResponses.next([layer]);
+    if (!loadBeforeReady) layerResponses.next(layers);
     fixture.detectChanges();
 
-    expect(adoptLayer).toHaveBeenCalledExactlyOnceWith('backend-map-layer-1', expect.any(TileLayer), { role: 'overlay', zIndex: 10 });
+    expect(adoptLayer.mock.calls.map(([id]) => id)).toEqual(['backend-map-layer-1', 'backend-map-layer-2']);
+    mapLayerService.setLayerEnabled(3, true);
+    component.onMapToolbarMenuItemChange({ layer: layers[2], visible: true });
+    fixture.detectChanges();
+
+    const restoredOrder = new Map(adoptLayer.mock.calls.map(([id, , options]) => [id, options.zIndex]));
+    expect(restoredOrder.size).toBe(3);
+    for (const [id, zIndex] of originalOrder) expect(restoredOrder.get(id)).toBe(zIndex);
+    expect(restoredOrder.get('backend-map-layer-3')!).toBeLessThan(restoredOrder.get('backend-map-layer-2')!);
+    expect(restoredOrder.get('backend-map-layer-2')!).toBeLessThan(restoredOrder.get('backend-map-layer-1')!);
+    expect(restoredOrder.get('backend-map-layer-1')!).toBeLessThan(50);
   });
 
   it('shows the position in the legend only after a successful geolocation', async () => {
