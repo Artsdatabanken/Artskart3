@@ -37,6 +37,30 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     public const string NoGrantFeedbackTag = "no-grant-feedback";
 
     /// <summary>
+    /// Slår av radmålet (row goal). Brukes på områdegrenene i listevisningen og galleriet
+    /// når filteret har kolonner IX_OEI_AreaListView og IX_OEI_MediaListView ikke dekker.
+    /// Da må hver rad slås opp i klyngeindeksen, og optimizeren antar at treffene er like
+    /// vanlige i området som i hele landet. Målt 16.11.2026 mot Artskart3TestMigrations,
+    /// topp 40 i Troms: «ikke påvist» 1 770 → 40 ms, med columnstore i stedet for 702 000
+    /// oppslag, og «påvist» 0–5 → 65–83 ms.
+    /// </summary>
+    public const string NoRowGoalTag = "no-row-goal";
+
+    /// <summary>
+    /// Tvinger områdetellingene til IX_OEI_Columnstore. Brukes når de er avgrenset til bestemte
+    /// områder og en periode: da kan IX_OEI_AreaListView seeke på et datointervall, og planen
+    /// fra første kall gjenbrukes for helt andre verdier. Målt 16.11.2026 mot
+    /// Artskart3TestMigrations, Trøndelag + Farsund + 1970–2026 + fugler på zoomnivå 2:
+    /// 2 500 ms med gjenbrukt seriell plan, 155–180 ms med columnstore.
+    ///
+    /// RECOMPILE løste tidene, men grantet ble beregnet fra estimatene ved hver kjøring: opptil
+    /// 3 GB for spørringer som brukte 10 MB. Med columnstore og bufret plan var det 56 MB.
+    ///
+    /// Aliaset [o] er det EF gir hovedtabellen i spørringen. Endres det, feiler spørringen.
+    /// </summary>
+    public const string CountColumnstoreTag = "count-columnstore";
+
+    /// <summary>
     /// Tagg → hintet den utløser. Rekkefølgen her blir rekkefølgen i OPTION-leddet.
     ///
     /// Flere hint på samme spørring slås sammen til ett OPTION-ledd, for to ledd i
@@ -58,6 +82,8 @@ public sealed class QueryHintInterceptor : DbCommandInterceptor
     [
         (RecompileTag, "RECOMPILE"),
         (NoGrantFeedbackTag, "USE HINT('DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK', 'DISABLE_ROW_MODE_MEMORY_GRANT_FEEDBACK')"),
+        (NoRowGoalTag, "USE HINT('DISABLE_OPTIMIZER_ROWGOAL')"),
+        (CountColumnstoreTag, "TABLE HINT([o], INDEX([IX_OEI_Columnstore]))"),
     ];
 
     public override InterceptionResult<DbDataReader> ReaderExecuting(

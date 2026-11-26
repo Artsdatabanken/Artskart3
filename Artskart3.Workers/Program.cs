@@ -87,9 +87,10 @@ builder.Services.AddSingleton<TaxonHierarchyService>();
 builder.Services.AddSingleton<ITaxonHierarchyService>(sp => sp.GetRequiredService<TaxonHierarchyService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TaxonHierarchyService>());
 
-// Matrikkelenheter i filteret slås opp mot Kartverket, likt som i API-et.
-builder.Services.AddCadastralUnitService(
-    builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions());
+// Matrikkelenheter og egendefinerte områder i filteret slås opp likt som i API-et.
+builder.Services.AddAreaLookupServices(
+    builder.Configuration.GetSection(KartverketEiendomOptions.SectionName).Get<KartverketEiendomOptions>() ?? new KartverketEiendomOptions(),
+    builder.Configuration.GetValue("CustomArea:StoreLocationLists", true));
 
 // Helsesjekk
 builder.Services.AddHealthChecks();

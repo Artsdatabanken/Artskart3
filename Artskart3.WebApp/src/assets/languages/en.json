@@ -71,6 +71,7 @@
     "logout": "Log out",
     "loginAriaLabel": "Log in",
     "logoutAriaLabel": "Log out",
+    "userMenuAriaLabel": "Open user menu",
     "mainNavigationAriaLabel": "Main navigation",
     "openMenuAriaLabel": "Open navigation menu",
     "closeMenuAriaLabel": "Close navigation menu",
@@ -134,7 +135,10 @@
     "dontShowAgain": "Don't show this message again",
     "exceedsLimitTitle": "Export not possible",
     "exceedsLimitMessage": "The result contains {{totalRows}} rows, which exceeds the limit of {{hardLimit}} rows for export. Please narrow down your filter to reduce the number of results.",
-    "summaryFailed": "Could not check export size. Please try again later."
+    "summaryFailed": "Could not check export size. Please try again later.",
+    "notLoggedIn": "Not logged in",
+    "exportsNotSaved": "Exports that aren't linked to an account are only available temporarily.",
+    "downloadExportToSave": "Download the export to keep a copy."
   },
   "mittArtskart": {
     "title": "My Artskart",
@@ -157,9 +161,13 @@
     "cancelled": "The export was cancelled.",
     "cancelledLabel": "Cancelled",
     "cancelFailed": "Could not cancel the export. It may already have finished.",
+    "savedFiltersLoginPrompt": "Log in to save and manage filters.",
     "tabsAriaLabel": "My Artskart tabs"
   },
   "listView": {
+    "showObservation": "Show observation",
+    "showDetails": "View details",
+    "showOnMap": "Show on map",
     "name": "Species name",
     "scientificName": "Scientific name",
     "author": "Autor",
@@ -186,6 +194,8 @@
     "areas": "Areas",
     "heading": "Filter",
     "clearFilter": "Clear filter",
+    "activeSelections": "Has active filters",
+    "removeFilterAriaLabel": "Remove filter {{filter}}",
     "searchAndFilter": "Search and filter",
     "categoryType": {
       "Fremmedart": "Alien Species List",
@@ -266,12 +276,14 @@
     "species": "Species",
     "chipCoordinatePrecision": "Coordinate precision: {{from}}-{{to}} meters",
     "chipPeriod": "Year: {{from}}-{{to}}",
+    "chipMoreNames": "and {{count}} more",
     "synonymMatch": "Matches synonym",
     "taxonIdLabel": "Id:",
     "noSearchResultsProject": "No results in projects for \"{{searchTerm}}\"",
     "noSearchResultsDataset": "No results in datasets for \"{{searchTerm}}\"",
     "noSearchResultsCatalogNumber": "No results in ids or catalog numbers for \"{{searchTerm}}\"",
     "noSearchResultsRestrictedArea": "No results in protected areas for \"{{searchTerm}}\"",
+    "noSearchResultsArea": "No results in counties, municipalities and ocean areas for \"{{searchTerm}}\"",
     "searchResults": "Search results",
     "rank": {
       "Kingdom": "Kingdom",
@@ -311,14 +323,40 @@
     "cadastralUnitNotFound": "No property found with number {{id}}",
     "cadastralUnitLookupFailed": "Could not look up the property. Please try again later.",
     "cadastralUnitLimitReached": "You can select at most {{max}} properties. Remove one to add another.",
+    "areaSearch": "County, municipality and ocean area",
+    "areaSearchHint": "Including historical counties and municipalities",
+    "areaSearchLimitReached": "You can select at most {{max}} historical areas. Remove one to add another.",
+    "areaSearchType": {
+      "municipality": "municipality",
+      "county": "county",
+      "oceanArea": "ocean area",
+      "historicalMunicipality": "historical municipality in {{county}}, before {{year}}",
+      "historicalMunicipalityWithoutCounty": "historical municipality, before {{year}}",
+      "historicalCounty": "historical county, before {{year}}",
+      "historicalArea": "historical area, before {{year}}"
+    },
+    "customArea": {
+      "heading": "Custom area",
+      "description": "Filter by an area you draw on the map.",
+      "draw": "Draw on map",
+      "finish": "Finish drawing",
+      "undo": "Undo last point",
+      "cancel": "Cancel drawing",
+      "remove": "Remove drawn area",
+      "tooManyLocations": "The area contains too many locations (more than {{max}}). Make it smaller by dragging its corners, or draw a new one.",
+      "tooManyLocationsWithAreas": "Together with the other area filters, the whole drawn area counts, and it contains too many locations (more than {{max}}). Make it smaller, or remove the other area filters.",
+      "tooManyCorners": "The area has too many corners (more than {{max}}). Draw it with fewer corners. Drawing while holding Shift adds a corner for every movement.",
+      "checkFailed": "Could not check the area. Move a corner to try again."
+    },
     "image": "Image",
     "imageAll": "All (default)",
     "imageWith": "With image",
     "imageWithout": "Without image",
     "annotation": "Annotation",
-    "annotationAll": "All (default)",
-    "annotationChanged": "Changed by annotation",
-    "annotationNotChanged": "Not changed by annotation",
+    "annotationAll": "All observations, including hidden",
+    "annotationAnnotated": "Observations with annotation",
+    "annotationExcludeHidden": "Exclude hidden observations (default)",
+    "annotationHidden": "Observations hidden by annotation",
     "sensitive": "Sensitive finds",
     "sensitiveAll": "All (default)",
     "sensitiveOnly": "Sensitive finds",
@@ -331,7 +369,7 @@
     "noResultsFor": "No matches for place “{{searchTerm}}”."
   },
   "mapToolbar": {
-    "layersAriaLabel": "Layers",
+    "layersAriaLabel": "Map layers",
     "layersHeading": "Map layers",
     "noLayers": "No map layers available",
     "layerLoadError": "The map layer could not be loaded",
@@ -345,7 +383,7 @@
     "fullscreenAriaLabel": "Fullscreen",
     "zoomInAriaLabel": "Zoom in",
     "zoomOutAriaLabel": "Zoom out",
-    "selectMapTypeAriaLabel": "Select map type - {{mapType}}",
+    "selectMapTypeAriaLabel": "Select background map - {{mapType}}",
     "mapTypeHeading": "Background map",
     "loadingObservationsLabel": "Fetching observations...",
     "mapTypes": {
@@ -361,8 +399,17 @@
       "vern": "Protected areas",
       "bioseksjoner": "Bioclimatic sections",
       "biosoner": "Bioclimatic zones",
-      "eiendomskart": "Property"
+      "eiendomskart": "Property",
+      "maritimeGrenser": "Maritime boundaries"
     },
+    "mapTypeTooltip": "Change background map",
+    "layersTooltip": "Add map layers on top of the map",
+    "settingsTooltip": "Map settings",
+    "geolocationTooltip": "Find my location",
+    "fullscreenTooltip": "Show the map in fullscreen",
+    "exitFullscreenTooltip": "Exit fullscreen",
+    "zoomInTooltip": "Move closer in on the map",
+    "zoomOutTooltip": "Move further out on the map",
     "geolocationDeniedTooltip": "Location must be allowed in the browser before we can show your position on the map."
   },
   "design": {
@@ -481,6 +528,7 @@
   },
   "observationList": {
     "registrations": "{{number}} registrations",
+    "locations":"{{number}} localities",
     "coordinatePrecision": "Coordinate precision: {{precision}}",
     "title": "Observations",
     "taxonGroup": "Group by taxon group",

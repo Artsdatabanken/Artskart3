@@ -22,4 +22,15 @@ describe('MapToolbarComponent', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
   });
+
+  it('gives each toolbar button a tooltip', () => {
+    fixture = TestBed.createComponent(MapToolbarComponent);
+    fixture.detectChanges();
+    const tooltips = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.map-control-tooltip-anchor > .map-control-tooltip'));
+    expect(tooltips.map((tooltip) => tooltip.textContent?.trim())).toEqual([
+      'mapToolbar.mapTypeTooltip',
+      'mapToolbar.layersTooltip',
+      'mapToolbar.settingsTooltip',
+    ]);
+  });
 });

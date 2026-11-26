@@ -18,18 +18,26 @@ public class LookupControllerTests
     private readonly Mock<ILogger<LookupController>> _loggerMock;
     private readonly LookupController _sut;
 
+    private const string SmallArea = "POLYGON ((0 0, 10 0, 10 10, 0 0))";
+    private const string LargeArea = "POLYGON ((0 0, 1000 0, 1000 1000, 0 0))";
+    // Hele polygonet er for stort, men det deles i en kommune helt innenfor og en liten kant.
+    private const string SplitArea = "POLYGON ((0 0, 2000 0, 2000 2000, 0 0))";
+    private readonly StubCustomAreaService _customAreas = new(
+        new() { [SmallArea] = [1, 2], [LargeArea] = null, [SplitArea] = null },
+        splitsByWkt: new() { [SplitArea] = new CustomAreaSplit([(1, "0301")], [1]) });
+
     public LookupControllerTests()
     {
         _serviceMock = new Mock<ILookupService>();
         _cadastralUnitServiceMock = new Mock<ICadastralUnitService>();
         _loggerMock = new Mock<ILogger<LookupController>>();
-        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _loggerMock.Object);
+        _sut = new LookupController(_serviceMock.Object, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _customAreas, _loggerMock.Object);
     }
 
     [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenLookupServiceIsNull()
     {
-        var act = () => new LookupController(null!, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _loggerMock.Object);
+        var act = () => new LookupController(null!, new StubTaxonHierarchyService(), _cadastralUnitServiceMock.Object, _customAreas, _loggerMock.Object);
 
         act.Should().Throw<ArgumentNullException>().WithParameterName("lookupService");
     }
@@ -541,6 +549,58 @@ public class LookupControllerTests
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
+
+    [Fact]
+    public async Task LookupCustomArea_WithinTheLimit_CanBeUsed()
+    {
+        var result = await _sut.LookupCustomArea(new CustomAreaLookupRequestDto { Wkt = SmallArea });
+
+        var dto = result.Result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<CustomAreaLookupDto>().Subject;
+        dto.TooManyLocations.Should().BeFalse();
+        dto.MaxLocationCount.Should().Be(SearchConstants.MaxCustomAreaLocations);
+    }
+
+    [Fact]
+    public async Task LookupCustomArea_OverTheLimit_SaysTooManyLocations()
+    {
+        var result = await _sut.LookupCustomArea(new CustomAreaLookupRequestDto { Wkt = LargeArea });
+
+        result.Result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeOfType<CustomAreaLookupDto>()
+            .Which.TooManyLocations.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Med et annet områdevalg deler ikke søkene polygonet, så kontrollen må ikke gjøre det heller.
+    /// </summary>
+    [Fact]
+    public async Task LookupCustomArea_ChecksTheWholePolygonWhenOtherAreasAreSelected()
+    {
+        async Task<bool> TooMany(LocationSearchFilterDto? filter) =>
+            ((CustomAreaLookupDto)((OkObjectResult)(await _sut.LookupCustomArea(
+                new CustomAreaLookupRequestDto { Wkt = SplitArea, Filter = filter })).Result!).Value!).TooManyLocations;
+
+        (await TooMany(null)).Should().BeFalse();
+        (await TooMany(new LocationSearchFilterDto { TaxonGroupIds = [8] })).Should().BeFalse();
+        (await TooMany(new LocationSearchFilterDto { MunicipalityIds = ["3024"] })).Should().BeTrue();
+        (await TooMany(new LocationSearchFilterDto { HistoricalAreaIds = [669] })).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("POINT (0 0)")]
+    public async Task LookupCustomArea_WithInvalidPolygon_ReturnsBadRequest(string wkt)
+    {
+        var result = await _sut.LookupCustomArea(new CustomAreaLookupRequestDto { Wkt = wkt });
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public void LookupCustomArea_HasTheSearchRateLimit() =>
+        typeof(LookupController).GetMethod(nameof(LookupController.LookupCustomArea))!
+            .GetCustomAttribute<EnableRateLimitingAttribute>()!.PolicyName
+            .Should().Be(SearchConstants.SearchRateLimitPolicy);
 
     [Fact]
     public async Task GetCatalogNumberByObservationIds_WithEmptyList_ReturnsBadRequest()

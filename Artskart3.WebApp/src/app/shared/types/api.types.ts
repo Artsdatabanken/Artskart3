@@ -25,6 +25,7 @@ export type CsvExportJobDto = components['schemas']['CsvExportJobDto'];
 export type StartExportRequestDto = components['schemas']['StartExportRequestDto'];
 export type ExportSummaryDto = components['schemas']['ExportSummaryDto'];
 export type ObservationSearchFilter = components['schemas']['ObservationSearchFilterDto'];
+export type HiddenObservationFilter = components['schemas']['HiddenObservationFilter'];
 export type NotificationModel = components['schemas']['NotificationDto'];
 export type ObservationListInfoDto = components['schemas']['ObservationListInfoDto'];
 export type LocationCountResult = components['schemas']['LocationCountDto'];
@@ -32,6 +33,9 @@ export type SavedFilterDto = components['schemas']['SavedFilterDto'];
 export type CreateSavedFilterRequestDto = components['schemas']['CreateSavedFilterRequestDto'];
 export type MapExtentDto = components['schemas']['MapExtentDto'];
 export type CadastralUnitDto = components['schemas']['CadastralUnitDto'];
+export type AreaSearchResultDto = components['schemas']['AreaSearchResultDto'];
+export type MapLayerDto = components['schemas']['MapLayerDto'];
+export type CustomAreaLookupDto = components['schemas']['CustomAreaLookupDto'];
 
 export type SpeciesDto = components['schemas']['SpeciesDto'];
 export type VernacularNameDto = components['schemas']['VernacularNameDto'];

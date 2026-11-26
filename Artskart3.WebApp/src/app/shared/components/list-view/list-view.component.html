@@ -1,73 +1,124 @@
 <div class="list-view">
-  @if (observationsResource.isLoading()) {
-    <p class="status-message">{{ 'common.loading' | translate }}</p>
+  @if (openObservationId(); as id) {
+    <app-list-observation-details
+      class="details-panel"
+      [observationId]="id"
+      [observationIds]="pageObservationIds()"
+      [active]="active()"
+      (observationIdChange)="openObservationId.set($event)"
+      (closed)="closeDetails()"
+    />
   }
+  <div class="results">
+    @if (observationsResource.isLoading()) {
+      <p class="status-message">{{ 'common.loading' | translate }}</p>
+    }
 
-  @if (observationsResource.error()) {
-    <p class="status-message error">{{ 'common.error' | translate }}</p>
-  }
+    @if (observationsResource.error()) {
+      <p class="status-message error">{{ 'common.error' | translate }}</p>
+    }
 
-  @if (observationsResource.hasValue()) {
-    <div class="table-container">
-      <table class="observations-table">
-        <thead>
-          <tr>
-            <th>{{ 'listView.name' | translate }}</th>
-            <th>{{ 'listView.scientificName' | translate }}</th>
-            <th>{{ 'listView.author' | translate }}</th>
-            <th>{{ 'listView.taxonGroup' | translate }}</th>
-            <th>{{ 'listView.riskCategory' | translate }}</th>
-            <th>{{ 'listView.institution' | translate }}</th>
-            <th>{{ 'listView.date' | translate }}</th>
-            <th>{{ 'listView.locality' | translate }}</th>
-            <th class="right">{{ 'listView.precision' | translate }}</th>
-            <th>{{ 'listView.municipality' | translate }}</th>
-          </tr>
-        </thead>
-        <tbody lang="no">
-          @for (obs of observationsResource.value().items; track obs.id ?? $index) {
+    @if (observationsResource.hasValue()) {
+      <div class="table-container">
+        <table class="observations-table">
+          <thead>
             <tr>
-              <td>{{ obs.preferredPopularName }}</td>
-              <td [innerHTML]="obs.scientificName"></td>
-              <td>{{ obs.author }}</td>
-              <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
-              <td>
-                @let category = getCategory(obs.categoryId);
-                @if (category) {
-                  <span class="risk-category-cell">
-                    @if (category.code) {
-                      <app-risk-category-badge [code]="category.code" aria-hidden="true" />
-                      {{ 'observationList.categories.' + category.code | translate }}
-                    } @else {
-                      {{ category.name }}
-                    }
-                  </span>
-                }
-              </td>
-              <td>{{ obs.institution }}</td>
-              <td>{{ obs.dateTimeCollected | localeDate:translate.currentLang }}</td>
-              <td>{{ obs.locality }}</td>
-              <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit:translate.currentLang }}</td>
-              <td>{{ getAreaName(obs.municipalityId) }}</td>
+              <th class="observation-column">{{ 'listView.showObservation' | translate }}</th>
+              <th>{{ 'listView.name' | translate }}</th>
+              <th>{{ 'listView.scientificName' | translate }}</th>
+              <th>{{ 'listView.author' | translate }}</th>
+              <th>{{ 'listView.taxonGroup' | translate }}</th>
+              <th>{{ 'listView.riskCategory' | translate }}</th>
+              <th>{{ 'listView.institution' | translate }}</th>
+              <th>{{ 'listView.date' | translate }}</th>
+              <th>{{ 'listView.locality' | translate }}</th>
+              <th class="right">{{ 'listView.precision' | translate }}</th>
+              <th>{{ 'listView.municipality' | translate }}</th>
             </tr>
-          } @empty {
-            <tr>
-              <td colspan="10" class="empty-message">{{ 'listView.noResults' | translate }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      <adb-pagination
-        class="pagination"
-        [attr.current-page]="pageNumber()"
-        [attr.total-pages]="!hasMorePages() ? totalVisiblePages() : null"
-        [attr.visible-pages]="4"
-        [attr.has-more-pages]="hasMorePages() || null"
-        [attr.page-size-options]="pageSizeOptions.join(',')"
-        [attr.page-size]="resultsPerPage()"
-        (page-change)="onPageChange($any($event).detail.page)"
-        (page-size-change)="onPageSizeChange($any($event).detail.pageSize)"
-      />
-    </div>
-  }
+          </thead>
+          <tbody lang="no">
+            @for (obs of observationsResource.value().items; track obs.id ?? $index) {
+              <tr [attr.aria-current]="(openObservationId() !== null && obs.id === openObservationId()) || null">
+                <td class="observation-column">
+                  <div class="observation-actions">
+                    <adb-button
+                      class="show-details"
+                      variant="secondary"
+                      size="sm"
+                      [attr.lang]="translate.currentLang"
+                      [attr.data-observation-id]="obs.id"
+                      (click)="openDetails(obs)"
+                      >{{ 'listView.showDetails' | translate }}&ngsp;<ng-container
+                        [ngTemplateOutlet]="observationName"
+                        [ngTemplateOutletContext]="{ $implicit: obs }"
+                    /></adb-button>
+                    <a
+                      class="adb-link show-on-map"
+                      [attr.lang]="translate.currentLang"
+                      [routerLink]="[]"
+                      [queryParams]="{ observationId: obs.id, occurrenceId: null }"
+                      queryParamsHandling="merge"
+                      (click)="showOnMap(obs, $event)"
+                      >{{ 'listView.showOnMap' | translate }}&ngsp;<ng-container
+                        [ngTemplateOutlet]="observationName"
+                        [ngTemplateOutletContext]="{ $implicit: obs }"
+                    /></a>
+                  </div>
+                </td>
+                <td>{{ obs.preferredPopularName }}</td>
+                <td [innerHTML]="obs.scientificName"></td>
+                <td>{{ obs.author }}</td>
+                <td>{{ obs.taxonGroupId | lookupName: taxonGroupNameMap() }}</td>
+                <td>
+                  @let category = getCategory(obs.categoryId);
+                  @if (category) {
+                    <span class="risk-category-cell">
+                      @if (category.code) {
+                        <app-risk-category-badge [code]="category.code" aria-hidden="true" />
+                        {{ 'observationList.categories.' + category.code | translate }}
+                      } @else {
+                        {{ category.name }}
+                      }
+                    </span>
+                  }
+                </td>
+                <td>{{ obs.institution }}</td>
+                <td>{{ obs.dateTimeCollected | localeDate: translate.currentLang }}</td>
+                <td>{{ obs.locality }}</td>
+                <td class="right">{{ obs.coordinatePrecisionInMeters | meterUnit: translate.currentLang }}</td>
+                <td>{{ getAreaName(obs.municipalityId) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="11" class="empty-message">{{ 'listView.noResults' | translate }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <adb-pagination
+          class="pagination"
+          [attr.current-page]="pageNumber()"
+          [attr.total-pages]="!hasMorePages() ? totalVisiblePages() : null"
+          [attr.visible-pages]="4"
+          [attr.has-more-pages]="hasMorePages() || null"
+          [attr.page-size-options]="pageSizeOptions.join(',')"
+          [attr.page-size]="resultsPerPage()"
+          (page-change)="onPageChange($any($event).detail.page)"
+          (page-size-change)="onPageSizeChange($any($event).detail.pageSize)"
+        />
+      </div>
+    }
+  </div>
 </div>
+
+<ng-template #observationName let-obs>
+  <span class="adb-sr-only"
+    ><span lang="no">
+      @if (obs.preferredPopularName) {
+        {{ obs.preferredPopularName }}
+      } @else {
+        <span [innerHTML]="obs.scientificName"></span>
+      }</span
+    >&ngsp;{{ obs.dateTimeCollected | localeDate: translate.currentLang }}</span
+  >
+</ng-template>

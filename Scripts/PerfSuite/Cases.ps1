@@ -19,6 +19,9 @@
       kvadruppel - deterministisk utvalg av fire
       reise      - haandplukkede, realistiske brukerflyter med mange filtre
       matrikkel  - matrikkelenheter, alene og med utvalgte filtre
+      historisk  - historiske fylker og kommuner, alene og med utvalgte filtre
+      egendefinert - polygoner tegnet i kartet, alene og med utvalgte filtre
+      skjult     - kun skjulte og alle funn, alene og med utvalgte filtre
       oppslag    - typeahead-endepunktene, som ikke tar filterkropp
 
     Lagene deler seg ogsaa etter hvilken kodesti de treffer. Omraadebufferen dekker
@@ -316,6 +319,195 @@ function New-PerfCaseMatrix {
         }
     }
 
+    # --- Lag 7: historiske omraader ------------------------------------------
+    # Eget lag av samme grunn som matrikkelen - se New-PerfHistoricalAreaDimension.
+    #
+    # Historiske omraader gaar utenom begge tellebufferne og minnelageret for
+    # polygoner, og slaas opp via lokasjonene i HistoricalAreaLocation. De har alltid
+    # RECOMPILE, fordi et fylke har flere hundre ganger saa mange lokasjoner som en
+    # kommune. Kombinasjonene er valgt etter kodestiene det treffer:
+    #   omraade     omraadet blir en egen gren ved siden av de gjeldende omraadene,
+    #               og omraadetellingene faar dets treff utenfor dem lagt til
+    #   listedybde  lette filtre, der den datosorterte TOP-en maa lese langt
+    #   plan        tunge og lette filtre paa store og smaa omraader
+    #   grening     to institusjoner gaar gjennom GetBranchedObservationIdsAsync
+    #   matrikkel   OR mellom de to lokasjonsbaserte filtrene
+    $historisk = $Fixtures.historisk
+    if ($historisk) {
+        $historiskCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('historisk:tung') }, @{ Keys = @('historisk:lett') })
+        }
+        else {
+            @($historisk.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # omraade
+                @{ Keys = @('historisk:tung', 'kommune:tung') },
+                @{ Keys = @('historisk:kommune', 'fylke:tung') },
+                @{ Keys = @('historisk:lett', 'kommune:mange') },
+                # listedybde
+                @{ Keys = @('historisk:tung', 'periode:lett') },
+                @{ Keys = @('historisk:tung', 'taksongruppe:lett') },
+                @{ Keys = @('historisk:kommune', 'takson:Order') },
+                # plan
+                @{ Keys = @('historisk:tung', 'taksongruppe:tung') },
+                @{ Keys = @('historisk:lett', 'taksongruppe:tung') },
+                @{ Keys = @('historisk:tung', 'kategori:tung') },
+                # grening
+                @{ Keys = @('historisk:tung', 'institusjon:x2-tung-lett') },
+                # matrikkel
+                @{ Keys = @('historisk:kommune', 'matrikkel:tung') },
+                # Hvilke fugler er sett i gamle Baerum kommune de siste aarene?
+                @{ Keys = @('historisk:kommune', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:historisk' }
+            )
+        }
+
+        $alleDims = @($dims) + @($matrikkel) + @($historisk) | Where-Object { $_ }
+        foreach ($h in $historiskCase) {
+            $tiers = @($h.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            if ($tiers.Count -ne $h.Keys.Count) {
+                Write-Warning "$($h.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'historisk' -Tiers $tiers -KeyOverride $h.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
+    # --- Lag 8: egendefinerte omraader --------------------------------------
+    # Eget lag, som matrikkelen, og av samme grunn: som dimensjon i parene ville det
+    # endret utvalget og noeklene for alle de andre casene. Se $PerfCustomAreas.
+    #
+    # OPPSLAGET FOERST, OG KALDT
+    # Frontend kaller POST /api/Lookup/CustomArea naar tegningen er ferdig. Det finner
+    # lokasjonene, deler polygonet og starter lagringen av listen i bakgrunnen, og
+    # svaret bufres en time. Bare foerste kall maaler arbeidet, saa oppslagene kjoeres
+    # én gang (LookupRuns), og foer soekene, som ellers ville bufret det. De ligger i
+    # oppslag-laget fordi Run.ps1 kjenner oppslag paa laget; -Layer egendefinert
+    # kjoerer derfor soekene uten dem.
+    #
+    # Kombinasjonene er valgt etter kodestiene:
+    #   tetthet   tunge og sjeldne filtre mot én spoerring for alle lokasjonene
+    #   deling    omraadene helt innenfor leses hvert for seg, nyeste foerst; sjeldne
+    #             filtre faar grenene til aa lese langt
+    #   omraade   med kommune, matrikkel eller historisk omraade deles ikke
+    #             polygonet, og hele listen gaar til databasen sammen med det andre
+    #             filteret
+    #   skjulte   kun skjulte funn leses fra sin egen indeks, ikke per omraade
+    $egendefinert = $Fixtures.egendefinert
+    if ($egendefinert) {
+        $oppslagNavn = if ($Level -eq 'Quick') { @('tung', 'delt') }
+                       else { @($egendefinert.tiers | ForEach-Object { $_.key -replace '^egendefinert:', '' }) }
+        $polygonOppslag = @($oppslagNavn | ForEach-Object {
+            $tier = Get-PerfTierByKey -Dimensions @($egendefinert) -Key "egendefinert:$_"
+            @{ Key = "oppslag:egendefinert-$_"; Wkt = $tier.filter.customAreaWkt; Label = $tier.label }
+        })
+        $polygonOppslag += @{ Key = 'oppslag:egendefinert-forstor'; Wkt = $script:PerfCustomAreaTooLarge.Wkt
+                              Label = $script:PerfCustomAreaTooLarge.Label }
+
+        foreach ($o in $polygonOppslag) {
+            $cases.Add([PSCustomObject]@{
+                CaseKey = $o.Key; Layer = 'oppslag'; Dimensions = ''
+                Label = "POST /api/Lookup/CustomArea: $($o.Label)"; Filter = $null
+                LookupPath = '/api/Lookup/CustomArea'; LookupBody = @{ wkt = $o.Wkt }; LookupRuns = 1
+            })
+        }
+
+        $egendefinertCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('egendefinert:tung') }, @{ Keys = @('egendefinert:delt') })
+        }
+        else {
+            @($egendefinert.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # tetthet
+                @{ Keys = @('egendefinert:tung', 'taksongruppe:tung') },
+                @{ Keys = @('egendefinert:tung', 'taksongruppe:lett') },
+                @{ Keys = @('egendefinert:tung', 'kategori:lett') },
+                @{ Keys = @('egendefinert:tung', 'periode:lett') },
+                @{ Keys = @('egendefinert:tung', 'bilder:lett') },
+                @{ Keys = @('egendefinert:stor', 'taksongruppe:tung') },
+                # deling
+                @{ Keys = @('egendefinert:delt', 'taksongruppe:tung') },
+                @{ Keys = @('egendefinert:delt', 'kategori:lett') },
+                @{ Keys = @('egendefinert:mange', 'taksongruppe:lett') },
+                @{ Keys = @('egendefinert:mange', 'kategori:tung') },
+                @{ Keys = @('egendefinert:maks', 'taksongruppe:tung') },
+                # omraade
+                @{ Keys = @('egendefinert:tung', 'kommune:mange') },
+                @{ Keys = @('egendefinert:tung', 'matrikkel:tung') },
+                @{ Keys = @('egendefinert:delt', 'historisk:kommune') },
+                # skjulte
+                @{ Keys = @('egendefinert:delt', 'skjult:kun') },
+                # En ornitolog som ser hvilke fugler som er sett rundt Oslo de siste aarene.
+                @{ Keys = @('egendefinert:stor', 'taksongruppe:tung', 'periode:lett'); Navn = 'reise:egendefinert' }
+            )
+        }
+
+        $alleDims = @(@($dims) + @($matrikkel) + @($Fixtures.historisk) + @($egendefinert) + @($Fixtures.skjult) |
+            Where-Object { $null -ne $_ })
+        foreach ($e in $egendefinertCase) {
+            $tiers = @($e.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            # Samme grunn som for reisene: et delvis filter ville faatt samme noekkel
+            # som det fulle i baselinen.
+            if ($tiers.Count -ne $e.Keys.Count) {
+                Write-Warning "$($e.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'egendefinert' -Tiers $tiers -KeyOverride $e.Navn
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
+    # --- Lag 9: skjulte funn ------------------------------------------------
+    # Eget lag fordi dimensjonen 'skjulte' ikke er i fixtures.json foer neste
+    # -RefreshFixtures - se New-PerfHiddenDimension. Alle andre case maaler
+    # standardvalget, der skjulte funn utelates.
+    #
+    # Kun skjulte funn er 7 267 av 61 millioner. Listevisningen leser dem fra
+    # IX_Observation_HiddenByAnnotation og hopper over grenene per omraade og per
+    # verdi, som ellers maatte lest hele omraadet foer siden var fylt.
+    # Kombinasjonene er valgt etter kodestiene:
+    #   omraade   ett, mange og over taket for grenene
+    #   grening   to institusjoner gaar ellers gjennom GetBranchedObservationIdsAsync
+    #   historisk ID-spoerringen for historiske omraader
+    #   alle      uten maske i tellebufferne, og uten predikatet i grenene
+    $skjult = $Fixtures.skjult
+    if ($skjult) {
+        $skjultCase = if ($Level -eq 'Quick') {
+            @(@{ Keys = @('skjult:kun') }, @{ Keys = @('skjult:kun', 'fylke:mange') })
+        }
+        else {
+            @($skjult.tiers | ForEach-Object { @{ Keys = @($_.key) } }) + @(
+                # omraade
+                @{ Keys = @('skjult:kun', 'fylke:tung') },
+                @{ Keys = @('skjult:kun', 'kommune:mange') },
+                @{ Keys = @('skjult:kun', 'fylke:mange') },
+                # grening
+                @{ Keys = @('skjult:kun', 'institusjon:x2-tung-lett') },
+                # historisk
+                @{ Keys = @('skjult:kun', 'historisk:tung') },
+                # En annoterer som gaar gjennom de skjulte fuglefunnene.
+                @{ Keys = @('skjult:kun', 'taksongruppe:tung') },
+                # alle
+                @{ Keys = @('skjult:alle', 'fylke:tung') }
+            )
+        }
+
+        $alleDims = @(@($dims) + @($Fixtures.historisk) + @($skjult) | Where-Object { $null -ne $_ })
+        foreach ($k in $skjultCase) {
+            $tiers = @($k.Keys | ForEach-Object { Get-PerfTierByKey -Dimensions $alleDims -Key $_ } | Where-Object { $_ })
+
+            if ($tiers.Count -ne $k.Keys.Count) {
+                Write-Warning "$($k.Keys -join '+'): mangler nivaa, hoppes over"
+                continue
+            }
+
+            $case = New-PerfCase -Layer 'skjult' -Tiers $tiers
+            if ($case) { $cases.Add($case) }
+        }
+    }
+
     # --- Lag 5: oppslag (typeahead) ----------------------------------------
     # Strengsoeket forsvant ikke fra loesningen, det flyttet hit da filtrene gikk
     # over til aa ta IDer. Maales derfor for seg: gevinsten i filterspoerringen er
@@ -330,7 +522,9 @@ function New-PerfCaseMatrix {
         @{ Key = 'oppslag:katalognr-kort';  Path = '/api/Lookup/CatalogNumbers?search=12'   },
         @{ Key = 'oppslag:katalognr-lang';  Path = '/api/Lookup/CatalogNumbers?search=123456' },
         @{ Key = 'oppslag:artstre-rot';     Path = '/api/Lookup/TaxonTree'                  },
-        @{ Key = 'oppslag:omraader';        Path = '/api/Lookup/Areas'                      }
+        @{ Key = 'oppslag:omraader';        Path = '/api/Lookup/Areas'                      },
+        # To tegn er det korteste feltet soeker paa, og gir flest treff.
+        @{ Key = 'oppslag:omraadesoek';     Path = '/api/Lookup/Areas/Search?search=os'     }
     )
 
     # Omrisset til den stoerste eiendommen, som WKT. Kjoeres etter matrikkel-laget,
@@ -521,8 +715,10 @@ function New-PerfEndpointMatrix {
         # De fire store. Paa Quick er oslo (over taket) og kristiansand (under)
         # med; de to andre foerst fra Standard.
         #
-        # Matrikkel-laget kjoerer bare paa oslo, der alle eiendommene ligger.
-        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel') }; Full=@{} }
+        # Matrikkel-, historisk- og egendefinert-laget kjoerer bare paa oslo, der alle
+        # eiendommene og polygonene og de fleste historiske omraadene ligger. Det
+        # samme gjoer skjult-laget, som ellers bare ville gjentatt seg.
+        @{ Navn='oslo';         Quick=$qQuick; Standard=@{ Layers=@('enkelt', 'matrikkel', 'historisk', 'egendefinert', 'skjult') }; Full=@{} }
         @{ Navn='trondheim';    Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt','par') } }
         @{ Navn='trollheimen';  Quick=$null;   Standard=$qStige; Full=@{ Layers=@('enkelt') } }
         @{ Navn='kristiansand'; Quick=$qQuick; Standard=$qStige; Full=@{ Layers=@('enkelt') } }

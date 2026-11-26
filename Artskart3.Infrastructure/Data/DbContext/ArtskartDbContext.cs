@@ -329,6 +329,9 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Version).HasMaxLength(20);
             entity.Property(e => e.Attribution).HasMaxLength(1000);
             entity.Property(e => e.SortOrder).HasDefaultValue(100);
+            entity.Property(e => e.UseSingleImage).HasDefaultValue(false);
+            entity.Property(e => e.RetryAfterSeconds).HasDefaultValue(0);
+            entity.Property(e => e.Opacity).HasDefaultValue(1d);
         });
 
         modelBuilder.Entity<Filter>(entity =>
@@ -572,7 +575,16 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
 
             entity.ToTable("Observation");
 
-            entity.HasIndex(e => new { e.LocationId, e.CategoryId }, "IX_LocationId");
+            // Dekkende for matrikkelgrenen: datosortering på alle funn i en eiendom.
+            // HiddenByAnnotation må være med, ellers slås hver rad opp. Målt på en
+            // eiendom med 174 919 funn: 2 794 mot 669 647 lesninger.
+            entity.HasIndex(e => new { e.LocationId, e.CategoryId }, "IX_LocationId")
+                .IncludeProperties(e => new
+                {
+                    e.DateTimeCollected, e.BasisOfRecordId, e.TaxonId, e.TaxonGroupId,
+                    e.YearCollected, e.MonthCollected, e.Id, e.HiddenByAnnotation,
+                })
+                .UseDataCompression(DataCompressionType.Page);
 
             entity.HasIndex(e => new { e.TaxonGroupId, e.CategoryId }, "IX_TaxonGroupId");
 
@@ -688,6 +700,15 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // mekanisme enn de tre andre, og fordelingen kan endre seg med import.
             entity.Property(e => e.UncertainIdentification).HasDefaultValue(false);
             entity.Property(e => e.Introduced).HasDefaultValue(false);
+            entity.Property(e => e.HiddenByAnnotation).HasDefaultValue(false);
+
+            // Samme mønster for skjulte funn. Negasjonen er standardfilteret og treffer
+            // nesten alle rader, så bare den merkede halvdelen trenger indeksen.
+            entity.HasIndex(e => new { e.HiddenByAnnotation, e.DateTimeCollected, e.Id })
+                .HasDatabaseName("IX_Observation_HiddenByAnnotation")
+                .IsDescending(false, true, true)
+                .HasFilter("[HiddenByAnnotation] = 1")
+                .IncludeProperties(e => new { e.HasMediaFiles, e.BehaviorId, e.CoordinatePrecisionInMeters });
 
             entity.HasIndex(e => new { e.UncertainIdentification, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_UncertainIdentification")
@@ -711,6 +732,13 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             // Indeksen har bare de ~4M funnene med mediefiler, i datorekkefølge. INCLUDE
             // dekker de vanligste filterkolonnene; flaggene med egne filtrerte indekser
             // (annotering, sensitivitet, artsbestemmelse, opprinnelse) slås fortsatt opp.
+            //
+            // HiddenByAnnotation må være med selv om den har egen indeks: standardfilteret
+            // står på hver spørring. Uten den ble hver kandidat slått opp, målt 29 millioner
+            // lesninger og 2 480 mot 220 ms for én art.
+            //
+            // Komprimeringen står i modellen fordi indeksen bygges på nytt etter
+            // PageCompressIndexes i miljøer der den alt har kjørt.
             entity.HasIndex(e => new { e.HasMediaFiles, e.DateTimeCollected, e.Id })
                 .HasDatabaseName("IX_Observation_HasMediaFiles")
                 .IsDescending(false, true, true)
@@ -719,7 +747,9 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 {
                     e.BasisOfRecordId, e.BehaviorId, e.CategoryId, e.CoordinatePrecisionInMeters, e.DatasetOrgId,
                     e.InstitutionOrgId, e.MonthCollected, e.RegistrationStatusId, e.TaxonGroupId, e.TaxonId,
-                });
+                    e.HiddenByAnnotation,
+                })
+                .UseDataCompression(DataCompressionType.Page);
 
             // CompleteFilter — indeksen betjener typeahead-endepunktet for katalognummer
             // (prefikssøk mot 61M rader), ikke filterspørringen. Filteret sender
@@ -1213,6 +1243,38 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.TaxonGroupId, e.CategoryId })
                 .HasDatabaseName("IX_ObservationEntityIndex_EntityLookup");
 
+            // Listevisningen med områdefilter leser hvert område nyeste først og stopper når
+            // siden er full, se SearchRepository.GetAreaFilteredObservationIdsAsync. Uten denne
+            // skanner hver områdegren columnstore, målt til 140-200 ms per gren.
+            //
+            // Artsgruppe og kategori er med, fordi et sjeldent filter ellers leser hele området med
+            // et oppslag per rad: målt 0,8-1,0 s for 14 kommuner med sommerfugler eller kritisk
+            // truede. HiddenByAnnotation er med fordi standardfilteret alltid sjekker den. Andre
+            // filterkolonner slås opp i klyngeindeksen for radene som leses.
+            //
+            // LocationId og koordinatpresisjon er ikke med, med vilje. Med dem dekket indeksen
+            // kartets tellinger, og da valgte optimizeren den framfor columnstore: målt 0,12 til
+            // 1,7 s for LocationCount med bare fylke, og 0,28 til 1,5 s for fylke og fugler med
+            // alle filterkolonnene inkludert.
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.DateTimeCollected, e.ObservationId })
+                .HasDatabaseName("IX_OEI_AreaListView")
+                .IsDescending(false, false, true, true)
+                .IncludeProperties(e => new { e.TaxonGroupId, e.CategoryId, e.HiddenByAnnotation })
+                .UseDataCompression(DataCompressionType.Page)
+                .IsCreatedOnline();
+
+            // Galleriet leser bare funn med mediefiler, rundt 6 % av radene. Med et sjeldent
+            // filter i tillegg leste hver områdegren i IX_OEI_AreaListView hele området med et
+            // oppslag per rad: målt 1,0-1,2 s per kommune for kritisk truede med bilder. Her
+            // ligger bare radene med mediefiler, og kategori, artsgruppe og skjulte funn sjekkes
+            // uten oppslag.
+            entity.HasIndex(e => new { e.EntityTypeId, e.EntityId, e.DateTimeCollected, e.ObservationId }, "IX_OEI_MediaListView")
+                .IsDescending(false, false, true, true)
+                .HasFilter("[HasMediaFiles] = 1")
+                .IncludeProperties(e => new { e.CategoryId, e.TaxonGroupId, e.HiddenByAnnotation })
+                .UseDataCompression(DataCompressionType.Page)
+                .IsCreatedOnline();
+
             // Taksonkolonnene (SpeciesTaxonId, GenusTaxonId, FamilyTaxonId, OrderTaxonId)
             // har bevisst ingen rowstore-indekser — de betjenes av columnstore-indeksen
             // IX_OEI_Columnstore. Målinger viste at b-tre-indekser på disse kolonnene
@@ -1298,6 +1360,22 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
             entity.Property(e => e.Status).HasMaxLength(16).IsRequired();
         });
 
+        // Se LocationListStore. Ingen fremmednøkkel: ryddingen sletter listeraden først og
+        // radene etterpå, i porsjoner.
+        modelBuilder.Entity<LocationList>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("LocationLists");
+            entity.Property(e => e.Hash).HasMaxLength(32).IsFixedLength();
+            entity.HasIndex(e => e.Hash).IsUnique();
+        });
+
+        modelBuilder.Entity<LocationListEntry>(entity =>
+        {
+            entity.HasKey(e => new { e.ListId, e.LocationId });
+            entity.ToTable("LocationListEntries");
+        });
+
         modelBuilder.Entity<ObservationProject>(entity =>
         {
             entity.HasKey(e => new { e.ObservationId, e.ProjectOrgId });
@@ -1318,6 +1396,13 @@ public partial class ArtskartDbContext : DbContext, IArtsKartDbContext
                 .HasForeignKey(e => e.ProjectOrgId)
                 .HasConstraintName("FK_ObservationProject_Organization")
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Nøkkelen leder med AreaId, så filteret blir ett rekkeviddesøk per område.
+        modelBuilder.Entity<HistoricalAreaLocation>(entity =>
+        {
+            entity.HasKey(e => new { e.AreaId, e.LocationId });
+            entity.ToTable("HistoricalAreaLocation");
         });
 
         modelBuilder.Entity<ObservationTaxonHierarchy>(entity =>

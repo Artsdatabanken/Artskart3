@@ -1,4 +1,4 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, effect } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -13,6 +13,7 @@ import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { SaveFilterDialogComponent } from '../../shared/components/save-filter-dialog/save-filter-dialog.component';
 import { SavedFilterService } from '../../shared/services/saved-filter/saved-filter.service';
 import { SearchFilterService } from '../../shared/services/search-filter/search-filter.service';
+import { CustomAreaDrawingService } from '../../shared/services/custom-area-drawing/custom-area-drawing.service';
 import { ExportService } from '../../shared/services/export/export.service';
 import { AlertService } from '../../shared/services/alert/alert.service';
 import { AuthService } from '../../shared/services/auth/auth.service';
@@ -89,6 +90,14 @@ export class HomeComponent {
   });
 
   activeTab = signal(0);
+
+  private readonly customAreaDrawing = inject(CustomAreaDrawingService);
+  // On mobile the filter sheet would cover the map, so it is closed too.
+  private readonly _showMapWhileDrawing = effect(() => {
+    if (!this.customAreaDrawing.isDrawing()) return;
+    this.activeTab.set(0);
+    this.isFilterOpen.set(false);
+  });
   exporting = signal(false);
 
   // Modal state
@@ -228,15 +237,6 @@ export class HomeComponent {
 
   toggleFilter(): void {
     this.isFilterOpen.update((open) => !open);
-  }
-
-  toggleMobileTab(): void {
-    this.activeTab.update((tab) => (tab === 0 ? 1 : 0));
-  }
-
-  isMobile(): boolean {
-    this.viewportTick();
-    return this.isMobileViewport();
   }
 
   onWindowResize(): void {

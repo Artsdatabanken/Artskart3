@@ -21,4 +21,5 @@ export interface LocationFeatureProperties {
   observationCount: number;
   observationCountDisplay: string;
   isPolygon: boolean;
+  isSensitive?: boolean;
 }

@@ -91,6 +91,9 @@ database gir misvisende tall. Vi bruker `Artskart3IndexProdLikeTestMigrations`:
 API-et må også startes mot Kartverket-stubben, ellers stopper kjøringen før den
 måler noe. Se [Matrikkelenheter og Kartverket-stubben](#matrikkelenheter-og-kartverket-stubben).
 
+Databasen må dessuten ha `HistoricalAreaLocation` bygget med
+`Scripts/BuildHistoricalAreaLocations.sql`. Se [Historiske områder](#historiske-områder).
+
 ```powershell
 # Se hva matrisen dekker uten å måle noe
 ./Scripts/PerfSuite/Run.ps1 -ListOnly
@@ -184,6 +187,9 @@ fortsatt er brukbar:
 | `kvadruppel` | Deterministisk utvalg av fire |
 | `reise` | Håndplukkede, realistiske brukerflyter med 3–8 filtre |
 | `matrikkel` | Matrikkelenheter, alene og med utvalgte filtre. Se under |
+| `historisk` | Historiske fylker og kommuner, alene og med utvalgte filtre. Se under |
+| `egendefinert` | Polygoner tegnet i kartet, alene og med utvalgte filtre. Se under |
+| `skjult` | Kun skjulte og alle funn, alene og med utvalgte filtre. Se under |
 | `oppslag` | Typeahead-endepunktene, som ikke tar filterkropp |
 
 Hver case kjøres mot flere endepunkter (`Observation` og `ObservationImages`
@@ -395,6 +401,125 @@ filter uten treff. Legger du til eller bytter en eiendom, kjør
 tiden til det første caset som bruker den. Enkeltcasene kjøres først av den grunn.
 `Compare.ps1` sammenligner varm tid og ser det ikke. For `stor` tok oppslaget
 133 ms i API-et 28.10.2026.
+
+## Historiske områder
+
+Filteret på historiske fylker og kommuner (`historicalAreaIds`) har et eget lag,
+`historisk`, bygget på håndplukkede områder i `$PerfHistoricalAreas` i
+`Fixtures.ps1`. Som matrikkelenhetene holdes de utenfor `fixtures.dimensions`, så
+case-nøklene til de andre lagene og gamle baselinjer står.
+
+| Nivå | Område | Lokasjoner | Observasjoner |
+|---|---|---|---|
+| `tung` | Viken, fylke 2020–2023 (Area.Id 663) | 1 408 443 | 10 224 923 |
+| `kommune` | Bærum før 2020 (241) | 64 765 | 701 724 |
+| `lett` | Gjerdrum før 2020 (244) | 4 929 | 14 340 |
+| `x2` | Bærum + Asker før 2020 (241, 366) | | |
+| `utenfor` | Troms og Finnmark (669), ingen lokasjoner i `oslo` | 366 098 | 3 122 475 |
+
+Tallene er lokasjoner i `HistoricalAreaLocation` og observasjonene på dem, målt mot
+`Artskart3TestMigrations` 09.11.2026. Alle unntatt `utenfor` ligger helt innenfor
+`oslo`-utsnittet. `utenfor` måler at et historisk område ikke lukes mot
+kartutsnittet: spørringen kjøres selv om svaret blir tomt.
+
+Laget har 17 case: hvert nivå alene, og kombinasjoner valgt etter kodestiene
+filteret treffer — med et gjeldende område (egen gren og tellinger utenfor
+områdene), lette filtre der den datosorterte `TOP`-en må lese langt, tunge og
+lette filtre på store og små områder (filteret har alltid `RECOMPILE`), to
+institusjoner, og sammen med en matrikkelenhet. `Quick` tar bare `tung` og `lett`
+alene. `Locations` og `LocationPolygons` kjører laget bare på `oslo`. Polygonene
+går til databasen, siden minnelageret ikke dekker historiske områder.
+`oppslag:omraadesoek` måler typeahead-søket med to tegn.
+
+### Tabellen må være bygget
+
+Area.Id er ikke garantert lik på tvers av databaser, og uten rader i
+`HistoricalAreaLocation` gir filteret et tomt svar. Før noe måles, slår `Run.ps1`
+derfor opp hvert område i API-et og stopper hvis det har feil Fid, er gjeldende,
+eller ikke vises i områdesøket. Søket viser bare historiske områder med
+lokasjoner, så sjekken trenger ingen databasetilkobling.
+
+## Egendefinerte områder
+
+Polygonfilteret (`customAreaWkt`) har et eget lag, `egendefinert`, bygget på åtte
+håndplukkede polygoner i `$PerfCustomAreas` i `Fixtures.ps1`. Som matrikkelenhetene
+er de konstanter utenfor `fixtures.dimensions`, så de andre case-nøklene ikke endrer
+seg. Polygonene er valgt etter hvilken vei søket tar:
+
+- Under 20 000 lokasjoner sendes listen som JSON (`OPENJSON`). Over det lagres den i
+  `LocationListEntries` og joines (`LocationListStore`).
+- Ligger et område helt innenfor polygonet, deles søket: områdene leses som et
+  vanlig områdefilter, og bare kanten sendes som liste. Grensen på 600 000 lokasjoner
+  (`SearchConstants.MaxCustomAreaLocations`) gjelder da kanten.
+
+| Nivå | Polygon | Lokasjoner som liste | Vei |
+|---|---|---|---|
+| `skog` (`lett`) | 3 × 3 km i Nordmarka | 235 | JSON |
+| `liten` | 2 × 2 km i sentrale Oslo | 6 366 | JSON |
+| `tung` | 16 × 12 km over Oslo | 123 960 | lagret liste |
+| `stor` | 32 × 25 km over Oslo | 276 599 | lagret liste |
+| `stripe` | 24 km bred stripe Drammen–Lillestrøm | 384 500 | lagret liste, ingen områder helt innenfor |
+| `delt` | 40 × 32 km | 332 739 i kanten | delt, Lørenskog helt innenfor |
+| `mange` | 90 × 72 km | 222 139 i kanten | delt, 15 områder helt innenfor |
+| `maks` | Kryss med 14 km brede armer | 471 987 i kanten | delt, Ås helt innenfor |
+
+Tallene er målt mot `Artskart3TestMigrations` 13.11.2026. Alle polygonene ligger i
+`oslo`-utsnittet, og `Locations` og `LocationPolygons` kjører laget bare der.
+
+Laget har 24 case: hvert polygon alene, og kombinasjoner valgt etter kodestiene:
+tunge og sjeldne filtre mot én spørring over hele listen, sjeldne filtre der
+områdene i et delt søk må lese langt, kommune, matrikkel og historisk område (da
+deles ikke polygonet), kun skjulte funn, og én brukerreise. `Quick` tar bare `tung`
+og `delt` alene.
+
+### Oppslaget måles for seg, og bare kaldt
+
+Frontend kaller `POST /api/Lookup/CustomArea` når tegningen er ferdig. Oppslaget
+finner lokasjonene, deler polygonet og starter lagringen av listen i bakgrunnen.
+Svaret bufres i en time, så bare første kall måler arbeidet. Derfor har hvert
+polygon sitt eget oppslag i `oppslag`-laget, `oppslag:egendefinert-<nivå>`, som
+kjøres én gang (`LookupRuns`) og før søkene. I tillegg kommer
+`oppslag:egendefinert-forstor`, et kryss med 26 km brede armer og 660 761 lokasjoner
+i kanten. Det svarer `tooManyLocations` og måler hvor lang tid avvisningen tar.
+`Quick` slår opp `tung` og `delt` i tillegg til det for store.
+
+`-Layer egendefinert` tar ikke med oppslagene. Søkene gjør da oppslaget selv, og det
+havner i den kalde tiden til det første søket per polygon.
+
+Laget gir 11 målinger på `Quick`, 201 på `Standard` og 249 på `Full`, oppslagene
+medregnet.
+
+### Start API-et på nytt før hver kjøring
+
+Bufferen i API-et er grunnen til at oppslagene bare måles kaldt, og den overlever
+ikke en omstart. De lagrede listene gjør det: de ligger i databasen til de ikke har
+vært brukt på to timer. En ny kjøring samme dag finner listene og trenger bare å
+oppdatere `LastUsedAt`, der den første må skrive dem. Forskjellen synes i den kalde
+tiden til første søk per polygon (søket venter på lagringen i opptil 2 sekunder),
+ikke i den varme tiden `Compare.ps1` sammenligner.
+
+## Skjulte funn
+
+Filteret på skjulte funn (`hiddenObservations`) har dimensjonen `skjulte` i
+`New-PerfFixtures`, men den kommer først med i `fixtures.json` ved neste
+`-RefreshFixtures`, og det forkaster alle baselinjer. Til da måles de to valgene i et
+eget lag, `skjult`, bygget av `New-PerfHiddenDimension` i `Fixtures.ps1`. Nøklene er
+`skjult:kun` og `skjult:alle`, så de ikke kolliderer med dimensjonen når den kommer.
+Alle andre case måler standardvalget, der skjulte funn utelates.
+
+Kun skjulte funn er 7 267 av 61 millioner. Listevisningen leser dem fra
+`IX_Observation_HiddenByAnnotation` og hopper over grenene per område og per verdi,
+som ellers måtte lest hele området før siden var fylt: 8 fylker tok 4,1 s som grener,
+mot 29–35 ms fra indeksen, målt direkte i SQL 17.11.2026.
+
+Laget har 9 case: hvert valg alene, kun skjulte med ett fylke, de 15 tyngste kommunene
+og de 8 tyngste fylkene, med to institusjoner (grening), med et historisk fylke og med
+fugler, og alle funn med ett fylke. `Quick` tar kun skjulte alene og med de 8 fylkene.
+`Locations` og `LocationPolygons` kjører laget bare på `oslo`. Laget gir 8 målinger på
+`Quick`, 72 på `Standard` og 90 på `Full`.
+
+Med `fixtures.json` fra 27.10.2026 og lagene `historisk`, `egendefinert` og `skjult`
+blir matrisen 521, 3 535 og 11 656 målinger (`Run.ps1 -ListOnly`, 17.11.2026).
 
 ## Indekssporing
 

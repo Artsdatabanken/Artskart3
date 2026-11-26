@@ -1,3 +1,4 @@
+@let indicatorLabel = 'sidebar.activeSelections' | translate;
 <div class="sidebar-content">
   @if (authService.isAuthenticated()) {
     <div class="sidebar-actions">
@@ -5,7 +6,7 @@
     </div>
   }
   <app-species-search />
-  <app-filter-chips />
+  <app-filter-chips [showScientificNames]="showScientificNames()" (openFilter)="onOpenFilter($event)" />
   <div class="sidebar-header">
     <h5 class="sidebar-heading">{{ 'sidebar.heading' | translate }}</h5>
     @if (showUseDefaultFilter()) {
@@ -16,7 +17,12 @@
   </div>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.taxonGroups' | translate">
+    <adb-accordion-item
+      data-filter-section="taxonGroups"
+      [attr.heading]="'sidebar.taxonGroups' | translate"
+      [attr.indicator]="sectionsWithSelection().has('taxonGroups') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       @if (taxonGroups(); as taxonGroupList) {
         @if (taxonGroupList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -46,7 +52,13 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.taxonTree' | translate" (toggle)="onTaxonTreeToggle()">
+    <adb-accordion-item
+      data-filter-section="taxonTree"
+      [attr.heading]="'sidebar.taxonTree' | translate"
+      [attr.indicator]="sectionsWithSelection().has('taxonTree') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+      (toggle)="onTaxonTreeToggle()"
+    >
       @if (taxonTreeOpened()) {
         <div class="taxon-tree-options">
           <adb-switch
@@ -60,13 +72,18 @@
             {{ 'sidebar.scientificNames' | translate }}
           </adb-switch>
         </div>
-        <app-taxon-tree [showScientificNames]="showScientificNames()" />
+        <app-taxon-tree [showScientificNames]="showScientificNames()" [revealSelection]="taxonTreeReveal()" />
       }
     </adb-accordion-item>
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.categories' | translate">
+    <adb-accordion-item
+      data-filter-section="categories"
+      [attr.heading]="'sidebar.categories' | translate"
+      [attr.indicator]="sectionsWithSelection().has('categories') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       @if (categoryTypes(); as types) {
         @for (type of types; track type.id ?? $index) {
           <h6 class="category-section-heading">{{ 'sidebar.categoryType.' + type.name | translate }}</h6>
@@ -82,7 +99,7 @@
                 {{ 'sidebar.selectAll' | translate }}
               </adb-checkbox>
             }
-            @for (category of getSortedCategories(type.categories); track category.id ?? $index) {
+            @for (category of sortCategories(type.categories); track category.id ?? $index) {
               @if (category.id !== undefined) {
                 <adb-checkbox [attr.checked]="isCategorySelected(category.id) ? '' : null" (change)="onCategoryToggle(category.id)">
                   <span class="category-content">
@@ -102,7 +119,14 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.areas' | translate">
+    <adb-accordion-item
+      data-filter-section="areas"
+      [attr.heading]="'sidebar.areas' | translate"
+      [attr.indicator]="sectionsWithSelection().has('areas') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
+      <h6 class="area-section-heading custom-area-heading">{{ 'sidebar.customArea.heading' | translate }}</h6>
+      <app-custom-area-control class="custom-area-control" />
       <h6 class="area-section-heading area-search-heading">{{ 'sidebar.restrictedArea' | translate }}</h6>
       <app-autocomplete
         class="area-search restricted-area-search"
@@ -130,6 +154,38 @@
         [selectedIds]="selectedCadastralUnitIds()"
         (selected)="onCadastralUnitSelected($event)"
       />
+      <h6 class="area-section-heading area-search-heading">{{ 'sidebar.areaSearch' | translate }}</h6>
+      <app-autocomplete
+        class="area-search"
+        [search]="searchAreas"
+        [fitContent]="true"
+        [label]="'sidebar.areaSearch' | translate"
+        placeholder=""
+        noResultsKey="sidebar.noSearchResultsArea"
+        [trackBy]="trackByAreaId"
+        (selected)="onAreaSelected($event)"
+      >
+        <ng-template [appAutocompleteOption]="searchAreas" let-suggestion let-term="term">
+          <span>
+            <app-highlight-text [text]="suggestion.area.name" [term]="term" />
+            @if (suggestion.detail) {
+              <span class="suggestion-detail"> {{ suggestion.detail }}</span>
+            }
+            @if (suggestion.area.observationCount !== null && suggestion.area.observationCount !== undefined) {
+              <span class="suggestion-count"> ({{ suggestion.area.observationCount | formatNumber: translate.currentLang }})</span>
+            }
+          </span>
+        </ng-template>
+      </app-autocomplete>
+      <p class="area-search-hint" [class.area-search-hint--error]="historicalAreaLimitReached()">
+        {{ (historicalAreaLimitReached() ? 'sidebar.areaSearchLimitReached' : 'sidebar.areaSearchHint') | translate: { max: maxHistoricalAreas } }}
+      </p>
+      <!-- Live region must exist in the DOM before a message arrives, or it isn't announced. -->
+      <div class="sr-only" role="status" aria-atomic="true">
+        @if (historicalAreaLimitReached()) {
+          {{ 'sidebar.areaSearchLimitReached' | translate: { max: maxHistoricalAreas } }}
+        }
+      </div>
       @if (countyGroups(); as groups) {
         @if (groups.length > 0) {
           <h6 class="area-section-heading">
@@ -137,7 +193,7 @@
           </h6>
           <adb-accordion>
             @for (group of groups; track group.county.fid) {
-              <adb-accordion-item>
+              <adb-accordion-item [attr.data-partly-selected]="isSomeInCountySelected(group) ? '' : null">
                 <adb-checkbox
                   slot="heading"
                   [attr.checked]="isAllInCountySelected(group) ? '' : null"
@@ -204,7 +260,12 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.coordinatePrecision' | translate">
+    <adb-accordion-item
+      data-filter-section="coordinatePrecision"
+      [attr.heading]="'sidebar.coordinatePrecision' | translate"
+      [attr.indicator]="sectionsWithSelection().has('coordinatePrecision') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       <div class="coordinate-precision-filter">
         <div class="coordinate-precision-inputs">
           <label class="coordinate-precision-label">
@@ -237,7 +298,12 @@
     </adb-accordion-item>
   </adb-accordion>
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.period' | translate">
+    <adb-accordion-item
+      data-filter-section="period"
+      [attr.heading]="'sidebar.period' | translate"
+      [attr.indicator]="sectionsWithSelection().has('period') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       <div class="coordinate-precision-filter">
         <div class="coordinate-precision-inputs">
           <label class="coordinate-precision-label">
@@ -281,7 +347,12 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.behaviors' | translate">
+    <adb-accordion-item
+      data-filter-section="behaviors"
+      [attr.heading]="'sidebar.behaviors' | translate"
+      [attr.indicator]="sectionsWithSelection().has('behaviors') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       @if (behaviors(); as behaviorList) {
         @if (behaviorList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -311,7 +382,12 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.basisOfRecords' | translate">
+    <adb-accordion-item
+      data-filter-section="basisOfRecords"
+      [attr.heading]="'sidebar.basisOfRecords' | translate"
+      [attr.indicator]="sectionsWithSelection().has('basisOfRecords') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       @if (basisOfRecords(); as basisOfRecordList) {
         @if (basisOfRecordList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -361,7 +437,12 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.institutions' | translate">
+    <adb-accordion-item
+      data-filter-section="institutions"
+      [attr.heading]="'sidebar.institutions' | translate"
+      [attr.indicator]="sectionsWithSelection().has('institutions') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       @if (institutions(); as institutionList) {
         @if (institutionList.length > 0) {
           <div class="checkbox-accordion-children">
@@ -385,7 +466,12 @@
   </adb-accordion>
 
   <adb-accordion>
-    <adb-accordion-item [attr.heading]="'sidebar.otherProperties' | translate">
+    <adb-accordion-item
+      data-filter-section="otherProperties"
+      [attr.heading]="'sidebar.otherProperties' | translate"
+      [attr.indicator]="sectionsWithSelection().has('otherProperties') ? '' : null"
+      [attr.indicator-label]="indicatorLabel"
+    >
       <div class="other-properties-filter">
         <div class="other-properties-label">
           {{ 'sidebar.project' | translate }}
@@ -485,8 +571,9 @@
           (change)="onAnnotationFilterChange($event)"
         >
           <adb-radio value="all">{{ 'sidebar.annotationAll' | translate }}</adb-radio>
-          <adb-radio value="changed">{{ 'sidebar.annotationChanged' | translate }}</adb-radio>
-          <adb-radio value="notChanged">{{ 'sidebar.annotationNotChanged' | translate }}</adb-radio>
+          <adb-radio value="excludeHidden">{{ 'sidebar.annotationExcludeHidden' | translate }}</adb-radio>
+          <adb-radio value="hidden">{{ 'sidebar.annotationHidden' | translate }}</adb-radio>
+          <adb-radio value="annotated">{{ 'sidebar.annotationAnnotated' | translate }}</adb-radio>
         </adb-radio-group>
       </div>
     </adb-accordion-item>

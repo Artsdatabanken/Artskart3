@@ -6,6 +6,7 @@ using Artskart3.Infrastructure.Persistence.QueryBuilders;
 using FluentAssertions;
 using FluentAssertions.Execution;
 using Microsoft.EntityFrameworkCore;
+using HiddenObservationFilter = Artskart3.Core.Domain.Enums.HiddenObservationFilter;
 using ObservationIndexEntityType = Artskart3.Core.Domain.Enums.ObservationIndexEntityType;
 using TagEnum = Artskart3.Core.Domain.Enums.Tag;
 
@@ -120,6 +121,136 @@ public class ObservationQueryBuilderTests
 
         result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
     }
+
+    [Fact]
+    public void ApplyFilters_WithHistoricalAreaId_ReturnsObservationsAtItsLocations()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 11),
+            CreateObservation(3, locationId: 20));
+        context.Set<HistoricalAreaLocation>().AddRange(
+            new HistoricalAreaLocation { AreaId = 669, LocationId = 10 },
+            new HistoricalAreaLocation { AreaId = 669, LocationId = 11 },
+            new HistoricalAreaLocation { AreaId = 670, LocationId = 20 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HistoricalAreaIds = [669] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithHistoricalAreaAndMunicipality_ReturnsObservationsInEither()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<ObservationEntityIndex>().Add(new ObservationEntityIndex
+        {
+            ObservationId = 2,
+            EntityTypeId = (int)ObservationIndexEntityType.Municipality,
+            EntityId = 301
+        });
+        context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = 669, LocationId = 10 });
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HistoricalAreaIds = [669], MunicipalityIds = ["0301"] });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithHistoricalAreaAndCadastralUnit_ReturnsObservationsInEither()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<HistoricalAreaLocation>().Add(new HistoricalAreaLocation { AreaId = 669, LocationId = 10 });
+        context.SaveChanges();
+        var cadastralUnits = new StubCadastralUnitService(new() { ["1101-1/2"] = [20] });
+
+        var result = Apply(
+            context,
+            new ObservationSearchFilterDto { HistoricalAreaIds = [669], CadastralUnitIds = ["1101-1/2"] },
+            cadastralUnits: cadastralUnits);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    [Fact]
+    public void ApplyFilters_WithCustomArea_ReturnsObservationsAtItsLocations()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 11),
+            CreateObservation(3, locationId: 20));
+        context.SaveChanges();
+        var customAreas = new StubCustomAreaService(new() { [Trekant] = [10, 11] });
+
+        var result = Apply(context, new ObservationSearchFilterDto { CustomAreaWkt = Trekant }, customAreas: customAreas);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    /// <summary>
+    /// Det egendefinerte området AND-es med områdene, i motsetning til matrikkelenhetene:
+    /// bare treff som er i begge, skal være med.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithCustomAreaAndMunicipality_ReturnsObservationsInBoth()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 10),
+            CreateObservation(3, locationId: 20));
+        context.Set<ObservationEntityIndex>().AddRange(
+            new ObservationEntityIndex { ObservationId = 2, EntityTypeId = (int)ObservationIndexEntityType.Municipality, EntityId = 301 },
+            new ObservationEntityIndex { ObservationId = 3, EntityTypeId = (int)ObservationIndexEntityType.Municipality, EntityId = 301 });
+        context.SaveChanges();
+        var customAreas = new StubCustomAreaService(new() { [Trekant] = [10] });
+
+        var result = Apply(
+            context,
+            new ObservationSearchFilterDto { CustomAreaWkt = Trekant, MunicipalityIds = ["0301"] },
+            customAreas: customAreas);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([2]);
+    }
+
+    /// <summary>
+    /// Eksporten deler polygonet som søket. Hele lokasjonslisten er for stor, så uten delingen
+    /// ville spørringen feilet; med den er kommunen helt innenfor et områdefilter, og bare
+    /// kanten er en lokasjonsliste.
+    /// </summary>
+    [Fact]
+    public void ApplyFilters_WithSplitCustomArea_ReturnsTheInsideAreasAndTheEdge()
+    {
+        using var context = CreateInMemoryContext();
+        SeedObservations(context,
+            CreateObservation(1, locationId: 10),
+            CreateObservation(2, locationId: 20),
+            CreateObservation(3, locationId: 30));
+        context.Set<ObservationEntityIndex>().Add(
+            new ObservationEntityIndex { ObservationId = 1, EntityTypeId = (int)ObservationIndexEntityType.Municipality, EntityId = 301 });
+        context.SaveChanges();
+        var customAreas = new StubCustomAreaService(
+            new() { [Trekant] = null },
+            splitsByWkt: new() { [Trekant] = new CustomAreaSplit([((int)Artskart3.Core.Domain.Enums.AreaType.Municipality, "0301")], [20]) });
+
+        var result = Apply(context, new ObservationSearchFilterDto { CustomAreaWkt = Trekant }, customAreas: customAreas);
+
+        result.Select(o => o.Id).Should().BeEquivalentTo([1, 2]);
+    }
+
+    private const string Trekant = "POLYGON ((0 0, 10 0, 10 10, 0 0))";
 
     [Fact]
     public void ApplyFilters_WithProjectOrgId_ReturnsObservationsInThatProject()
@@ -409,6 +540,28 @@ public class ObservationQueryBuilderTests
     // ---------------------------------------------------------------------
 
     [Theory]
+    [InlineData(HiddenObservationFilter.Exclude, new[] { 2 })]
+    [InlineData(HiddenObservationFilter.Only, new[] { 1 })]
+    [InlineData(HiddenObservationFilter.Include, new[] { 1, 2 })]
+    public void ApplyFilters_HiddenObservations_SplitsOnDenormalisedColumn(HiddenObservationFilter filter, int[] expectedIds)
+    {
+        using var context = CreateInMemoryContext();
+        var skjult = CreateObservation(1);
+        var synlig = CreateObservation(2);
+
+        skjult.HiddenByAnnotation = true;
+
+        SeedObservationsWithTags(context,
+            (skjult, [(int)TagEnum.Blocked]),
+            (synlig, [(int)TagEnum.Absent]));
+        context.SaveChanges();
+
+        var result = Apply(context, new ObservationSearchFilterDto { HiddenObservations = filter });
+
+        result.Select(o => o.Id).Should().BeEquivalentTo(expectedIds);
+    }
+
+    [Theory]
     [InlineData(true, 1)]
     [InlineData(false, 2)]
     public void ApplyFilters_ChangedByAnnotation_SplitsOnDenormalisedColumn(bool changedByAnnotation, int expectedId)
@@ -589,6 +742,10 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.OceanAreaIds)] = f => f.OceanAreaIds = ["9999"],
         // Stubben kjenner ingen matrikkelenheter, så den har ingen lokasjoner.
         [nameof(IObservationFilter.CadastralUnitIds)] = f => f.CadastralUnitIds = ["9999-1/1"],
+        // Ingen lokasjoner er koblet til det historiske området.
+        [nameof(IObservationFilter.HistoricalAreaIds)] = f => f.HistoricalAreaIds = [999],
+        // Stubben kjenner ingen polygoner, så området har ingen lokasjoner.
+        [nameof(IObservationFilter.CustomAreaWkt)] = f => f.CustomAreaWkt = Trekant,
         [nameof(IObservationFilter.BehaviorIds)] = f => f.BehaviorIds = [999],
         [nameof(IObservationFilter.BasisOfRecordIds)] = f => f.BasisOfRecordIds = [999],
         // Observasjonen har ingen tagger, så «ikke registrert» treffer ikke.
@@ -602,6 +759,8 @@ public class ObservationQueryBuilderTests
         [nameof(IObservationFilter.WithImages)] = f => f.WithImages = true,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.ChangedByAnnotation)] = f => f.ChangedByAnnotation = true,
+        // Observasjonen er ikke skjult.
+        [nameof(IObservationFilter.HiddenObservations)] = f => f.HiddenObservations = HiddenObservationFilter.Only,
         // Observasjonen har ingen tagger.
         [nameof(IObservationFilter.Sensitive)] = f => f.Sensitive = true,
         // Observasjonen har ingen tagger — altså sikker artsbestemmelse.
@@ -705,12 +864,14 @@ public class ObservationQueryBuilderTests
         ArtskartDbContext context,
         ObservationSearchFilterDto filter,
         ITaxonHierarchyService? taxonHierarchy = null,
-        ICadastralUnitService? cadastralUnits = null) =>
+        ICadastralUnitService? cadastralUnits = null,
+        ICustomAreaService? customAreas = null) =>
         ObservationQueryBuilder
             .ApplyFiltersAsync(
                 context,
                 taxonHierarchy ?? new StubTaxonHierarchyService(),
                 cadastralUnits ?? new StubCadastralUnitService(),
+                customAreas ?? new StubCustomAreaService(),
                 context.Set<Observation>().AsNoTracking(),
                 filter,
                 CancellationToken.None)

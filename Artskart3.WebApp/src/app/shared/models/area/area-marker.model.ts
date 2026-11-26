@@ -71,4 +71,5 @@ export interface LocationPolygonDto {
   locality?: string;
   wktPolygon: string;
   observationCount: number;
+  isSensitive?: boolean;
 }

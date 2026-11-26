@@ -4,9 +4,11 @@ import Point from 'ol/geom/Point';
 import Polygon from 'ol/geom/Polygon';
 import MultiPolygon from 'ol/geom/MultiPolygon';
 import type { State } from 'ol/render';
+import { asString } from 'ol/color';
 import { Circle as CircleStyle, Icon } from 'ol/style';
 import {
   hasPolygonMarker,
+  isSensitivePolygon,
   MapFeatureStyles,
   MapFeatureState,
   MapMarkerKind,
@@ -24,6 +26,8 @@ function tokenStyles(): CSSStyleDeclaration {
   styles.setProperty('--adb-color-brand-sun-70', '#F8AE00');
   styles.setProperty('--adb-color-special-100', '#F34F39');
   styles.setProperty('--adb-color-special-110', '#D61900');
+  styles.setProperty('--adb-color-brand-evergreen-70', '#0C936B');
+  styles.setProperty('--adb-color-functional-red-70', '#B80738');
   return styles;
 }
 
@@ -40,6 +44,7 @@ function canvasState(geometry: Point | Polygon | MultiPolygon, pixelRatio = 1) {
     clip: vi.fn(),
     arc: vi.fn(),
     stroke: vi.fn(),
+    setLineDash: vi.fn(),
     lineWidth: 0,
     lineJoin: 'round',
     lineCap: 'round',
@@ -442,6 +447,67 @@ describe('MapFeatureStyles', () => {
     },
   );
 
+  it('draws sensitive polygons with the base fill and a dashed border', () => {
+    const [base, ...rest] = styles.polygon(true);
+    expect(base.getFill()?.getColor()).toEqual([0, 90, 113, 0.06]);
+    expect(base.getStroke()?.getColor()).toEqual([0, 90, 113, 1]);
+    expect(base.getStroke()?.getWidth()).toBe(2);
+    expect(base.getStroke()?.getLineDash()).toEqual([10, 6]);
+    expect(base.getStroke()?.getLineCap()).toBe('butt');
+    expect(rest).toHaveLength(0);
+    expect(styles.polygon().at(0)?.getStroke()?.getLineDash()).toBeNull();
+  });
+
+  it.each([
+    ['default', [0, 90, 113, 1]],
+    ['hover', [0, 90, 113, 1]],
+    ['selected', [248, 174, 0, 1]],
+  ] as const)('draws the %s border of a sensitive polygon in its state colour, over the base dashes', (state, color) => {
+    const layers = styles.polygonHighlight(state, true);
+    const border = layers[layers.length - 1];
+    expect(border.getFill()).toBeNull();
+    expect(border.getStroke()?.getColor()).toEqual(color);
+    expect(border.getStroke()?.getWidth()).toBe(2);
+    expect(border.getStroke()?.getLineDash()).toEqual(styles.polygon(true)[0].getStroke()?.getLineDash());
+    expect(layers).toHaveLength(state === 'default' ? 1 : 2);
+  });
+
+  it.each([1, 2])('draws the ring of a sensitive polygon dashed, outside it and in its state colour at pixel ratio %s', (pixelRatio) => {
+    const geometry = new Polygon([
+      [
+        [10, 10],
+        [100, 10],
+        [100, 100],
+        [10, 100],
+        [10, 10],
+      ],
+    ]);
+    // Border and ring together span the width of other polygons' rings: 1px of border inside, the rest outside.
+    for (const [state, outside, color] of [
+      ['hover', 4 - 1, asString([0, 90, 113, 1])],
+      ['selected', 5 - 1, asString([248, 174, 0, 1])],
+    ] as const) {
+      const [ring, border] = styles.polygonHighlight(state, true);
+      const { context, state: renderState } = canvasState(geometry, pixelRatio);
+      ring.getRenderer()!(geometry.getCoordinates(), renderState);
+      expect(context.clip).toHaveBeenCalledWith('evenodd');
+      expect(context.setLineDash).toHaveBeenCalledWith([10 * pixelRatio, 6 * pixelRatio]);
+      expect(context.lineCap).toBe('butt');
+      expect(context.lineWidth).toBe(outside * 2 * pixelRatio);
+      expect(context.strokeStyle).toBe(color);
+      expect(ring.getZIndex()).toBeLessThan(border.getZIndex()!);
+      context.stroke.mockClear();
+      ring.getHitDetectionRenderer()!(geometry.getCoordinates(), renderState);
+      expect(context.stroke).not.toHaveBeenCalled();
+    }
+  });
+
+  it('tells sensitive polygons from others by their feature property', () => {
+    expect(isSensitivePolygon(new Feature({ isSensitive: true }))).toBe(true);
+    expect(isSensitivePolygon(new Feature({ isSensitive: false }))).toBe(false);
+    expect(isSensitivePolygon(new Feature())).toBe(false);
+  });
+
   it.each([1, 2])('clips polygon rings outside all parts and keeps holes at pixel ratio %s', (pixelRatio) => {
     const outer = [
       [10, 10],
@@ -480,6 +546,8 @@ describe('MapFeatureStyles', () => {
         expect(context.moveTo).toHaveBeenCalledWith(30, 30);
         expect(context.lineWidth).toBe((1.5 + width * 2) * pixelRatio);
         expect(context.lineJoin).toBe('round');
+        expect(context.lineCap).toBe('round');
+        expect(context.setLineDash).not.toHaveBeenCalled();
         expect(context.save).toHaveBeenCalledOnce();
         expect(context.restore).toHaveBeenCalledOnce();
         expect(ring.getZIndex()).toBeLessThan(base.getZIndex()!);
@@ -498,6 +566,9 @@ describe('MapFeatureStyles', () => {
     expect(styles.marker('cluster', 'hover', '12 thousand')).not.toBe(marker);
     expect(styles.marker('cluster', 'hover', '12 k', 'absent')).not.toBe(marker);
     expect(styles.polygonHighlight('hover')).toBe(styles.polygonHighlight('hover'));
+    expect(styles.polygonHighlight('hover', true)).not.toBe(styles.polygonHighlight('hover'));
+    expect(styles.polygon(true)).toBe(styles.polygon(true));
+    expect(styles.polygon(true)).not.toBe(styles.polygon());
     const polygonMarker = styles.polygonMarker('location', 'hover', '12 k');
     expect(styles.polygonMarker('location', 'hover', '12 k')).toBe(polygonMarker);
     expect(styles.polygonMarker('location', 'hover', '12 thousand')).not.toBe(polygonMarker);
@@ -513,6 +584,14 @@ describe('MapFeatureStyles', () => {
     tokens.setProperty('--adb-color-brand-freshwater-blue-90', 'rgb(10, 20, 30)');
     const custom = new MapFeatureStyles(tokens);
     expect(custom.polygon()[0].getFill()?.getColor()).toEqual([10, 20, 30, 0.06]);
+  });
+
+  it('draws the custom area in its own color with a light fill', () => {
+    expect(styles.customArea()).toEqual({ strokeColor: 'rgba(12,147,107,1)', strokeWidth: 3, fillColor: 'rgba(12,147,107,0.15)' });
+  });
+
+  it('draws a rejected custom area in red', () => {
+    expect(styles.customArea(true)).toEqual({ strokeColor: 'rgba(184,7,56,1)', strokeWidth: 3, fillColor: 'rgba(184,7,56,0.15)' });
   });
 
   it.each(['', 'var(--unresolved)', 'not-a-color'])('rejects a missing or invalid token: %s', (value) => {
