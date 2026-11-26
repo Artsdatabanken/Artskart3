@@ -614,10 +614,10 @@
     "loginRequired": "You must be logged in to activate a saved filter."
   },
   "filterLink": {
-    "dropped": "Some filters in the link couldn't be fully applied, so the results may differ: {{names}}",
-    "bookmarkNotFound": "The saved Artskart 2 link no longer exists, so the map opens without a filter.",
-    "failed": "The filter in the link couldn't be loaded right now. Reload the page to try again.",
-    "unreadable": "The filter in the link couldn't be read, so it was not applied.",
+    "dropped": "Some filters in the link don't exist, and the results may differ: {{names}}",
+    "bookmarkNotFound": "The filter from the link no longer exists.",
+    "failed": "The filter in the link couldn't be loaded, refresh to try again.",
+    "unreadable": "The filter in the link couldn't be read.",
     "fields": {
       "TaxonIds": "Species",
       "IncludeSubTaxonIds": "Include sub taxons",
