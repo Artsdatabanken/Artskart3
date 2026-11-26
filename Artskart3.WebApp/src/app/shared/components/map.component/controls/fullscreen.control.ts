@@ -1,4 +1,5 @@
 import FullScreen from 'ol/control/FullScreen';
+import { CLASS_UNSUPPORTED } from 'ol/css';
 import { iconCollapseContent, iconExpandContent } from '@artsdatabanken/icons/svg';
 import { createSvgIcon } from './control-utils';
 import { addMapControlTooltip } from '../map-control-tooltip/map-control-tooltip';
@@ -10,9 +11,6 @@ export interface FullscreenControlLabels {
 }
 
 const PSEUDO_FULLSCREEN_CLASS = 'map-pseudo-fullscreen';
-
-// OpenLayers setter denne klassen når nettleseren mangler Fullscreen API (f.eks. iPhone)
-const OL_UNSUPPORTED_CLASS = 'ol-unsupported';
 
 export class ArtskartFullscreenControl extends FullScreen {
   private readonly button: HTMLButtonElement;
@@ -42,7 +40,7 @@ export class ArtskartFullscreenControl extends FullScreen {
 
   // Fallback når Fullscreen API mangler: kartbeholderen fyller viewporten via CSS i stedet.
   private togglePseudoFullscreen(): void {
-    if (!this.pseudoTarget || !this.element.classList.contains(OL_UNSUPPORTED_CLASS)) return;
+    if (!this.pseudoTarget || !this.element.classList.contains(CLASS_UNSUPPORTED)) return;
     const active = this.pseudoTarget.classList.toggle(PSEUDO_FULLSCREEN_CLASS);
     this.button.replaceChildren(createSvgIcon(active ? iconCollapseContent : iconExpandContent));
     this.dispatchEvent(active ? 'enterfullscreen' : 'leavefullscreen');

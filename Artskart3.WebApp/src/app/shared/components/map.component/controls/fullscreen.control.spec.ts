@@ -1,4 +1,5 @@
 import OlMap from 'ol/Map';
+import { CLASS_UNSUPPORTED } from 'ol/css';
 import { ArtskartFullscreenControl } from './fullscreen.control';
 
 describe('ArtskartFullscreenControl tooltip', () => {
@@ -39,7 +40,7 @@ describe('ArtskartFullscreenControl tooltip', () => {
     const button = control['element'].querySelector('button')!;
     const tooltip = control['element'].querySelector('.map-control-tooltip')!;
     const initialIcon = button.innerHTML;
-    control['element'].classList.add('ol-unsupported');
+    control['element'].classList.add(CLASS_UNSUPPORTED);
 
     button.click();
     expect(source.classList.contains('map-pseudo-fullscreen')).toBe(true);
