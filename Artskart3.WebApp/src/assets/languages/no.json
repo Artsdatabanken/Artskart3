@@ -614,10 +614,10 @@
     "loginRequired": "Du må være logget inn for å aktivere et lagret filter."
   },
   "filterLink": {
-    "dropped": "Noen filtre i lenken kunne ikke brukes fullt ut, så treffene kan avvike: {{names}}",
-    "bookmarkNotFound": "Den lagrede lenken fra Artskart 2 finnes ikke lenger, så kartet åpnes uten filter.",
-    "failed": "Filteret i lenken kunne ikke hentes akkurat nå. Last inn siden på nytt for å prøve igjen.",
-    "unreadable": "Filteret i lenken kunne ikke leses, så det ble ikke brukt.",
+    "dropped": "Noen filtre i lenken finnes ikke, og treffene kan avvike: {{names}}",
+    "bookmarkNotFound": "Filteret fra lenken finnes ikke lenger.",
+    "failed": "Filteret i lenken kunne ikke hentes, oppdater for å prøve igjen.",
+    "unreadable": "Filteret i lenken kunne ikke leses.",
     "fields": {
       "TaxonIds": "Arter",
       "IncludeSubTaxonIds": "Inkluder underliggende taksa",
