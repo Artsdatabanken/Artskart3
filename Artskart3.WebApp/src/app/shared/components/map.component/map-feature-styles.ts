@@ -54,8 +54,8 @@ export function negativeGlyphPath(status: Exclude<RegistrationStatus, 'found'>, 
   const [left, right, top, bottom] = [cx - arm, cx + arm, cy - arm, cy + arm];
   return status === 'absent' ? `M${left} ${top}L${right} ${bottom}M${left} ${bottom}L${right} ${top}` : `M${left} ${cy}H${right}`;
 }
-const SENSITIVE_BORDER_WIDTH = 2;
-const SENSITIVE_BORDER_DASH = [10, 6];
+export const SENSITIVE_BORDER_WIDTH = 2;
+export const SENSITIVE_BORDER_DASH = [10, 6];
 
 const SELECTED_RING_WIDTH = 5;
 /** The space between a popped out marker's selected ring and its cluster, bridged by a line. */

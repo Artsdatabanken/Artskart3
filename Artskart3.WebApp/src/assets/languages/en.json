@@ -414,6 +414,7 @@
       "position": "Your position",
       "cluster": "Location with multiple records",
       "polygonCluster": "Area with multiple records",
+      "sensitive": "Sensitive observations",
       "imageAlt": "Legend for {{layer}}",
       "imagePartAlt": "Legend for {{layer}}, part {{index}} of {{count}}"
     },
