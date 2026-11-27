@@ -95,6 +95,8 @@
     "artsdatabankenLinkAriaLabel": "Lenke til Artsdatabanken hjemmeside",
     "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
     "cookieSettings": "Informasjonskapsler",
+    "about": "Om Artskart",
+    "userProfile": "Min brukerprofil",
     "environment": {
       "test": "Test",
       "staging": "Staging",

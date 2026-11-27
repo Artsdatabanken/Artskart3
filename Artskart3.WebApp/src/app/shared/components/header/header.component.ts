@@ -1,4 +1,15 @@
-import { Component, input, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core';
+import {
+  Component,
+  input,
+  OnInit,
+  OnDestroy,
+  CUSTOM_ELEMENTS_SCHEMA,
+  inject,
+  viewChild,
+  ElementRef,
+  afterNextRender,
+  Injector,
+} from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
@@ -31,6 +42,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   readonly projectName = input('Artskart');
   readonly menuItems = input<MenuItem[]>([]);
   readonly runtimeEnvironment = inject(RUNTIME_ENVIRONMENT);
+  readonly aboutUrl = 'https://artsdatabanken.no/kart/om-artskart';
+  readonly userProfileUrl = this.runtimeEnvironment.isProduction ? 'https://id.artsdatabanken.no' : 'https://id.test.artsdatabanken.no';
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;
@@ -44,6 +57,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   };
 
   private destroy$ = new Subject<void>();
+  private readonly injector = inject(Injector);
+  private readonly userMenuButton = viewChild<ElementRef<HTMLButtonElement>>('userMenuButton');
+  private readonly burgerMenuButton = viewChild<ElementRef<HTMLButtonElement>>('burgerMenuButton');
 
   private readonly languageService = inject(LanguageService);
   private readonly cookieWindow = inject(DOCUMENT).defaultView as (Window & CookieConsentWindow) | null;
@@ -81,6 +97,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (this.isMenuOpen) {
       this.closeBurgerMenu();
     }
+  }
+
+  // The link opens in a new tab, so the user stays here; move focus back to the menu button
+  // instead of losing it with the closed menu.
+  onExternalLinkClick(): void {
+    const menuButton = this.isMenuOpen ? this.burgerMenuButton : this.userMenuButton;
+    this.closeUserMenu();
+    this.closeBurgerMenu();
+    afterNextRender(() => menuButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
   openCookieSettings(): void {

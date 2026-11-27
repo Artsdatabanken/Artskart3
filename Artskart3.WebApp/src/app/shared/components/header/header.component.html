@@ -51,6 +51,7 @@
     <div class="header-right">
       @if (!isMenuOpen) {
         <button
+          #burgerMenuButton
           class="header-btn burger-menu-btn"
           (click)="toggleBurgerMenu()"
           [attr.aria-label]="'header.openMenuAriaLabel' | translate"
@@ -117,6 +118,7 @@
         @if (authService.sessionResolved() && authService.isAnonymous()) {
           <div class="user-control">
             <button
+              #userMenuButton
               type="button"
               class="header-btn language-btn"
               [attr.aria-label]="'header.userMenuAriaLabel' | translate"
@@ -130,6 +132,17 @@
             </button>
             @if (isUserMenuOpen) {
               <div class="user-dropdown" role="menu">
+                <a
+                  [href]="aboutUrl"
+                  class="user-dropdown-item"
+                  role="menuitem"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="onExternalLinkClick()"
+                >
+                  <span class="adb-link adb-link--external">{{ 'header.about' | translate }}</span>
+                  <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                </a>
                 <a routerLink="/mittartskart" class="user-dropdown-item" role="menuitem" (click)="closeUserMenu()">
                   {{ 'mittArtskart.title' | translate }}
                 </a>
@@ -143,6 +156,7 @@
         @if (authService.isAuthenticated()) {
           <div class="user-control">
             <button
+              #userMenuButton
               class="header-btn language-btn"
               (click)="toggleUserMenu()"
               [attr.aria-label]="'header.userMenuAriaLabel' | translate"
@@ -155,8 +169,30 @@
 
             @if (isUserMenuOpen) {
               <div class="user-dropdown" role="menu">
+                <a
+                  [href]="aboutUrl"
+                  class="user-dropdown-item"
+                  role="menuitem"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="onExternalLinkClick()"
+                >
+                  <span class="adb-link adb-link--external">{{ 'header.about' | translate }}</span>
+                  <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+                </a>
                 <a routerLink="/mittartskart" class="user-dropdown-item" role="menuitem" (click)="closeUserMenu()">
                   {{ 'mittArtskart.title' | translate }}
+                </a>
+                <a
+                  [href]="userProfileUrl"
+                  class="user-dropdown-item"
+                  role="menuitem"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="onExternalLinkClick()"
+                >
+                  <span class="adb-link adb-link--external">{{ 'header.userProfile' | translate }}</span>
+                  <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
                 </a>
                 <adb-button variant="tertiary" size="sm" (click)="authService.logout(); closeUserMenu()" role="menuitem">
                   {{ 'header.logout' | translate }}
@@ -213,78 +249,16 @@
           <adb-dark-mode-toggle></adb-dark-mode-toggle>
           <div class="user-control">
             @if (authService.sessionResolved() && authService.isAnonymous()) {
-              <button
-                type="button"
-                class="header-btn language-btn"
-                [attr.aria-label]="'header.userMenuAriaLabel' | translate"
-                [attr.aria-haspopup]="'menu'"
-                [attr.aria-expanded]="isUserMenuOpen"
-                (click)="toggleUserMenu()"
-              >
+              <button type="button" class="header-btn" (click)="authService.login(); closeBurgerMenu()">
                 <adb-icon name="person" aria-hidden="true" />
                 {{ 'header.login' | translate }}
-                <adb-icon class="dropdown-icon" name="keyboard-arrow-down" aria-hidden="true" [class.dropdown-open]="isUserMenuOpen" />
               </button>
-              @if (isUserMenuOpen) {
-                <div
-                  class="user-dropdown mobile-user-dropdown"
-                  role="menu"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown)="$event.stopPropagation()"
-                >
-                  <a
-                    routerLink="/mittartskart"
-                    class="user-dropdown-item"
-                    role="menuitem"
-                    (click)="closeUserMenu(); closeBurgerMenu()"
-                  >
-                    {{ 'mittArtskart.title' | translate }}
-                  </a>
-                  <adb-button
-                    variant="secondary"
-                    size="sm"
-                    (click)="authService.login(); closeUserMenu(); closeBurgerMenu()"
-                    role="menuitem"
-                  >
-                    {{ 'header.login' | translate }}
-                  </adb-button>
-                </div>
-              }
             }
             @if (authService.isAuthenticated()) {
-              <button
-                class="header-btn language-btn"
-                (click)="toggleUserMenu()"
-                [attr.aria-label]="'header.userMenuAriaLabel' | translate"
-                [attr.aria-expanded]="isUserMenuOpen"
-              >
+              <span class="mobile-user-name">
                 <adb-icon name="person" aria-hidden="true" />
                 <span class="username">{{ authService.username() }}</span>
-                <adb-icon class="dropdown-icon" name="keyboard-arrow-down" aria-hidden="true" [class.dropdown-open]="isUserMenuOpen" />
-              </button>
-              @if (isUserMenuOpen) {
-                <div
-                  class="user-dropdown mobile-user-dropdown"
-                  role="menu"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown)="$event.stopPropagation()"
-                >
-                  <a routerLink="/mittartskart" class="user-dropdown-item" role="menuitem" (click)="closeUserMenu(); closeBurgerMenu()">
-                    {{ 'mittArtskart.title' | translate }}
-                  </a>
-                  <div class="user-dropdown-divider" role="separator"></div>
-                  <adb-button
-                    variant="secondary"
-                    size="sm"
-                    (click)="authService.logout(); closeUserMenu(); closeBurgerMenu()"
-                    role="menuitem"
-                  >
-                    {{ 'header.logout' | translate }}
-                  </adb-button>
-                </div>
-              }
+              </span>
             }
           </div>
         </div>
@@ -296,9 +270,31 @@
             <div class="mobile-menu-divider" role="separator"></div>
           </ng-container>
         }
+        <a [href]="aboutUrl" class="mobile-menu-item" target="_blank" rel="noopener noreferrer" (click)="onExternalLinkClick()">
+          <span class="adb-link adb-link--external">{{ 'header.about' | translate }}</span>
+          <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+        </a>
+        <div class="mobile-menu-divider" role="separator"></div>
         <button type="button" class="mobile-menu-item mobile-menu-item-button" (click)="openCookieSettings()">
           {{ 'header.cookieSettings' | translate }}
         </button>
+        <div class="mobile-menu-divider" role="separator"></div>
+        <a routerLink="/mittartskart" class="mobile-menu-item" (click)="onMenuItemClick()">
+          {{ 'mittArtskart.title' | translate }}
+        </a>
+        <div class="mobile-menu-divider" role="separator"></div>
+        @if (authService.isAuthenticated()) {
+          <a [href]="userProfileUrl" class="mobile-menu-item" target="_blank" rel="noopener noreferrer" (click)="onExternalLinkClick()">
+            <span class="adb-link adb-link--external">{{ 'header.userProfile' | translate }}</span>
+            <span class="adb-sr-only">{{ 'feedback.opensInNewTab' | translate }}</span>
+          </a>
+          <div class="mobile-menu-divider" role="separator"></div>
+          <div class="mobile-menu-logout">
+            <adb-button variant="secondary" (click)="authService.logout(); closeBurgerMenu()">
+              {{ 'header.logout' | translate }}
+            </adb-button>
+          </div>
+        }
       </div>
     </div>
   }
