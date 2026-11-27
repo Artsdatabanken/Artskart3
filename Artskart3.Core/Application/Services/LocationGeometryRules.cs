@@ -1,16 +1,36 @@
+using Artskart3.Core.Domain.Enums;
+
 namespace Artskart3.Core.Application.Services;
 
 /// <summary>
 /// Regler for hvilke lokasjonsgeometrier som vises på kartet.
 ///
-/// Ligger for seg selv fordi BÅDE databasestien i SearchRepository og
-/// minnelageret i PolygonLocationStore må bruke nøyaktig samme regel. To
-/// implementasjoner som skal gi samme svar er to implementasjoner som en dag
-/// ikke gjør det — og forskjellen ville vist seg som polygoner som dukker opp
-/// eller forsvinner avhengig av hvilken sti som svarte.
+/// Ligger for seg selv fordi databasestien i SearchRepository, minnelageret i
+/// PolygonLocationStore og kartbildene i funndetaljene må bruke nøyaktig samme
+/// regel. To implementasjoner som skal gi samme svar er to implementasjoner som
+/// en dag ikke gjør det — og forskjellen ville vist seg som polygoner som dukker
+/// opp eller forsvinner avhengig av hvilken sti som svarte.
 /// </summary>
 public static class LocationGeometryRules
 {
+    /// <summary>
+    /// Geometritypene kartet tegner. GeometryCollection holdes utenfor, se
+    /// SearchRepository.
+    /// </summary>
+    public static readonly IReadOnlyList<LocationGeometryType> TegnedeGeometrityper = new[]
+    {
+        LocationGeometryType.Polygon, LocationGeometryType.MultiPolygon,
+        LocationGeometryType.LineString, LocationGeometryType.MultiLineString,
+    };
+
+    /// <summary>
+    /// Om en lokasjon av en av <see cref="TegnedeGeometrityper"/> tegnes med
+    /// geometrien sin: rutenettruter gjør det ikke, maskeringsrutene til sensitive
+    /// funn gjør det.
+    /// </summary>
+    public static bool TegnesSomGeometri(string wkt, string? lookupId) =>
+        !IsRectangularPolygon(wkt) || ErSensitivLokalitet(lookupId);
+
     /// <summary>
     /// Importen gir maskeringsruta til sensitive funn en LookupId med dette
     /// suffikset.

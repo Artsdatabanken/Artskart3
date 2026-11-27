@@ -5,6 +5,7 @@ namespace Artskart3.Core.Domain.RepositoryInterfaces;
 public interface IObservationDetailsRepository
 {
     Task<ObservationDetailDto?> GetAsync(int id, CancellationToken cancellationToken);
+    Task<ObservationMapLocation?> GetMapLocationAsync(int id, CancellationToken cancellationToken);
     Task<int?> FindIdByOccurrenceIdAsync(string occurrenceId, CancellationToken cancellationToken);
     Task<ObservationImageFile?> GetImageAsync(int observationId, int mediaId, CancellationToken cancellationToken);
 }

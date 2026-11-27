@@ -6,6 +6,7 @@ using Duende.Bff.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Net.Http.Headers;
 
 namespace Artskart3.Api.Controllers;
 
@@ -18,6 +19,10 @@ public sealed class ObservationsController(
     IObservationAnnotationService annotations,
     ILogger<ObservationsController> logger) : ControllerBase
 {
+    // Kort, så et endret eller nylig maskert funn ikke vises med gammelt bilde. ETag-en gjør
+    // revalideringen etterpå billig.
+    private const int MaxAgeSeconds = 300;
+
     [HttpGet("{id:int}")]
     [ProducesResponseType<ObservationDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -81,7 +86,6 @@ public sealed class ObservationsController(
 
     [HttpGet("{id:int}/maps/{view}")]
     [BffApiSkipAntiforgery]
-    [EnableRateLimiting("observation-maps")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
@@ -90,12 +94,27 @@ public sealed class ObservationsController(
     public async Task<IActionResult> Map(int id, string view, CancellationToken cancellationToken)
     {
         if (id <= 0 || view is not ("local" or "overview")) return BadRequest(new { error = "Invalid observation or map preset." });
-        var observation = await detailsService.GetAsync(id, cancellationToken);
-        if (observation is null) return NotFound(new { error = "Observation not found." });
-        if (observation.Point is null) return UnprocessableEntity(new { error = "Public coordinates are not available." });
+        var subject = await detailsService.GetMapSubjectAsync(id, cancellationToken);
+        if (subject is null) return NotFound(new { error = "Observation not found." });
+        if (subject.Point is null) return UnprocessableEntity(new { error = "Public coordinates are not available." });
+        var overview = view == "overview";
+        // Svak, fordi den regnes ut fra det bildet tegnes av og ikke fra bytene.
+        var etag = new EntityTagHeaderValue($"\"{maps.Fingerprint(subject, overview)}\"", isWeak: true);
+        if (HasCurrentCopy(etag))
+        {
+            SetCacheHeaders(etag);
+            return StatusCode(304);
+        }
         try
         {
-            return CachedImage(await maps.RenderAsync(observation.Point, view == "overview", cancellationToken), "image/png");
+            var map = await maps.RenderAsync(subject, overview, cancellationToken);
+            SetCacheHeaders(etag);
+            return File(map.Bytes, map.ContentType);
+        }
+        catch (ObservationMapBusyException)
+        {
+            logger.LogWarning("Observation map render queue is full for observation {ObservationId}", id);
+            return StatusCode(429, new { error = "Too many map requests. Please retry." });
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -111,11 +130,19 @@ public sealed class ObservationsController(
 
     private IActionResult CachedImage(byte[] bytes, string contentType)
     {
-        var etag = $"\"{Convert.ToHexString(SHA256.HashData(bytes))}\"";
-        Response.Headers.ETag = etag;
-        Response.Headers.CacheControl = "public,max-age=300";
+        var etag = new EntityTagHeaderValue($"\"{Convert.ToHexString(SHA256.HashData(bytes))}\"");
+        SetCacheHeaders(etag);
+        return HasCurrentCopy(etag) ? StatusCode(304) : File(bytes, contentType);
+    }
+
+    // If-None-Match sammenlignes alltid svakt (RFC 9110).
+    private bool HasCurrentCopy(EntityTagHeaderValue etag) =>
+        Request.GetTypedHeaders().IfNoneMatch?.Any(value => value.Compare(etag, useStrongComparison: false)) == true;
+
+    private void SetCacheHeaders(EntityTagHeaderValue etag)
+    {
+        Response.Headers.ETag = etag.ToString();
+        Response.Headers.CacheControl = $"public,max-age={MaxAgeSeconds}";
         Response.Headers.XContentTypeOptions = "nosniff";
-        if (Request.GetTypedHeaders().IfNoneMatch?.Any(value => value.Tag == etag) == true) return StatusCode(304);
-        return File(bytes, contentType);
     }
 }

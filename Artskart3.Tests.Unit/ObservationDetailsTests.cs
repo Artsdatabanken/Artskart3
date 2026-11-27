@@ -3,6 +3,7 @@ using Artskart3.Core.Application.DTOs;
 using Artskart3.Core.Application.Services.Implementations;
 using Artskart3.Core.Application.Services.Interfaces;
 using Artskart3.Core.Domain.Entities;
+using Artskart3.Core.Domain.Enums;
 using Artskart3.Core.Domain.RepositoryInterfaces;
 using Artskart3.Infrastructure.Data;
 using Artskart3.Infrastructure.Persistence.Repositories;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using NetTopologySuite.IO;
 
 namespace Artskart3.Tests.Unit;
 
@@ -115,13 +117,74 @@ public class ObservationDetailsTests
     {
         var details = new Mock<IObservationDetailsService>();
         var maps = new Mock<IObservationMapService>();
-        details.Setup(d => d.GetAsync(42, default)).ReturnsAsync(new ObservationDetailDto { Id = 42 });
         var controller = CreateController(details, maps);
+        (await controller.Map(42, "local", default)).Should().BeOfType<NotFoundObjectResult>();
+        details.Setup(d => d.GetMapSubjectAsync(42, default)).ReturnsAsync(new ObservationMapSubject(null, null, null, false));
         (await controller.Map(42, "local", default)).Should().BeOfType<UnprocessableEntityObjectResult>();
-        var point = new ObservationPointDto(60, 10, 200000, 6500000);
-        details.Setup(d => d.GetAsync(42, default)).ReturnsAsync(new ObservationDetailDto { Id = 42, Point = point });
-        maps.Setup(m => m.RenderAsync(point, false, default)).ThrowsAsync(new InvalidDataException("WMS exception"));
+
+        var subject = new ObservationMapSubject(new(60, 10, 200000, 6500000), null, null, false);
+        details.Setup(d => d.GetMapSubjectAsync(42, default)).ReturnsAsync(subject);
+        maps.Setup(m => m.Fingerprint(subject, false)).Returns("ABC");
+        maps.Setup(m => m.RenderAsync(subject, false, default)).ThrowsAsync(new InvalidDataException("WMS exception"));
         (await controller.Map(42, "local", default)).Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(502);
+        maps.Setup(m => m.RenderAsync(subject, false, default)).ThrowsAsync(new ObservationMapBusyException());
+        (await controller.Map(42, "local", default)).Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(429);
+        controller.Response.Headers.CacheControl.Should().BeEmpty("failures must not be cached");
+    }
+
+    [Fact]
+    public async Task Controller_MapAnswersNotModifiedWithoutRendering()
+    {
+        var details = new Mock<IObservationDetailsService>();
+        var maps = new Mock<IObservationMapService>();
+        var subject = new ObservationMapSubject(new(60, 10, 200000, 6500000), 25, null, false);
+        details.Setup(d => d.GetMapSubjectAsync(42, default)).ReturnsAsync(subject);
+        maps.Setup(m => m.Fingerprint(subject, true)).Returns("ABC");
+        maps.Setup(m => m.RenderAsync(subject, true, default)).ReturnsAsync(new ObservationImageFile([1, 2, 3], "image/webp"));
+        var controller = CreateController(details, maps);
+
+        (await controller.Map(42, "overview", default)).Should().BeOfType<FileContentResult>()
+            .Which.ContentType.Should().Be("image/webp");
+        controller.Response.Headers.ETag.ToString().Should().Be("W/\"ABC\"");
+        controller.Response.Headers.CacheControl.ToString().Should().Be("public,max-age=300");
+        foreach (var current in new[] { "W/\"ABC\"", "\"ABC\"", "\"OLD\", W/\"ABC\"" })
+        {
+            controller.Request.Headers.IfNoneMatch = current;
+            (await controller.Map(42, "overview", default)).Should().BeOfType<StatusCodeResult>()
+                .Which.StatusCode.Should().Be(304, current);
+        }
+        maps.Verify(m => m.RenderAsync(subject, true, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("POLYGON ((0 0, 1000 0, 1000 1000, 0 1000, 0 0))", LocationGeometryType.Polygon, "rute", false, false)]
+    [InlineData("POLYGON ((0 0, 1000 0, 1000 1000, 0 1000, 0 0))", LocationGeometryType.Polygon, "1234_sensitiv", true, true)]
+    [InlineData("POLYGON ((0 0, 1000 0, 1500 500, 1000 1000, 0 1000, 0 0))", LocationGeometryType.Polygon, null, true, false)]
+    [InlineData("MULTILINESTRING ((0 0, 100 0, 200 0, 300 0, 400 0))", LocationGeometryType.MultiLineString, null, true, false)]
+    [InlineData("POINT (0 0)", LocationGeometryType.Point, null, false, false)]
+    [InlineData("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (0 0, 1 1))", LocationGeometryType.GeometryCollection, null, false, false)]
+    public async Task Service_MapShowsTheShapesTheMainMapDraws(string wkt, LocationGeometryType type, string? lookupId, bool drawn, bool maskingSquare)
+    {
+        var repository = new Mock<IObservationDetailsRepository>();
+        var geometry = new WKTReader().Read(wkt);
+        repository.Setup(r => r.GetMapLocationAsync(42, default))
+            .ReturnsAsync(new ObservationMapLocation(new(60, 10, 200000, 6500000), 25, type, geometry, lookupId));
+        var service = new ObservationDetailsService(repository.Object, NullLogger<ObservationDetailsService>.Instance);
+        var subject = await service.GetMapSubjectAsync(42, default);
+        subject!.Shape.Should().Be(drawn ? geometry : null);
+        subject.ShapeIsMaskingSquare.Should().Be(maskingSquare);
+        subject.CoordinatePrecision.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task Service_MapSubjectDoesNotFabricateMissingCoordinates()
+    {
+        var repository = new Mock<IObservationDetailsRepository>();
+        repository.Setup(r => r.GetMapLocationAsync(42, default))
+            .ReturnsAsync(new ObservationMapLocation(new(0, 0, 0, 0), null, null, null, null));
+        var service = new ObservationDetailsService(repository.Object, NullLogger<ObservationDetailsService>.Instance);
+        (await service.GetMapSubjectAsync(42, default))!.Point.Should().BeNull();
+        (await service.GetMapSubjectAsync(43, default)).Should().BeNull();
     }
 
     [Fact]
