@@ -24,6 +24,10 @@
   background-color: var(--adb-surface-base-primary);
 }
 
+.tabs adb-button[slot='actions'] {
+  margin-inline-end: var(--adb-spacing-2xsm);
+}
+
 .tab-panels {
   flex: 1;
   overflow: hidden;

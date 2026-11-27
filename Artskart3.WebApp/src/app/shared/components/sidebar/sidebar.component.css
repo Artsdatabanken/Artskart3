@@ -90,7 +90,6 @@ adb-accordion-item adb-accordion adb-accordion-item::part(summary) {
   gap: var(--adb-spacing-xsm);
   padding: var(--adb-spacing-3xsm);
   flex-wrap: nowrap;
-  padding-top: var(--adb-spacing-2xsm);
 }
 
 .coordinate-precision-inputs {
@@ -166,31 +165,28 @@ adb-checkbox.select-all {
   border-bottom: 1px solid var(--adb-border-base-subtle);
 }
 
+/* As far below the section header as the header pads its own title. Subheadings bring that padding themselves. */
+.section-title + .checkbox-accordion-children,
+.section-title + .taxon-tree-options,
+.section-title + .coordinate-precision-filter,
+.section-title + .other-properties-filter {
+  padding-top: var(--adb-spacing-sm);
+}
+
 .area-section-heading {
   font-weight: 600;
   font-size: var(--adb-font-size-4);
-  padding: var(--adb-spacing-sm) 0 var(--adb-spacing-3xsm) 0;
+  padding: var(--adb-spacing-sm) 0 0;
   padding-inline-start: var(--adb-spacing-3xsm);
-}
-
-.custom-area-heading {
-  margin-bottom: var(--adb-spacing-2xsm);
+  margin-bottom: var(--adb-spacing-sm);
 }
 
 .custom-area-control {
   padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
 }
 
-.cadastral-unit-heading {
-  margin-bottom: var(--adb-spacing-2xsm);
-}
-
 .cadastral-unit-search {
   padding: 0 var(--adb-spacing-3xsm) var(--adb-spacing-2xsm);
-}
-
-.area-search-heading {
-  margin-bottom: var(--adb-spacing-2xsm);
 }
 
 /* Lined up with the cadastral field: adb-search pads its field by 4px inside its
@@ -217,13 +213,6 @@ adb-checkbox.select-all {
   color: var(--adb-text-brand-1);
 }
 
-.category-section-heading {
-  font-weight: 600;
-  font-size: var(--adb-font-size-4);
-  padding-top: var(--adb-spacing-sm);
-  padding-inline-start: var(--adb-spacing-3xsm);
-}
-
 .category-content {
   display: inline-flex;
   align-items: center;
@@ -236,7 +225,6 @@ adb-checkbox.select-all {
   flex-direction: column;
   gap: var(--adb-spacing-sm);
   padding: var(--adb-spacing-3xsm);
-  padding-top: var(--adb-spacing-2xsm);
 }
 
 .other-properties-row {
@@ -278,8 +266,7 @@ adb-checkbox.select-all {
 
 .registration-status-filter::part(label) {
   line-height: 1.2;
-  padding-bottom: var(--adb-spacing-3xsm);
-  margin-bottom: var(--adb-spacing-md);
+  margin-bottom: var(--adb-spacing-sm);
 }
 
 /* Antall observasjoner bak et forslag. For katalognummer vises det bare når
