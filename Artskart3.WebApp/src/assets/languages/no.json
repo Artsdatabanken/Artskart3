@@ -393,6 +393,7 @@
     "noLayers": "Ingen kartlag tilgjengelig",
     "layerLoadError": "Kartlaget kunne ikke lastes",
     "layersLoadError": "Ett eller flere valgte kartlag kunne ikke lastes",
+    "layerListLoadError": "Kartlagene kunne ikke lastes. Lukk og åpne menyen igjen for å prøve på nytt.",
     "settingsAriaLabel": "Innstillinger for kart",
     "clustering": "Punktklynge",
     "clusteringDescription": "Clustering",
@@ -405,6 +406,17 @@
     "selectMapTypeAriaLabel": "Velg bakgrunnskart - {{mapType}}",
     "mapTypeHeading": "Bakgrunnskart",
     "loadingObservationsLabel": "Henter registreringer...",
+    "legendHeading": "Tegnforklaring",
+    "legend": {
+      "found": "Funn",
+      "absent": "Ikke funn",
+      "notRecovered": "Ikke gjenfunnet",
+      "position": "Din posisjon",
+      "cluster": "Lokalitet med flere funn",
+      "polygonCluster": "Flate med flere funn",
+      "imageAlt": "Tegnforklaring for {{layer}}",
+      "imagePartAlt": "Tegnforklaring for {{layer}}, del {{index}} av {{count}}"
+    },
     "mapTypes": {
       "topografisk": "Landkart (standard)",
       "topo4graatone": "Gråtonekart",
@@ -424,6 +436,7 @@
     "mapTypeTooltip": "Endre bakgrunnskart",
     "layersTooltip": "Legg til ulike kartlag over kartet",
     "settingsTooltip": "Innstillinger for kart",
+    "legendTooltip": "Vis tegnforklaring",
     "geolocationTooltip": "Finn min posisjon",
     "fullscreenTooltip": "Vis kart i fullskjerm",
     "exitFullscreenTooltip": "Avslutt fullskjerm",

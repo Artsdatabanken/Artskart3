@@ -1,0 +1,87 @@
+<div class="map-toolbar-menu-container" appMapControlTooltip>
+  <!-- Må leses også når boksen er lukket, slik at feilede bilder prøves på nytt ved gjenåpning. -->
+  @let legends = layerLegends();
+  <adb-icon-button
+    [attr.variant]="isOpen() ? 'primary' : 'secondary'"
+    (click)="toggleMapLegend()"
+    [attr.aria-label]="'mapToolbar.legendHeading' | translate"
+    [attr.aria-pressed]="isOpen()"
+    [attr.aria-expanded]="isOpen()"
+    aria-haspopup="true"
+  >
+    <adb-icon name="list" aria-hidden="true" />
+  </adb-icon-button>
+  <span class="map-control-tooltip map-control-tooltip--right" aria-hidden="true">{{ 'mapToolbar.legendTooltip' | translate }}</span>
+  @if (isOpen()) {
+    <div class="map-toolbar-menu-dropdown map-legend-dropdown" role="group" aria-labelledby="map-legend-heading">
+      <div id="map-legend-heading" class="map-toolbar-menu-header adb-heading-2xsm" role="heading" aria-level="2">
+        {{ 'mapToolbar.legendHeading' | translate }}
+      </div>
+      <ul class="map-legend-list">
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="found-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.found' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="negative-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
+            <path class="negative-glyph" [attr.d]="absentGlyph" [attr.stroke-width]="borderWidth" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.absent' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="negative-marker" [attr.cx]="locationCx" [attr.cy]="center" [attr.r]="locationRadius" [attr.stroke-width]="borderWidth" />
+            <path class="negative-glyph" [attr.d]="notRecoveredGlyph" [attr.stroke-width]="borderWidth" />
+          </svg>
+          <span>{{ 'mapToolbar.legend.notRecovered' | translate }}</span>
+        </li>
+        @if (geolocationActive()) {
+          <li class="map-legend-row">
+            <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+              <circle class="position-accuracy" [attr.cx]="center" [attr.cy]="center" r="17" />
+              <circle class="position-dot" [attr.cx]="center" [attr.cy]="center" r="6" />
+            </svg>
+            <span>{{ 'mapToolbar.legend.position' | translate }}</span>
+          </li>
+        }
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <circle class="found-marker" [attr.cx]="center" [attr.cy]="center" [attr.r]="clusterRadius" [attr.stroke-width]="borderWidth" />
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" text-anchor="middle" dominant-baseline="central">10</text>
+          </svg>
+          <span>{{ 'mapToolbar.legend.cluster' | translate }}</span>
+        </li>
+        <li class="map-legend-row">
+          <svg class="map-legend-symbol" [attr.viewBox]="viewBox" aria-hidden="true">
+            <clipPath id="map-legend-polygon-outline"><path [attr.d]="polygonPath" /></clipPath>
+            <g [attr.transform]="polygonTransform">
+              <path class="polygon-marker" [attr.d]="polygonPath" [attr.stroke-width]="polygonBorderWidth" clip-path="url(#map-legend-polygon-outline)" />
+            </g>
+            <text class="marker-label" [attr.x]="center" [attr.y]="center" text-anchor="middle" dominant-baseline="central">10</text>
+          </svg>
+          <span>{{ 'mapToolbar.legend.polygonCluster' | translate }}</span>
+        </li>
+      </ul>
+      @for (legend of legends; track legend.layer.id) {
+        <section class="map-legend-layer">
+          @let layerLabel = (mapLayerLabels[legend.layer.name] ?? legend.layer.name) | translate;
+          <h3 class="map-legend-layer-heading adb-heading-2xsm">{{ layerLabel }}</h3>
+          <div class="map-legend-images">
+            @for (image of legend.images; track image.url; let index = $index; let count = $count) {
+              <img
+                class="map-legend-image"
+                [src]="image.url"
+                [alt]="(count > 1 ? 'mapToolbar.legend.imagePartAlt' : 'mapToolbar.legend.imageAlt') | translate: { layer: layerLabel, index: index + 1, count }"
+                loading="lazy"
+                (error)="onImageError(legend.layer.id, image.url)"
+              />
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+</div>

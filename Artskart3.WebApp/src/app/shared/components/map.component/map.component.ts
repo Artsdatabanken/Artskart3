@@ -144,6 +144,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly mapOverlayLoadKeys: EventsKey[] = [];
   private readonly mapOverlayRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly mapLayerService = inject(MapLayerService);
+  private readonly restoreActiveLayersEffect = effect(() => {
+    const activeLayers = this.mapLayerService.activeLayers();
+    if (this.mapReady) this.restoreActiveLayers(activeLayers);
+  });
   private featureStyles?: MapFeatureStyles;
   private hoveredLocationIds = new Set<number>();
   private hoveredAreaKey: string | null = null;
@@ -172,6 +176,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private initializationTimer?: ReturnType<typeof setTimeout>;
 
   private readonly pendingAreaDataRequests = signal(0);
+  protected readonly geolocationActive = signal(false);
   readonly isLoadingAreaData = computed(() => this.pendingAreaDataRequests() > 0);
 
   private fetchGeneration = 0;
@@ -677,14 +682,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private adoptGeolocationControl(): void {
-    if (!this.map) return;
-    this.geolocationControl = createGeolocationControl(
-      this.geolocationControlLabels(),
-      { onClick: () => this.map.zoomToGeolocation(14) },
-      this.mapControls().nativeElement,
-    );
-    this.map.adoptControl(this.geolocationControl, 'geolocation');
-  }
+  if (!this.map) return;
+
+  this.geolocationControl = createGeolocationControl(
+    this.geolocationControlLabels(),
+    {
+      onClick: async () => {
+        const located = await this.map.zoomToGeolocation(14);
+        if (located) this.geolocationActive.set(true);
+        return located;
+      },
+    },
+    this.mapControls().nativeElement,
+  );
+
+  this.map.adoptControl(this.geolocationControl, 'geolocation');
+}
 
   private zoomControlLabels(): ZoomControlLabels {
     return {
@@ -743,6 +756,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.locationCountFetch$.next(this.locationFilter());
     this.tryApplyRequestedExtent();
     this.rebuildAllLayers();
+    this.restoreActiveLayers(this.mapLayerService.activeLayers());
+  }
+
+  private restoreActiveLayers(layers: MapLayerDto[]): void {
+    for (const layer of layers) {
+      if (!this.mapOverlayLayers.has(layer.id)) this.onMapToolbarMenuItemChange({ layer, visible: true });
+    }
   }
 
   /**
@@ -2024,7 +2044,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     this.mapOverlayLayers.set(layer.id, overlay);
-    this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex: 10 });
+    const order = this.mapLayerService.ensureLayerActivationOrder(layer.id);
+    // Holder kartlagene mellom z-indeks 10 og 11, under observasjonene.
+    const zIndex = 10 + order / (order + 1);
+    this.map.adoptLayer(`backend-map-layer-${layer.id}`, overlay, { role: 'overlay', zIndex });
   }
 
   private cancelRefreshAfterCooldown(layerId: number): void {

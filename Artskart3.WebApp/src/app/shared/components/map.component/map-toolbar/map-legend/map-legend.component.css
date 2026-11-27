@@ -1,0 +1,104 @@
+.map-legend-dropdown {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + var(--adb-spacing-xsm));
+  left: 0;
+  width: max-content;
+  box-sizing: border-box;
+  min-width: min(220px, calc(100cqw - 2 * var(--adb-spacing-md) - 48px));
+  max-width: min(320px, calc(100cqw - 2 * var(--adb-spacing-md) - 48px));
+  max-height: min(
+    60vh,
+    calc(
+      100cqh - var(--map-toolbar-bottom-offset) - var(--map-legend-button-size) - var(--adb-spacing-xsm) - var(--map-legend-top-clearance)
+    )
+  );
+  overflow-y: auto;
+}
+
+.map-toolbar-menu-header {
+  box-sizing: border-box;
+}
+
+.map-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adb-spacing-xsm);
+  margin: 0;
+  padding: 0 var(--adb-spacing-xsm);
+  list-style: none;
+}
+
+.map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
+  font-size: var(--adb-font-size-small);
+}
+
+.map-legend-symbol {
+  flex: none;
+  /* Må samsvare med SYMBOL_SIZE i map-legend.component.ts. */
+  width: 36px;
+  height: 36px;
+}
+
+.found-marker,
+.polygon-marker {
+  fill: var(--adb-color-brand-freshwater-blue-90);
+  stroke: var(--adb-color-neutrals-ocean-10);
+}
+
+.negative-marker {
+  fill: var(--adb-color-neutrals-ocean-10);
+  stroke: var(--adb-color-special-100);
+}
+
+.negative-glyph {
+  fill: none;
+  stroke: var(--adb-color-special-110);
+}
+
+.position-accuracy {
+  /* Matcher posisjonslaget som tegnes av nbic-map-component. */
+  fill: #2196f3;
+  fill-opacity: 0.15;
+  stroke: #2196f3;
+  stroke-width: 1;
+}
+
+.position-dot {
+  fill: #2196f3;
+  stroke: var(--adb-color-brand-white);
+  stroke-width: 2;
+}
+
+.marker-label {
+  fill: var(--adb-color-brand-white);
+  /* Må samsvare med LABEL_FONT i map-feature-styles.ts. */
+  font: 600 10px "Chivo", sans-serif;
+}
+
+.map-legend-layer {
+  padding: 0 var(--adb-spacing-xsm);
+}
+
+.map-legend-layer-heading {
+  margin: 0 0 var(--adb-spacing-xsm);
+  color: var(--adb-text-base-primary);
+}
+
+.map-legend-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* WMS-forklaringene er bilder med svart tekst, så de trenger lys bakgrunn i mørk modus */
+:host-context([data-theme='dark']) .map-legend-images {
+  box-sizing: border-box;
+  padding: var(--adb-spacing-xsm);
+  border-radius: var(--adb-border-radius-sm);
+  background: var(--adb-color-brand-white);
+}

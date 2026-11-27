@@ -1,13 +1,15 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, input, model, output, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, input, model, output, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
 import { ClusteringLock, MapToolbarMenu, MapToolbarMenuItemChange } from './map-toolbar.constants';
 import { MapTypeSelectorComponent } from './map-type-selector/map-type-selector.component';
 import { MapLayersComponent } from './map-layers/map-layers.component';
 import { MapSettingsComponent } from './map-settings/map-settings.component';
+import { MapLegendComponent } from './map-legend/map-legend.component';
 
 @Component({
   selector: 'app-map-toolbar',
-  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent, MapSettingsComponent],
+  imports: [TranslateModule, MapTypeSelectorComponent, MapLayersComponent, MapSettingsComponent, MapLegendComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './map-toolbar.component.html',
   styleUrl: './map-toolbar.component.css',
@@ -17,8 +19,11 @@ export class MapToolbarComponent {
   readonly mapToolbarMenuItemChange = output<MapToolbarMenuItemChange>();
   readonly clusteringEnabled = model(true);
   readonly clusteringLock = input<ClusteringLock | null>(null);
+  readonly geolocationActive = input(false);
+  readonly legendHidden = input(false);
 
   protected readonly openMenu = signal<MapToolbarMenu | null>(null);
+  protected readonly activeLayers = inject(MapLayerService).activeLayers;
 
   onButtonClick(iconName: string): void {
     this.iconClick.emit(iconName);

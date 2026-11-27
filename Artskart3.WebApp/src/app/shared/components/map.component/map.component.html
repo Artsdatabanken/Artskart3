@@ -2,6 +2,8 @@
   <app-map-toolbar
     [(clusteringEnabled)]="clusteringEnabled"
     [clusteringLock]="clusteringLock()"
+    [geolocationActive]="geolocationActive()"
+    [legendHidden]="(showObservationList() && observationSelection() !== null) || !!observationPanel()?.detailsOpen()"
     (iconClick)="onIconClick($event)"
     (mapToolbarMenuItemChange)="onMapToolbarMenuItemChange($event)"
   ></app-map-toolbar>

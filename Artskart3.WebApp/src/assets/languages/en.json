@@ -393,6 +393,7 @@
     "noLayers": "No map layers available",
     "layerLoadError": "The map layer could not be loaded",
     "layersLoadError": "One or more selected map layers could not be loaded",
+    "layerListLoadError": "Map layers could not be loaded. Close and reopen the menu to retry.",
     "settingsAriaLabel": "Map settings",
     "clustering": "Point clusters",
     "clusteringDescription": "Clustering",
@@ -405,6 +406,17 @@
     "selectMapTypeAriaLabel": "Select background map - {{mapType}}",
     "mapTypeHeading": "Background map",
     "loadingObservationsLabel": "Fetching observations...",
+    "legendHeading": "Legend",
+    "legend": {
+      "found": "Found",
+      "absent": "Not found",
+      "notRecovered": "Not recovered",
+      "position": "Your position",
+      "cluster": "Location with multiple records",
+      "polygonCluster": "Area with multiple records",
+      "imageAlt": "Legend for {{layer}}",
+      "imagePartAlt": "Legend for {{layer}}, part {{index}} of {{count}}"
+    },
     "mapTypes": {
       "topografisk": "Map (standard)",
       "topo4graatone": "Greyscale map",
@@ -424,6 +436,7 @@
     "mapTypeTooltip": "Change background map",
     "layersTooltip": "Add map layers on top of the map",
     "settingsTooltip": "Map settings",
+    "legendTooltip": "Show map legend",
     "geolocationTooltip": "Find my location",
     "fullscreenTooltip": "Show the map in fullscreen",
     "exitFullscreenTooltip": "Exit fullscreen",

@@ -96,6 +96,20 @@
   border-inline-start-color: var(--adb-surface-base-invert);
 }
 
+.map-control-tooltip--right {
+  inset-inline: calc(100% + var(--map-control-tooltip-gap)) auto;
+}
+
+.map-control-tooltip--right::before {
+  inset-inline: auto 100%;
+}
+
+.map-control-tooltip--right::after {
+  inset-inline: auto 100%;
+  border-inline: 6px solid transparent;
+  border-inline-end-color: var(--adb-surface-base-invert);
+}
+
 @media (hover: hover) {
   .map-control-tooltip-anchor:hover > .map-control-tooltip {
     visibility: visible;

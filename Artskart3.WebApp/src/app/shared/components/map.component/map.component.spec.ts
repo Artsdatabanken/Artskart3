@@ -37,11 +37,14 @@ import OlMap from 'ol/Map';
 import MapBrowserEvent from 'ol/MapBrowserEvent';
 import { Style } from 'ol/style';
 import { ObservationService } from '@shared/services/observation/observation.service';
-import { ObservationListInfoDto } from '@shared/types/api.types';
+import { MapLayerDto, ObservationListInfoDto } from '@shared/types/api.types';
 import { SharedMapService } from '@shared/services/shared-map.service';
 import { MapFeatureStyles, popOuts } from './map-feature-styles';
 import { ArtskartZoomControl } from './controls/zoom.control';
+import type { GeolocationMapControl } from './controls/geolocation.control';
 import { MAP_CONSTANTS } from '@core/constants/map-constants';
+import { MapLayerService } from '@shared/services/map/map-layer.service';
+import { ApiClientService } from '@core/services/api-client.service';
 
 const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image: ImageWrapper) =>
   source.dispatchEvent(new ImageSourceEvent(type, image));
@@ -49,17 +52,42 @@ const dispatchImageEvent = (source: ImageWMS, type: ImageSourceEventTypes, image
 describe('MapComponent lifecycle', () => {
   let fixture: ComponentFixture<MapComponent>;
   let component: MapComponent;
+  let layerResponses: Subject<MapLayerDto[]>;
   const lifecycle = () =>
     component as unknown as {
       initializeMap(): void;
       onMapReady(): void;
+      adoptGeolocationControl(): void;
+      setupAreaMarkerLayers(): void;
+      setRotationEnabled(enabled: boolean): void;
+      setupMarkerCursor(): void;
+      setupCountsFetchPipeline(): void;
+      setupLocationsFetchPipeline(): void;
+      setupLocationCountPipeline(): void;
+      setupCameraChangePipeline(): void;
+      setupVisibilityObserver(): void;
+      setupCustomAreaDraw(): void;
+      prefetchAreaGeometries(): void;
+      tryApplyRequestedExtent(): void;
+      rebuildAllLayers(): void;
     };
 
   beforeEach(async () => {
     vi.useFakeTimers();
+    layerResponses = new Subject<MapLayerDto[]>();
     await TestBed.configureTestingModule({
       imports: [MapComponent],
-      providers: [provideTranslateService(), provideRouter([]), { provide: SharedMapService, useValue: { getNibToken: () => '' } }],
+      providers: [
+        provideTranslateService(),
+        provideRouter([]),
+        { provide: SharedMapService, useValue: { getNibToken: () => '' } },
+        {
+          provide: ApiClientService,
+          useValue: {
+            fetchJson: () => layerResponses,
+          },
+        },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(MapComponent);
     component = fixture.componentInstance;
@@ -69,6 +97,7 @@ describe('MapComponent lifecycle', () => {
   afterEach(() => {
     fixture.destroy();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -103,6 +132,81 @@ describe('MapComponent lifecycle', () => {
     expect(component.map).toBeUndefined();
     expect(emit).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('NG0953'));
+  });
+
+  it.each([true, false])('restores enabled overlays on a new map when layers load before ready: %s', (loadBeforeReady) => {
+    const layers: MapLayerDto[] = [1, 2, 3].map((id) => ({
+      id, name: `Layer ${id}`, type: 'WMS', url: 'https://example.test/wms', useSingleImage: false, retryAfterSeconds: 0, opacity: 1,
+    }));
+    const mapLayerService = TestBed.inject(MapLayerService);
+    if (loadBeforeReady) layerResponses.next(layers);
+    const firstAdopt = vi.fn<(id: string, overlay: BaseLayer, options: { role: string; zIndex: number }) => void>();
+    Object.assign(component, { map: { adoptLayer: firstAdopt } });
+    for (const layer of [...layers].reverse()) {
+      mapLayerService.setLayerEnabled(layer.id, true);
+      component.onMapToolbarMenuItemChange({ layer, visible: true });
+    }
+    mapLayerService.setLayerEnabled(3, false);
+    component.onMapToolbarMenuItemChange({ layer: layers[2], visible: false });
+    const originalOrder = firstAdopt.mock.calls.map(([id, , options]) => [id, options.zIndex] as const);
+    fixture.destroy();
+    expect([...mapLayerService.enabledLayerIds()]).toEqual([2, 1]);
+
+    fixture = TestBed.createComponent(MapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    const adoptLayer = vi.fn<(id: string, overlay: BaseLayer, options: { role: string; zIndex: number }) => void>();
+    Object.assign(component, { map: { adoptLayer } });
+    for (const method of [
+      'setupAreaMarkerLayers', 'setRotationEnabled', 'setupMarkerCursor', 'setupCountsFetchPipeline', 'setupLocationsFetchPipeline',
+      'setupLocationCountPipeline', 'setupCameraChangePipeline', 'setupVisibilityObserver', 'setupCustomAreaDraw',
+      'prefetchAreaGeometries', 'tryApplyRequestedExtent', 'rebuildAllLayers',
+    ] as const) {
+      vi.spyOn(lifecycle(), method).mockImplementation(() => undefined);
+    }
+    vi.spyOn(component, 'highlightObservation').mockImplementation(() => undefined);
+    lifecycle().onMapReady();
+    if (!loadBeforeReady) layerResponses.next(layers);
+    fixture.detectChanges();
+
+    expect(adoptLayer.mock.calls.map(([id]) => id)).toEqual(['backend-map-layer-1', 'backend-map-layer-2']);
+    mapLayerService.setLayerEnabled(3, true);
+    component.onMapToolbarMenuItemChange({ layer: layers[2], visible: true });
+    fixture.detectChanges();
+
+    const restoredOrder = new Map(adoptLayer.mock.calls.map(([id, , options]) => [id, options.zIndex]));
+    expect(restoredOrder.size).toBe(3);
+    for (const [id, zIndex] of originalOrder) expect(restoredOrder.get(id)).toBe(zIndex);
+    expect(restoredOrder.get('backend-map-layer-3')!).toBeLessThan(restoredOrder.get('backend-map-layer-2')!);
+    expect(restoredOrder.get('backend-map-layer-2')!).toBeLessThan(restoredOrder.get('backend-map-layer-1')!);
+    expect(restoredOrder.get('backend-map-layer-1')!).toBeLessThan(50);
+  });
+
+  it('shows the position in the legend only after a successful geolocation', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: { getCurrentPosition: (success: () => void) => success() },
+    });
+    const zoomToGeolocation = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const adoptControl = vi.fn<(control: GeolocationMapControl, name: string) => void>();
+    Object.assign(component, { map: { adoptControl, zoomToGeolocation } });
+    lifecycle().adoptGeolocationControl();
+    const button = adoptControl.mock.calls[0][0]['element'].querySelector('button')!;
+    const element: HTMLElement = fixture.nativeElement;
+    element.querySelector<HTMLElement>('app-map-legend adb-icon-button')!.click();
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('mapToolbar.legend.position');
+
+    button.click();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('mapToolbar.legend.position');
+
+    button.click();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(zoomToGeolocation).toHaveBeenCalledTimes(2);
+    expect(zoomToGeolocation).toHaveBeenLastCalledWith(14);
+    expect(element.textContent).toContain('mapToolbar.legend.position');
   });
 
   it('disposes an initialized map without reactivating it on a late ready callback', () => {
@@ -1006,6 +1110,34 @@ describe('MapComponent', () => {
       polygons = new VectorSource<Feature>();
       const polygonLayer = new VectorLayer({ source: polygons });
       component.map = { getLayerById: (id: string) => (id === 'location-polygons' ? polygonLayer : null) } as unknown as NbicMapComponent;
+    });
+
+    it('hides the legend for the observation list and details without losing its open state', () => {
+      fixture.detectChanges();
+      const element: HTMLElement = fixture.nativeElement;
+      const legend = element.querySelector<HTMLElement>('.map-toolbar-bottom')!;
+      element.querySelector<HTMLElement>('app-map-legend adb-icon-button')!.click();
+      fixture.detectChanges();
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+
+      click([{ layerId: 'area-markers-locations', feature: point(1) }]);
+      component.showObservationList.set(true);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(true);
+
+      component.showObservationList.set(false);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(false);
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
+
+      component.observationPanel()!.rawId.set('7');
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(true);
+
+      component.observationPanel()!.rawId.set(null);
+      fixture.detectChanges();
+      expect(legend.hidden).toBe(false);
+      expect(element.querySelector('.map-legend-dropdown')).not.toBeNull();
     });
 
     it('selects the location of a popped out point and describes a polygon location by its polygon', () => {
