@@ -4,7 +4,7 @@
   width: min(28rem, calc(100% - 2rem));
   max-height: calc(100% - 2rem);
   display: flex;
-  z-index: 101;
+  z-index: 160;
 }
 
 @media (max-width: 768px) {

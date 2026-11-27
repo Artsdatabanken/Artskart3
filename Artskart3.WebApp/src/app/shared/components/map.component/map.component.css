@@ -18,10 +18,10 @@
   width: 100%;
 }
 
-/* No z-index: after .map in the DOM it already paints above the map, and its tooltips can rise above the observation panel */
 .map-controls {
   position: absolute;
   inset: 0;
+  z-index: 110;
   pointer-events: none;
 }
 
