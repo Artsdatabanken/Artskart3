@@ -51,15 +51,20 @@
     left: 0;
     right: 0;
     top: 80px;
-    height: calc(100vh - 80px);
+    height: calc(100dvh - 80px);
     width: 100%;
     z-index: 200;
     border-right: none;
     border-radius: var(--adb-border-radius-xl) var(--adb-border-radius-xl) 0 0;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+    transform: translateY(calc(100% - var(--home-handle-height)));
     transition: transform 0.25s ease;
     touch-action: none;
     will-change: transform;
+  }
+
+  .sidebar.open {
+    transform: translateY(var(--home-open-gap));
   }
 
   .sidebar.dragging {

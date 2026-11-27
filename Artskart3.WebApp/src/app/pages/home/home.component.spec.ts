@@ -19,7 +19,7 @@ import { SavedFilterDto } from '../../shared/types/api.types';
 import { CustomAreaDrawingService } from '../../shared/services/custom-area-drawing/custom-area-drawing.service';
 import { FilterLinkService } from '../../shared/services/filter-link/filter-link.service';
 
-describe('HomeComponent – aktivering av lagret filter fra URL', () => {
+describe('HomeComponent', () => {
   let fixture: ComponentFixture<HomeComponent>;
   let queryParamMap: BehaviorSubject<ParamMap>;
   let session: unknown;
@@ -124,17 +124,54 @@ describe('HomeComponent – aktivering av lagret filter fra URL', () => {
     expect(alertService.showError).not.toHaveBeenCalled();
   });
 
-  it('lukker filterpanelet og viser kartet når tegningen starter', async () => {
-    await create(null);
-    const component = fixture.componentInstance;
-    component.isFilterOpen.set(true);
-    component.activeTab.set(1);
+  describe('filterpanelet', () => {
+    it('lukker filterpanelet og viser kartet når tegningen starter', async () => {
+      await create(null);
+      const component = fixture.componentInstance;
+      component.isFilterOpen.set(true);
+      component.activeTab.set(1);
 
-    TestBed.inject(CustomAreaDrawingService).start();
-    TestBed.tick();
+      TestBed.inject(CustomAreaDrawingService).start();
+      TestBed.tick();
 
-    expect(component.isFilterOpen()).toBe(false);
-    expect(component.activeTab()).toBe(0);
+      expect(component.isFilterOpen()).toBe(false);
+      expect(component.activeTab()).toBe(0);
+    });
+
+    it('bruker panelhøyden under draing og lar CSS styre hvileposisjonene', async () => {
+      await create(null);
+      const component = fixture.componentInstance;
+      const sheet: HTMLElement = fixture.nativeElement.querySelector('.sidebar');
+      const handle: HTMLElement = fixture.nativeElement.querySelector('.sheet-handle');
+      Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 616 });
+      handle.setPointerCapture = vi.fn();
+      handle.releasePointerCapture = vi.fn();
+
+      expect(sheet.style.transform).toBe('');
+      expect(sheet.classList.contains('open')).toBe(false);
+
+      handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 600 }));
+      TestBed.tick();
+      expect(sheet.style.transform).toBe('translateY(560px)');
+      handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 600 }));
+      TestBed.tick();
+      expect(sheet.style.transform).toBe('');
+      expect(sheet.classList.contains('open')).toBe(true);
+
+      component.isFilterOpen.set(false);
+      Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 516 });
+      TestBed.tick();
+      expect(sheet.classList.contains('open')).toBe(false);
+
+      handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 500 }));
+      handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 450 }));
+      TestBed.tick();
+      expect(sheet.style.transform).toBe('translateY(410px)');
+      handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 450 }));
+      TestBed.tick();
+      expect(sheet.style.transform).toBe('');
+      expect(sheet.classList.contains('open')).toBe(false);
+    });
   });
 
   it('gjør ingenting uten parameter', async () => {

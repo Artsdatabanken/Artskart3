@@ -1,4 +1,7 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, effect, afterNextRender, ChangeDetectorRef, Injector } from '@angular/core';
+import {
+  Component, CUSTOM_ELEMENTS_SCHEMA, signal, computed, inject, DestroyRef, effect,
+  ElementRef, viewChild, afterNextRender, ChangeDetectorRef, Injector,
+} from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -47,9 +50,6 @@ const SAVED_FILTER_LOGIN_RETRY_MS = 2 * 60 * 1000;
     FormatFileSizePipe,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  host: {
-    '(window:resize)': 'onWindowResize()',
-  },
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -69,27 +69,18 @@ export class HomeComponent {
   readonly maxWidth = this.getCSSVar('--panel-max-width', 500);
   readonly filterPanelWidth = signal(this.minWidth);
 
-  private readonly HEADER_HEIGHT = this.getCSSVar('--home-header-height', 80);
   private readonly HANDLE_HEIGHT = this.getCSSVar('--home-handle-height', 56);
-  private readonly MOBILE_BREAKPOINT = this.getCSSVar('--home-mobile-breakpoint', 768);
   private readonly OPEN_GAP = this.getCSSVar('--home-open-gap', 24);
+  private readonly filterSheet = viewChild.required<ElementRef<HTMLElement>>('filterSheet');
   readonly isFilterOpen = signal(false);
   readonly isDragging = signal(false);
   private readonly dragTranslatePx = signal<number | null>(null);
-  private readonly viewportTick = signal(0);
   private dragStartY = 0;
   private dragStartTranslate = 0;
 
-  readonly sheetTransform = computed(() => {
-    this.viewportTick();
-    if (!this.isMobileViewport()) {
-      return 'none';
-    }
+  readonly dragTransform = computed(() => {
     const dragValue = this.dragTranslatePx();
-    if (dragValue !== null) {
-      return `translateY(${dragValue}px)`;
-    }
-    return `translateY(${this.isFilterOpen() ? this.OPEN_GAP : this.getCollapsedTranslateY()}px)`;
+    return dragValue === null ? null : `translateY(${dragValue}px)`;
   });
 
   activeTab = signal(0);
@@ -275,10 +266,6 @@ export class HomeComponent {
     this.isFilterOpen.update((open) => !open);
   }
 
-  onWindowResize(): void {
-    this.viewportTick.update((tick) => tick + 1);
-  }
-
   onHandlePointerDown(event: PointerEvent): void {
     this.isDragging.set(true);
     this.dragStartY = event.clientY;
@@ -315,12 +302,7 @@ export class HomeComponent {
   }
 
   private getCollapsedTranslateY(): number {
-    const viewportHeight = this.document.defaultView?.innerHeight ?? 0;
-    return Math.max(viewportHeight - this.HEADER_HEIGHT - this.HANDLE_HEIGHT, 0);
-  }
-
-  private isMobileViewport(): boolean {
-    return (this.document.defaultView?.innerWidth ?? 0) <= this.MOBILE_BREAKPOINT;
+    return Math.max(this.filterSheet().nativeElement.offsetHeight - this.HANDLE_HEIGHT, 0);
   }
 
   private startExportWithName(filter: ObservationSearchFilter, name: string): void {

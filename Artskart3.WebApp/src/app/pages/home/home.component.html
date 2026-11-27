@@ -1,4 +1,4 @@
-<aside class="sidebar" [class.dragging]="isDragging()" [style.transform]="sheetTransform()">
+<aside #filterSheet class="sidebar" [class.open]="isFilterOpen()" [class.dragging]="isDragging()" [style.transform]="dragTransform()">
   <div
     class="sheet-handle"
     role="button"
