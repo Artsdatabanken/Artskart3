@@ -28,9 +28,9 @@ dialog[open] {
 }
 dialog.expanded {
   position: fixed;
-  inset: 5rem 1rem 1rem;
-  width: calc(100vw - 2rem);
-  height: calc(100dvh - 6rem);
+  inset: 1rem 0.5rem;
+  width: calc(100vw - 1rem);
+  height: calc(100dvh - 2rem);
   max-height: none;
 }
 dialog::backdrop {

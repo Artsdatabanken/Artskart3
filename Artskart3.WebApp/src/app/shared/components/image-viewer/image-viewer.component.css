@@ -3,7 +3,7 @@ dialog {
   inset: 0;
   margin: auto;
   box-sizing: border-box;
-  max-width: calc(100vw - 2rem);
+  max-width: calc(100vw - 1rem);
   max-height: calc(100dvh - 2rem);
   width: max-content;
   padding: 0;
