@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AlertComponent } from '../../shared/components/alert/alert.component';
 import { FeedbackPanelComponent } from '../../shared/components/feedback-panel/feedback-panel.component';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { NotificationsComponent } from '../../shared/components/notifications/notifications.component';
+import { RUNTIME_ENVIRONMENT } from '../../shared/runtime-environment';
 
 @Component({
   selector: 'app-base-layout',
@@ -17,4 +18,6 @@ import { NotificationsComponent } from '../../shared/components/notifications/no
   templateUrl: './base-layout.component.html',
   styleUrls: ['./base-layout.component.css'],
 })
-export class BaseLayoutComponent {}
+export class BaseLayoutComponent {
+  readonly isProduction = inject(RUNTIME_ENVIRONMENT).isProduction;
+}

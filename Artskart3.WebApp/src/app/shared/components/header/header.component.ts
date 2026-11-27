@@ -30,7 +30,7 @@ interface CookieConsentWindow {
 export class HeaderComponent implements OnInit, OnDestroy {
   readonly projectName = input('Artskart');
   readonly menuItems = input<MenuItem[]>([]);
-  readonly environmentName = inject(RUNTIME_ENVIRONMENT).environmentName;
+  readonly runtimeEnvironment = inject(RUNTIME_ENVIRONMENT);
 
   isMenuOpen = false;
   isLanguageMenuOpen = false;

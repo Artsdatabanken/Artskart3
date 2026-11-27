@@ -24,4 +24,16 @@ describe('RUNTIME_ENVIRONMENT', () => {
 
     expect(TestBed.inject(RUNTIME_ENVIRONMENT).environmentName).toBe(environment.environmentName);
   });
+
+  it.each(['local', 'test', 'staging'])('treats %s as a pre-release environment', (environmentName) => {
+    (window as TestWindow).artskartEnv = { environmentName };
+
+    expect(TestBed.inject(RUNTIME_ENVIRONMENT).isProduction).toBe(false);
+  });
+
+  it.each(['production', 'beta', 'prod'])('treats %s as production', (environmentName) => {
+    (window as TestWindow).artskartEnv = { environmentName };
+
+    expect(TestBed.inject(RUNTIME_ENVIRONMENT).isProduction).toBe(true);
+  });
 });

@@ -11,6 +11,8 @@
       <!-- eslint-enable @angular-eslint/template/elements-content -->
       <router-outlet></router-outlet>
     </main>
-    <app-feedback-panel></app-feedback-panel>
+    @if (!isProduction) {
+      <app-feedback-panel></app-feedback-panel>
+    }
   </div>
 </div>
