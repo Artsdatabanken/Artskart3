@@ -96,7 +96,6 @@
     "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
     "cookieSettings": "Cookie settings",
     "environment": {
-      "beta": "Beta",
       "test": "Test",
       "staging": "Staging",
       "local": "Local"

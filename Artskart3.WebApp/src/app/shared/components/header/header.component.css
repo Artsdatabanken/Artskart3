@@ -84,10 +84,6 @@
   line-height: 1;
   white-space: nowrap;
 
-  &[data-environment='beta'] {
-    background-color: var(--adb-surface-brand-2b);
-  }
-
   &[data-environment='test'] {
     background-color: var(--adb-surface-brand-1a);
   }

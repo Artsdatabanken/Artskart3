@@ -96,7 +96,6 @@
     "logoAriaLabel": "Artsdatabankens logosymbol forenklet visualisering av et fuglehode",
     "cookieSettings": "Informasjonskapsler",
     "environment": {
-      "beta": "Beta",
       "test": "Test",
       "staging": "Staging",
       "local": "Lokal"
