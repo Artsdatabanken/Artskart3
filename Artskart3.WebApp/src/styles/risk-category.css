@@ -40,11 +40,11 @@
 
   --background-alien-list-nk: var(--adb-color-special-10);
   --border-alien-list-nk: var(--adb-color-special-10);
-  --text-alien-list-nk: var(--adb-color-brand-white);
+  --text-alien-list-nk: var(--adb-text-base-primary);
 
   --background-alien-list-lo: var(--adb-color-special-20);
   --border-alien-list-lo: var(--adb-color-special-20);
-  --text-alien-list-lo: var(--adb-color-brand-white);
+  --text-alien-list-lo: var(--adb-text-base-primary);
 
   --background-alien-list-ph: var(--adb-color-special-30);
   --border-alien-list-ph: var(--adb-color-special-30);
