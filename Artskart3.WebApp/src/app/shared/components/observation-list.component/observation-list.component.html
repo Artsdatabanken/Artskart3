@@ -39,10 +39,28 @@
         </adb-dropdown-item>
       }
     </adb-dropdown>
-  </header>
+     </header>
+    @if (groupingLoadingVisible()) {
+       <div class="loading-state">
+      <app-loading-indicator
+        [active]="true"
+        [variant]="'inline'"
+        [label]="'observationList.loading' | translate"
+        [showDelayMs]="0"
+      />
+      </div>
+    }
+
   @switch (requestState()) {
     @case ('loading') {
-      <p role="status">{{ 'observationList.loading' | translate }}</p>
+      <div class="loading-state">
+        <app-loading-indicator
+          [active]="true"
+          [variant]="'inline'"
+          [label]="'observationList.loading' | translate"
+          [showDelayMs]="0"
+        />
+      </div>
     }
     @case ('error') {
       <p role="alert">{{ 'observationList.error' | translate }}</p>

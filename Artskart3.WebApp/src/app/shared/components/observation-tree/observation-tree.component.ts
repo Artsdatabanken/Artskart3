@@ -71,7 +71,7 @@ export class ObservationTreeComponent {
     effect(() => {
       this.resetKey();
       if (host.contains(document.activeElement)) {
-        afterNextRender(() => host.querySelector<HTMLElement>('[role="treeitem"]')?.focus(), { injector });
+       afterNextRender(() => host.querySelector<HTMLElement>('[role="treeitem"]')?.focus(), { injector });
       }
     });
   }
@@ -81,9 +81,10 @@ export class ObservationTreeComponent {
       if (!expanded) item.expanded.set(true);
       return;
     }
+
     this.expandedNodeIds.update((ids) => {
       const next = new Set(ids);
-      if (expanded) {
+     if (expanded) {
         next.add(node.id);
       } else {
         const collapse = (branch: ObservationTreeNode) => {

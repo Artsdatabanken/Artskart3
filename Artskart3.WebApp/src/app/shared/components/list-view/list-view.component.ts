@@ -40,6 +40,7 @@ import { LookupNamePipe } from '../../pipes/lookup-name.pipe';
 import { formatCollectors } from '../../helpers/collector/format-collectors';
 import { RiskCategoryBadgeComponent } from '../risk-category-badge/risk-category-badge.component';
 import { ListObservationDetailsComponent } from '../list-observation-details/list-observation-details.component';
+import { LoadingIndicatorComponent } from '../loading-indicator/loading-indicator.component';
 
 @Component({
   selector: 'app-list-view',
@@ -52,6 +53,7 @@ import { ListObservationDetailsComponent } from '../list-observation-details/lis
     LookupNamePipe,
     RiskCategoryBadgeComponent,
     ListObservationDetailsComponent,
+    LoadingIndicatorComponent,
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './list-view.component.html',
