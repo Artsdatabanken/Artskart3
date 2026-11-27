@@ -25,6 +25,22 @@
   pointer-events: none;
 }
 
+/* Fullskjerm-fallback for nettlesere uten Fullscreen API (iPhone) */
+.map-container.map-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  /* Over filterpanelet på mobil (200) og tilbakemeldingsfanen (150) */
+  z-index: 1000;
+  --home-handle-height: 0px;
+}
+
+/* OpenLayers skjuler knappen uten Fullscreen API; fallbacken trenger den synlig. */
+::ng-deep .artskart-fullscreen.ol-unsupported {
+  display: block;
+}
+
 /* Adopted OL controls — shared button styles */
 /* ::ng-deep is deprecated but required here since OL controls render outside Angular's view encapsulation */
 

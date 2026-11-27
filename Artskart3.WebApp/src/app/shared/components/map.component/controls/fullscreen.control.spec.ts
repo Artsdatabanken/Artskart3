@@ -1,4 +1,5 @@
 import OlMap from 'ol/Map';
+import { CLASS_UNSUPPORTED } from 'ol/css';
 import { ArtskartFullscreenControl } from './fullscreen.control';
 
 describe('ArtskartFullscreenControl tooltip', () => {
@@ -31,5 +32,41 @@ describe('ArtskartFullscreenControl tooltip', () => {
     const control = new ArtskartFullscreenControl(labels, { target });
     new OlMap({ target: document.createElement('div'), controls: [control], interactions: [] });
     expect(control['element'].parentElement).toBe(target);
+  });
+
+  it('toggles pseudo-fullscreen and its accessible state when unsupported', () => {
+    const source = document.createElement('div');
+    const control = new ArtskartFullscreenControl(labels, { source });
+    const button = control['element'].querySelector('button')!;
+    const tooltip = control['element'].querySelector('.map-control-tooltip')!;
+    const initialIcon = button.innerHTML;
+    const expandIcon = button.firstElementChild;
+    control['element'].classList.add(CLASS_UNSUPPORTED);
+
+    button.click();
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(tooltip.textContent).toBe('Exit fullscreen');
+    expect(button.innerHTML).not.toBe(initialIcon);
+    const collapseIcon = button.firstElementChild;
+
+    button.click();
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(false);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(tooltip.textContent).toBe('Show the map in fullscreen');
+    expect(button.innerHTML).toBe(initialIcon);
+    expect(button.firstElementChild).toBe(expandIcon);
+
+    button.click();
+    expect(button.firstElementChild).toBe(collapseIcon);
+  });
+
+  it('does nothing when the control is not marked unsupported', () => {
+    const source = document.createElement('div');
+    const control = new ArtskartFullscreenControl(labels, { source });
+    const button = control['element'].querySelector('button')!;
+    button.click();
+
+    expect(source.classList.contains('map-pseudo-fullscreen')).toBe(false);
   });
 });
