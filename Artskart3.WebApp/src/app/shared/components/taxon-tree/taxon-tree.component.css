@@ -3,11 +3,12 @@
   flex-direction: column;
 
   --taxon-summary-padding: var(--adb-spacing-3xsm);
+  --taxon-expand-icon-size: 1.5rem;
   /* Where a checkbox sits inside an accordion summary: the summary's own
      padding, plus the expand/collapse icon, plus the summary's flex gap.
      Leaf rows have no accordion around them, so they reproduce that inset to
      line up with their adb-accordion siblings. */
-  --taxon-row-indent: calc(var(--taxon-summary-padding) + 1.5rem + var(--adb-spacing-xsm));
+  --taxon-row-indent: calc(var(--taxon-summary-padding) + var(--taxon-expand-icon-size) + var(--adb-spacing-xsm));
 }
 
 /* Use the accordion's own padding token rather than ::part(summary), so the
@@ -28,6 +29,12 @@ adb-checkbox [slot='counter'] {
   margin-inline-start: auto;
 }
 
+/* As tall as an accordion summary, which takes its height from the expand icon,
+   so leaf rows are spaced like the rows around them. */
 .taxon-leaf {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(var(--taxon-expand-icon-size) + 2 * var(--taxon-summary-padding));
   padding-inline-start: var(--taxon-row-indent);
 }

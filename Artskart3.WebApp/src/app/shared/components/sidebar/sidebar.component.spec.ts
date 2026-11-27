@@ -119,7 +119,7 @@ describe('SidebarComponent', () => {
     ) as Element;
     expect(categoriesItem).toBeTruthy();
     expect(categoriesItem.querySelector('adb-accordion')).toBeFalsy();
-    const headings = categoriesItem.querySelectorAll('h6.category-section-heading');
+    const headings = categoriesItem.querySelectorAll('h6.area-section-heading');
     expect(headings.length).toBe(2);
     const flatLists = categoriesItem.querySelectorAll('.category-flat');
     expect(flatLists.length).toBe(2);
@@ -196,8 +196,9 @@ describe('SidebarComponent', () => {
 
     it('orders the area section: custom area, protected area, cadastral unit, county and municipality', async () => {
       await flushAll();
-      const headings = Array.from(fixture.nativeElement.querySelectorAll('h6.area-section-heading') as NodeListOf<Element>, (h) =>
-        h.textContent?.trim(),
+      const headings = Array.from(
+        fixture.nativeElement.querySelectorAll('[data-filter-section="areas"] h6.area-section-heading') as NodeListOf<Element>,
+        (h) => h.textContent?.trim(),
       );
       expect(headings.slice(0, 4)).toEqual([
         'sidebar.customArea.heading',
