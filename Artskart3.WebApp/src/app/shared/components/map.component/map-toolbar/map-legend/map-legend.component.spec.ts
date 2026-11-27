@@ -7,6 +7,8 @@ import {
   CLUSTER_MARKER_RADIUS,
   LABEL_FONT,
   POLYGON_MARKER_SIZE,
+  SENSITIVE_BORDER_DASH,
+  SENSITIVE_BORDER_WIDTH,
   UNCLUSTERED_LOCATION_RADIUS,
   negativeGlyphPath,
   polygonIconBorderWidth,
@@ -90,6 +92,10 @@ describe('MapLegendComponent', () => {
     const polygon = symbol(4).querySelector('.polygon-marker')!;
     expect(polygon.getAttribute('d')).toBe(polygonIconPath());
     expect(Number(polygon.getAttribute('stroke-width'))).toBeCloseTo(polygonIconBorderWidth(POLYGON_MARKER_SIZE));
+    const sensitive = symbol(5).querySelector('.sensitive-marker')!;
+    expect(sensitive.getAttribute('stroke-width')).toBe(String(SENSITIVE_BORDER_WIDTH));
+    expect(sensitive.getAttribute('stroke-dasharray')).toBe(SENSITIVE_BORDER_DASH.join(' '));
+    expect(getComputedStyle(sensitive).fillOpacity).toBe('0.06');
   });
 
   it('viser alltid markørtypene og clusterne når den er åpen', async () => {
@@ -102,6 +108,7 @@ describe('MapLegendComponent', () => {
       'mapToolbar.legend.notRecovered',
       'mapToolbar.legend.cluster',
       'mapToolbar.legend.polygonCluster',
+      'mapToolbar.legend.sensitive',
     ]);
   });
 

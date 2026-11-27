@@ -8,6 +8,8 @@ import {
   CLUSTER_MARKER_RADIUS,
   POLYGON_ICON_VIEWBOX_SIZE,
   POLYGON_MARKER_SIZE,
+  SENSITIVE_BORDER_DASH,
+  SENSITIVE_BORDER_WIDTH,
   UNCLUSTERED_LOCATION_RADIUS,
   negativeGlyphPath,
   polygonIconBorderWidth,
@@ -45,6 +47,8 @@ export class MapLegendComponent {
   protected readonly locationRadius = UNCLUSTERED_LOCATION_RADIUS;
   protected readonly clusterRadius = CLUSTER_MARKER_RADIUS;
   protected readonly borderWidth = BORDER_WIDTH;
+  protected readonly sensitiveBorderWidth = SENSITIVE_BORDER_WIDTH;
+  protected readonly sensitiveBorderDash = SENSITIVE_BORDER_DASH.join(' ');
   protected readonly absentGlyph = negativeGlyphPath('absent', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
   protected readonly notRecoveredGlyph = negativeGlyphPath('notRecovered', UNCLUSTERED_LOCATION_RADIUS, [LOCATION_CX, CENTER]);
   protected readonly polygonPath = polygonIconPath();
