@@ -556,7 +556,7 @@ describe('FilterChipsComponent', () => {
       expect(details('taxons')).toBe('Cnidaria');
     });
 
-    it('shows scientific names without their italic markup, and falls back from an empty name', async () => {
+    it('shows scientific names with their italics, like the taxon tree, and falls back from an empty name', async () => {
       flushLookups();
       filterState.setTaxons([1234]);
       fixture.detectChanges();
@@ -564,7 +564,9 @@ describe('FilterChipsComponent', () => {
         .expectOne((r) => r.url === '/api/Lookup/TaxonAncestry')
         .flush([{ id: 1234, parentIds: [], validScientificName: '<i>Betula pubescens</i>', preferredPopularName: '' }]);
       await fixture.whenStable();
-      expect(details('taxons')).toBe('Betula pubescens');
+      fixture.detectChanges();
+      const tooltip = fixture.nativeElement.querySelector('app-tooltip');
+      expect(tooltip.querySelector('i')?.textContent).toBe('Betula pubescens');
     });
 
     it('shows a month outside the calendar by its number, so the filter is never invisible', () => {

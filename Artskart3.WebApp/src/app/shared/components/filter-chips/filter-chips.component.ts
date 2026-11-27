@@ -35,6 +35,8 @@ export interface FilterChip {
   suffix?: string;
   /** The tooltip: what is selected, without implicit selections such as the municipalities of a whole county. */
   details: string;
+  /** The details are markup, like the italics in the scientific names that the taxon tree shows. */
+  detailsIsHtml?: boolean;
   section: FilterSection;
   clear: () => void;
 }
@@ -44,11 +46,6 @@ const MaxNamesInDetails = 20;
 
 function lookupList<T>(source: Observable<T[]>) {
   return toSignal(source.pipe(catchError(() => of([]))), { initialValue: [] as T[] });
-}
-
-/** Scientific names mark their italic parts with `<i>`, which the taxon tree renders but a tooltip can't. */
-function withoutMarkup(name: string): string {
-  return name.replace(/<\/?i>/g, '');
 }
 
 /** The names of the selected items in list order, then the ids that aren't in the list (yet). */
@@ -132,9 +129,12 @@ export class FilterChipsComponent {
       const names = taxonIds.map((id) => {
         const taxonNames = this.taxonSelection.names(id);
         const name = taxonNames && taxonDisplayName(taxonNames, this.showScientificNames());
-        return name ? withoutMarkup(name) : `#${id}`;
+        return name || `#${id}`;
       });
-      chips.push(countChip('taxons', 'sidebar.species', names, 'taxonTree', () => this.filterState.clearTaxons()));
+      chips.push({
+        ...countChip('taxons', 'sidebar.species', names, 'taxonTree', () => this.filterState.clearTaxons()),
+        detailsIsHtml: true,
+      });
     }
 
     if (this.filterState.excludesDescendantTaxa()) {
