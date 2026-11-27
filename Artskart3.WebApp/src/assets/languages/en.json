@@ -95,6 +95,8 @@
     "artsdatabankenLinkAriaLabel": "Link to Artsdatabanken homepage",
     "logoAriaLabel": "Artsdatabanken logo symbol simplified visualization of a bird head",
     "cookieSettings": "Cookie settings",
+    "about": "About Artskart",
+    "userProfile": "My user profile",
     "environment": {
       "test": "Test",
       "staging": "Staging",
